@@ -1,0 +1,25 @@
+[parameters]
+# Numerical parameters
+# 3D cube model size and origin
+size = 99
+center = 49
+
+# Whether you need to assume variable fluence
+need_scaling = 1
+
+# Inertia parameter (0 means no effect)
+alpha = 0.
+
+# Inverse termperature for deterministic EM (1 means no effect)
+beta = 1.
+
+[files]
+#data = rdvyc_v1_16_s16.lst
+data = test.lst
+output_prefix = data/output
+#input =
+detector = aux/det_pnccd_back_16.dat
+mask = aux/mask_pnccd_back_bigcirc_16.byt
+quaternion = aux/quat_08.dat
+#blacklist = 
+#scale = 
