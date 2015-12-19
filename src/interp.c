@@ -46,7 +46,7 @@ void slice_gen(double *quaternion, double rescale, double slice[], double model3
 		for (i = 0 ; i < 3 ; ++i) {
 			rot_pix[i] = 0. ;
 			for (j = 0 ; j < 3 ; ++j) 
-				rot_pix[i] += rot[i][j] * detector[t*3 + j] ;
+				rot_pix[i] += rot[i][j] * detector[t*4 + j] ;
 			rot_pix[i] += center ;
 		}
 		
@@ -79,7 +79,8 @@ void slice_gen(double *quaternion, double rescale, double slice[], double model3
 				fx*fy*fz*model3d[((x+1)%size)*size*size + ((y+1)%size)*size + ((z+1)%size)] ;
 		
 		// Correct for solid angle and polarization
-		slice[t] *= pow(1. + detector[t*3 + 2] / detd, 3.) * (1. - pow(detector[t*3 + 1]/detd, 2.)) ;
+//		slice[t] *= pow(1. + detector[t*3 + 2] / detd, 3.) * (1. - pow(detector[t*3 + 1]/detd, 2.)) ;
+		slice[t] *= detector[t*4 + 3] ;
 		
 		// Use rescale as flag on whether to take log or not
 		if (slice[t] <= 0.)
@@ -111,7 +112,7 @@ void slice_merge(double *quaternion, double slice[], double model3d[], double we
 		for (i = 0 ; i < 3 ; ++i) {
 			rot_pix[i] = 0. ;
 			for (j = 0 ; j < 3 ; ++j)
-				rot_pix[i] += rot[i][j] * detector[t*3 + j] ;
+				rot_pix[i] += rot[i][j] * detector[t*4 + j] ;
 			rot_pix[i] += center ;
 		}
 		
@@ -133,7 +134,8 @@ void slice_merge(double *quaternion, double slice[], double model3d[], double we
 		cz = 1. - fz ;
 		
 		// Correct for solid angle and polarization
-		slice[t] /= pow(1. + detector[t*3 + 2] / detd, 3.) * (1. - pow(detector[t*3 + 1]/detd, 2.)) ;
+//		slice[t] /= pow(1. + detector[t*3 + 2] / detd, 3.) * (1. - pow(detector[t*3 + 1]/detd, 2.)) ;
+		slice[t] /= detector[t*4 + 3] ;
 		w = slice[t] ;
 		
 		f = cx*cy*cz ;

@@ -9,8 +9,8 @@ int parse_det(char *fname) {
 		return 1 ;
 	}
 	fscanf(fp, "%d %lf", &num_pix, &detd) ;
-	det = malloc(3 * num_pix * sizeof(double)) ;
-	for (t = 0 ; t < 3 * num_pix ; ++t) 
+	det = malloc(4 * num_pix * sizeof(double)) ;
+	for (t = 0 ; t < 4 * num_pix ; ++t) 
 		fscanf(fp, "%lf", &det[t]) ;
 	fclose(fp) ;
 	
