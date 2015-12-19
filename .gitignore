@@ -1,0 +1,23 @@
+# Executable
+emc
+bin/
+
+# Data files
+*.dat
+*.bin
+*.log
+*.txt
+*.out
+.*.out
+*.lst
+*.png
+*.raw
+data
+
+# Utilities
+/utils/*
+!/utils/src
+!/utils/*.py
+
+# Config file
+config.ini

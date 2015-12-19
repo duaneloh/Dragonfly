@@ -6,13 +6,13 @@ compile:
 gcc make_detector.c -O3 -lm -o det
 
 usage:
-./det L qmax sigma D
+./make_detector L qmax sigma D
 
 needs:
-det_map.dat
+aux/det_map.dat
 
 makes:
-detector.dat
+aux/detector.dat
 
 */
 
@@ -20,28 +20,22 @@ detector.dat
 #include <stdio.h>
 #include <math.h>
 
-#define PI ((double) 3.14159265359)
-
-char pix_map[128] = "det_map.dat" ;
-double beam_vec[3] = { 0., 0., 1. } ;
-int L, qmax ;
-double sigma, D ;
-
-int main(int argc, char *argv[]){
-
-	if (argc == 5){
-		L = atoi(argv[1]) ;
-		qmax = atoi(argv[2]) ;
-		sigma = atof(argv[3]) ;
-		D = atof(argv[4]) ;
-	}
-	else{
-		printf("Incorrect number of input to make_detector.c!!\n") ;
-		return 0 ;
-	}
-
+int main(int argc, char *argv[]) {
+	char pix_map[128] = "aux/det_map.dat" ;
+	double beam_vec[3] = { 0., 0., 1. } ;
+	int L, qmax ;
+	double sigma, D ;
 	int i, j, k, Npix = 0, Nstop = 0 ;
 	double x, y, sx, sy, sz, qx, qy, qz, qmin, norm, q, solid_angle ;
+	
+	if (argc < 5) {
+		fprintf(stderr, "Format: %s <L> <qmax> <sigma> <D>\n", argv[0]) ;
+		return 1 ;
+	}
+	L = atoi(argv[1]) ;
+	qmax = atoi(argv[2]) ;
+	sigma = atof(argv[3]) ;
+	D = atof(argv[4]) ;
 	
 	// define the region blocked by the beamstop
 	qmin = 1.43*sigma ;
@@ -54,8 +48,8 @@ int main(int argc, char *argv[]){
 	beam_vec[2] *= D/norm ;
 
 	// count Npix
-	for (i = 0 ; i < 2*L+1 ; i++){
-		for (j = 0 ; j < 2*L+1 ; j++){
+	for (i = 0 ; i < 2*L+1 ; i++) {
+		for (j = 0 ; j < 2*L+1 ; j++) {
 
 			x = i - L ;
 			y = j - L ;
@@ -82,9 +76,9 @@ int main(int argc, char *argv[]){
 	}
 
 	// count Nstop
-	for (i = 0 ; i < 2*qmax+1 ; i++){
-		for (j = 0 ; j < 2*qmax+1 ; j++){
-			for (k = 0 ; k < 2*qmax+1 ; k++){
+	for (i = 0 ; i < 2*qmax+1 ; i++) {
+		for (j = 0 ; j < 2*qmax+1 ; j++) {
+			for (k = 0 ; k < 2*qmax+1 ; k++) {
 				qx = i - qmax ;
 				qy = j - qmax ;
 				qz = k - qmax ;
@@ -94,11 +88,11 @@ int main(int argc, char *argv[]){
 		}
 	}
 
-	FILE *outFp = fopen("detector.dat", "w") ;
+	FILE *outFp = fopen("aux/detector.dat", "w") ;
 	fprintf(outFp, "%d %d %d\n", qmax, Npix, Nstop);
 
-	for (i = 0 ; i < 2*L+1 ; i++){
-		for (j = 0 ; j < 2*L+1 ; j++){
+	for (i = 0 ; i < 2*L+1 ; i++) {
+		for (j = 0 ; j < 2*L+1 ; j++) {
 
 			x = i - L ;
 			y = j - L ;
@@ -129,13 +123,13 @@ int main(int argc, char *argv[]){
 		}
 	}
 
-	for (i = 0 ; i < 2*qmax+1 ; i++){
-		for (j = 0 ; j < 2*qmax+1 ; j++){
-			for (k = 0 ; k < 2*qmax+1 ; k++){
+	for (i = 0 ; i < 2*qmax+1 ; i++) {
+		for (j = 0 ; j < 2*qmax+1 ; j++) {
+			for (k = 0 ; k < 2*qmax+1 ; k++) {
 				qx = i - qmax ;
 				qy = j - qmax ;
 				qz = k - qmax ;
-				if (qx*qx + qy*qy + qz*qz < qmin*qmin){
+				if (qx*qx + qy*qy + qz*qz < qmin*qmin) {
 					fprintf(outFp, "%d\n", i - qmax);
 					fprintf(outFp, "%d\n", j - qmax);
 					fprintf(outFp, "%d\n", k - qmax);
