@@ -1,34 +1,27 @@
 import numpy as np
+import sys
 import subprocess
 import time
+import ConfigParser
 
-# user defined parameters
-pdbFile          = '4BED.pdb'
-PhotonEnergy     = 2.0  	# keV
-PixelSize        = 100.0	# micron
-DetectorDistance = 50.0 	# mm
-L                = 50   	# radius of the largest disk that fits inside the actual detector (in pixels)
+config = ConfigParser.ConfigParser()
+config.read('config.ini')
 
+pdbFile = config.get('files', 'pdb')
+wavelength = config.getfloat('parameters', 'lambda')
+detd = config.getfloat('parameters', 'detd')
+detsize = config.getint('parameters', 'detsize')
+qmax = 2. / wavelength * np.sin(0.5 * np.arctan(detsize/2./detd))
+resolution = 1. / qmax
 
-
-# calculate corresponding parameters for generating detector.dat
-D = DetectorDistance/(PixelSize*1.e-3)					# detector distance in pixels
-theta = np.arctan(L/D)							# maximum scattering angle
-wavelength = 12.4/PhotonEnergy						# angstrom
-resolution = wavelength/(4*np.sin(theta/2))				# angstrom
-qmax = np.int(np.ceil(L*np.cos(theta)/np.cos(theta/2)))			# 2*qmax + 1: number of frequency sampling
-
-fout = open('emc.log', 'w')
-tmp = "D = %.3f pixels\ntheta = %.3f\nwavelength = %.3f angstrom\nqmax = %d\n\n" % (D, theta, wavelength, qmax)
-fout.write(tmp)
-fout.close()
-
-
+print pdbFile, wavelength, detd, detsize, qmax, resolution
 
 # generate contrast from PDB file
-cmd = 'python get_pdb_coor.py ' + pdbFile + ' ' + str(resolution)
+cmd = 'python utils/get_pdb_coor.py ' + pdbFile + ' ' + str(resolution)
 p = subprocess.Popen(cmd, shell=True)
 p.communicate()
+
+sys.exit()
 
 
 
