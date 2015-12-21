@@ -8,7 +8,7 @@ src = $(wildcard src/*.c)
 obj = $(patsubst src/%.c, bin/%.o, $(src))
 utilssrc = $(wildcard utils/src/*.c)
 utils = $(patsubst utils/src/%.c, utils/%, $(utilssrc))
-directories = data bin
+directories = data bin images data/output data/orientations data/mutualInfo data/weights
 
 all: mkdir emc $(utils)
 
