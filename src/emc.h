@@ -21,7 +21,7 @@
 int rank, num_proc, iteration, num_iter, num_rot_p, num_rot_shift ;
 int size, center, num_rot, num_pix, rel_num_pix ;
 
-double info, rms_change, detd, alpha, beta ;
+double info, rms_change, alpha, beta ;
 double *det, *quat, *model1, *model2, *inter_weight ;
 
 double *sum_fact ;

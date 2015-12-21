@@ -10,7 +10,7 @@ int parse_det(char *fname) {
 		fprintf(stderr, "pixel_fname %s not found. Exiting...1\n", fname) ;
 		return 1 ;
 	}
-	fscanf(fp, "%d %lf", &num_pix, &detd) ;
+	fscanf(fp, "%d", &num_pix) ;
 	det = malloc(4 * num_pix * sizeof(double)) ;
 	mask = malloc(num_pix * sizeof(uint8_t)) ;
 	for (t = 0 ; t < num_pix ; ++t) {

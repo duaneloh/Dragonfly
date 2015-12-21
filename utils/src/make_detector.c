@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
 	
 	// Write detector file
 	FILE *outFp = fopen(det_fname, "w") ;
-	fprintf(outFp, "%d %f\n", detsize*detsize, detd);
+	fprintf(outFp, "%d\n", detsize*detsize);
 	
 	for (i = 0 ; i < detsize ; i++)
 	for (j = 0 ; j < detsize ; j++) {
