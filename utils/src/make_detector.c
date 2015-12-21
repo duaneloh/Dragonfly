@@ -5,12 +5,11 @@
 #include <string.h>
 
 int main(int argc, char *argv[]) {
-	int i, j, detcen, detsize ;
+	int i, j, detcen, detsize, mask ;
 	double x, y, qx, qy, qz ;
 	double stoprad, norm, solid_angle, lambda, detd, qscale ;
 	char line[999], *token ;
 	char det_fname[999], mask_fname[999] ;
-	uint8_t *mask ;
 	
 	qscale = 0. ;
 	detd = 0. ;
@@ -69,7 +68,6 @@ int main(int argc, char *argv[]) {
 	}
 	detcen = detsize / 2 ;
 	qscale = 1. / lambda / qscale ; // Number of voxels needed for q = 1/lambda
-	mask = calloc(detsize*detsize, sizeof(double)) ;
 	
 	// Write detector file
 	FILE *outFp = fopen(det_fname, "w") ;
@@ -77,6 +75,7 @@ int main(int argc, char *argv[]) {
 	
 	for (i = 0 ; i < detsize ; i++)
 	for (j = 0 ; j < detsize ; j++) {
+		mask = 0 ;
 		x = i - detcen ;
 		y = j - detcen ;
 		
@@ -86,9 +85,9 @@ int main(int argc, char *argv[]) {
 		qz = qscale * (detd / norm - 1.) ;
 		
 		if (x*x + y*y < stoprad*stoprad)
-			mask[i*detsize + j] = 2 ;
+			mask = 2 ;
 		if (x*x + y*y > detcen*detcen)
-			mask[i*detsize + j] = 1 ;
+			mask = 1 ;
 		
 		// Solid angle and polarization correction
 		solid_angle = pow(1. + qz / qscale, 3.) * (1. - pow(qy / qscale, 2.)) ;
@@ -97,21 +96,15 @@ int main(int argc, char *argv[]) {
 		fprintf(outFp, "%21.15e ", qx);
 		fprintf(outFp, "%21.15e ", qy);
 		fprintf(outFp, "%21.15e ", qz);
-		fprintf(outFp, "%21.15e\n", solid_angle) ;
+		fprintf(outFp, "%21.15e ", solid_angle) ;
+		fprintf(outFp, "%d\n", mask) ;
 		
-		if (j == 0)
+		if (j == 0 && i%10 == 0)
 			fprintf(stderr, "\rFinished pixel %d/%d", i*detsize, detsize*detsize) ;
 	}
 	fprintf(stderr, "\rFinished pixel %d/%d\n", detsize*detsize, detsize*detsize) ;
 	
 	fclose(outFp) ;
-	
-	// Write mask file
-	fp = fopen(mask_fname, "wb") ;
-	fwrite(mask, sizeof(uint8_t), detsize*detsize, fp) ;
-	fclose(fp) ;
-	
-	free(mask) ;
 	
 	return 0 ;
 }

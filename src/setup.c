@@ -1,7 +1,9 @@
 #include "emc.h"
 
 int parse_det(char *fname) {
-	int t ;
+	int t, d ;
+	
+	rel_num_pix = 0 ;
 	
 	FILE *fp = fopen(fname, "r") ;
 	if (fp == NULL) {
@@ -10,8 +12,15 @@ int parse_det(char *fname) {
 	}
 	fscanf(fp, "%d %lf", &num_pix, &detd) ;
 	det = malloc(4 * num_pix * sizeof(double)) ;
-	for (t = 0 ; t < 4 * num_pix ; ++t) 
-		fscanf(fp, "%lf", &det[t]) ;
+	mask = malloc(num_pix * sizeof(uint8_t)) ;
+	for (t = 0 ; t < num_pix ; ++t) {
+		for (d = 0 ; d < 4 ; ++d)
+			fscanf(fp, "%lf", &det[t*4 + d]) ;
+		fscanf(fp, "%" SCNu8, &mask[t]) ;
+		if (mask[t] < 1)
+			rel_num_pix++ ;
+	}
+		
 	fclose(fp) ;
 	
 	return 0 ;
@@ -188,26 +197,6 @@ void parse_input(char *fname) {
 	}
 }
 
-int parse_mask(char *fname) {
-	int t ;
-	
-	FILE *fp = fopen(fname, "rb") ;
-	if (fp == NULL) {
-		fprintf(stderr, "mask_fname, %s not found. Exiting.\n", fname) ;
-		return 1 ;
-	}
-	mask = malloc(num_pix * sizeof(uint8_t)) ;
-	fread(mask, sizeof(uint8_t), num_pix, fp) ;
-	fclose(fp) ;
-	
-	rel_num_pix = 0 ;
-	for (t = 0 ; t < num_pix ; ++t)
-	if (mask[t] < 1)
-		rel_num_pix++ ;
-	
-	return 0 ;
-}
-
 void calc_scale() {
 	long d_counter = 0, ones_counter, multi_counter ;
 	int d, t ;
@@ -327,7 +316,7 @@ void parse_scale(char *fname) {
 
 int setup() {
 	FILE *fp ;
-	char pixel_fname[999], quat_fname[999], mask_fname[999] ;
+	char pixel_fname[999], quat_fname[999] ;
 	char data_flist[999], input_fname[999] ;
 	char scale_fname[999], blacklist_fname[999] ;
 	
@@ -364,8 +353,6 @@ int setup() {
 			strcpy(pixel_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "quaternion") == 0)
 			strcpy(quat_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "mask") == 0)
-			strcpy(mask_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "blacklist") == 0)
 			strcpy(blacklist_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "scale") == 0)
@@ -377,8 +364,6 @@ int setup() {
 	if (parse_det(pixel_fname))
 		return 1 ;
 	if (parse_quat(quat_fname))
-		return 1 ;
-	if (parse_mask(mask_fname))
 		return 1 ;
 	if (need_scaling) {
 		calc_scale() ;
