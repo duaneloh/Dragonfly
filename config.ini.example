@@ -10,12 +10,11 @@ detsize = 1024
 qscale = 1.e-4
 # Radius of beam stop
 stoprad = 50
-
-# Numerical parameters
 # 3D cube model size and origin
 size = 99
 center = 49
 
+# EMC parameters
 # Whether you need to assume variable fluence
 need_scaling = 1
 # Inertia parameter (0 means no effect)
@@ -24,6 +23,7 @@ alpha = 0.
 beta = 1.
 
 [files]
+pdb = aux/4BED.pdb
 #data = rdvyc_v1_16_s16.lst
 data = test.lst
 output_prefix = data/output
