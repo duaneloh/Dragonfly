@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
 	if (argc > 3) {
 		continue_flag = 1 ;
 		
-		fp = fopen(LOG, "r") ;
+		fp = fopen(log_fname, "r") ;
 		if (fp == NULL) {
 			fprintf(stderr, "No log file found to continue run\n") ;
 			continue_flag = 0 ;
@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
 	}
 	
 	if (!rank && !continue_flag) {
-		fp = fopen(LOG, "w") ;
+		fp = fopen(log_fname, "w") ;
 		fprintf(fp, "Cryptotomography with the EMC algorithm using MPI+OpenMP\n\n") ;
 		fprintf(fp, "Data parameters:\n\tnum_data = %d\n\tmean_count = %f\n\n", 
 		        tot_num_data, tot_mean_count) ;
@@ -121,7 +121,7 @@ int main(int argc, char *argv[]) {
 				
 				gettimeofday(&t2, NULL) ;
 				
-				fp = fopen(LOG, "a") ;
+				fp = fopen(log_fname, "a") ;
 				fprintf(fp, "%d\t\t", iteration) ;
 				fprintf(fp, "%.2f s  \t", (double)(t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.) ;
 				fprintf(fp, "%1.4e\t%f\t%.6e\n", rms_change, info, likelihood) ;

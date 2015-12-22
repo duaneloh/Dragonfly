@@ -321,6 +321,7 @@ int setup() {
 	char scale_fname[999], blacklist_fname[999] ;
 	
 	known_scale = 0 ;
+	strcpy(log_fname, "RECON.log") ;
 	
 	char line[999], *token ;
 	fp = fopen("config.ini", "r") ;
@@ -347,6 +348,8 @@ int setup() {
 			strcpy(data_flist, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "output_prefix") == 0)
 			strcpy(output_fname, strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "log") == 0)
+			strcpy(log_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "input") == 0)
 			strcpy(input_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "detector") == 0)
@@ -365,12 +368,12 @@ int setup() {
 		return 1 ;
 	if (parse_quat(quat_fname))
 		return 1 ;
+	if (parse_data(data_flist))
+		return 1 ;
 	if (need_scaling) {
 		calc_scale() ;
 		parse_scale(scale_fname) ;
 	}
-	if (parse_data(data_flist))
-		return 1 ;
 	
 	calc_sum_fact() ;
 	parse_input(input_fname) ;

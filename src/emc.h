@@ -15,7 +15,6 @@
 #include <omp.h>
 #include <gsl/gsl_sf_bessel.h>
 
-#define LOG "RECON.log"
 #define PROB_MIN 0.000001
 
 int rank, num_proc, iteration, num_iter, num_rot_p, num_rot_shift ;
@@ -45,7 +44,7 @@ double tot_mean_count ;
 
 uint8_t *mask ;
 
-char output_fname[999] ;
+char output_fname[999], log_fname[999] ;
 
 // setup.c
 int setup() ;
