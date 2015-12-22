@@ -3,7 +3,7 @@
 void sym_intens(double*, int, int) ;
 
 int main(int argc, char *argv[]) {
-	int x ;
+	int x, continue_flag = 0 ;
 	double change, norm, diff, likelihood ;
 	struct timeval t1, t2, t3 ;
 	char fname[500] ;
@@ -13,13 +13,32 @@ int main(int argc, char *argv[]) {
 	MPI_Comm_size(MPI_COMM_WORLD, &num_proc) ;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank) ;
 	
-	if (argc != 3) {
+	if (argc < 3) {
 		fprintf(stderr, "Format: recon <iter> <num_threads>\n") ;
 		MPI_Finalize() ;
 		return 1 ;
 	}
 	num_iter = atoi(argv[1]) ;
 	omp_set_num_threads(atoi(argv[2])) ;
+	
+	if (argc > 3) {
+		continue_flag = 1 ;
+		
+		fp = fopen(LOG, "r") ;
+		if (fp == NULL) {
+			fprintf(stderr, "No log file found to continue run\n") ;
+			continue_flag = 0 ;
+		}
+		else {
+			while (!feof(fp))
+				fgets(fname, 500, fp) ;
+			sscanf(fname, "%d", &iteration) ;
+			fclose(fp) ;
+			
+			iteration += 1 ;
+			fprintf(stderr, "Continuing from previous run starting from iteration %d.\n", iteration) ;
+		}
+	}
 	
 	gettimeofday(&t1, NULL) ;
 	
@@ -28,7 +47,7 @@ int main(int argc, char *argv[]) {
 		return 1 ;
 	}
 	
-	if (!rank) {
+	if (!rank && !continue_flag) {
 		fp = fopen(LOG, "w") ;
 		fprintf(fp, "Cryptotomography with the EMC algorithm using MPI+OpenMP\n\n") ;
 		fprintf(fp, "Data parameters:\n\tnum_data = %d\n\tmean_count = %f\n\n", 
