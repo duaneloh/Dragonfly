@@ -50,7 +50,7 @@ print 'finish generating intensity distribution\n'
 fin = open('DensityMap.dat', 'r')
 R = np.int(fin.readline().split()[0])
 fin.close()
-sigma = np.double(qmax) / R		# oversampling ratio
+sigma = np.double(qmax) / R        # oversampling ratio
 cmd = 'gcc make_detector.c -O3 -lm -o det'
 p = subprocess.Popen(cmd, shell=True)
 p.communicate()
