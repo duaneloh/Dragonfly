@@ -37,9 +37,13 @@ def compute_reciprocal_params(det_dist, det_size, pix_size, in_wavelength):
 if __name__ == "__main__":
     # Prints a report of exp_config.dat
     config = ConfigParser.ConfigParser()
-    config.read(sys.argv[1])
+    if sys.argv[1] == '-h':
+        print "Usage::: "
+        print "\tpython", __file__, "<name of config file to check>"
+        sys.exit()
+    else:
+        config.read(sys.argv[1])
 
-    pdbFile     = config.get('files', 'pdb')
     wavelength  = config.getfloat('parameters', 'lambda')
     detd        = config.getfloat('parameters', 'detd')
     detsize     = config.getint('parameters', 'detsize')
