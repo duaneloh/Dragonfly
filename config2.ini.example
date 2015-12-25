@@ -5,7 +5,7 @@ detd = 500.
 # Wavelength in Angstroms
 lambda = 1.5
 # Number of pixels along one edge
-detsize = 512
+detsize = 128 
 # Effective size of pixels in mm 
 pixsize = 0.1
 # Radius of beam stop in pixels
