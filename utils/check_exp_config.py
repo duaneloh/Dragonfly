@@ -4,8 +4,23 @@ import sys
 from collections import OrderedDict
 
 ################################################################################
-# Functions useful for later bits
+# Useful functions
 ################################################################################
+
+def extract_pdb_file(config_file):
+    config      = ConfigParser.ConfigParser()
+    config.read(config_file)
+    return config.get('files', 'pdb')
+
+def read_detector_config(config_file):
+    config      = ConfigParser.ConfigParser()
+    config.read(config_file)
+    wavelength  = config.getfloat('parameters', 'lambda')
+    detd        = config.getfloat('parameters', 'detd')
+    detsize     = config.getint('parameters', 'detsize')
+    pixsize     = config.getfloat('parameters', 'pixsize')
+    stoprad     = config.getfloat('parameters', 'stoprad')
+    return (wavelength, detd, detsize, pixsize, stoprad)
 
 def compute_reciprocal_params(det_dist, det_size, pix_size, in_wavelength):
     """
@@ -36,20 +51,13 @@ def compute_reciprocal_params(det_dist, det_size, pix_size, in_wavelength):
 
 if __name__ == "__main__":
     # Prints a report of exp_config.dat
-    config = ConfigParser.ConfigParser()
     if sys.argv[1] == '-h':
         print "Usage::: "
-        print "\tpython", __file__, "<name of config file to check>"
+        print "\tpython", __file__, "<path to exp_config file>"
         sys.exit()
-    else:
-        config.read(sys.argv[1])
 
-    wavelength  = config.getfloat('parameters', 'lambda')
-    detd        = config.getfloat('parameters', 'detd')
-    detsize     = config.getint('parameters', 'detsize')
-    pixsize     = config.getfloat('parameters', 'pixsize')
-    stoprad     = config.getfloat('parameters', 'stoprad')
-    params      = compute_reciprocal_params(detd, detsize, pixsize, wavelength)
+    (wavelength, detd, detsize, pixsize, stoprad) = read_detector_config(sys.argv[1])
+    params = compute_reciprocal_params(detd, detsize, pixsize, wavelength)
 
     for k,v in params.items():
         print '{:<15}:{:10.4f}'.format(k, v)
