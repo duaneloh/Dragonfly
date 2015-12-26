@@ -1,18 +1,72 @@
 import numpy as np
 import ConfigParser
-import check_exp_config
+import argparse
+import sys
+import os
+import time
+from collections import OrderedDict
+from scipy.interpolate import interp1d
 
 ################################################################################
-# Useful functions
+# Functions to read config file
+################################################################################
+def extract_file_param(config_file, tag):
+    config      = ConfigParser.ConfigParser()
+    config.read(config_file)
+    return config.get('files', tag)
+
+def read_detector_config(config_file, show=False):
+    config      = ConfigParser.ConfigParser()
+    config.read(config_file)
+    params      = OrderedDict()
+    params['wavelength']  = config.getfloat('parameters', 'lambda')
+    params['detd']        = config.getfloat('parameters', 'detd')
+    params['detsize']     = config.getint('parameters', 'detsize')
+    params['pixsize']     = config.getfloat('parameters', 'pixsize')
+    params['stoprad']     = config.getfloat('parameters', 'stoprad')
+    if show:
+        for k,v in params.items():
+            print '{:<15}:{:10.4f}'.format(k, v)
+    return params
+
+def compute_q_params(det_dist, det_size, pix_size, in_wavelength, show=False):
+    """
+    Resolution computed in inverse Angstroms, crystallographer's convention
+    In millimeters: in_det_dis, in_det_size, in_pix_size
+    In Angstroms:   photon wavelength
+
+    """
+    det_max_half_len = pix_size * int((det_size-1)/2.)
+    params      = OrderedDict()
+    max_angle   = np.arctan(det_max_half_len / det_dist)
+    min_angle   = np.arctan(pix_size / det_dist)
+    q_max       = 2. * np.sin(0.5 * max_angle) / in_wavelength
+    q_sep       = 2. * np.sin(0.5 * min_angle) / in_wavelength
+    fov_in_A    = 1. / q_sep
+    half_p_res  = 0.5 / q_max
+    params['max_angle'] = max_angle
+    params['min_angle'] = min_angle
+    params['q_max']     = q_max
+    params['q_sep']     = q_sep
+    params['fov_in_A']  = fov_in_A
+    params['half_p_res']= half_p_res
+
+    if show:
+        for k,v in params.items():
+            print '{:<15}:{:10.4f}'.format(k, v)
+    return params
+
+################################################################################
+# Functions to read and process pdb
 ################################################################################
 
-scatt_list ={
-    "C":[6., 12.],
-    "N":[7., 14.],
-    "O":[8., 16.],
-    "S":[16., 32.],
-    "P":[15., 31.],
-    "CU":[29., 63.5]}
+#scatt_list ={
+#    "C":[6., 12.],
+#    "N":[7., 14.],
+#    "O":[8., 16.],
+#    "S":[16., 32.],
+#    "P":[15., 31.],
+#    "CU":[29., 63.5]}
 
 def find_atom_types_in_pdb(pdb_file):
     atoms = []
@@ -24,6 +78,33 @@ def find_atom_types_in_pdb(pdb_file):
                 if atom_label not in atoms:
                     atoms.append(atom_label)
     return atoms
+
+def interp_scattering(aux_dir, elem):
+    with open(os.path.join(aux_dir, elem.lower()+".nff")) as fp:
+        lines = [l.strip().split() for l in fp.readlines()]
+        arr = np.asarray(lines[1:]).astype('float')
+        (energy, f0, f1) = arr.T
+        i_f0 = interp1d(energy, f0, kind='linear')
+        i_f1 = interp1d(energy, f1, kind='linear')
+    return (i_f0, i_f1,)
+
+def find_mass(aux_dir, elem):
+    with open(os.path.join(aux_dir, "atom_mass.txt")) as fp:
+        lines = [l.strip().split() for l in fp.readlines()]
+        for l, m in lines:
+            if l.lower() == elem.lower():
+                return float(m)
+
+def make_scatt_list(atom_types, aux_dir, eV):
+    scatt_list = OrderedDict()
+    for elem in atom_types:
+        (f0,f1,) = interp_scattering(aux_dir, elem)
+        mass    = find_mass(aux_dir, elem)
+        scatt_list[elem.upper()] = [float(f0(eV)), mass]
+    return scatt_list
+
+def wavelength_in_A_to_eV(wavelength_in_A):
+    return 12398.419 / wavelength_in_A
 
 def append_atom(atomlist, atom, pdb_line):
     atomlist.append([atom[0],
@@ -60,7 +141,6 @@ def read_symmetry_from_pdb(pdb_file):
                 num_sym += 1
                 sym_list.append([float(line[24:33]), float(line[34:43]), float(line[44:53])])
                 trans_list.append(float(line[58:68]))
-    print num_sym, "symmetries found"
     sym_arr     = np.asarray(sym_list).reshape(-1,3,3)
     trans_arr   = np.asarray(trans_list).reshape(-1,3)
     return (sym_arr, trans_arr)
@@ -98,13 +178,17 @@ def atoms_to_density_map(atoms, voxelSZ, fov_len):
     (h, h_edges) = np.histogramdd(coords, bins=all_bins, weights=elec_den)
     return h
 
-def low_pass_filter_density_map(in_arr, damping=-2.):
+def low_pass_filter_density_map(in_arr, damping=-2., thr=1.E-3):
     (xl,yl,zl) = in_arr.shape
     #TODO: Need to check odd and even array sizes
     (xx,yy,zz) = np.mgrid[-1:1:xl*1j, -1:1:yl*1j, -1:1:zl*1j]
     fil = np.fft.ifftshift(np.exp(damping*(xx*xx + yy*yy + zz*zz)))
-    ft = fil*np.fft.fftn(in_arr)
-    return np.real(np.fft.ifftn(ft))
+    out_arr = in_arr.copy()
+    for i in range(5):
+        ft = fil*np.fft.fftn(out_arr)
+        out_arr = np.real(np.fft.ifftn(ft))
+        out_arr *= (out_arr > thr)
+    return out_arr
 
 ################################################################################
 # Script begins
@@ -112,4 +196,39 @@ def low_pass_filter_density_map(in_arr, damping=-2.):
 
 if __name__ == "__main__":
 
-    pass
+    start_t     = time.time()
+    parser      = argparse.ArgumentParser(description="make electron density")
+    parser.add_argument(dest='config_file')
+    parser.add_argument("-v", "--verbose", dest="vb", action="store_true", default=False)
+    parser.add_argument("-m", "--main_dir", dest="main_dir", help="relative path to main executable directory", default="../")
+    args        = parser.parse_args()
+
+    pm          = read_detector_config(args.config_file, show=args.vb)
+    pdb_file    = os.path.join(args.main_dir, extract_file_param(args.config_file, "pdb"))
+    q_pm        = compute_q_params(pm['detd'], pm['detsize'], pm['pixsize'], pm['wavelength'], show=args.vb)
+
+    fov_len     = int(np.ceil(q_pm['fov_in_A']/q_pm['half_p_res']))
+    eV          = wavelength_in_A_to_eV(pm['wavelength'])
+    aux_dir     = os.path.join(args.main_dir, extract_file_param(args.config_file, "scatt_dir"))
+    atom_types  = find_atom_types_in_pdb(pdb_file)
+    scatt_list  = make_scatt_list(atom_types, aux_dir, eV)
+
+    atoms       = read_atom_coords_from_pdb(pdb_file, scatt_list)
+    (s_l, t_l)  = read_symmetry_from_pdb(pdb_file)
+    all_atoms   = apply_symmetry(atoms, s_l, t_l)
+
+    # Voxel size should be in picometers?
+    den         = atoms_to_density_map(all_atoms, 10.*q_pm['half_p_res'], fov_len)
+    lp_den      = low_pass_filter_density_map(den)
+
+    den_file    = os.path.join(args.main_dir, extract_file_param(args.config_file, "density_file"))
+    with open(den_file, "w") as fp:
+        for l0 in den:
+            for l1 in l0:
+                tmp = ' '.join(l1.astype('str'))
+                fp.write(tmp)
+            fp.write('\n')
+        fp.write('\n')
+
+    time_taken  = time.time() - start_t
+    print "Took {:5.3f} s. Written file to {}".format(time_taken, den_file)

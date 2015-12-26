@@ -1,23 +1,15 @@
 [parameters]
 # Experimental parameters for detector file generation
 # Detector distance in mm
-detd = 50.
+detd = 100.
 # Wavelength in Angstroms
 lambda = 1.5
 # Number of pixels along one edge
 detsize = 128 
 # Effective size of pixels in mm 
-pixsize = 0.4
+pixsize = 1. 
 # Radius of beam stop in pixels
 stoprad = 50
-
-# Deprecated options
-# Experimental parameters for detector file generation
-# 3D voxel size in A^-1
-#qscale = 1.e-4
-# 3D cube model size and origin
-#size = 99
-#center = 49
 
 # EMC parameters
 # Whether you need to assume variable fluence
@@ -33,6 +25,8 @@ pdb = aux/4BED.pdb
 data = test.lst
 log = RECON.log
 output_prefix = data/output
+scatt_dir = aux/henke_table
+density_file = data/densityMap.dat
 #input =
 detector = aux/det_sim.dat
 mask = aux/mask_sym.byt
