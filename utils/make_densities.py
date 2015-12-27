@@ -209,6 +209,7 @@ def write_density_to_file(in_den_file, in_den):
 class my_timer(object):
     def __init__(self):
         self.t0 = time.time()
+        self.ts = self.t0
 
     def reset(self, msg):
         t1 = time.time()
@@ -218,6 +219,10 @@ class my_timer(object):
         t1 = time.time()
         print "{:-<30}:{:5.5f} seconds".format(msg, t1-self.t0)
         self.t0 = t1
+
+    def report_time_since_beginning(self):
+        print "="*80
+        print "{:-<30}:{:5.5f} seconds".format("Since beginning", time.time() - self.ts)
 
 if __name__ == "__main__":
 
@@ -252,3 +257,5 @@ if __name__ == "__main__":
     den_file    = os.path.join(args.main_dir, extract_param(args.config_file, 'files', "density_file"))
     write_density_to_file(den_file, den)
     timer.reset_and_report("Writing densities to file") if args.vb else timer.reset()
+
+    timer.report_time_since_beginning() if args.vb else timer.reset()
