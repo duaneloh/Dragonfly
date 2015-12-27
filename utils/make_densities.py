@@ -225,7 +225,7 @@ if __name__ == "__main__":
     parser      = argparse.ArgumentParser(description="make electron density")
     parser.add_argument(dest='config_file')
     parser.add_argument("-v", "--verbose", dest="vb", action="store_true", default=False)
-    parser.add_argument("-m", "--main_dir", dest="main_dir", help="relative path to main executable directory", default="../")
+    parser.add_argument("-m", "--main_dir", dest="main_dir", help="relative path to main repository directory\n(where data aux utils are stored)", default="../")
     args        = parser.parse_args()
 
     pm          = read_detector_config(args.config_file, show=args.vb)
