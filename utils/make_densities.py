@@ -10,10 +10,11 @@ from scipy.interpolate import interp1d
 ################################################################################
 # Functions to read config file
 ################################################################################
-def extract_file_param(config_file, tag):
+
+def extract_param(config_file, section, tag):
     config      = ConfigParser.ConfigParser()
     config.read(config_file)
-    return config.get('files', tag)
+    return config.get(section, tag)
 
 def read_detector_config(config_file, show=False):
     config      = ConfigParser.ConfigParser()
@@ -29,7 +30,7 @@ def read_detector_config(config_file, show=False):
             print '{:<15}:{:10.4f}'.format(k, v)
     return params
 
-def compute_q_params(det_dist, det_size, pix_size, in_wavelength, show=False):
+def compute_q_params(det_dist, det_size, pix_size, in_wavelength, show=False, squareDetector=True):
     """
     Resolution computed in inverse Angstroms, crystallographer's convention
     In millimeters: in_det_dis, in_det_size, in_pix_size
@@ -38,7 +39,10 @@ def compute_q_params(det_dist, det_size, pix_size, in_wavelength, show=False):
     """
     det_max_half_len = pix_size * int((det_size-1)/2.)
     params      = OrderedDict()
-    max_angle   = np.arctan(det_max_half_len / det_dist)
+    if squareDetector:
+        max_angle   = np.sqrt(2.) * np.arctan(det_max_half_len / det_dist)
+    else:
+        max_angle   = np.arctan(det_max_half_len / det_dist)
     min_angle   = np.arctan(pix_size / det_dist)
     q_max       = 2. * np.sin(0.5 * max_angle) / in_wavelength
     q_sep       = 2. * np.sin(0.5 * min_angle) / in_wavelength
@@ -190,13 +194,34 @@ def low_pass_filter_density_map(in_arr, damping=-2., thr=1.E-3):
         out_arr *= (out_arr > thr)
     return out_arr
 
+def write_density_to_file(in_den_file, in_den):
+    with open(in_den_file, "w") as fp:
+        for l0 in in_den:
+            for l1 in l0:
+                tmp = ' '.join(l1.astype('str'))
+                fp.write(tmp + '\n')
+            fp.write('\n')
+        fp.write('\n')
+
 ################################################################################
 # Script begins
 ################################################################################
+class my_timer(object):
+    def __init__(self):
+        self.t0 = time.time()
+
+    def reset(self, msg):
+        t1 = time.time()
+        self.t0 = t1
+
+    def reset_and_report(self, msg):
+        t1 = time.time()
+        print "{:-<30}:{:5.5f} seconds".format(msg, t1-self.t0)
+        self.t0 = t1
 
 if __name__ == "__main__":
 
-    start_t     = time.time()
+    timer       = my_timer()
     parser      = argparse.ArgumentParser(description="make electron density")
     parser.add_argument(dest='config_file')
     parser.add_argument("-v", "--verbose", dest="vb", action="store_true", default=False)
@@ -204,31 +229,26 @@ if __name__ == "__main__":
     args        = parser.parse_args()
 
     pm          = read_detector_config(args.config_file, show=args.vb)
-    pdb_file    = os.path.join(args.main_dir, extract_file_param(args.config_file, "pdb"))
+    pdb_file    = os.path.join(args.main_dir, extract_param(args.config_file, 'files', "pdb"))
     q_pm        = compute_q_params(pm['detd'], pm['detsize'], pm['pixsize'], pm['wavelength'], show=args.vb)
+    t1          = time.time()
+    timer.reset_and_report("Reading detector") if args.vb else timer.reset()
 
-    fov_len     = int(np.ceil(q_pm['fov_in_A']/q_pm['half_p_res']))
+    fov_len     = int(np.ceil(q_pm['fov_in_A']/q_pm['half_p_res']) + 1)
     eV          = wavelength_in_A_to_eV(pm['wavelength'])
-    aux_dir     = os.path.join(args.main_dir, extract_file_param(args.config_file, "scatt_dir"))
+    aux_dir     = os.path.join(args.main_dir, extract_param(args.config_file, 'files', "scatt_dir"))
     atom_types  = find_atom_types_in_pdb(pdb_file)
     scatt_list  = make_scatt_list(atom_types, aux_dir, eV)
-
     atoms       = read_atom_coords_from_pdb(pdb_file, scatt_list)
     (s_l, t_l)  = read_symmetry_from_pdb(pdb_file)
     all_atoms   = apply_symmetry(atoms, s_l, t_l)
+    timer.reset_and_report("Reading PDB") if args.vb else timer.reset()
 
-    # Voxel size should be in picometers?
+    # I'm assuming voxel size should be in picometers?
     den         = atoms_to_density_map(all_atoms, 10.*q_pm['half_p_res'], fov_len)
     lp_den      = low_pass_filter_density_map(den)
+    timer.reset_and_report("Creating density map") if args.vb else timer.reset()
 
-    den_file    = os.path.join(args.main_dir, extract_file_param(args.config_file, "density_file"))
-    with open(den_file, "w") as fp:
-        for l0 in den:
-            for l1 in l0:
-                tmp = ' '.join(l1.astype('str'))
-                fp.write(tmp)
-            fp.write('\n')
-        fp.write('\n')
-
-    time_taken  = time.time() - start_t
-    print "Took {:5.3f} s. Written file to {}".format(time_taken, den_file)
+    den_file    = os.path.join(args.main_dir, extract_param(args.config_file, 'files', "density_file"))
+    write_density_to_file(den_file, den)
+    timer.reset_and_report("Writing densities to file") if args.vb else timer.reset()
