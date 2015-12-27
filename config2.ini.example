@@ -5,7 +5,7 @@ detd = 100.
 # Wavelength in Angstroms
 lambda = 1.5
 # Number of pixels along one edge of square detector
-detsize = 100 
+detsize = 512 
 # Effective size of pixels in mm 
 pixsize = 2. 
 # Radius of beam stop in pixels

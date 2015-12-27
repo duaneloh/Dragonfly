@@ -58,6 +58,7 @@ def compute_q_params(det_dist, det_size, pix_size, in_wavelength, show=False, sq
     if show:
         for k,v in params.items():
             print '{:<15}:{:10.4f}'.format(k, v)
+        print '{:<15}:{:10.4f}'.format("voxel-length of reciprocal volume", fov_in_A/half_p_res)
     return params
 
 ################################################################################
@@ -182,13 +183,13 @@ def atoms_to_density_map(atoms, voxelSZ, fov_len):
     (h, h_edges) = np.histogramdd(coords, bins=all_bins, weights=elec_den)
     return h
 
-def low_pass_filter_density_map(in_arr, damping=-2., thr=1.E-3):
+def low_pass_filter_density_map(in_arr, damping=-2., thr=1.E-3, num_cycles=2):
     (xl,yl,zl) = in_arr.shape
     #TODO: Need to check odd and even array sizes
     (xx,yy,zz) = np.mgrid[-1:1:xl*1j, -1:1:yl*1j, -1:1:zl*1j]
     fil = np.fft.ifftshift(np.exp(damping*(xx*xx + yy*yy + zz*zz)))
     out_arr = in_arr.copy()
-    for i in range(5):
+    for i in range(num_cycles):
         ft = fil*np.fft.fftn(out_arr)
         out_arr = np.real(np.fft.ifftn(ft))
         out_arr *= (out_arr > thr)
