@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
 	int i, j, k, d0, d1, d2 ;
 
 	if (argc < 3) {
-		fprintf(stderr, "Give me atom coordinates and qmax!!!\n") ;
+		fprintf(stderr, "Format: %s <density_fname> <qmax>\n", argv[0]) ;
 		return 1 ;
 	}
 	
@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
 	
 	intens_cal();
 
-	FILE *outFp = fopen("aux/intensities.bin", "w") ;
+	FILE *outFp = fopen("data/intensities.bin", "w") ;
 	fwrite(HKL, sizeof(double), N0*N1*N2, outFp) ;
 	fclose(outFp) ;
 	
