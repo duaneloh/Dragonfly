@@ -104,7 +104,8 @@ def make_scatt_list(atom_types, aux_dir, eV):
     scatt_list = OrderedDict()
     for elem in atom_types:
         (f0,f1,) = interp_scattering(aux_dir, elem)
-        mass    = find_mass(aux_dir, elem)
+        #mass    = find_mass(aux_dir, elem)
+        mass    = 1e8
         scatt_list[elem.upper()] = [float(f0(eV)), mass]
     return scatt_list
 
@@ -212,7 +213,7 @@ class my_timer(object):
         self.t0 = time.time()
         self.ts = self.t0
 
-    def reset(self, msg):
+    def reset(self):
         t1 = time.time()
         self.t0 = t1
 
@@ -231,8 +232,9 @@ if __name__ == "__main__":
     parser      = argparse.ArgumentParser(description="make electron density")
     parser.add_argument(dest='config_file')
     parser.add_argument("-v", "--verbose", dest="vb", action="store_true", default=False)
-    parser.add_argument("-m", "--main_dir", dest="main_dir", help="relative path to main repository directory\n(where data aux utils are stored)", default="../")
+    parser.add_argument("-m", "--main_dir", dest="main_dir", help="relative path to main repository directory\n(where data aux utils are stored)")
     args        = parser.parse_args()
+    args.main_dir = args.main_dir if args.main_dir else os.path.dirname(args.config_file)
 
     pm          = read_detector_config(args.config_file, show=args.vb)
     pdb_file    = os.path.join(args.main_dir, extract_param(args.config_file, 'files', "pdb"))
