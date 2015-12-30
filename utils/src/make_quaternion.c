@@ -103,7 +103,7 @@ int main(int argc, char* argv[]) {
 	free_mem() ;
 	
 	t = clock() - t ;
-	printf("Computation time = %lf (s)\n", ((float)t)/CLOCKS_PER_SEC) ;
+	printf("Computation time = %lf s\n", ((float)t)/CLOCKS_PER_SEC) ;
 
 	return 0 ;
 }
@@ -608,7 +608,7 @@ void print_quat() {
 		return ;
 	}
 
-	sprintf(fname, "quaternion%d.dat", num_div) ;
+	sprintf(fname, "aux/quaternion%.2d.dat", num_div) ;
 	fp = fopen(fname, "w") ;
 	fprintf(fp, "%d\n", num_rot) ;
 	
