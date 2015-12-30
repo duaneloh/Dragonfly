@@ -322,6 +322,7 @@ int setup() {
 	
 	known_scale = 0 ;
 	strcpy(log_fname, "RECON.log") ;
+	strcpy(output_folder, "data/") ;
 	
 	char line[999], *token ;
 	fp = fopen("config.ini", "r") ;
@@ -346,8 +347,8 @@ int setup() {
 			beta = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "data") == 0)
 			strcpy(data_flist, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "output_prefix") == 0)
-			strcpy(output_fname, strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "output_folder") == 0)
+			strcpy(output_folder, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "log") == 0)
 			strcpy(log_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "input") == 0)

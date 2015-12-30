@@ -44,7 +44,7 @@ double tot_mean_count ;
 
 uint8_t *mask ;
 
-char output_fname[999], log_fname[999] ;
+char output_folder[999], log_fname[999] ;
 
 // setup.c
 int setup() ;

@@ -109,9 +109,14 @@ int main(int argc, char *argv[]) {
 					model1[x] = model2[x] ;
 				}
 				
-				sprintf(fname, "%s%.3d.bin", output_fname, iteration) ;
+				sprintf(fname, "%s/output/intens_%.3d.bin", output_folder, iteration) ;
 				fp = fopen(fname, "w") ;
 				fwrite(model1, sizeof(double), size * size * size, fp) ;
+				fclose(fp) ;
+				
+				sprintf(fname, "%s/weights/weights_%.3d.bin", output_folder, iteration) ;
+				fp = fopen(fname, "w") ;
+				fwrite(inter_weight, sizeof(double), size * size * size, fp) ;
 				fclose(fp) ;
 				
 				rms_change = sqrt(change / size / size / size) ;
