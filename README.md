@@ -1,11 +1,35 @@
 # EMC
 
-## make _ detector
+## exp_config.dat
+Structure of exp_config.dat
 
+
+## make_densities.py
+Create electron density map from PDB file
+### Input
+exp_config.dat
+### Output
+densities.dat
+
+
+## make_intensities.py 
+Create 3D intensity map from electron density
+### Input
+densities.dat
+### Output
+intensities.bin
+
+### Usage and parameters
+
+
+## make_detector.c
 This module generates the detector.dat file which contains information about
 each detector pixel. 
+### Input
+exp_config.dat
+### Output
+detector.dat
 
-### Format
 The detector.dat file is an ASCII (human-readable) file.
  - The first line contains a single integer which is the number of pixels
  - From the second line on, there are 6 columns per line. Each line represents
@@ -33,3 +57,14 @@ parameters will be taken from `config.ini`. An example file has been provided
 with the repository. Copy it over using `cp config.ini.example config.ini` and
 edit the experimental parameters. The name of the output file is set by the
 variable 'detector'.
+
+
+## make_quaternion.c
+### Input
+None
+### Output
+quaternion_xx.dat
+
+### Usage and parameters
+
+
