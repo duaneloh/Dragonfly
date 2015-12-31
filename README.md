@@ -1,9 +1,9 @@
 # EMC
-
+--------------------------------------------------------------------------------
 ## exp_config.dat
 Structure of exp_config.dat
 
-
+--------------------------------------------------------------------------------
 ## make_densities.py
 Create electron density map from PDB file
 ### Input
@@ -22,6 +22,7 @@ To get usage help:
 To start making densities from experimental parameters specified in the config file "exp_config.dat"
 	python make_densities.py <exp_config.dat>
 
+--------------------------------------------------------------------------------
 ## make_intensities.py 
 Create 3D intensity map from electron density
 ### Input
@@ -32,6 +33,7 @@ intensities.bin
 ### Usage and parameters
 
 
+--------------------------------------------------------------------------------
 ## make_detector.c
 This module generates the detector.dat file which contains information about
 each detector pixel. 
@@ -69,6 +71,7 @@ edit the experimental parameters. The name of the output file is set by the
 variable 'detector'.
 
 
+--------------------------------------------------------------------------------
 ## make_quaternion.c
 ### Input
 None
