@@ -104,8 +104,7 @@ def make_scatt_list(atom_types, aux_dir, eV):
     scatt_list = OrderedDict()
     for elem in atom_types:
         (f0,f1,) = interp_scattering(aux_dir, elem)
-        #mass    = find_mass(aux_dir, elem)
-        mass    = 1e8
+        mass    = find_mass(aux_dir, elem)
         scatt_list[elem.upper()] = [float(f0(eV)), mass]
     return scatt_list
 
