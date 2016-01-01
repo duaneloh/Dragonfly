@@ -1,15 +1,15 @@
 [parameters]
 # Experimental parameters for detector file generation
 # Detector distance in mm
-detd = 100.
+detd = 200.
 # Wavelength in Angstroms
-lambda = 1.5
+lambda = 3.
 # Number of pixels along one edge of square detector
-detsize = 512 
+detsize = 256 
 # Effective size of pixels in mm 
-pixsize = 2. 
+pixsize = 0.1 
 # Radius of beam stop in pixels
-stoprad = 50
+stoprad = 20
 
 # EMC parameters
 # Whether you need to assume variable fluence

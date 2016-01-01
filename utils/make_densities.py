@@ -33,14 +33,14 @@ def read_detector_config(config_file, show=False):
 def compute_q_params(det_dist, det_size, pix_size, in_wavelength, show=False, squareDetector=True):
     """
     Resolution computed in inverse Angstroms, crystallographer's convention
-    In millimeters: in_det_dis, in_det_size, in_pix_size
-    In Angstroms:   photon wavelength
+    In millimeters: det_dist, det_size, pix_size
+    In Angstroms:   in_wavelength
 
     """
     det_max_half_len = pix_size * int((det_size-1)/2.)
     params      = OrderedDict()
     if squareDetector:
-        max_angle   = np.sqrt(2.) * np.arctan(det_max_half_len / det_dist)
+        max_angle   = np.arctan(np.sqrt(2.) * det_max_half_len / det_dist)
     else:
         max_angle   = np.arctan(det_max_half_len / det_dist)
     min_angle   = np.arctan(pix_size / det_dist)
@@ -64,14 +64,6 @@ def compute_q_params(det_dist, det_size, pix_size, in_wavelength, show=False, sq
 ################################################################################
 # Functions to read and process pdb
 ################################################################################
-
-#scatt_list ={
-#    "C":[6., 12.],
-#    "N":[7., 14.],
-#    "O":[8., 16.],
-#    "S":[16., 32.],
-#    "P":[15., 31.],
-#    "CU":[29., 63.5]}
 
 def find_atom_types_in_pdb(pdb_file):
     atoms = []
@@ -163,21 +155,26 @@ def apply_symmetry(atoms, sym_list, trans_list):
         vecs = sym_op.dot(org_atoms).T + trans
         to_app = np.concatenate((f0s, vecs, ms), axis=1)
         out_atoms[i+1] = to_app.copy()
-    return out_atoms.reshape(-1,5)
+    return out_atoms[1:,:,:].reshape(-1,5)
 
-def atoms_to_density_map(atoms, voxelSZ, fov_len):
+def atoms_to_density_map(atoms, voxelSZ):
     (x, y, z) = atoms[:,1:4].T.copy()
     (x_min, x_max) = (x.min(), x.max())
     (y_min, y_max) = (y.min(), y.max())
     (z_min, z_max) = (z.min(), z.max())
 
+    grid_len = max([x_max - x_min, y_max - y_min, z_max - z_min])
+    R = np.int(np.ceil(grid_len / voxelSZ))
+    if R % 2 == 0:
+        R += 1
+
     elec_den = atoms[:,0].copy()
 
-    x = (x-x_min)/voxelSZ + 1
-    y = (y-y_min)/voxelSZ + 1
-    z = (z-z_min)/voxelSZ + 1
+    x = (x-x_min)/voxelSZ
+    y = (y-y_min)/voxelSZ
+    z = (z-z_min)/voxelSZ
 
-    bins = np.arange(fov_len)
+    bins = np.arange(R+1)
     all_bins = np.vstack((bins,bins,bins))
     coords = np.asarray([x,y,z]).T
     (h, h_edges) = np.histogramdd(coords, bins=all_bins, weights=elec_den)
@@ -185,7 +182,6 @@ def atoms_to_density_map(atoms, voxelSZ, fov_len):
 
 def low_pass_filter_density_map(in_arr, damping=-2., thr=1.E-3, num_cycles=2):
     (xl,yl,zl) = in_arr.shape
-    #TODO: Need to check odd and even array sizes
     (xx,yy,zz) = np.mgrid[-1:1:xl*1j, -1:1:yl*1j, -1:1:zl*1j]
     fil = np.fft.ifftshift(np.exp(damping*(xx*xx + yy*yy + zz*zz)))
     out_arr = in_arr.copy()
@@ -201,8 +197,6 @@ def write_density_to_file(in_den_file, in_den):
             for l1 in l0:
                 tmp = ' '.join(l1.astype('str'))
                 fp.write(tmp + '\n')
-            fp.write('\n')
-        fp.write('\n')
 
 ################################################################################
 # Script begins
@@ -251,13 +245,12 @@ if __name__ == "__main__":
     all_atoms   = apply_symmetry(atoms, s_l, t_l)
     timer.reset_and_report("Reading PDB") if args.vb else timer.reset()
 
-    # I'm assuming voxel size should be in picometers?
-    den         = atoms_to_density_map(all_atoms, 10.*q_pm['half_p_res'], fov_len)
+    den         = atoms_to_density_map(all_atoms, q_pm['half_p_res'])
     lp_den      = low_pass_filter_density_map(den)
     timer.reset_and_report("Creating density map") if args.vb else timer.reset()
 
     den_file    = os.path.join(args.main_dir, extract_param(args.config_file, 'files', "density_file"))
-    write_density_to_file(den_file, den)
+    write_density_to_file(den_file, lp_den)
     timer.reset_and_report("Writing densities to file") if args.vb else timer.reset()
 
     timer.report_time_since_beginning() if args.vb else timer.reset()
