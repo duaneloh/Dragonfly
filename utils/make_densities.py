@@ -180,7 +180,7 @@ def atoms_to_density_map(atoms, voxelSZ):
     (h, h_edges) = np.histogramdd(coords, bins=all_bins, weights=elec_den)
     return h
 
-def low_pass_filter_density_map(in_arr, damping=-2., thr=1.E-3, num_cycles=2):
+def low_pass_filter_density_map(in_arr, fov_len, damping=-1., thr=1.E-3, num_cycles=2):
     (xl,yl,zl) = in_arr.shape
     (xx,yy,zz) = np.mgrid[-1:1:xl*1j, -1:1:yl*1j, -1:1:zl*1j]
     fil = np.fft.ifftshift(np.exp(damping*(xx*xx + yy*yy + zz*zz)))
@@ -189,7 +189,9 @@ def low_pass_filter_density_map(in_arr, damping=-2., thr=1.E-3, num_cycles=2):
         ft = fil*np.fft.fftn(out_arr)
         out_arr = np.real(np.fft.ifftn(ft))
         out_arr *= (out_arr > thr)
-    return out_arr
+    contrast = np.zeros((fov_len, fov_len, fov_len))
+    contrast[:xl,:yl,:zl] = out_arr.copy()
+    return contrast
 
 def write_density_to_file(in_den_file, in_den):
     with open(in_den_file, "w") as fp:
@@ -246,7 +248,7 @@ if __name__ == "__main__":
     timer.reset_and_report("Reading PDB") if args.vb else timer.reset()
 
     den         = atoms_to_density_map(all_atoms, q_pm['half_p_res'])
-    lp_den      = low_pass_filter_density_map(den)
+    lp_den      = low_pass_filter_density_map(den, fov_len)
     timer.reset_and_report("Creating density map") if args.vb else timer.reset()
 
     den_file    = os.path.join(args.main_dir, extract_param(args.config_file, 'files', "density_file"))
