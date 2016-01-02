@@ -128,6 +128,10 @@ def read_atom_coords_from_pdb(pdb_file, scatt):
     return np.asarray(tmp_atoms)
 
 def read_symmetry_from_pdb(pdb_file):
+    """
+    First symmetry operation is identity, followed by non-trivial symmetries
+
+    """
     sym_list = []
     trans_list = []
     num_sym = 0
@@ -147,15 +151,14 @@ def apply_symmetry(atoms, sym_list, trans_list):
     org_atoms = atoms[:,1:4].T.copy()
     f0s = np.asarray([atoms[:,0]]).T.copy()
     ms = np.asarray([atoms[:,4]]).T.copy()
-    out_atoms = np.zeros((len(sym_list)+1,)+atoms.shape)
-    out_atoms[0] = atoms.copy()
+    out_atoms = np.zeros((len(sym_list),)+atoms.shape)
     for i in xrange(len(sym_list)):
         sym_op = sym_list[i]
         trans = trans_list[i]
         vecs = sym_op.dot(org_atoms).T + trans
         to_app = np.concatenate((f0s, vecs, ms), axis=1)
-        out_atoms[i+1] = to_app.copy()
-    return out_atoms[1:,:,:].reshape(-1,5)
+        out_atoms[i] = to_app.copy()
+    return out_atoms.reshape(-1,5)
 
 def atoms_to_density_map(atoms, voxelSZ):
     (x, y, z) = atoms[:,1:4].T.copy()
