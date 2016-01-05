@@ -20,7 +20,6 @@ if __name__ == "__main__":
     fov_len     = int(np.ceil(q_pm['fov_in_A']/q_pm['half_p_res']) + 1)
     eV          = process_pdb.wavelength_in_A_to_eV(pm['wavelength'])
     aux_dir     = os.path.join(args.main_dir, read_config.get_param(args.config_file, 'make_densities', "scatt_dir"))
-    print pdb_file
     atom_types  = process_pdb.find_atom_types(pdb_file)
     scatt_list  = process_pdb.make_scatt_list(atom_types, aux_dir, eV)
     atoms       = process_pdb.get_atom_coords(pdb_file, scatt_list)
