@@ -3,36 +3,15 @@ import ConfigParser
 import argparse
 import sys
 import os
-import time
 from collections import OrderedDict
 from scipy.interpolate import interp1d
 from py_src import read_config
 from py_src import process_pdb 
-
-################################################################################
-# Script begins
-################################################################################
-class my_timer(object):
-    def __init__(self):
-        self.t0 = time.time()
-        self.ts = self.t0
-
-    def reset(self):
-        t1 = time.time()
-        self.t0 = t1
-
-    def reset_and_report(self, msg):
-        t1 = time.time()
-        print "{:-<30}:{:5.5f} seconds".format(msg, t1-self.t0)
-        self.t0 = t1
-
-    def report_time_since_beginning(self):
-        print "="*80
-        print "{:-<30}:{:5.5f} seconds".format("Since beginning", time.time() - self.ts)
+from py_src import py_utils 
 
 if __name__ == "__main__":
 
-    timer       = my_timer()
+    timer       = py_utils.my_timer()
     parser      = argparse.ArgumentParser(description="make electron density")
     parser.add_argument(dest='config_file')
     parser.add_argument("-v", "--verbose", dest="vb", action="store_true", default=False)
