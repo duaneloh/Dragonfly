@@ -10,7 +10,6 @@
 #include <float.h>
 #include <stdint.h>
 
-#define PI 3.1415926535898
 #define NUM_AVE 5000
 
 double rot[2][2] ;
@@ -35,15 +34,19 @@ int main(int argc, char *argv[]) {
 	struct timeval t1, t2 ;
 	
 	if (argc < 2) {
-		fprintf(stderr, "Format: %s <num_threads>\n", argv[0]) ;
+		fprintf(stderr, "Format: %s <config_file>\n", argv[0]) ;
+		fprintf(stderr, "Optional second argument: <num_threads>\n") ;
 		return 1 ;
 	}
-	omp_set_num_threads(atoi(argv[1])) ;
+	if (argc > 2)
+		omp_set_num_threads(atoi(argv[2])) ;
+	else {
+		omp_set_num_threads(omp_get_max_threads()) ;
+		fprintf(stderr, "Using %d OpenMP threads\n", omp_get_max_threads()) ;
+	}
 	
-	if (setup())
+	if (setup(argv[1]))
 		return 2 ;
-	
-	fprintf(stderr, "Finished setup()\n") ;
 	
 	gettimeofday(&t1, NULL) ;
 	intens_ave = 0. ;
@@ -133,7 +136,9 @@ int main(int argc, char *argv[]) {
 	
 	fp = fopen(output_fname, "wb") ;
 	fwrite(&num_data, sizeof(int), 1, fp) ;
-	fwrite(&actual_mean_count, sizeof(double), 1, fp) ;
+	fwrite(&num_pix, sizeof(int), 1, fp) ;
+	char buffer[1016] = {0} ;
+	fwrite(buffer, sizeof(char), 1016, fp) ;
 	fwrite(ones, sizeof(int), num_data, fp) ;
 	fwrite(multi, sizeof(int), num_data, fp) ;
 	for (d = 0 ; d < num_data ; ++d)
@@ -153,11 +158,13 @@ int main(int argc, char *argv[]) {
 	return 0 ;
 }
 
-int setup() {
+int setup(char *fname) {
 	int t, d ;
 	FILE *fp ;
 	char line[999], *token ;
 	char det_fname[999], model_fname[999] ;
+	double detd, pixsize, qmax, qmin ;
+	int detsize ;
 	
 	size = 0 ;
 	center = 0 ;
@@ -166,10 +173,13 @@ int setup() {
 	spread = 0. ;
 	back = 0. ;
 	output_fname[0] = ' ' ;
+	detsize = 0 ;
+	detd = 0. ;
+	pixsize = 0. ;
 	
-	fp = fopen("config.ini", "r") ;
+	fp = fopen(fname, "r") ;
 	if (fp == NULL) {
-		fprintf(stderr, "Config file config.ini not found.\n") ;
+		fprintf(stderr, "Config file %s not found.\n", fname) ;
 		return 1 ;
 	}
 	while (fgets(line, 999, fp) != NULL) {
@@ -179,31 +189,37 @@ int setup() {
 		
 		if (strcmp(token, "num_data") == 0)
 			num_data = atoi(strtok(NULL, " =\n")) ;
-		if (strcmp(token, "size") == 0)
-			size = atoi(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "center") == 0)
-			center = atoi(strtok(NULL, " =\n")) ;
+		if (strcmp(token, "detd") == 0)
+			detd = atof(strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "detsize") == 0)
+			detsize = atoi(strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "pixsize") == 0)
+			pixsize = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "mean_count") == 0)
 			mean_count = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "mean_count_spread") == 0)
 			spread = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "bg_count") == 0)
 			back = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "photons") == 0)
+		else if (strcmp(token, "out_photons") == 0)
 			strcpy(output_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "model") == 0)
+		else if (strcmp(token, "out_intensity_file") == 0)
 			strcpy(model_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "detector") == 0)
+		else if (strcmp(token, "out_detector") == 0)
 			strcpy(det_fname, strtok(NULL, " =\n")) ;
 	}
 	fclose(fp) ;
 	
-	if (size == 0) {
-		fprintf(stderr, "Need size (cubic grid size)\n") ;
+	if (detsize == 0 || pixsize == 0. || detd == 0.) {
+		fprintf(stderr, "Need detector parameters, detd, detsize, pixsize\n") ;
 		return 1 ;
 	}
-	if (center == 0)
-		center = size / 2 ;
+	
+	qmax = 2. * sin(0.5 * atan(detsize*pixsize/detd)) ;
+	qmin = 2. * sin(0.5 * atan(pixsize/detd)) ;
+	size = ceil(2. * qmax / qmin) + 1 ;
+	center = size / 2 ;
+	
 	if (num_data == 0) {
 		fprintf(stderr, "Need num_data (number of frames to be generated)\n") ;
 		return 1 ;
@@ -216,7 +232,6 @@ int setup() {
 		fprintf(stderr, "Need photons (name of output emc format file)\n") ;
 		return 1 ;
 	}
-	fprintf(stderr, "Parsed config.ini\n") ;
 	spread /= mean_count ;
 	
 	fp = fopen(model_fname, "rb") ;
