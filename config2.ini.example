@@ -39,3 +39,21 @@ num_data = 1000
 mean_count = 1000.
 model = data/intensities.bin
 photons = data/photons.emc
+
+[make_densities]
+pdb = aux/4BED.pdb
+scatt_dir = aux/henke_table
+density_file = data/densityMap.dat
+
+[make_detector]
+detector = aux/det_sim.dat
+
+[make_intensities]
+
+
+[make_quaternion]
+refinement = 8
+quaternion = aux/quat_08.dat
+
+
+[make_data]

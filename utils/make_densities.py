@@ -183,7 +183,7 @@ def atoms_to_density_map(atoms, voxelSZ):
     (h, h_edges) = np.histogramdd(coords, bins=all_bins, weights=elec_den)
     return h
 
-def low_pass_filter_density_map(in_arr, fov_len, damping=-1., thr=1.E-3, num_cycles=2):
+def low_pass_filter_density_map(in_arr, damping=-1., thr=1.E-3, num_cycles=2):
     (xl,yl,zl) = in_arr.shape
     (xx,yy,zz) = np.mgrid[-1:1:xl*1j, -1:1:yl*1j, -1:1:zl*1j]
     fil = np.fft.ifftshift(np.exp(damping*(xx*xx + yy*yy + zz*zz)))
@@ -192,9 +192,10 @@ def low_pass_filter_density_map(in_arr, fov_len, damping=-1., thr=1.E-3, num_cyc
         ft = fil*np.fft.fftn(out_arr)
         out_arr = np.real(np.fft.ifftn(ft))
         out_arr *= (out_arr > thr)
-    contrast = np.zeros((fov_len, fov_len, fov_len))
-    contrast[:xl,:yl,:zl] = out_arr.copy()
-    return contrast
+    # contrast = np.zeros((fov_len, fov_len, fov_len))
+    # contrast[:xl,:yl,:zl] = out_arr.copy()
+    # return contrast
+    return out_arr.copy()
 
 def write_density_to_file(in_den_file, in_den):
     with open(in_den_file, "w") as fp:
@@ -235,14 +236,14 @@ if __name__ == "__main__":
     args.main_dir = args.main_dir if args.main_dir else os.path.dirname(args.config_file)
 
     pm          = read_detector_config(args.config_file, show=args.vb)
-    pdb_file    = os.path.join(args.main_dir, extract_param(args.config_file, 'files', "pdb"))
+    pdb_file    = os.path.join(args.main_dir, extract_param(args.config_file, 'make_densities', "pdb"))
     q_pm        = compute_q_params(pm['detd'], pm['detsize'], pm['pixsize'], pm['wavelength'], show=args.vb)
     t1          = time.time()
     timer.reset_and_report("Reading detector") if args.vb else timer.reset()
 
     fov_len     = int(np.ceil(q_pm['fov_in_A']/q_pm['half_p_res']) + 1)
     eV          = wavelength_in_A_to_eV(pm['wavelength'])
-    aux_dir     = os.path.join(args.main_dir, extract_param(args.config_file, 'files', "scatt_dir"))
+    aux_dir     = os.path.join(args.main_dir, extract_param(args.config_file, 'make_densities', "scatt_dir"))
     atom_types  = find_atom_types_in_pdb(pdb_file)
     scatt_list  = make_scatt_list(atom_types, aux_dir, eV)
     atoms       = read_atom_coords_from_pdb(pdb_file, scatt_list)
@@ -251,10 +252,10 @@ if __name__ == "__main__":
     timer.reset_and_report("Reading PDB") if args.vb else timer.reset()
 
     den         = atoms_to_density_map(all_atoms, q_pm['half_p_res'])
-    lp_den      = low_pass_filter_density_map(den, fov_len)
+    lp_den      = low_pass_filter_density_map(den)
     timer.reset_and_report("Creating density map") if args.vb else timer.reset()
 
-    den_file    = os.path.join(args.main_dir, extract_param(args.config_file, 'files', "density_file"))
+    den_file    = os.path.join(args.main_dir, extract_param(args.config_file, 'make_densities', "density_file"))
     write_density_to_file(den_file, lp_den)
     timer.reset_and_report("Writing densities to file") if args.vb else timer.reset()
 
