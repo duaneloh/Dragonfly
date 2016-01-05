@@ -20,39 +20,33 @@ alpha = 0.
 beta = 1.
 
 [files]
-pdb = aux/4BED.pdb
-#data = rdvyc_v1_16_s16.lst
 data = test.lst
 log = RECON.log
 output_prefix = data/output
-scatt_dir = aux/henke_table
-density_file = data/densityMap.dat
-#input =
-detector = aux/det_sim.dat
-mask = aux/mask_sym.byt
-quaternion = aux/quat_08.dat
 #blacklist = 
 #scale = 
 
-[make_data]
-num_data = 1000
-mean_count = 1000.
-model = data/intensities.bin
-photons = data/photons.emc
 
 [make_densities]
 pdb = aux/4BED.pdb
 scatt_dir = aux/henke_table
 out_density_file = data/densityMap.bin
 
+
 [make_intensities]
 in_density_file = data/densityMap.bin
 out_intensity_file = data/intensities.bin
 
+
 [make_detector]
 out_detector = aux/det_sim.dat
 
+
 [make_data]
+num_data = 1000
+mean_count = 1000.
+model = data/intensities.bin
+photons = data/photons.emc
 
 
 [make_quaternion]

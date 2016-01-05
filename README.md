@@ -6,35 +6,26 @@ Structure of exp_config.dat
 --------------------------------------------------------------------------------
 ## make_densities.py
 Create electron density map from PDB file
-### Input
-exp_config.dat
-### Output
-densities.dat
 
 Densities.dat is a flattened ASCII record of the floating point numbers of a 3D cubic electron density distribution. 
 
 ### Usage and parameters
-This is a Python 2.7 module that requires the following non-standard packages:
-numpy
-scipy
 To get usage help:
 	python make_densities.py -h
-To start making densities from experimental parameters specified in the config file "exp_config.dat"
+Make densities from experimental parameters specified in the config file "exp_config.dat"
 	python make_densities.py <exp_config.dat>
 
 --------------------------------------------------------------------------------
 ## make_intensities.py 
 Create 3D intensity map from electron density
-### Input
-densities.dat
-### Output
-intensities.bin
-
 ### Usage and parameters
-
+To get usage help:
+	python make_intensities.py -h
+Make intensities from experimental parameters specified in the config file "exp_config.dat"
+	python make_intensities.py <exp_config.dat>
 
 --------------------------------------------------------------------------------
-## make_detector.c
+## make_detector.py
 This module generates the detector.dat file which contains information about
 each detector pixel. 
 ### Input
@@ -77,6 +68,15 @@ variable 'detector'.
 None
 ### Output
 quaternion_xx.dat
+
+### Usage and parameters
+
+
+--------------------------------------------------------------------------------
+## make_data.c
+### Input
+None
+### Output
 
 ### Usage and parameters
 
