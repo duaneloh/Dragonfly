@@ -9,6 +9,7 @@
 #include <sys/time.h>
 #include <float.h>
 #include <stdint.h>
+#include <libgen.h>
 
 #define NUM_AVE 5000
 
@@ -124,14 +125,16 @@ int main(int argc, char *argv[]) {
 			}
 			
 			actual_mean_count += ones[d] ;
-			if (d % 10000 == 0)
-				fprintf(stderr, "Finished d = %d\n", d) ;
+//			if (d % 100 == 0)
+			if (rank == 0)
+				fprintf(stderr, "\rFinished d = %d", d) ;
 		}
 		
 		free(view) ;
 		gsl_rng_free(rng) ;
 	}
 	
+	fprintf(stderr, "\rFinished d = %d\n", num_data) ;
 	actual_mean_count /= num_data ;
 	
 	fp = fopen(output_fname, "wb") ;
@@ -158,7 +161,7 @@ int main(int argc, char *argv[]) {
 	return 0 ;
 }
 
-int setup(char *fname) {
+int setup(char *config_fname) {
 	int t, d ;
 	FILE *fp ;
 	char line[999], *token ;
@@ -177,9 +180,9 @@ int setup(char *fname) {
 	detd = 0. ;
 	pixsize = 0. ;
 	
-	fp = fopen(fname, "r") ;
+	fp = fopen(config_fname, "r") ;
 	if (fp == NULL) {
-		fprintf(stderr, "Config file %s not found.\n", fname) ;
+		fprintf(stderr, "Config file %s not found.\n", config_fname) ;
 		return 1 ;
 	}
 	while (fgets(line, 999, fp) != NULL) {
@@ -229,10 +232,18 @@ int setup(char *fname) {
 		return 1 ;
 	}
 	if (output_fname[0] == ' ') {
-		fprintf(stderr, "Need photons (name of output emc format file)\n") ;
+		fprintf(stderr, "Need out_photons (name of output emc format file)\n") ;
 		return 1 ;
 	}
 	spread /= mean_count ;
+	
+	char *config_folder = dirname(config_fname) ;
+	strcpy(line, det_fname) ;
+	sprintf(det_fname, "%s/%s", config_folder, line) ;
+	strcpy(line, output_fname) ;
+	sprintf(output_fname, "%s/%s", config_folder, line) ;
+	strcpy(line, model_fname) ;
+	sprintf(model_fname, "%s/%s", config_folder, line) ;
 	
 	fp = fopen(model_fname, "rb") ;
 	if (fp == NULL) {
