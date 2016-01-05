@@ -1,5 +1,7 @@
 import numpy as np
 import time
+import argparse
+import os
 
 class my_timer(object):
     def __init__(self):
@@ -19,6 +21,17 @@ class my_timer(object):
         print "="*80
         print "{:-<30}:{:5.5f} seconds".format("Since beginning", time.time() - self.ts)
 
+class my_argparser(argparse.ArgumentParser):
+    def __init__(self, description=""):
+        argparse.ArgumentParser.__init__(self, description=description)
+        self.add_argument("-c", "--config_file", dest="config_file", default="../config.ini")
+        self.add_argument("-v", "--verbose", dest="vb", action="store_true", default=False)
+        self.add_argument("-m", "--main_dir", dest="main_dir", help="relative path to main repository directory\n(where data aux utils are stored)")
+
+    def special_parse_args(self):
+        args = self.parse_args()
+        args.main_dir = args.main_dir if args.main_dir else os.path.dirname(args.config_file)
+        return args
 
 def write_density(in_den_file, in_den, binary=True):
     if binary:

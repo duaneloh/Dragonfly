@@ -8,12 +8,8 @@ from py_src import py_utils
 if __name__ == "__main__":
 
     timer       = py_utils.my_timer()
-    parser      = argparse.ArgumentParser(description="make intensities")
-    parser.add_argument(dest='config_file')
-    parser.add_argument("-v", "--verbose", dest="vb", action="store_true", default=False)
-    parser.add_argument("-m", "--main_dir", dest="main_dir", help="relative path to main repository directory\n(where data aux utils are stored)")
-    args        = parser.parse_args()
-    args.main_dir = args.main_dir if args.main_dir else os.path.dirname(args.config_file)
+    parser      = py_utils.my_argparser(description="make intensities")
+    args        = parser.special_parse_args()
 
     pm          = read_config.get_detector_config(args.config_file, show=args.vb)
     q_pm        = read_config.compute_q_params(pm['detd'], pm['detsize'], pm['pixsize'], pm['wavelength'], show=args.vb)

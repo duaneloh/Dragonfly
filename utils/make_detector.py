@@ -7,12 +7,8 @@ from py_src import py_utils
 
 if __name__ == "__main__":
     timer       = py_utils.my_timer()
-    parser      = argparse.ArgumentParser(description="make detector")
-    parser.add_argument(dest='config_file')
-    parser.add_argument("-v", "--verbose", dest="vb", action="store_true", default=False)
-    parser.add_argument("-m", "--main_dir", dest="main_dir", help="relative path to main repository directory\n(where data aux utils are stored)")
-    args        = parser.parse_args()
-    args.main_dir = args.main_dir if args.main_dir else os.path.dirname(args.config_file)
+    parser      = py_utils.my_argparser(description="make detector")
+    args        = parser.special_parse_args()
 
     pm          = read_config.get_detector_config(args.config_file, show=args.vb)
     q_pm        = read_config.compute_q_params(pm['detd'], pm['detsize'], pm['pixsize'], pm['wavelength'], show=args.vb)
@@ -40,7 +36,8 @@ if __name__ == "__main__":
     with open(det_file, "w") as fp:
         fp.write(str(pm['detsize']*pm['detsize']) + "\n")
         for t0,t1,t2,t3,t4 in zip(qx,qy,qz,solid_angle,mask):
-            txt = "{:21.15e} {:21.15e} {:21.15e} {:21.15e} {:d}\n".format(t0, t1, t2, t3, t4)
+            #txt = "{:21.15e} {:21.15e} {:21.15e} {:21.15e} {:d}\n".format(t0, t1, t2, t3, t4)
+            txt = "%21.15e %21.15e %21.15e %21.15e %d\n"%(t0, t1, t2, t3, t4)
             fp.write(txt)
     timer.reset_and_report("Writing detector") if args.vb else timer.reset()
 

@@ -9,12 +9,8 @@ from py_src import py_utils
 if __name__ == "__main__":
 
     timer       = py_utils.my_timer()
-    parser      = argparse.ArgumentParser(description="make electron density")
-    parser.add_argument(dest='config_file')
-    parser.add_argument("-v", "--verbose", dest="vb", action="store_true", default=False)
-    parser.add_argument("-m", "--main_dir", dest="main_dir", help="relative path to main repository directory\n(where data aux utils are stored)")
-    args        = parser.parse_args()
-    args.main_dir = args.main_dir if args.main_dir else os.path.dirname(args.config_file)
+    parser      = py_utils.my_argparser(description="make electron density")
+    args        = parser.special_parse_args()
 
     pm          = read_config.get_detector_config(args.config_file, show=args.vb)
     pdb_file    = os.path.join(args.main_dir, read_config.get_param(args.config_file, 'make_densities', "pdb"))
@@ -24,6 +20,7 @@ if __name__ == "__main__":
     fov_len     = int(np.ceil(q_pm['fov_in_A']/q_pm['half_p_res']) + 1)
     eV          = process_pdb.wavelength_in_A_to_eV(pm['wavelength'])
     aux_dir     = os.path.join(args.main_dir, read_config.get_param(args.config_file, 'make_densities', "scatt_dir"))
+    print pdb_file
     atom_types  = process_pdb.find_atom_types(pdb_file)
     scatt_list  = process_pdb.make_scatt_list(atom_types, aux_dir, eV)
     atoms       = process_pdb.get_atom_coords(pdb_file, scatt_list)
