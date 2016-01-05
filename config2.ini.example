@@ -43,10 +43,9 @@ out_detector = aux/det_sim.dat
 
 
 [make_data]
-num_data = 1000
+num_data = 10000
 mean_count = 1000.
-model = data/intensities.bin
-photons = data/photons.emc
+out_photons = data/photons.emc
 
 
 [make_quaternion]
