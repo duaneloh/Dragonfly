@@ -204,11 +204,11 @@ int setup(char *config_fname) {
 			spread = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "bg_count") == 0)
 			back = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "out_photons") == 0)
+		else if (strcmp(token, "out_photons_file") == 0)
 			strcpy(output_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "out_intensity_file") == 0)
+		else if (strcmp(token, "in_intensity_file") == 0)
 			strcpy(model_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "out_detector") == 0)
+		else if (strcmp(token, "in_detector_file") == 0)
 			strcpy(det_fname, strtok(NULL, " =\n")) ;
 	}
 	fclose(fp) ;
