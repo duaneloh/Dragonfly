@@ -1,27 +1,12 @@
-/*
-
-Generates quaternions for rotation sampling following the construction rule of the paper:
-"Reconstruction algorithm for single-particle diffraction imaging experiments", doi: 10.1103/PhysRevE.80.026705
-
-compile:
-gcc make_quaternion.c -O3 -lm -o quat
-
-usage:
-./quat #	(#: num_div)
-
-makes:
-quaternion#.dat
-
-*/
-
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <math.h>
+#include <libgen.h>
 
 // golden mean
 #define tau 1.61803398875
-#define PI 3.14159265359
 
 #define num_vert 120 
 #define num_edge 720
@@ -73,13 +58,42 @@ int num_div ;
 
 int main(int argc, char* argv[]) {
 	clock_t t = clock() ;
+	char config_fname[999], quat_fname[999] ;
+	char line[999], *token ;
+	FILE *fp ;
 	
-	if (argc < 2) {
-		fprintf(stderr, "Format: %s <n>\n", argv[0]) ;
+	if (argc > 1)
+		strcpy(config_fname, argv[1]) ;
+	else
+		strcpy(config_fname, "config.ini") ;
+	
+	num_div = 0 ;
+	
+	fp = fopen(config_fname, "r") ;
+	if (fp == NULL) {
+		fprintf(stderr, "Config file %s not found.\n", config_fname) ;
+		return 1 ;
+	}
+	while (fgets(line, 999, fp) != NULL) {
+		token = strtok(line, " =") ;
+		if (token[0] == '#' || token[0] == '\n' || token[0] == '[')
+			continue ;
+		
+		if (strcmp(token, "num_div") == 0)
+			num_div = atoi(strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "out_quat_file") == 0)
+			strcpy(quat_fname, strtok(NULL, " =\n")) ;
+	}
+	fclose(fp) ;
+	
+	if (num_div == 0) {
+		fprintf(stderr, "Need num_div (number of divisions of 600-cell)\n") ;
 		return 1 ;
 	}
 	
-	num_div = atoi(argv[1]) ;
+	strcpy(line, dirname(config_fname)) ;
+	strcat(strcat(line, "/"), quat_fname) ;
+	fprintf(stderr, "name: %s\n", line) ;
 
 	make_vertice() ; 
 	make_edge() ;
@@ -98,7 +112,7 @@ int main(int argc, char* argv[]) {
 	if (num_div > 3)
 		refine_cell() ;
 
-	print_quat() ;
+	print_quat(line) ;
 
 	free_mem() ;
 	
@@ -595,10 +609,9 @@ void refine_cell() {
 }
 
 
-void print_quat() {
+void print_quat(char *fname) {
 
 	FILE *fp ;
-	char fname[128] ;
 	int r, i, j, num_rot, flag, ct ;
 	double q_v[4], q_norm ;
 	
@@ -608,7 +621,6 @@ void print_quat() {
 		return ;
 	}
 
-	sprintf(fname, "aux/quaternion%.2d.dat", num_div) ;
 	fp = fopen(fname, "w") ;
 	fprintf(fp, "%d\n", num_rot) ;
 	
