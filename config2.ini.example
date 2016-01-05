@@ -44,11 +44,11 @@ photons = data/photons.emc
 [make_densities]
 pdb = aux/4BED.pdb
 scatt_dir = aux/henke_table
-density_file = data/densityMap.dat
+density_file = data/densityMap.bin
 
 [make_intensities]
-density_file = data/densityMap.dat
-
+density_file = data/densityMap.bin
+intensity_file = data/intensities.bin
 
 [make_detector]
 detector = aux/det_sim.dat

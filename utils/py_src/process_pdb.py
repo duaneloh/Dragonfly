@@ -136,11 +136,3 @@ def low_pass_filter_density_map(in_arr, damping=-1., thr=1.E-3, num_cycles=2):
     # contrast[:xl,:yl,:zl] = out_arr.copy()
     # return contrast
     return out_arr.copy()
-
-def write_density_to_file(in_den_file, in_den):
-    with open(in_den_file, "w") as fp:
-        for l0 in in_den:
-            for l1 in l0:
-                tmp = ' '.join(l1.astype('str'))
-                fp.write(tmp + '\n')
-
