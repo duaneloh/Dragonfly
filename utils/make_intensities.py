@@ -20,8 +20,8 @@ if __name__ == "__main__":
     timer.reset_and_report("Reading experiment parameters") if args.vb else timer.reset()
 
     fov_len     = int(np.ceil(q_pm['fov_in_A']/q_pm['half_p_res']) + 1)
-    den_file    = os.path.join(args.main_dir, read_config.get_param(args.config_file, 'make_intensities', "density_file"))
-    intens_file = os.path.join(args.main_dir, read_config.get_param(args.config_file, 'make_intensities', "intensity_file"))
+    den_file    = os.path.join(args.main_dir, read_config.get_param(args.config_file, 'make_intensities', "in_density_file"))
+    intens_file = os.path.join(args.main_dir, read_config.get_param(args.config_file, 'make_intensities', "out_intensity_file"))
     den         = py_utils.read_density(den_file, binary=True)
     timer.reset_and_report("Reading densities") if args.vb else timer.reset()
 

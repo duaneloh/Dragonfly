@@ -40,19 +40,17 @@ mean_count = 1000.
 model = data/intensities.bin
 photons = data/photons.emc
 
-# Here are the proposed new fields
 [make_densities]
 pdb = aux/4BED.pdb
 scatt_dir = aux/henke_table
-density_file = data/densityMap.bin
+out_density_file = data/densityMap.bin
 
 [make_intensities]
-density_file = data/densityMap.bin
-intensity_file = data/intensities.bin
+in_density_file = data/densityMap.bin
+out_intensity_file = data/intensities.bin
 
 [make_detector]
-detector = aux/det_sim.dat
-
+out_detector = aux/det_sim.dat
 
 [make_data]
 

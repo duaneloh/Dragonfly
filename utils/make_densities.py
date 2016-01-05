@@ -35,7 +35,7 @@ if __name__ == "__main__":
     lp_den      = process_pdb.low_pass_filter_density_map(den)
     timer.reset_and_report("Creating density map") if args.vb else timer.reset()
 
-    den_file    = os.path.join(args.main_dir, read_config.get_param(args.config_file, 'make_densities', "density_file"))
+    den_file    = os.path.join(args.main_dir, read_config.get_param(args.config_file, 'make_densities', "out_density_file"))
     py_utils.write_density(den_file, lp_den, binary=True)
     timer.reset_and_report("Writing densities to file") if args.vb else timer.reset()
 
