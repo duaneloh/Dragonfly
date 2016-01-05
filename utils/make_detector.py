@@ -14,7 +14,7 @@ if __name__ == "__main__":
     q_pm        = read_config.compute_q_params(pm['detd'], pm['detsize'], pm['pixsize'], pm['wavelength'], show=args.vb)
     timer.reset_and_report("Reading experiment parameters") if args.vb else timer.reset()
 
-    det_file    = os.path.join(args.main_dir, read_config.get_param(args.config_file, 'make_detector', "out_detector"))
+    det_file    = os.path.join(args.main_dir, read_config.get_param(args.config_file, 'make_detector', "out_detector_file"))
     fov_len     = int(np.ceil(q_pm['fov_in_A']/q_pm['half_p_res']) + 1)
 
     det_cen     = (pm['detsize']-1)/2.

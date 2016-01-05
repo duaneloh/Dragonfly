@@ -13,7 +13,7 @@ if __name__ == "__main__":
     args        = parser.special_parse_args()
 
     pm          = read_config.get_detector_config(args.config_file, show=args.vb)
-    pdb_file    = os.path.join(args.main_dir, read_config.get_param(args.config_file, 'make_densities', "pdb"))
+    pdb_file    = os.path.join(args.main_dir, read_config.get_param(args.config_file, 'make_densities', "in_pdb_file"))
     q_pm        = read_config.compute_q_params(pm['detd'], pm['detsize'], pm['pixsize'], pm['wavelength'], show=args.vb)
     timer.reset_and_report("Reading experiment parameters") if args.vb else timer.reset()
 
