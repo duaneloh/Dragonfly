@@ -31,8 +31,9 @@ def get_detector_config(config_file, show=False):
 def compute_q_params(det_dist, det_size, pix_size, in_wavelength, show=False, squareDetector=True):
     """
     Resolution computed in inverse Angstroms, crystallographer's convention
-    In millimeters: det_dist, det_size, pix_size
+    In millimeters: det_dist, pix_size
     In Angstroms:   in_wavelength
+    Unitless: det_size
 
     """
     det_max_half_len = pix_size * int((det_size-1)/2.)
