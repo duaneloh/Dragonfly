@@ -166,6 +166,7 @@ int setup(char *config_fname) {
 	FILE *fp ;
 	char line[999], *token ;
 	char det_fname[999], model_fname[999] ;
+	char out_det_fname[999], out_model_fname[999] ;
 	double detd, pixsize, qmax, qmin ;
 	int detsize ;
 	
@@ -210,8 +211,18 @@ int setup(char *config_fname) {
 			strcpy(model_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "in_detector_file") == 0)
 			strcpy(det_fname, strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "out_intensity_file") == 0)
+			strcpy(out_model_fname, strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "out_detector_file") == 0)
+			strcpy(out_det_fname, strtok(NULL, " =\n")) ;
 	}
 	fclose(fp) ;
+	
+	if (strcmp(model_fname, "make_intensities:::out_intensity_file") == 0)
+		strcpy(model_fname, out_model_fname) ;
+	if (strcmp(det_fname, "make_detector:::out_detector_file") == 0)
+		strcpy(det_fname, out_det_fname) ;
+	fprintf(stderr, "model: %s\ndet: %s\n", model_fname, det_fname) ;
 	
 	if (detsize == 0 || pixsize == 0. || detd == 0.) {
 		fprintf(stderr, "Need detector parameters, detd, detsize, pixsize\n") ;
