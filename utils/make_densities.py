@@ -8,7 +8,6 @@ from py_src import py_utils
 
 if __name__ == "__main__":
 
-    timer       = py_utils.my_timer()
     parser      = py_utils.my_argparser(description="make electron density")
     args        = parser.special_parse_args()
 
@@ -18,6 +17,7 @@ if __name__ == "__main__":
     to_write    = py_utils.check_to_overwrite(den_file)
 
     if to_write:
+        timer       = py_utils.my_timer()
         pm          = read_config.get_detector_config(args.config_file, show=args.vb)
         q_pm        = read_config.compute_q_params(pm['detd'], pm['detsize'], pm['pixsize'], pm['wavelength'], show=args.vb)
         timer.reset_and_report("Reading experiment parameters") if args.vb else timer.reset()

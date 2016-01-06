@@ -13,6 +13,10 @@ class my_timer(object):
         t1 = time.time()
         self.t0 = t1
 
+    def reset_global(self):
+        t1 = time.time()
+        self.ts = t1
+
     def reset_and_report(self, msg):
         t1 = time.time()
         print "{:-<30}:{:5.5f} seconds".format(msg, t1-self.t0)
@@ -72,7 +76,7 @@ def check_to_overwrite(fn):
     yes = set(['yes', 'y', '', 'yup', 'ya'])
     no  = set(['no', 'n', 'nope', 'nay', 'not'])
     if os.path.isfile(fn):
-        print fn + " is present. Overwrite? [Y/N]"
+        print fn + " is present. Overwrite? [Y or Return/N]"
         choice = raw_input().lower()
         if choice in yes:
             overwrite = True
