@@ -35,13 +35,12 @@ detector.dat
 
 The detector.dat file is an ASCII (human-readable) file.
  - The first line contains a single integer which is the number of pixels
- - From the second line on, there are 6 columns per line. Each line represents
+ - From the second line on, there are 5 columns per line. Each line represents
    information about a pixel. The pixel index in the rest of this package
    refers to the line number in this file.
  - The first three columns give the 3D reciprocal space coordinates of the pixel
    relative to the 3D intensity model.
- - The fourth column is a multiplicative factor for polarization and solid angle
-   corrections for the pixel.
+ - The fourth column is a multiplicative factor for solid angle correction for the pixel.
  - The fifth column is a mask value. There are three types of pixels:
  	- 0: Good pixels. Assumed to have accurate photon information and will be
 	  used to determine the orientation.
