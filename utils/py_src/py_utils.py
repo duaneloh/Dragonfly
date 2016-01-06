@@ -2,6 +2,7 @@ import numpy as np
 import time
 import argparse
 import os
+import sys
 
 class my_timer(object):
     def __init__(self):
@@ -65,3 +66,21 @@ def read_density(in_den_file, binary=True):
         l       = int(np.power(sz, 1./3.))
         out_den = den.reshape(l,l,l)
     return out_den
+
+def check_to_overwrite(fn):
+    overwrite = True
+    yes = set(['yes', 'y', '', 'yup', 'ya'])
+    no  = set(['no', 'n', 'nope', 'nay', 'not'])
+    if os.path.isfile(fn):
+        print fn + " is present. Overwrite? [Y/N]"
+        choice = raw_input().lower()
+        if choice in yes:
+            overwrite = True
+            print "Overwriting " + fn
+        elif choice in no:
+            overwrite = False
+            print "Not overwriting " + fn
+        else:
+            sys.stdout.write("Please respond with 'yes' or 'no'")
+            overwrite = False
+    return overwrite
