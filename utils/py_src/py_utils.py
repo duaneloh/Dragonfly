@@ -30,7 +30,9 @@ class my_argparser(argparse.ArgumentParser):
 
     def special_parse_args(self):
         args = self.parse_args()
-        args.main_dir = args.main_dir if args.main_dir else os.path.dirname(args.config_file)
+        if not args.main_dir:
+            args.main_dir = os.path.split(os.path.abspath(args.config_file))[0]
+            print "Main directory not specified, using " + args.main_dir
         return args
 
 def write_density(in_den_file, in_den, binary=True):
