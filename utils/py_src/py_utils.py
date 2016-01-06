@@ -24,15 +24,18 @@ class my_timer(object):
 class my_argparser(argparse.ArgumentParser):
     def __init__(self, description=""):
         argparse.ArgumentParser.__init__(self, description=description)
-        self.add_argument("-c", "--config_file", dest="config_file", default="../config.ini")
+        self.add_argument("-c", "--config_file", dest="config_file")
         self.add_argument("-v", "--verbose", dest="vb", action="store_true", default=False)
         self.add_argument("-m", "--main_dir", dest="main_dir", help="relative path to main repository directory\n(where data aux utils are stored)")
 
     def special_parse_args(self):
         args = self.parse_args()
+        if not args.config_file:
+            args.config_file = "../config.ini"
+            print "Config file not specified. Using " + args.config_file
         if not args.main_dir:
             args.main_dir = os.path.split(os.path.abspath(args.config_file))[0]
-            print "Main directory not specified, using " + args.main_dir
+            print "Main directory not specified. Using " + args.main_dir
         return args
 
 def write_density(in_den_file, in_den, binary=True):

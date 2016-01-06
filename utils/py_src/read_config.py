@@ -7,6 +7,13 @@ def get_param(config_file, section, tag):
     config.read(config_file)
     return config.get(section, tag)
 
+def get_filename(config_file, section, tag):
+    param   = get_param(config_file, section, tag)
+    if ":::" in param:
+        [s, t] = param.split(":::")
+        param = get_param(config_file, s,t)
+    return param
+
 def get_detector_config(config_file, show=False):
     config      = ConfigParser.ConfigParser()
     config.read(config_file)
