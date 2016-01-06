@@ -74,12 +74,10 @@ def read_symmetry(pdb_file):
     """
     sym_list = []
     trans_list = []
-    num_sym = 0
     with open(pdb_file) as fin:
         for line in fin:
             line = line.strip()
             if (line[13:18] == "BIOMT"):
-                num_sym += 1
                 sym_list.append([float(line[24:33]), float(line[34:43]), float(line[44:53])])
                 trans_list.append(float(line[58:68]))
     sym_arr     = np.asarray(sym_list).reshape(-1,3,3)
@@ -132,7 +130,4 @@ def low_pass_filter_density_map(in_arr, damping=-1., thr=1.E-3, num_cycles=2):
         ft = fil*np.fft.fftn(out_arr)
         out_arr = np.real(np.fft.ifftn(ft))
         out_arr *= (out_arr > thr)
-    # contrast = np.zeros((fov_len, fov_len, fov_len))
-    # contrast[:xl,:yl,:zl] = out_arr.copy()
-    # return contrast
     return out_arr.copy()
