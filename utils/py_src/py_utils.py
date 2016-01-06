@@ -67,7 +67,7 @@ def read_density(in_den_file, binary=True):
                 den.append([float(s) for s in l.strip().split()])
             den     = np.array(den)
         sz      = len(den)
-        l       = int(np.power(sz, 1./3.))
+        l       = int(np.round(np.power(sz, 1./2.)))
         out_den = den.reshape(l,l,l)
     return out_den
 
