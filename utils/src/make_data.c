@@ -21,7 +21,7 @@ double *intens, *det, *view ;
 char output_fname[999] ;
 uint8_t *mask ;
 
-int setup() ;
+int setup(char *) ;
 void rand_quat(double[4], gsl_rng*) ;
 int poisson(double, gsl_rng*) ;
 double rand_scale() ;

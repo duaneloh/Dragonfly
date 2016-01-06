@@ -34,7 +34,7 @@ struct q_point{
 	double weight ;
 } ;
 
-void print_quat() ;
+void print_quat(char*) ;
 void free_mem() ;
 
 double (*quat)[5] ;
