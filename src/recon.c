@@ -14,12 +14,16 @@ int main(int argc, char *argv[]) {
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank) ;
 	
 	if (argc < 3) {
-		fprintf(stderr, "Format: recon <iter> <num_threads>\n") ;
+		fprintf(stderr, "Format: %s <iter> <config_fname>\n", argv[0]) ;
 		MPI_Finalize() ;
 		return 1 ;
 	}
 	num_iter = atoi(argv[1]) ;
-	omp_set_num_threads(atoi(argv[2])) ;
+	
+	if (argc > 3)
+		omp_set_num_threads(atoi(argv[3])) ;
+	else
+		omp_set_num_threads(omp_get_max_threads()) ;
 	
 	if (argc > 3) {
 		continue_flag = 1 ;
@@ -42,7 +46,7 @@ int main(int argc, char *argv[]) {
 	
 	gettimeofday(&t1, NULL) ;
 	
-	if (setup()) {
+	if (setup(argv[2])) {
 		MPI_Finalize() ;
 		return 1 ;
 	}
@@ -50,12 +54,22 @@ int main(int argc, char *argv[]) {
 	if (!rank && !continue_flag) {
 		fp = fopen(log_fname, "w") ;
 		fprintf(fp, "Cryptotomography with the EMC algorithm using MPI+OpenMP\n\n") ;
-		fprintf(fp, "Data parameters:\n\tnum_data = %d\n\tmean_count = %f\n\n", 
-		        tot_num_data, tot_mean_count) ;
-		fprintf(fp, "System size:\n\tnum_rot = %d\n\tnum_pix = %d/%d\n\tsystem_volume = %d X %d X %d\n\n", 
-		        num_rot, rel_num_pix, num_pix, size, size, size) ;
-		fprintf(fp, "Reconstruction parameters:\n\tnum_threads = %d\n\tnum_proc = %d\n\talpha = %.2f", 
-		        atoi(argv[2]), num_proc, alpha) ;
+		fprintf(fp, "Data parameters:\n") ;
+		fprintf(fp, "\tnum_data = %d\n\tmean_count = %f\n\n", 
+		        tot_num_data, 
+		        tot_mean_count) ;
+		fprintf(fp, "System size:\n") ;
+		fprintf(fp, "\tnum_rot = %d\n\tnum_pix = %d/%d\n\tsystem_volume = %d X %d X %d\n\n", 
+		        num_rot, 
+		        rel_num_pix, num_pix, 
+		        size, size, size) ;
+		fprintf(fp, "Reconstruction parameters:\n") ;
+		fprintf(fp, "\tnum_threads = %d\n\tnum_proc = %d\n\talpha = %.2f\n\tbeta = %.2f\n\tneed_scaling = %s", 
+		        argc>3?atoi(argv[3]):omp_get_max_threads(), 
+		        num_proc, 
+		        alpha, 
+		        beta, 
+		        need_scaling?"yes":"no") ;
 		fprintf(fp, "\n\nIteration\titer_time\trms_change\tinfo_rate\tlog-likelihood\n") ;
 		fclose(fp) ;
 	}

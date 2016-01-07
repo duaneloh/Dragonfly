@@ -160,8 +160,8 @@ double maximize() {
 				curr = curr->next ;
 			}
 			
-//			if ((num_rot_shift + r)%100000 == 0)
-//				fprintf(stderr, "\t\tFinished r = %d\n", num_rot_shift + r) ;
+			if ((num_rot_shift + r)%1000 == 0)
+				fprintf(stderr, "\t\tFinished r = %d\n", num_rot_shift + r) ;
 		}
 		
 		if (rank == 0 && omp_rank == 0) {
@@ -366,7 +366,7 @@ double maximize() {
 		
 		if (rank == 0) {
 			char fname[100] ;
-			sprintf(fname, "phi/phi%.3d.dat", iteration) ;
+			sprintf(fname, "%s/scale/scale%.3d.dat", output_folder, iteration) ;
 			FILE *fp_scale = fopen(fname, "w") ;
 			for (d = 0 ; d < tot_num_data ; ++d)
 			if (!blacklist[d])

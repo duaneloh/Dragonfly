@@ -7,7 +7,7 @@ int parse_det(char *fname) {
 	
 	FILE *fp = fopen(fname, "r") ;
 	if (fp == NULL) {
-		fprintf(stderr, "pixel_fname %s not found. Exiting...1\n", fname) ;
+		fprintf(stderr, "det_fname %s not found. Exiting...1\n", fname) ;
 		return 1 ;
 	}
 	fscanf(fp, "%d", &num_pix) ;
@@ -79,7 +79,11 @@ int parse_dataset(char *fname, struct dataset *current) {
 	}
 	
 	fread(&(current->num_data), sizeof(int), 1, fp) ;
-	fread(&(current->mean_count), sizeof(double) , 1, fp) ;
+	fread(&(current->num_pix), sizeof(int) , 1, fp) ;
+	if (current->num_pix != num_pix)
+		fprintf(stderr, "WARNING! The detector file and photons file %s do not"
+		                "have the same number of pixels\n", current->filename) ;
+	fseek(fp, 1016, SEEK_CUR) ;
 	
 	current->ones = malloc(current->num_data * sizeof(int)) ;
 	current->multi = malloc(current->num_data * sizeof(int)) ;
@@ -100,7 +104,7 @@ int parse_dataset(char *fname, struct dataset *current) {
 	
 	fclose(fp) ;
 	
-	// Correct mean count in the presence of mask
+	// Calculate mean count in the presence of mask
 	long t, ones_counter = 0, multi_counter = 0 ;
 	current->mean_count = 0. ;
 	for (d = 0 ; d < current->num_data ; ++d) {
@@ -203,6 +207,8 @@ void calc_scale() {
 	struct dataset *curr ;
 	curr = frames ;
 	double inner_mean_count = 0. ;
+	FILE *fp ;
+	char fname[999] ;
 	
 	scale = calloc(tot_num_data, sizeof(double)) ;
 	count = calloc(tot_num_data, sizeof(int)) ;
@@ -238,7 +244,8 @@ void calc_scale() {
 	for (d = 0 ; d < tot_num_data ; ++d)
 		scale[d] /= inner_mean_count ;
 	
-	FILE *fp = fopen("phi/phi000.dat", "w") ;
+	sprintf(fname, "%s/scale/scale000.dat", output_folder) ;
+	fp = fopen(fname, "w") ;
 	for (d = 0 ; d < tot_num_data ; ++d)
 		fprintf(fp, "%.6e\n", scale[d]) ;
 	fclose(fp) ;
@@ -314,20 +321,29 @@ void parse_scale(char *fname) {
 	}
 }
 
-int setup() {
+int setup(char *config_fname) {
 	FILE *fp ;
-	char pixel_fname[999], quat_fname[999] ;
+	char det_fname[999], quat_fname[999] ;
 	char data_flist[999], input_fname[999] ;
 	char scale_fname[999], blacklist_fname[999] ;
+	char data_fname[999], out_data_fname[999] ;
+	char out_det_fname[999], out_quat_fname[999] ;
+	double qmax, qmin, detd, pixsize ;
+	int detsize ;
 	
 	known_scale = 0 ;
 	strcpy(log_fname, "RECON.log") ;
 	strcpy(output_folder, "data/") ;
+	data_flist[0] = '\0' ;
+	data_fname[0] = '\0' ;
+	detd = 0. ;
+	pixsize = 0. ;
+	detsize = 0 ;
 	
 	char line[999], *token ;
-	fp = fopen("config.ini", "r") ;
+	fp = fopen(config_fname, "r") ;
 	if (fp == NULL) {
-		fprintf(stderr, "Config file config.ini not found.\n") ;
+		fprintf(stderr, "Config file %s not found.\n", config_fname) ;
 		return 1 ;
 	}
 	while (fgets(line, 999, fp) != NULL) {
@@ -335,42 +351,86 @@ int setup() {
 		if (token[0] == '#' || token[0] == '\n' || token[0] == '[')
 			continue ;
 		
-		if (strcmp(token, "size") == 0)
-			size = atoi(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "center") == 0)
-			center = atoi(strtok(NULL, " =\n")) ;
+		if (strcmp(token, "detd") == 0)
+			detd = atof(strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "detsize") == 0)
+			detsize = atoi(strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "pixsize") == 0)
+			pixsize = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "need_scaling") == 0)
 			need_scaling = atoi(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "alpha") == 0)
 			alpha = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "beta") == 0)
 			beta = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "data") == 0)
+		else if (strcmp(token, "in_photons_file") == 0)
+			strcpy(data_fname, strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "out_photons_file") == 0)
+			strcpy(out_data_fname, strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "in_photons_list") == 0)
 			strcpy(data_flist, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "output_folder") == 0)
 			strcpy(output_folder, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "log") == 0)
+		else if (strcmp(token, "log_file") == 0)
 			strcpy(log_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "input") == 0)
+		else if (strcmp(token, "start_model_file") == 0)
 			strcpy(input_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "detector") == 0)
-			strcpy(pixel_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "quaternion") == 0)
+		else if (strcmp(token, "in_detector_file") == 0)
+			strcpy(det_fname, strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "in_quat_file") == 0)
 			strcpy(quat_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "blacklist") == 0)
+		else if (strcmp(token, "out_detector_file") == 0)
+			strcpy(out_det_fname, strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "out_quat_file") == 0)
+			strcpy(out_quat_fname, strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "blacklist_file") == 0)
 			strcpy(blacklist_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "scale") == 0)
+		else if (strcmp(token, "scale_file") == 0)
 			strcpy(scale_fname, strtok(NULL, " =\n")) ;
 	}
 	fclose(fp) ;
-	fprintf(stderr, "Parsed config.ini\n") ;
+	fprintf(stderr, "Parsed config file\n") ;
 	
-	if (parse_det(pixel_fname))
+	if (strcmp(quat_fname, "make_quaternion:::out_quat_file") == 0)
+		strcpy(quat_fname, out_quat_fname) ;
+	if (strcmp(det_fname, "make_detector:::out_detector_file") == 0)
+		strcpy(det_fname, out_det_fname) ;
+	if (strcmp(data_fname, "make_data:::out_photons_file") == 0)
+		strcpy(data_fname, out_data_fname) ;
+	
+	if (detsize == 0 || pixsize == 0. || detd == 0.) {
+		fprintf(stderr, "Need detector parameters, detd, detsize, pixsize\n") ;
 		return 1 ;
+	}
+	
+	qmax = 2. * sin(0.5 * atan(detsize*pixsize/detd)) ;
+	qmin = 2. * sin(0.5 * atan(pixsize/detd)) ;
+	size = ceil(2. * qmax / qmin) + 1 ;
+	center = size / 2 ;
+	fprintf(stderr, "size = %d, center = %d\n", size, center) ;
+	
+	if (parse_det(det_fname))
+		return 1 ;
+	
 	if (parse_quat(quat_fname))
 		return 1 ;
-	if (parse_data(data_flist))
+	
+	if (data_flist[0] != '\0' && data_fname[0] != '\0') {
+		fprintf(stderr, "Config file contains both in_photons_file and in_photons_list. Pick one.\n") ;
 		return 1 ;
+	}
+	else if (data_flist[0] == '\0') {
+		frames = malloc(sizeof(struct dataset)) ;
+		frames->next = NULL ;
+		if (parse_dataset(data_fname, frames))
+			return 1 ;
+		tot_num_data = frames->num_data ;
+		tot_mean_count = frames->mean_count ;
+	}
+	else if (parse_data(data_flist))
+		return 1 ;
+	fprintf(stderr, "Parsed data\n") ;
+	
 	if (need_scaling) {
 		calc_scale() ;
 		parse_scale(scale_fname) ;

@@ -30,7 +30,7 @@ uint8_t *blacklist ;
 int num_blacklist ;
 
 struct dataset {
-	int num_data ;
+	int num_data, num_pix ;
 	long ones_total, multi_total ;
 	double mean_count ;
 	int *ones, *multi, *place_ones, *place_multi, *count_multi ;
@@ -47,7 +47,7 @@ uint8_t *mask ;
 char output_folder[999], log_fname[999] ;
 
 // setup.c
-int setup() ;
+int setup(char*) ;
 void free_mem() ;
 
 // max.c
