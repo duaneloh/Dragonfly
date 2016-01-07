@@ -24,8 +24,8 @@ class Plotter:
         self.ifcheck = Tk.IntVar()
         self.iter = Tk.IntVar()
         
-        self.fname.set('data/output001.bin')
-        self.logfname.set('RECON.log')
+        self.fname.set('data/output/intens_001.bin')
+        self.logfname.set('EMC.log')
         self.imagename.set('images/' + os.path.splitext(os.path.basename(self.fname.get()))[0] + '.png')
         self.image_exists = False
         self.rangestr.set(str(2.5))
@@ -205,7 +205,7 @@ class Plotter:
             iter = 0
         
         if iter > 0 and self.max_iter != iter:
-            self.fname.set('data/output%.3d.bin' % iter)
+            self.fname.set('data/output/intens_%.3d.bin' % iter)
             self.max_iter = iter
             self.slider.configure(to=self.max_iter)
             self.iter.set(iter)
@@ -253,6 +253,6 @@ class Plotter:
         self.master.quit()
 
 root = Tk.Tk()
-plotter = Plotter(root, 99)
+plotter = Plotter(root, 127)
 root.mainloop()
 

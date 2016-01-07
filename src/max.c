@@ -160,8 +160,8 @@ double maximize() {
 				curr = curr->next ;
 			}
 			
-			if ((num_rot_shift + r)%1000 == 0)
-				fprintf(stderr, "\t\tFinished r = %d\n", num_rot_shift + r) ;
+//			if ((num_rot_shift + r)%1000 == 0)
+//				fprintf(stderr, "\t\tFinished r = %d\n", num_rot_shift + r) ;
 		}
 		
 		if (rank == 0 && omp_rank == 0) {
