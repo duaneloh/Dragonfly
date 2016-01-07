@@ -228,7 +228,7 @@ int setup(char *config_fname) {
 		return 1 ;
 	}
 	
-	qmax = 2. * sin(0.5 * atan(detsize*pixsize/detd)) ;
+	qmax = 2. * sin(0.5 * atan(sqrt(2.)*((detsize-1)/2)*pixsize/detd)) ;
 	qmin = 2. * sin(0.5 * atan(pixsize/detd)) ;
 	size = ceil(2. * qmax / qmin) + 1 ;
 	center = size / 2 ;
