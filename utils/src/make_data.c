@@ -193,7 +193,7 @@ int setup(char *config_fname) {
 		
 		if (strcmp(token, "num_data") == 0)
 			num_data = atoi(strtok(NULL, " =\n")) ;
-		if (strcmp(token, "detd") == 0)
+		else if (strcmp(token, "detd") == 0)
 			detd = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "detsize") == 0)
 			detsize = atoi(strtok(NULL, " =\n")) ;
@@ -222,7 +222,6 @@ int setup(char *config_fname) {
 		strcpy(model_fname, out_model_fname) ;
 	if (strcmp(det_fname, "make_detector:::out_detector_file") == 0)
 		strcpy(det_fname, out_det_fname) ;
-	fprintf(stderr, "model: %s\ndet: %s\n", model_fname, det_fname) ;
 	
 	if (detsize == 0 || pixsize == 0. || detd == 0.) {
 		fprintf(stderr, "Need detector parameters, detd, detsize, pixsize\n") ;
