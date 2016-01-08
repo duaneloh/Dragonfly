@@ -1,5 +1,6 @@
 import numpy as np
 import time
+import ConfigParser
 import argparse
 import os
 import sys
@@ -36,7 +37,7 @@ class my_argparser(argparse.ArgumentParser):
     def special_parse_args(self):
         args = self.parse_args()
         if not args.config_file:
-            args.config_file = "../config.ini"
+            args.config_file = "config.ini"
             print "Config file not specified. Using " + args.config_file
         if not args.main_dir:
             args.main_dir = os.path.split(os.path.abspath(args.config_file))[0]
@@ -88,3 +89,32 @@ def check_to_overwrite(fn):
             sys.stdout.write("Please respond with 'yes' or 'no'")
             overwrite = False
     return overwrite
+
+def name_recon_dir(tag, num):
+    #return "{}_{:04}".format(tag, num)
+    return "%s_%04d"%(tag, num)
+
+def create_new_recon_dir(tag="recon", num=1):
+    recon_dir = name_recon_dir(tag, num)
+    while(os.path.exists(recon_dir)):
+        num += 1
+        recon_dir = name_recon_dir(tag, num)
+    os.mkdir(recon_dir)
+    sub_dir = {"data":["scale", "orientations", "mutualInfo", "weights", "output"], "images":[]}
+    for k,v in sub_dir.items():
+        os.mkdir(os.path.join(recon_dir, k))
+        if len(v) > 0:
+            for vv in v:
+                os.mkdir(os.path.join(recon_dir, k, vv))
+    return recon_dir
+
+def name_quat_file_sensibly(config_fname):
+    config = ConfigParser.ConfigParser()
+    config.read(config_fname)
+
+    quat_num_div = int(config.get("make_quaternion", "num_div"))
+    quat_fname  = os.path.join("aux", "quat_%03d.dat"%quat_num_div)
+    config.set("make_quaternion", "out_quat_file", quat_fname)
+
+    with open("config.ini", "w") as fp:
+        config.write(fp)
