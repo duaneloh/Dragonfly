@@ -26,7 +26,8 @@ def get_detector_config(config_file, show=False):
     params['polarization'] = config.get('parameters', 'polarization')
     if show:
         for k,v in params.items():
-            print '{:<15}:{:10.4f}'.format(k, v)
+            #print '{:<15}:{:10.4f}'.format(k, v)
+            print '{:<15}:{:>10}'.format(k, v)
     return params
 
 def compute_q_params(det_dist, det_size, pix_size, in_wavelength, show=False, squareDetector=True):
@@ -62,9 +63,11 @@ def compute_q_params(det_dist, det_size, pix_size, in_wavelength, show=False, sq
     return params
 
 def compute_polarization(polarization, qx, qy, norm):
-    if polarization == 'x':
-        return 1 - (qx*qx)/(norm*norm)
-    elif polarization == 'y':
-        return 1 - (qy*qy)/(norm*norm)
+    if polarization.lower() == 'x':
+        return 1. - (qx*qx)/(norm*norm)
+    elif polarization.lower() == 'y':
+        return 1. - (qy*qy)/(norm*norm)
+    elif polarization.lower() == 'none':
+        return 1.
     else:
-        print 'Please set the polarization direction as either x or y!'
+        print 'Please set the polarization direction as x, y or none!'
