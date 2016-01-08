@@ -291,9 +291,9 @@ int setup(char *config_fname) {
 	place_multi = malloc(num_data * sizeof(int*)) ;
 	count_multi = malloc(num_data * sizeof(int*)) ;
 	for (d = 0 ; d < num_data ; ++d) {
-		place_ones[d] = malloc(5 * mean_count * (1+spread) * sizeof(int)) ;
-		place_multi[d] = malloc(mean_count * (1+spread) * sizeof(int)) ;
-		count_multi[d] = malloc(mean_count * (1+spread) * sizeof(int)) ;
+		place_ones[d] = malloc((long) 5 * mean_count * (1+spread) * sizeof(int)) ;
+		place_multi[d] = malloc((long) mean_count * (1+spread) * sizeof(int)) ;
+		count_multi[d] = malloc((long) mean_count * (1+spread) * sizeof(int)) ;
 	}
 	
 	return 0 ;
@@ -367,13 +367,11 @@ void make_rot_quat(double *quaternion, double rot[3][3]) {
 }
 
 void slice_gen(double *quaternion, double slice[], double model3d[], double detector[]) {
-	int t, i, j, x, y, z, lb, hb ;
+	int t, i, j, x, y, z ;
 	double tx, ty, tz, fx, fy, fz, cx, cy, cz ;
 	double rot_pix[3], rot[3][3] = {{0}} ;
 	
 	make_rot_quat(quaternion, rot) ;
-    lb = 2*(size/2)-(size-1) ;
-    hb = size-1 ;
 	
 	for (t = 0 ; t < num_pix ; ++t) {
 		for (i = 0 ; i < 3 ; ++i) {
@@ -387,7 +385,7 @@ void slice_gen(double *quaternion, double slice[], double model3d[], double dete
 		ty = rot_pix[1] ;
 		tz = rot_pix[2] ;
 		
-		if (tx < lb || tx >= hb || ty < lb || ty >= hb || tz < lb || tz >= hb) {
+		if (tx < 0 || tx > size-2 || ty < 0 || ty > size-2 || tz < 0 || tz > size-2) {
 			slice[t] = 1.e-10 ;
 			continue ;
 		}
