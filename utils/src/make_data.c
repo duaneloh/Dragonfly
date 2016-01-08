@@ -72,11 +72,14 @@ int main(int argc, char *argv[]) {
 		for (d = 0 ; d < NUM_AVE ; ++d) {
 			rand_quat(quat, rng) ;
 			slice_gen(quat, view, intens, det) ;
-			
-			for (t = 0 ; t < num_pix ; ++t)
+            
+			for (t = 0 ; t < num_pix ; ++t){
+				if (mask[t] > 1)
+					continue ;
 				intens_ave += view[t] ;
+            }
 		}
-		
+
 		free(view) ;
 		gsl_rng_free(rng) ;
 	}
@@ -125,7 +128,7 @@ int main(int argc, char *argv[]) {
 			}
 			
 			actual_mean_count += ones[d] ;
-//			if (d % 100 == 0)
+
 			if (rank == 0)
 				fprintf(stderr, "\rFinished d = %d", d) ;
 		}
@@ -155,7 +158,7 @@ int main(int argc, char *argv[]) {
 	gettimeofday(&t2, NULL) ;
 	fprintf(stderr, "Generated %d frames with %f photons/frame\n", num_data, actual_mean_count) ;
 	fprintf(stderr, "Time taken = %f s\n", (double)(t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.) ;
-	
+
 	free_mem() ;
 	
 	return 0 ;
@@ -224,7 +227,7 @@ int setup(char *config_fname) {
 		strcpy(det_fname, out_det_fname) ;
 	
 	if (detsize == 0 || pixsize == 0. || detd == 0.) {
-		fprintf(stderr, "Need detector parameters, detd, detsize, pixsize\n") ;
+		fprintf(stderr, "Need detector parameters: detd, detsize, pixsize\n") ;
 		return 1 ;
 	}
 	
@@ -364,11 +367,13 @@ void make_rot_quat(double *quaternion, double rot[3][3]) {
 }
 
 void slice_gen(double *quaternion, double slice[], double model3d[], double detector[]) {
-	int t, i, j, x, y, z ;
+	int t, i, j, x, y, z, lb, hb ;
 	double tx, ty, tz, fx, fy, fz, cx, cy, cz ;
 	double rot_pix[3], rot[3][3] = {{0}} ;
 	
 	make_rot_quat(quaternion, rot) ;
+    lb = 2*(size/2)-(size-1) ;
+    hb = size-1 ;
 	
 	for (t = 0 ; t < num_pix ; ++t) {
 		for (i = 0 ; i < 3 ; ++i) {
@@ -382,7 +387,7 @@ void slice_gen(double *quaternion, double slice[], double model3d[], double dete
 		ty = rot_pix[1] ;
 		tz = rot_pix[2] ;
 		
-		if (tx < 0 || tx > size-2 || ty < 0 || ty > size-2 || tz < 0 || tz > size-2) {
+		if (tx < lb || tx >= hb || ty < lb || ty >= hb || tz < lb || tz >= hb) {
 			slice[t] = 1.e-10 ;
 			continue ;
 		}
