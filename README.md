@@ -40,7 +40,7 @@ The detector.dat file is an ASCII (human-readable) file.
    refers to the line number in this file.
  - The first three columns give the 3D reciprocal space coordinates of the pixel
    relative to the 3D intensity model.
- - The fourth column is a multiplicative factor for solid angle correction for the pixel.
+ - The fourth column is a multiplicative factor for solid angle and polarization (x or y direction) corrections for the pixel.
  - The fifth column is a mask value. There are three types of pixels:
  	- 0: Good pixels. Assumed to have accurate photon information and will be
 	  used to determine the orientation.

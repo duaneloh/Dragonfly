@@ -26,9 +26,11 @@ if __name__ == "__main__":
         (x, y)      = (x.flatten()-det_cen, y.flatten()-det_cen)
         (qx, qy)    = (pm['pixsize']*x, pm['pixsize']*y)
         norm        = np.sqrt(qx*qx + qy*qy + pm['detd']*pm['detd'])
+        polar       = read_config.compute_polarization(pm['polarization'], qx, qy, norm)
         (qx, qy)    = (qx*qscaling/norm, qy*qscaling/norm)
         qz          = qscaling*(pm['detd']/norm - 1.)
         solid_angle = pm['detd']*(pm['pixsize']*pm['pixsize']) / np.power(norm, 3.0)
+        solid_angle = polar*solid_angle
         val_zero    = np.zeros_like(solid_angle)
         val_one     = np.ones_like(solid_angle)
         r           = np.sqrt(x*x + y*y)

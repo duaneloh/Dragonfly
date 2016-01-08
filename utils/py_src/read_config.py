@@ -18,11 +18,12 @@ def get_detector_config(config_file, show=False):
     config      = ConfigParser.ConfigParser()
     config.read(config_file)
     params      = OrderedDict()
-    params['wavelength']  = config.getfloat('parameters', 'lambda')
-    params['detd']        = config.getfloat('parameters', 'detd')
-    params['detsize']     = config.getint('parameters', 'detsize')
-    params['pixsize']     = config.getfloat('parameters', 'pixsize')
-    params['stoprad']     = config.getfloat('parameters', 'stoprad')
+    params['wavelength']   = config.getfloat('parameters', 'lambda')
+    params['detd']         = config.getfloat('parameters', 'detd')
+    params['detsize']      = config.getint('parameters', 'detsize')
+    params['pixsize']      = config.getfloat('parameters', 'pixsize')
+    params['stoprad']      = config.getfloat('parameters', 'stoprad')
+    params['polarization'] = config.get('parameters', 'polarization')
     if show:
         for k,v in params.items():
             print '{:<15}:{:10.4f}'.format(k, v)
@@ -59,3 +60,11 @@ def compute_q_params(det_dist, det_size, pix_size, in_wavelength, show=False, sq
             print '{:<15}:{:10.4f}'.format(k, v)
         print '{:<15}:{:10.4f}'.format("voxel-length of reciprocal volume", fov_in_A/half_p_res)
     return params
+
+def compute_polarization(polarization, qx, qy, norm):
+    if polarization == 'x':
+        return 1 - (qx*qx)/(norm*norm)
+    elif polarization == 'y':
+        return 1 - (qy*qy)/(norm*norm)
+    else:
+        print 'Please set the polarization direction as either x or y!'
