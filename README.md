@@ -35,8 +35,8 @@ Again, you can get help to customize this using the command:
 You can start a single process reconstruction in the recon directory this way:
 	```
 	./emc <num_iterations> <path to config file> [threads per process]
-	```.
-where <necessary arguments> and [optional arguments]. The default number of threads per process is defined by system parameter OMP_NUM_THREADS.
+	```,
+where ```<necessary arguments>``` and ```[optional arguments]```. The default number of threads per process is defined by system parameter OMP_NUM_THREADS.
 By default, the intermediate output of the reconstruction is stored in the recon directory's data subdirectory.
 
 To spawn multiple MPI reconstructions from your recon directory:
