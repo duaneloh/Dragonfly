@@ -2,11 +2,11 @@
 ### Spawn a reconstruction directory
 Type in the topmost directory:
 	```
-	./setup_new_recon.py
+	./init_new_recon.py
 	```.
 This makes the binaries needed for the package and links them into a new reconstruction directory named "recon_xxxx". For help on customizing this setup script (e.g. custom folder name or counter):
 	```
-	./setup_new_recon.py -h
+	./init_new_recon.py -h
 	```.
 
 ### Configure experiment
