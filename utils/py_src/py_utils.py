@@ -99,6 +99,7 @@ def create_new_recon_dir(tag="recon", num=1):
     while(os.path.exists(recon_dir)):
         num += 1
         recon_dir = name_recon_dir(tag, num)
+    print 'New recon directory created with name:', recon_dir
     os.mkdir(recon_dir)
     sub_dir = {"data":["scale", "orientations", "mutualInfo", "weights", "output"], "images":[]}
     for k,v in sub_dir.items():
