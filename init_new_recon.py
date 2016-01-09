@@ -28,7 +28,14 @@ if __name__ == "__main__":
     os.system("make")
     (relD, ln_dirs,) = ("../", ["aux", "emc"])
     (relC, copies,) = ("../", ["config.ini"])
-    (relU, ln_utils,) = ("../utils", ["sim_setup.py", "make_densities.py", "make_intensities.py", "make_detector.py", "make_data", "make_quaternion", "autoplot.py"])
+    (relU, ln_utils,) = ("../utils", ["sim_setup.py",
+                                      "make_densities.py",
+                                      "make_intensities.py",
+                                      "make_detector.py",
+                                      "make_data",
+                                      "make_quaternion",
+                                      "autoplot.py",
+                                      "powder.py"])
 
     os.chdir(new_recon_dir)
     for ld in ln_dirs:
