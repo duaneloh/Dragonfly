@@ -3,7 +3,7 @@ CC=gcc
 CFLAGS = -Wno-unused-result -O3 -Wall -fopenmp
 #CFLAGS = -O3 -Wall -fopenmp 
 #LIBS = -lm -lhdf5 -lgsl -lgslcblas -lfftw3 -fopenmp
-LIBS = -lm -lgsl -lgslcblas -lfftw3 -fopenmp
+LIBS = -lm -lgsl -lgslcblas -fopenmp
 
 src = $(wildcard src/*.c)
 obj = $(patsubst src/%.c, bin/%.o, $(src))

@@ -253,5 +253,5 @@ class Plotter:
         self.master.quit()
 
 root = Tk.Tk()
-plotter = Plotter(root, 89)
+plotter = Plotter(root, 140)
 root.mainloop()
