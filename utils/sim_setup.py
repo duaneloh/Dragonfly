@@ -18,17 +18,19 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.make_quat_only:
-        args.skip_densities = True
-        args.skip_detector = True
-        args.skip_intensities = True
-        args.skip_data = True
+        args.skip_densities     = True
+        args.skip_detector      = True
+        args.skip_intensities   = True
+        args.skip_data          = True
     elif args.make_data_only:
-        args.skip_densities = True
-        args.skip_detector = True
-        args.skip_intensities = True
+        args.skip_densities     = True
+        args.skip_detector      = True
+        args.skip_intensities   = True
+        args.skip_data          = False
     else:
         print "Going with the default full workflow"
 
+    # Sequentially step through the simulation workflow
     if not args.skip_densities:
         cmd = "./make_densities.py -c " + args.config_file + " -v"
         print 80*"=" + "\n" + cmd
