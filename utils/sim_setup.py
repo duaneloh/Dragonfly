@@ -7,6 +7,7 @@ from py_src import py_utils
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Creates new reconstruction instance based on template in this folder")
+    parser.add_argument("-Q", "--make_quat_only", dest="make_quat_only", action="store_true", default=False)
     parser.add_argument("-D", "--make_data_only", dest="make_data_only", action="store_true", default=False)
     parser.add_argument("-c", "--config_file", dest="config_file", default="config.ini")
     parser.add_argument("--skip_densities", dest="skip_densities", action="store_true", default=False)
@@ -16,10 +17,17 @@ if __name__ == "__main__":
     parser.add_argument("--skip_quat", dest="skip_quat", action="store_true", default=False)
     args = parser.parse_args()
 
-    if args.make_data_only:
+    if args.make_quat_only:
         args.skip_densities = True
         args.skip_detector = True
         args.skip_intensities = True
+        args.skip_data = True
+    elif args.make_data_only:
+        args.skip_densities = True
+        args.skip_detector = True
+        args.skip_intensities = True
+    else:
+        print "Going with the default full workflow"
 
     if not args.skip_densities:
         cmd = "./make_densities.py -c " + args.config_file + " -v"
