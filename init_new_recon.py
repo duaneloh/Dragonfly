@@ -34,6 +34,7 @@ if __name__ == "__main__":
                                       "make_detector.py",
                                       "make_data",
                                       "make_quaternion",
+                                      "run_emc.py",
                                       "autoplot.py",
                                       "powder.py"])
 
