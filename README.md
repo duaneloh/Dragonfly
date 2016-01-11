@@ -33,7 +33,7 @@ Again, you can get help to customize this using the command:
 
 ### Start your EMC reconstruction
 ***You can use the convenience script ```run_emc.py``` that we provided to start the reconstruction:***
-To start off, 
+Typing 
 	```
 	./run_emc.py
 	```,
