@@ -13,6 +13,8 @@ if __name__ == "__main__":
     logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s -%(message)s')
     parser      = py_utils.my_argparser(description="make electron density")
     args        = parser.special_parse_args()
+    logging.info("Starting.... make_densities")
+    logging.info(' '.join(sys.argv))
 
     pdb_file    = os.path.join(args.main_dir, read_config.get_filename(args.config_file, 'make_densities', "in_pdb_file"))
     aux_dir     = os.path.join(args.main_dir, read_config.get_filename(args.config_file, 'make_densities', "scatt_dir"))
