@@ -17,6 +17,7 @@ if __name__ == "__main__":
     parser.add_argument("-i", dest="num_iter", type=int, default=5)
     parser.add_argument("-t", dest="num_threads", type=int, default=4)
     parser.add_argument("--kahuna", action='store_true', default=False)
+    parser.add_argument("--dry_run", action='store_true', default=False)
     args = parser.parse_args()
     logging.info("Starting run_emc....")
     logging.info(sys.argv)
@@ -24,9 +25,12 @@ if __name__ == "__main__":
     if args.quat_add != 0:
         py_utils.increment_quat_file_sensibly(args.config_file, args.quat_add)
         cmd = "./make_quaternion " + args.config_file
-        logging.info(80*"=" + "\n")
-        logging.info(80*"=" + "\n" + cmd)
-        subprocess.call(cmd, shell=True)
+        if not args.dry_run:
+            logging.info(80*"=" + "\n")
+            logging.info(80*"=" + "\n" + cmd)
+            subprocess.call(cmd, shell=True)
+        else:
+            print cmd
 
     if args.kahuna:
         args.num_mpi = 8
@@ -34,12 +38,18 @@ if __name__ == "__main__":
 
     if args.num_mpi > 0:
         cmd = ' '.join(["./mpirun -n", str(args.num_mpi),
-               "./emc", str(args.num_iter), str(args.config_file), str(args.num_threads)])
-        logging.info(80*"=" + "\n")
-        logging.info(80*"=" + "\n" + cmd)
-        subprocess.call(cmd, shell=True)
+                        "./emc", str(args.num_iter), str(args.config_file), str(args.num_threads)])
+        if not args.dry_run:
+            logging.info(80*"=" + "\n")
+            logging.info(80*"=" + "\n" + cmd)
+            subprocess.call(cmd, shell=True)
+        else:
+            print cmd
     else:
         cmd = ' '.join(["./emc", str(args.num_iter), str(args.config_file), str(args.num_threads)])
-        logging.info(80*"=" + "\n")
-        logging.info(80*"=" + "\n" + cmd)
-        subprocess.call(cmd, shell=True)
+        if not args.dry_run:
+            logging.info(80*"=" + "\n")
+            logging.info(80*"=" + "\n" + cmd)
+            subprocess.call(cmd, shell=True)
+        else:
+            print cmd
