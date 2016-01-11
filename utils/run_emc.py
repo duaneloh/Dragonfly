@@ -12,14 +12,21 @@ if __name__ == "__main__":
     logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s -%(message)s')
     parser = argparse.ArgumentParser("Starts EMC reconstruction")
     parser.add_argument("-c", "--config_file", dest="config_file", default="config.ini")
-    parser.add_argument("-x", dest="auto_extend_recon", action='store_true', default=False)
-    parser.add_argument("-X", dest="auto_extend_recon_add_quat", action='store_true', default=False)
-    parser.add_argument("-q", dest="quat_add", type=int, default=0)
-    parser.add_argument("-m", dest="num_mpi", type=int, default=0)
-    parser.add_argument("-i", dest="num_iter", type=int, default=5)
-    parser.add_argument("-t", dest="num_threads", type=int, default=4)
+    parser.add_argument("-x", dest="auto_extend_recon", action='store_true', default=False,
+                        help="continue reconstruction from last output")
+    parser.add_argument("-X", dest="auto_extend_recon_add_quat", action='store_true', default=False,
+                        help="same as -x, except we increase quaternion sampling by one")
+    parser.add_argument("-q", dest="quat_add", type=int, default=0,
+                        help="increase quaternion sampling by an integer (default=0)")
+    parser.add_argument("-m", dest="num_mpi", type=int, default=0,
+                        help="number of mpi processes (default=0)")
+    parser.add_argument("-i", dest="num_iter", type=int, default=10,
+                        help="number of iterations (default=10)")
+    parser.add_argument("-t", dest="num_threads", type=int, default=-1,
+                        help="number of openMP thread(defaults to $OMP_NUM_THREADS on machine")
     parser.add_argument("--kahuna", action='store_true', default=False)
-    parser.add_argument("--dry_run", action='store_true', default=False)
+    parser.add_argument("--dry_run", action='store_true', default=False,
+                        help="print commands to screen but we won't actually run them")
     args = parser.parse_args()
     logging.info("Starting run_emc....")
     logging.info(sys.argv)
@@ -30,11 +37,12 @@ if __name__ == "__main__":
         args.num_threads = 12
 
     # Decide if we are just refining the reconstruction with more iterations
-    if args.auto_extend_recon:
-        py_utils.use_last_recon_as_starting_model(args.config_file)
-    elif args.auto_extend_recon_add_quat:
-        args.quat_add = 1
-        py_utils.use_last_recon_as_starting_model(args.config_file)
+    if not args.dry_run:
+        if args.auto_extend_recon:
+            py_utils.use_last_recon_as_starting_model(args.config_file)
+        elif args.auto_extend_recon_add_quat:
+            args.quat_add = 1
+            py_utils.use_last_recon_as_starting_model(args.config_file)
 
     # Determine of quaternions should be incremented in the log file and recomputed
     if args.quat_add != 0:
@@ -47,10 +55,14 @@ if __name__ == "__main__":
         else:
             print cmd
 
-    # Switch between openMP only of openMPI + openMP
+    # Switch between openMP only or openMPI + openMP
+    if args.num_threads == -1:
+        openMP_cmd = ["./emc", str(args.num_iter), str(args.config_file)]
+    else:
+        openMP_cmd = ["./emc", str(args.num_iter), str(args.config_file), str(args.num_threads)]
+
     if args.num_mpi > 0:
-        cmd = ' '.join(["mpirun -n", str(args.num_mpi),
-                        "./emc", str(args.num_iter), str(args.config_file), str(args.num_threads)])
+        cmd = ' '.join(["mpirun -n", str(args.num_mpi)] + openMP_cmd)
         if not args.dry_run:
             logging.info(80*"=" + "\n")
             logging.info(80*"=" + "\n" + cmd)
@@ -58,7 +70,7 @@ if __name__ == "__main__":
         else:
             print cmd
     else:
-        cmd = ' '.join(["./emc", str(args.num_iter), str(args.config_file), str(args.num_threads)])
+        cmd = ' '.join(openMP_cmd)
         if not args.dry_run:
             logging.info(80*"=" + "\n")
             logging.info(80*"=" + "\n" + cmd)

@@ -34,9 +34,11 @@ class my_timer(object):
 class my_argparser(argparse.ArgumentParser):
     def __init__(self, description=""):
         argparse.ArgumentParser.__init__(self, description=description)
-        self.add_argument("-c", "--config_file", dest="config_file")
+        self.add_argument("-c", "--config_file", dest="config_file",
+                          help="config file (defaults to config.ini)")
         self.add_argument("-v", "--verbose", dest="vb", action="store_true", default=False)
-        self.add_argument("-m", "--main_dir", dest="main_dir", help="relative path to main repository directory\n(where data aux utils are stored)")
+        self.add_argument("-m", "--main_dir", dest="main_dir",
+                          help="relative path to main repository directory\n(where data aux utils are stored)")
 
     def special_parse_args(self):
         args = self.parse_args()
