@@ -1,5 +1,6 @@
 import numpy as np
 import sys
+import logging
 import os
 import time
 from collections import OrderedDict
@@ -64,7 +65,7 @@ def get_atom_coords(pdb_file, scatt):
                         append_atom(tmp_atoms, scatt[atom_label], line)
                     else:
                         s = line[-2:] + " not in the current atom list"
-                        print s
+                        logging.info(s)
     return np.asarray(tmp_atoms)
 
 def read_symmetry(pdb_file):

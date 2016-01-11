@@ -4,6 +4,7 @@ import ConfigParser
 import argparse
 import os
 import sys
+import logging
 
 class my_timer(object):
     def __init__(self):
@@ -20,12 +21,13 @@ class my_timer(object):
 
     def reset_and_report(self, msg):
         t1 = time.time()
-        print "{:-<30}:{:5.5f} seconds".format(msg, t1-self.t0)
+        #print "{:-<30}:{:5.5f} seconds".format(msg, t1-self.t0)
+        logging.info("{:-<30}:{:5.5f} seconds".format(msg, t1-self.t0))
         self.t0 = t1
 
     def report_time_since_beginning(self):
-        print "="*80
-        print "{:-<30}:{:5.5f} seconds".format("Since beginning", time.time() - self.ts)
+        logging.info("="*80)
+        logging.info("{:-<30}:{:5.5f} seconds".format("Since beginning", time.time() - self.ts))
 
 class my_argparser(argparse.ArgumentParser):
     def __init__(self, description=""):
@@ -38,10 +40,10 @@ class my_argparser(argparse.ArgumentParser):
         args = self.parse_args()
         if not args.config_file:
             args.config_file = "config.ini"
-            print "Config file not specified. Using " + args.config_file
+            logging.info("Config file not specified. Using " + args.config_file)
         if not args.main_dir:
             args.main_dir = os.path.split(os.path.abspath(args.config_file))[0]
-            print "Main directory not specified. Using " + args.main_dir
+            logging.info("Main directory not specified. Using " + args.main_dir)
         return args
 
 def write_density(in_den_file, in_den, binary=True):
@@ -82,9 +84,11 @@ def check_to_overwrite(fn):
         if choice in yes:
             overwrite = True
             print "Overwriting " + fn
+            logging.info("Overwriting " + fn)
         elif choice in no:
             overwrite = False
             print "Not overwriting " + fn
+            logging.info("Not overwriting " + fn)
         else:
             sys.stdout.write("Please respond with 'yes' or 'no'")
             overwrite = False
@@ -99,7 +103,8 @@ def create_new_recon_dir(tag="recon", num=1):
     while(os.path.exists(recon_dir)):
         num += 1
         recon_dir = name_recon_dir(tag, num)
-    print 'New recon directory created with name:', recon_dir
+    msg = 'New recon directory created with name:', recon_dir
+    logging.info(msg)
     os.mkdir(recon_dir)
     sub_dir = {"data":["scale", "orientations", "mutualInfo", "weights", "output"], "images":[]}
     for k,v in sub_dir.items():

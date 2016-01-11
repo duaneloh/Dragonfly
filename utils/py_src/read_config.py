@@ -1,4 +1,5 @@
 import numpy as np
+import logging
 import ConfigParser
 from collections import OrderedDict
 
@@ -27,7 +28,8 @@ def get_detector_config(config_file, show=False):
     if show:
         for k,v in params.items():
             #print '{:<15}:{:10.4f}'.format(k, v)
-            print '{:<15}:{:>10}'.format(k, v)
+            #print '{:<15}:{:>10}'.format(k, v)
+            logging.info('{:<15}:{:>10}'.format(k, v))
     return params
 
 def compute_q_params(det_dist, det_size, pix_size, in_wavelength, show=False, squareDetector=True):
@@ -58,8 +60,10 @@ def compute_q_params(det_dist, det_size, pix_size, in_wavelength, show=False, sq
 
     if show:
         for k,v in params.items():
-            print '{:<15}:{:10.4f}'.format(k, v)
-        print '{:<15}:{:10.4f}'.format("voxel-length of reciprocal volume", fov_in_A/half_p_res)
+            #print '{:<15}:{:10.4f}'.format(k, v)
+            logging.info('{:<15}:{:10.4f}'.format(k, v))
+        #print '{:<15}:{:10.4f}'.format("voxel-length of reciprocal volume", fov_in_A/half_p_res)
+        logging.info('{:<15}:{:10.4f}'.format("voxel-length of reciprocal volume", fov_in_A/half_p_res))
     return params
 
 def compute_polarization(polarization, qx, qy, norm):
@@ -70,4 +74,5 @@ def compute_polarization(polarization, qx, qy, norm):
     elif polarization.lower() == 'none':
         return 1.
     else:
-        print 'Please set the polarization direction as x, y or none!'
+        #print 'Please set the polarization direction as x, y or none!'
+        logging.info('Please set the polarization direction as x, y or none!')

@@ -3,12 +3,14 @@ import numpy as np
 import argparse
 import sys
 import os
+import logging
 from py_src import read_config
 from py_src import process_pdb
 from py_src import py_utils
 
 if __name__ == "__main__":
-
+    # logging config must occur before my_argparser, because latter already starts logging
+    logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s -%(message)s')
     parser      = py_utils.my_argparser(description="make electron density")
     args        = parser.special_parse_args()
 
@@ -41,5 +43,3 @@ if __name__ == "__main__":
         timer.reset_and_report("Writing densities to file") if args.vb else timer.reset()
 
         timer.report_time_since_beginning() if args.vb else timer.reset()
-    else:
-        pass

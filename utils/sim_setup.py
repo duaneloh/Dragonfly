@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import numpy as np
 import os
+import subprocess
 import argparse
 import sys
 from py_src import py_utils
@@ -34,25 +35,25 @@ if __name__ == "__main__":
     if not args.skip_densities:
         cmd = "./make_densities.py -c " + args.config_file + " -v"
         print 80*"=" + "\n" + cmd
-        os.system(cmd)
+        subprocess.call(cmd)
 
     if not args.skip_intensities:
         cmd = "./make_intensities.py -c " + args.config_file + " -v"
         print 80*"=" + "\n" + cmd
-        os.system(cmd)
+        subprocess.call(cmd)
 
     if not args.skip_detector:
         cmd = "./make_detector.py -c " + args.config_file + " -v"
         print 80*"=" + "\n" + cmd
-        os.system(cmd)
+        subprocess.call(cmd)
 
     if not args.skip_data:
         cmd = "./make_data " + args.config_file
         print 80*"=" + "\n" + cmd
-        os.system(cmd)
+        subprocess.call(cmd)
 
     if not args.skip_quat:
         py_utils.name_quat_file_sensibly(args.config_file)
         cmd = "./make_quaternion " + args.config_file
         print 80*"=" + "\n" + cmd
-        os.system(cmd)
+        subprocess.call(cmd)
