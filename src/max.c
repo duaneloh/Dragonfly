@@ -239,7 +239,8 @@ double maximize() {
 					// Exponentiate log-likelihood and normalize to get probabilities
 					temp = prob[d_counter+d] ;
 					prob[d_counter+d] = exp(beta*(prob[d_counter+d] - max_exp[d_counter+d])) / p_sum[d_counter+d] ; 
-					likelihood += (double) prob[d_counter+d] * (temp - sum_fact[d]) ;
+//					likelihood += (double) prob[d_counter+d] * (temp - sum_fact[d]) ;
+					likelihood += (double) prob[d_counter+d] * temp  ;
 					
 					// Calculate denominator for update rule
 					if (need_scaling) {
