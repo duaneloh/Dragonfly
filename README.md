@@ -32,7 +32,22 @@ Again, you can get help to customize this using the command:
 	```.
 
 ### Start your EMC reconstruction
-You can start a single process reconstruction in the recon directory this way:
+***You can use the convenience script ```run_emc.py``` that we provided to start the reconstruction:***
+To start off, 
+	```
+	./run_emc.py
+	```,
+will start the reconstruction with the default number of iterations (5).
+You can continue to refine the last reconstruction by typing 
+	```
+	./run_emc.p -x 
+	```,
+or if you wanted to increase the quaternion sampling by one, 
+	```
+	./run_emc.p -X
+	```.
+
+***Or you can start a single process reconstruction in the recon directory this way:***
 	```
 	./emc <num_iterations> <path to config file> [threads per process]
 	```,
