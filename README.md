@@ -77,4 +77,5 @@ In the recon directory type:
 	```.
 Checking the "keep checking" box will automagically look for new reconstructed 3D volumes in the default data directories.
 
-
+### Additional information
+For a more verbose, and maybe informative, view of the underlying setup and reconstruction processes, look at the log files <recon.log> and <EMC.log> files respectively.
