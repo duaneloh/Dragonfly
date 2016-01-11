@@ -332,7 +332,7 @@ int setup(char *config_fname) {
 	int detsize ;
 	
 	known_scale = 0 ;
-	strcpy(log_fname, "RECON.log") ;
+	strcpy(log_fname, "EMC.log") ;
 	strcpy(output_folder, "data/") ;
 	data_flist[0] = '\0' ;
 	data_fname[0] = '\0' ;

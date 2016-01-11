@@ -25,6 +25,14 @@ int main(int argc, char *argv[]) {
 	else
 		omp_set_num_threads(omp_get_max_threads()) ;
 	
+	
+	gettimeofday(&t1, NULL) ;
+	
+	if (setup(argv[2])) {
+		MPI_Finalize() ;
+		return 1 ;
+	}
+
 	if (argc > 3) {
 		continue_flag = 1 ;
 		
@@ -42,13 +50,6 @@ int main(int argc, char *argv[]) {
 			iteration += 1 ;
 			fprintf(stderr, "Continuing from previous run starting from iteration %d.\n", iteration) ;
 		}
-	}
-	
-	gettimeofday(&t1, NULL) ;
-	
-	if (setup(argv[2])) {
-		MPI_Finalize() ;
-		return 1 ;
 	}
 	
 	if (!rank && !continue_flag) {

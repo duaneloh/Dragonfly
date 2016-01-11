@@ -4,7 +4,9 @@ import ConfigParser
 import argparse
 import os
 import sys
+import re
 import logging
+from glob import glob
 
 class my_timer(object):
     def __init__(self):
@@ -103,7 +105,7 @@ def create_new_recon_dir(tag="recon", num=1):
     while(os.path.exists(recon_dir)):
         num += 1
         recon_dir = name_recon_dir(tag, num)
-    msg = 'New recon directory created with name:', recon_dir
+    msg = 'New recon directory created with name: ' + recon_dir
     logging.info(msg)
     os.mkdir(recon_dir)
     sub_dir = {"data":["scale", "orientations", "mutualInfo", "weights", "output"], "images":[]}
@@ -114,6 +116,23 @@ def create_new_recon_dir(tag="recon", num=1):
                 os.mkdir(os.path.join(recon_dir, k, vv))
     return recon_dir
 
+def use_last_recon_as_starting_model(config_fname, output_subdir="output"):
+    config = ConfigParser.ConfigParser()
+    config.read(config_fname)
+
+    emc_data_dir = os.path.join(config.get("emc", "out_folder"), output_subdir)
+    recon_out_files = glob(os.path.join(emc_data_dir, "intens*.bin"))
+    (max_tag, max_file) = (0, "")
+    for f in recon_out_files:
+        t = int(re.search("intens_(\d+).bin", f).group(1))
+        if t > max_tag:
+            max_tag = t
+            max_file = f
+    logging.info("Setting start_model_file to " + max_file)
+    config.set("emc", "start_model_file", max_file)
+    with open("config.ini", "w") as fp:
+        config.write(fp)
+
 def name_quat_file_sensibly(config_fname):
     config = ConfigParser.ConfigParser()
     config.read(config_fname)
@@ -121,6 +140,7 @@ def name_quat_file_sensibly(config_fname):
     quat_num_div = int(config.get("make_quaternion", "num_div"))
     quat_fname  = os.path.join("aux", "quat_%03d.dat"%quat_num_div)
     config.set("make_quaternion", "out_quat_file", quat_fname)
+    logging.info("Setting quaternion file to " + quat_fname)
 
     with open("config.ini", "w") as fp:
         config.write(fp)
@@ -130,12 +150,13 @@ def increment_quat_file_sensibly(config_fname, incr):
     config.read(config_fname)
 
     quat_num_div = int(config.get("make_quaternion", "num_div"))
-    msg = "Setting quaternion from", quat_num_div, "to", quat_num_div+incr
-    logging.info(msg)
+    msg = ["Setting quaternion from", str(quat_num_div), "to", str(quat_num_div+incr)]
+    logging.info(' '.join(msg))
     quat_num_div += incr
     config.set("make_quaternion", "num_div", quat_num_div)
     quat_fname  = os.path.join("aux", "quat_%03d.dat"%quat_num_div)
     config.set("make_quaternion", "out_quat_file", quat_fname)
+    logging.info("Setting quaternion file to " + quat_fname)
 
     with open("config.ini", "w") as fp:
         config.write(fp)
