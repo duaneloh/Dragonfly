@@ -40,14 +40,24 @@ To start off,
 will start the reconstruction with the default number of iterations (5).
 You can continue to refine the last reconstruction by typing 
 	```
-	./run_emc.p -x 
+	./run_emc.py -x 
 	```,
 or if you wanted to increase the quaternion sampling by one, 
 	```
-	./run_emc.p -X
+	./run_emc.py -X
 	```.
 
-***Or you can start a single process reconstruction in the recon directory this way:***
+If you have enough processors to do an MPI reconstruction:
+	```
+	./run_emc.py -m <number of MPI processes>
+	```.
+For more information, type:
+	```
+	./run_emc.py -h
+	```.
+
+
+***Or you can start a single process reconstruction in the recon directory with more control way:***
 	```
 	./emc <num_iterations> <path to config file> [threads per process]
 	```,
