@@ -16,11 +16,11 @@ Go to your newly created recon directory
 	```.
 Change the experiment parameters in config.ini to your liking. 
 Here are some things that you might like to change:
-- [in_pdb_file] relative path to your own PDB file
+- ***in_pdb_file***: relative path to your own PDB file
 - scattering setup (detector distance, photon wavelength, etc)
-- [num_data] the number of diffraction patterns
-- [mean_count] the average number of photons per pattern
-- [log_file] name of log file
+- ***num_data***: the number of diffraction patterns
+- ***mean_count***: the average number of photons per pattern
+- ***log_file***: name of log file
 
 When ready to start creating synthetic data, type:
 	```
