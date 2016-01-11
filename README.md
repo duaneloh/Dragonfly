@@ -16,11 +16,11 @@ Go to your newly created recon directory
 	```.
 Change the experiment parameters in config.ini to your liking. 
 Here are some things that you might like to change:
-- [in_pdb_file] relative path to your own PDB file
+- ***in_pdb_file***: relative path to your own PDB file
 - scattering setup (detector distance, photon wavelength, etc)
-- [num_data] the number of diffraction patterns
-- [mean_count] the average number of photons per pattern
-- [log_file] name of log file
+- ***num_data***: the number of diffraction patterns
+- ***mean_count***: the average number of photons per pattern
+- ***log_file***: name of log file
 
 When ready to start creating synthetic data, type:
 	```
@@ -32,7 +32,32 @@ Again, you can get help to customize this using the command:
 	```.
 
 ### Start your EMC reconstruction
-You can start a single process reconstruction in the recon directory this way:
+***You can use the convenience script ```run_emc.py``` that we provided to start the reconstruction:***
+To start off, 
+	```
+	./run_emc.py
+	```,
+will start the reconstruction with the default of 10 iterations.
+You can continue to refine the last reconstruction by typing 
+	```
+	./run_emc.py -x 
+	```,
+or if you wanted to increase the quaternion sampling by one, 
+	```
+	./run_emc.py -X
+	```.
+
+If you have enough processors to do an MPI reconstruction:
+	```
+	./run_emc.py -m <number of MPI processes>
+	```.
+For more information, type:
+	```
+	./run_emc.py -h
+	```.
+
+
+***Or you can start a single process reconstruction in the recon directory with more control way:***
 	```
 	./emc <num_iterations> <path to config file> [threads per process]
 	```,
@@ -52,4 +77,5 @@ In the recon directory type:
 	```.
 Checking the "keep checking" box will automagically look for new reconstructed 3D volumes in the default data directories.
 
-
+### Additional information
+For a more verbose, and maybe informative, view of the underlying setup and reconstruction processes, look at the log files ```recon.log``` and ```EMC.log``` files respectively.
