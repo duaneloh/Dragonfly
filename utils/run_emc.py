@@ -24,8 +24,9 @@ if __name__ == "__main__":
     if args.quat_add != 0:
         py_utils.increment_quat_file_sensibly(args.config_file, args.quat_add)
         cmd = "./make_quaternion " + args.config_file
-        logging.info(cmd)
-        subprocess.call(cmd)
+        logging.info(80*"=" + "\n")
+        logging.info(80*"=" + "\n" + cmd)
+        subprocess.call(cmd, shell=True)
 
     if args.kahuna:
         args.num_mpi = 8
@@ -34,9 +35,11 @@ if __name__ == "__main__":
     if args.num_mpi > 0:
         cmd = ' '.join(["./mpirun -n", str(args.num_mpi),
                "./emc", str(args.num_iter), str(args.config_file), str(args.num_threads)])
-        logging.info(cmd)
-        #subprocess.call(cmd)
+        logging.info(80*"=" + "\n")
+        logging.info(80*"=" + "\n" + cmd)
+        subprocess.call(cmd, shell=True)
     else:
         cmd = ' '.join(["./emc", str(args.num_iter), str(args.config_file), str(args.num_threads)])
-        logging.info(cmd)
-        #subprocess.call(cmd)
+        logging.info(80*"=" + "\n")
+        logging.info(80*"=" + "\n" + cmd)
+        subprocess.call(cmd, shell=True)

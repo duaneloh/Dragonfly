@@ -38,26 +38,31 @@ if __name__ == "__main__":
     # Sequentially step through the simulation workflow
     if not args.skip_densities:
         cmd = "./make_densities.py -c " + args.config_file + " -v"
+        logging.info(80*"=" + "\n")
         logging.info(80*"=" + "\n" + cmd)
         subprocess.call(cmd, shell=True)
 
     if not args.skip_intensities:
         cmd = "./make_intensities.py -c " + args.config_file + " -v"
+        logging.info(80*"=" + "\n")
         logging.info(80*"=" + "\n" + cmd)
         subprocess.call(cmd, shell=True)
 
     if not args.skip_detector:
         cmd = "./make_detector.py -c " + args.config_file + " -v"
+        logging.info(80*"=" + "\n")
         logging.info(80*"=" + "\n" + cmd)
         subprocess.call(cmd, shell=True)
 
     if not args.skip_data:
         cmd = "./make_data " + args.config_file
+        logging.info(80*"=" + "\n")
         logging.info(80*"=" + "\n" + cmd)
         subprocess.call(cmd, shell=True)
 
     if not args.skip_quat:
         py_utils.name_quat_file_sensibly(args.config_file)
         cmd = "./make_quaternion " + args.config_file
+        logging.info(80*"=" + "\n")
         logging.info(80*"=" + "\n" + cmd)
         subprocess.call(cmd, shell=True)
