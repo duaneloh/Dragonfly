@@ -2,6 +2,7 @@
 
 int parse_det(char *fname) {
 	int t, d ;
+	double mean_pol = 0. ;
 	
 	rel_num_pix = 0 ;
 	
@@ -19,8 +20,13 @@ int parse_det(char *fname) {
 		fscanf(fp, "%" SCNu8, &mask[t]) ;
 		if (mask[t] < 1)
 			rel_num_pix++ ;
+		mean_pol += det[t*4 + 3] ;
 	}
-		
+	
+	mean_pol /= num_pix ;
+	for (t = 0 ; t < num_pix ; ++t)
+		det[t*4 + 3] /= mean_pol ;
+	
 	fclose(fp) ;
 	
 	return 0 ;
@@ -151,7 +157,6 @@ int parse_data(char *fname) {
 	tot_num_data = frames->num_data ;
 	tot_mean_count = frames->num_data * frames->mean_count ;
 	int num_datasets = 1 ;
-	fprintf(stderr, "tot_photons = %.6e\n", tot_mean_count) ;
 	
 	while (fscanf(fp, "%s\n", data_fname) == 1) {
 		if (strlen(data_fname) == 0)
@@ -166,7 +171,6 @@ int parse_data(char *fname) {
 		tot_num_data += curr->num_data ;
 		tot_mean_count += curr->num_data * curr->mean_count ;
 		num_datasets++ ;
-		fprintf(stderr, "tot_photons = %.6e\n", tot_mean_count) ;
 	}
 	fclose(fp) ;
 	
@@ -189,12 +193,12 @@ void parse_input(char *fname) {
 		FILE *fp = fopen(fname, "r") ;
 		if (fp == NULL) {
 			fprintf(stderr, "Random start\n") ;
-			model_mean = tot_mean_count / rel_num_pix ;
+			model_mean = tot_mean_count / rel_num_pix * 2. ;
 			for (x = 0 ; x < size * size * size ; ++x)
 				model1[x] = ((double) rand() / RAND_MAX) * model_mean ;
 		}
 		else {
-			fprintf(stderr, "Using %s\n", fname) ;
+			fprintf(stderr, "Starting from %s\n", fname) ;
 			fread(model1, sizeof(double), size * size * size, fp) ;
 			fclose(fp) ;
 		}
@@ -270,8 +274,9 @@ void calc_sum_fact() {
 		
 		for (d = d_counter ; d < d_counter + curr->num_data ; ++d) {
 			for (t = 0 ; t < curr->multi[d - d_counter] ; ++t)
-			if (mask[curr->place_multi[multi_counter]] < 1)
-				sum_fact[d] += log(factorial(curr->count_multi[multi_counter++])) ;
+			if (mask[curr->place_multi[multi_counter + t]] < 1)
+				sum_fact[d] += log(factorial(curr->count_multi[multi_counter + t])) ;
+			multi_counter += curr->multi[d - d_counter] ;
 		}
 		
 		d_counter += curr->num_data ;
@@ -286,9 +291,9 @@ void gen_blacklist(char *fname) {
 	
 	FILE *fp = fopen(fname, "r") ;
 	if (fp == NULL) {
-		if (rank == 0)
+/*		if (rank == 0)
 			fprintf(stderr, "No blacklist file found. All frames whitelisted\n") ;
-/*			fprintf(stderr, "No blacklist file found. Using even orig. frames\n") ;
+			fprintf(stderr, "No blacklist file found. Using even orig. frames\n") ;
 		for (d = 0 ; d < tot_num_data ; ++d)
 		if ((d/16) % 2 == 0) {
 			blacklist[d] = 1 ;
@@ -321,7 +326,7 @@ void parse_scale(char *fname) {
 	}
 }
 
-int setup(char *config_fname) {
+int setup(char *config_fname, int continue_flag) {
 	FILE *fp ;
 	char det_fname[999], quat_fname[999] ;
 	char data_flist[999], input_fname[999] ;
@@ -332,6 +337,7 @@ int setup(char *config_fname) {
 	int detsize ;
 	
 	known_scale = 0 ;
+	start_iter = 1 ;
 	strcpy(log_fname, "EMC.log") ;
 	strcpy(output_folder, "data/") ;
 	data_flist[0] = '\0' ;
@@ -389,7 +395,6 @@ int setup(char *config_fname) {
 			strcpy(scale_fname, strtok(NULL, " =\n")) ;
 	}
 	fclose(fp) ;
-	fprintf(stderr, "Parsed config file\n") ;
 	
 	if (strcmp(quat_fname, "make_quaternion:::out_quat_file") == 0)
 		strcpy(quat_fname, out_quat_fname) ;
@@ -407,7 +412,6 @@ int setup(char *config_fname) {
 	qmin = 2. * sin(0.5 * atan(pixsize/detd)) ;
 	size = ceil(2. * qmax / qmin) + 1 ;
 	center = size / 2 ;
-	fprintf(stderr, "size = %d, center = %d\n", size, center) ;
 	
 	if (parse_det(det_fname))
 		return 1 ;
@@ -429,7 +433,6 @@ int setup(char *config_fname) {
 	}
 	else if (parse_data(data_flist))
 		return 1 ;
-	fprintf(stderr, "Parsed data\n") ;
 	
 	if (need_scaling) {
 		calc_scale() ;
@@ -437,8 +440,27 @@ int setup(char *config_fname) {
 	}
 	
 	calc_sum_fact() ;
-	parse_input(input_fname) ;
 	gen_blacklist(blacklist_fname) ;
+	
+	if (continue_flag) {
+		fp = fopen(log_fname, "r") ;
+		if (fp == NULL) {
+			fprintf(stderr, "No log file found to continue run\n") ;
+			continue_flag = 0 ;
+		}
+		else {
+			while (!feof(fp))
+				fgets(line, 500, fp) ;
+			sscanf(line, "%d", &start_iter) ;
+			fclose(fp) ;
+			
+			sprintf(input_fname, "%s/output/intens_%.3d.bin", output_folder, start_iter) ;
+			start_iter += 1 ;
+			fprintf(stderr, "Continuing from previous run starting from iteration %d.\n", start_iter) ;
+		}
+	}
+	
+	parse_input(input_fname) ;
 	
 	return 0 ;
 }

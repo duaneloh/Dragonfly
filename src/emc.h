@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <stdint.h>
 #include <inttypes.h>
 #include <float.h>
@@ -17,7 +18,7 @@
 
 #define PROB_MIN 0.000001
 
-int rank, num_proc, iteration, num_iter, num_rot_p, num_rot_shift ;
+int rank, num_proc, iteration, num_iter, start_iter, num_rot_p, num_rot_shift ;
 int size, center, num_rot, num_pix, rel_num_pix ;
 
 double info, rms_change, alpha, beta ;
@@ -47,7 +48,7 @@ uint8_t *mask ;
 char output_folder[999], log_fname[999] ;
 
 // setup.c
-int setup(char*) ;
+int setup(char*, int) ;
 void free_mem() ;
 
 // max.c

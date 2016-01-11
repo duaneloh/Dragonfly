@@ -3,53 +3,56 @@
 void sym_intens(double*, int, int) ;
 
 int main(int argc, char *argv[]) {
-	int x, continue_flag = 0 ;
+	int c, x, continue_flag = 0 ;
 	double change, norm, diff, likelihood ;
 	struct timeval t1, t2, t3 ;
-	char fname[500] ;
+	char fname[999], config_fname[999] ;
 	FILE *fp ;
 	
 	MPI_Init(&argc, &argv) ;
 	MPI_Comm_size(MPI_COMM_WORLD, &num_proc) ;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank) ;
 	
-	if (argc < 3) {
-		fprintf(stderr, "Format: %s <iter> <config_fname>\n", argv[0]) ;
-		MPI_Finalize() ;
+	extern char *optarg ;
+	extern int optind ;
+	
+	omp_set_num_threads(omp_get_max_threads()) ;
+	num_iter = 0 ;
+	strcpy(config_fname, "config.ini") ;
+	
+	while (optind < argc) {
+		if ((c = getopt(argc, argv, "rc:t:")) != -1) {
+			switch (c) {
+				case 'r':
+					continue_flag = 1 ;
+					break ;
+				case 't':
+					omp_set_num_threads(atoi(optarg)) ;
+					break ;
+				case 'c':
+					strcpy(config_fname, optarg) ;
+					break ;
+			}
+		}
+		else {
+			num_iter = atoi(argv[optind]) ;
+			optind++ ;
+		}
+	}
+	
+	if (num_iter == 0) {
+		fprintf(stderr, "Format: %s [-c config_fname] [-t num_threads] [-r] num_iter\n", argv[0]) ;
+		fprintf(stderr, "Default: -c config.ini -t %d\n", omp_get_max_threads()) ;
+		fprintf(stderr, "Missing <num_iter>\n") ;
 		return 1 ;
 	}
-	num_iter = atoi(argv[1]) ;
-	
-	if (argc > 3)
-		omp_set_num_threads(atoi(argv[3])) ;
-	else
-		omp_set_num_threads(omp_get_max_threads()) ;
-	
+	fprintf(stderr, "Doing %d iteration(s) using %s\n", num_iter, config_fname) ;
 	
 	gettimeofday(&t1, NULL) ;
 	
-	if (setup(argv[2])) {
+	if (setup(config_fname, continue_flag)) {
 		MPI_Finalize() ;
 		return 1 ;
-	}
-
-	if (argc > 3) {
-		continue_flag = 1 ;
-		
-		fp = fopen(log_fname, "r") ;
-		if (fp == NULL) {
-			fprintf(stderr, "No log file found to continue run\n") ;
-			continue_flag = 0 ;
-		}
-		else {
-			while (!feof(fp))
-				fgets(fname, 500, fp) ;
-			sscanf(fname, "%d", &iteration) ;
-			fclose(fp) ;
-			
-			iteration += 1 ;
-			fprintf(stderr, "Continuing from previous run starting from iteration %d.\n", iteration) ;
-		}
 	}
 	
 	if (!rank && !continue_flag) {
@@ -80,7 +83,7 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "Completed setup: %f s\n", (double)(t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.) ;
 	}
 	
-	for (iteration = 1 ; iteration <= num_iter ; ++iteration) {
+	for (iteration = start_iter ; iteration <= num_iter + start_iter - 1 ; ++iteration) {
 		if (!isnan(rms_change)) {
 			gettimeofday(&t1, NULL) ;
 			
