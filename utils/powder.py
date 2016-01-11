@@ -47,8 +47,8 @@ if __name__ == "__main__":
     # Place photons in powder array
     powder = np.zeros((x.max()+1,y.max()+1))
 
-    powder[x[place_ones], y[place_ones]] += 1
-    powder[x[place_multi], y[place_multi]] += count_multi
+    np.add.at(powder, (x[place_ones], y[place_ones]), 1)
+    np.add.at(powder, (x[place_multi], y[place_multi]), count_multi)
 
     # Write float64 array to file
     powder.tofile('data/powder.bin')
