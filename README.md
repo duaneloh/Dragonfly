@@ -37,7 +37,7 @@ To start off,
 	```
 	./run_emc.py
 	```,
-will start the reconstruction with the default number of iterations (5).
+will start the reconstruction with the default of 10 iterations.
 You can continue to refine the last reconstruction by typing 
 	```
 	./run_emc.py -x 
