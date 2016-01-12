@@ -33,17 +33,27 @@ if __name__ == "__main__":
 
     # Here are some custom hybrid configurations
     if args.kahuna:
-        args.num_mpi = 7
-        args.num_threads = 12
+        args.num_mpi = 8
+        args.num_threads = 11
 
     # We might not need this anymore, except with the extend with quaternion up-refinement.
     # Decide if we are just refining the reconstruction with more iterations
-    if not args.dry_run:
-        if args.auto_extend_recon:
+    if args.auto_extend_recon:
+        if not args.dry_run:
             py_utils.use_last_recon_as_starting_model(args.config_file)
-        elif args.auto_extend_recon_add_quat:
-            args.quat_add = 1
+        ext_str = "-r"
+    elif args.auto_extend_recon_add_quat:
+        args.quat_add = 1
+        if not args.dry_run:
             py_utils.use_last_recon_as_starting_model(args.config_file)
+        ext_str = "-r"
+    else:
+        ext_str = ""
+
+    if args.num_threads == -1:
+        openMP_cmd = ["./emc", "-c", str(args.config_file), ext_str, str(args.num_iter)]
+    else:
+        openMP_cmd = ["./emc", "-c", str(args.config_file), "-t", str(args.num_threads), ext_str, str(args.num_iter)]
 
     # Determine of quaternions should be incremented in the log file and recomputed
     if args.quat_add != 0:
@@ -57,10 +67,6 @@ if __name__ == "__main__":
             print cmd
 
     # Switch between openMP only or openMPI + openMP
-    if args.num_threads == -1:
-        openMP_cmd = ["./emc", "-c", str(args.config_file), str(args.num_iter)]
-    else:
-        openMP_cmd = ["./emc", "-c", str(args.config_file), "-t", str(args.num_threads), str(args.num_iter)]
 
     if args.num_mpi > 0:
         cmd = ' '.join(["mpirun -n", str(args.num_mpi)] + openMP_cmd)
