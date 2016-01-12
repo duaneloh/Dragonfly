@@ -27,11 +27,13 @@ if __name__ == "__main__":
         args.skip_detector      = True
         args.skip_intensities   = True
         args.skip_data          = True
+        args.skip_quat          = False
     elif args.make_data_only:
         args.skip_densities     = True
         args.skip_detector      = True
         args.skip_intensities   = True
         args.skip_data          = False
+        args.skip_quat          = True
     else:
         logging.info("Going with the default full workflow")
 
@@ -55,7 +57,7 @@ if __name__ == "__main__":
         subprocess.call(cmd, shell=True)
 
     if not args.skip_data:
-        cmd = "./make_data " + args.config_file
+        cmd = "./make_data -c " + args.config_file
         logging.info(80*"=" + "\n")
         logging.info(80*"=" + "\n" + cmd)
         subprocess.call(cmd, shell=True)

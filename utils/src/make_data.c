@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <inttypes.h>
 #include <omp.h>
@@ -31,24 +32,35 @@ void free_mem() ;
 void slice_gen(double*, double*, double*, double*) ;
 
 int main(int argc, char *argv[]) {
-	int d, x ;
+	int c, d, x ;
 	double intens_ave, actual_mean_count = 0. ;
 	FILE *fp ;
 	struct timeval t1, t2 ;
 	
-	if (argc < 2) {
-		fprintf(stderr, "Format: %s <config_file>\n", argv[0]) ;
-		fprintf(stderr, "Optional second argument: <num_threads>\n") ;
-		return 1 ;
-	}
-	if (argc > 2)
-		omp_set_num_threads(atoi(argv[2])) ;
-	else {
-		omp_set_num_threads(omp_get_max_threads()) ;
-		fprintf(stderr, "Using %d OpenMP threads\n", omp_get_max_threads()) ;
+	char config_fname[999] ;
+	extern char *optarg ;
+	extern int optind ;
+	
+	omp_set_num_threads(omp_get_max_threads()) ;
+	strcpy(config_fname, "config.ini") ;
+	
+	while ((c = getopt(argc, argv, "c:t:h")) != -1) {
+		switch (c) {
+			case 't':
+				omp_set_num_threads(atoi(optarg)) ;
+				break ;
+			case 'c':
+				strcpy(config_fname, optarg) ;
+				break ;
+			case 'h':
+				fprintf(stderr, "Format: %s [-c config_fname] [-t num_threads] [-h]\n", argv[0]) ;
+				return 1 ;
+		}
 	}
 	
-	if (setup(argv[1]))
+	fprintf(stderr, "Generating data with parameters from %s\n", config_fname) ;
+	
+	if (setup(config_fname))
 		return 2 ;
 	
 	gettimeofday(&t1, NULL) ;
