@@ -28,10 +28,8 @@ double maximize() {
 		p_sum[d] = 0. ;
 	}
 	
-	for (x = 0 ; x < size * size * size ; ++x) {
-		model2[x] = 0. ;
-		inter_weight[x] = 0. ;
-	}
+	memset(model2, 0, size*size*size*sizeof(double)) ;
+	memset(inter_weight, 0, size*size*size*sizeof(double)) ;
 	
 	if (rank == 0) {
 		gettimeofday(&t2, NULL) ;
@@ -239,8 +237,7 @@ double maximize() {
 					// Exponentiate log-likelihood and normalize to get probabilities
 					temp = prob[d_counter+d] ;
 					prob[d_counter+d] = exp(beta*(prob[d_counter+d] - max_exp[d_counter+d])) / p_sum[d_counter+d] ; 
-//					likelihood += (double) prob[d_counter+d] * (temp - sum_fact[d]) ;
-					likelihood += (double) prob[d_counter+d] * temp  ;
+					likelihood += (double) prob[d_counter+d] * (temp - sum_fact[d_counter+d]) ;
 					
 					// Calculate denominator for update rule
 					if (need_scaling) {
