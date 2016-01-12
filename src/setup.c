@@ -255,13 +255,6 @@ void calc_scale() {
 	fclose(fp) ;
 }
 
-int factorial(int num) {
-	if (num < 2)
-		return 1 ;
-	else
-		return num * factorial(num-1) ;
-}
-
 void calc_sum_fact() {
 	int d, t, d_counter = 0 ;
 	long multi_counter ;
@@ -275,7 +268,7 @@ void calc_sum_fact() {
 		for (d = d_counter ; d < d_counter + curr->num_data ; ++d) {
 			for (t = 0 ; t < curr->multi[d - d_counter] ; ++t)
 			if (mask[curr->place_multi[multi_counter + t]] < 1)
-				sum_fact[d] += log(factorial(curr->count_multi[multi_counter + t])) ;
+				sum_fact[d] += gsl_sf_lnfact(curr->count_multi[multi_counter + t]) ;
 			multi_counter += curr->multi[d - d_counter] ;
 		}
 		

@@ -15,6 +15,7 @@
 #include <mpi.h>
 #include <omp.h>
 #include <gsl/gsl_sf_bessel.h>
+#include <gsl/gsl_sf_gamma.h>
 
 #define PROB_MIN 0.000001
 
