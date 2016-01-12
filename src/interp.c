@@ -54,14 +54,15 @@ void slice_gen(double *quaternion, double rescale, double slice[], double model3
 		ty = rot_pix[1] ;
 		tz = rot_pix[2] ;
 		
-		if (tx < 0 || tx > size-2 || ty < 0 || ty > size-2 || tz < 0 || tz > size-2) {
-			slice[t] = 1.e-10 ;
+		x = tx ;
+		y = ty ;
+		z = tz ;
+		
+		if (x < 0 || x > size-2 || y < 0 || y > size-2 || z < 0 || z > size-2) {
+			slice[t] = DBL_MIN ;
 			continue ;
 		}
 		
-		x = (int) tx ;
-		y = (int) ty ;
-		z = (int) tz ;
 		fx = tx - x ;
 		fy = ty - y ;
 		fz = tz - z ;
@@ -69,22 +70,22 @@ void slice_gen(double *quaternion, double rescale, double slice[], double model3
 		cy = 1. - fy ;
 		cz = 1. - fz ;
 		
-		slice[t] =	cx*cy*cz*model3d[x*size*size + y*size + z] +
-				cx*cy*fz*model3d[x*size*size + y*size + ((z+1)%size)] +
-				cx*fy*cz*model3d[x*size*size + ((y+1)%size)*size + z] +
-				cx*fy*fz*model3d[x*size*size + ((y+1)%size)*size + ((z+1)%size)] +
-				fx*cy*cz*model3d[((x+1)%size)*size*size + y*size + z] +
-				fx*cy*fz*model3d[((x+1)%size)*size*size + y*size + ((z+1)%size)] + 
-				fx*fy*cz*model3d[((x+1)%size)*size*size + ((y+1)%size)*size + z] + 
-				fx*fy*fz*model3d[((x+1)%size)*size*size + ((y+1)%size)*size + ((z+1)%size)] ;
+		slice[t] = cx*cy*cz*model3d[x*size*size + y*size + z] +
+		           cx*cy*fz*model3d[x*size*size + y*size + ((z+1)%size)] +
+		           cx*fy*cz*model3d[x*size*size + ((y+1)%size)*size + z] +
+		           cx*fy*fz*model3d[x*size*size + ((y+1)%size)*size + ((z+1)%size)] +
+		           fx*cy*cz*model3d[((x+1)%size)*size*size + y*size + z] +
+		           fx*cy*fz*model3d[((x+1)%size)*size*size + y*size + ((z+1)%size)] + 
+		           fx*fy*cz*model3d[((x+1)%size)*size*size + ((y+1)%size)*size + z] + 
+		           fx*fy*fz*model3d[((x+1)%size)*size*size + ((y+1)%size)*size + ((z+1)%size)] ;
 		
 		// Correct for solid angle and polarization
 		slice[t] *= detector[t*4 + 3] ;
 		
-		// Use rescale as flag on whether to take log or not
 		if (slice[t] <= 0.)
-//			slice[t] = DBL_MIN ;
-			slice[t] = 1.e-10 ;
+			slice[t] = DBL_MIN ;
+		
+		// Use rescale as flag on whether to take log or not
 		else if (rescale != 0.) 
 			slice[t] = log(slice[t] * rescale) ;
 	}
@@ -119,12 +120,13 @@ void slice_merge(double *quaternion, double slice[], double model3d[], double we
 		ty = rot_pix[1] ;
 		tz = rot_pix[2] ;
 		
-		if (tx < 0 || tx > size-2 || ty < 0 || ty > size-2 || tz < 0 || tz > size-2)
-			continue ;
-		
 		x = tx ;
 		y = ty ;
 		z = tz ;
+		
+		if (x < 0 || x > size-2 || y < 0 || y > size-2 || z < 0 || z > size-2)
+			continue ;
+		
 		fx = tx - x ;
 		fy = ty - y ;
 		fz = tz - z ;

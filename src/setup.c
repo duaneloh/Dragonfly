@@ -43,11 +43,10 @@ int parse_quat(char *fname) {
 	double total_weight = 0. ;
 	fscanf(fp, "%d", &num_rot) ;
 	quat = malloc(num_rot * 5 * sizeof(double)) ;
-	for (r = 0 ; r < num_rot ; ++r)
-	for (t = 0 ; t < 5 ; ++t) {
-		fscanf(fp, "%lf", &quat[r*5 + t]) ;
-		if (t == 4)
-			total_weight += quat[r*5 + 4] ;
+	for (r = 0 ; r < num_rot ; ++r) {
+		for (t = 0 ; t < 5 ; ++t)
+			fscanf(fp, "%lf", &quat[r*5 + t]) ;
+		total_weight += quat[r*5 + 4] ;
 	}
 	total_weight = 1. / total_weight ;
 	for (r = 0 ; r < num_rot ; ++r)
