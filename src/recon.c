@@ -180,12 +180,14 @@ int main(int argc, char *argv[]) {
 
 
 void sym_intens(double *array, int size, int center) {
-	int x, y, z ;
+	int x, y, z, min = 0 ;
 	double ave_intens ;
+	if (size % 2 == 0)
+		min = 1 ;
 	
-	for (x = 0 ; x < size ; ++x)
-	for (y = 0 ; y < size ; ++y)
-	for (z = 0 ; z <= center ; ++z) {
+	for (x = min ; x < size ; ++x)
+	for (y = min ; y < size ; ++y)
+	for (z = min ; z <= center ; ++z) {
 		ave_intens = .5 * (array[x*size*size + y*size + z] + array[(2*center-x)*size*size + (2*center-y)*size + (2*center-z)]) ;
 		array[x*size*size + y*size + z] = ave_intens ;
 		array[(2*center-x)*size*size + (2*center-y)*size +  (2*center-z)] = ave_intens ;
