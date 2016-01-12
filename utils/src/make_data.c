@@ -12,9 +12,11 @@
 #include <libgen.h>
 
 #define NUM_AVE 5000
+#define FLUENCE 0
+#define COUNTS 1
 
 double rot[2][2] ;
-int size, num_data, num_data_p, num_pix ;
+int size, num_data, num_data_p, num_pix, scale_method ;
 int **place_ones, **place_multi, *ones, *multi, **count_multi ;
 double fluence, rescale, mean_count, spread, detd, back, center ;
 double *intens, *det, *view ;
@@ -85,8 +87,14 @@ int main(int argc, char *argv[]) {
 	}
 	
 	intens_ave /= NUM_AVE ;
-    rescale = fluence*pow(2.81794e-9, 2) ;
-    mean_count = rescale*intens_ave ;
+    if (scale_method == FLUENCE) {
+		rescale = fluence*pow(2.81794e-9, 2) ;
+		mean_count = rescale*intens_ave ;
+		fprintf(stderr, "Target mean_count = %f\n", mean_count) ;
+	}
+	else if (scale_method == COUNTS)
+		rescale = mean_count / intens_ave ;
+	
 	spread /= mean_count ;
 	for (d = 0 ; d < num_data ; ++d) {
 		place_ones[d] = malloc((long) 5 * mean_count * (1+spread) * sizeof(int)) ;
@@ -183,7 +191,8 @@ int setup(char *config_fname) {
 	size = 0 ;
 	center = 0 ;
 	num_data = 0 ;
-	fluence = 0. ;
+	fluence = -1. ;
+	mean_count = -1. ;
 	spread = 0. ;
 	back = 0. ;
 	output_fname[0] = ' ' ;
@@ -209,6 +218,8 @@ int setup(char *config_fname) {
 			detsize = atoi(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "pixsize") == 0)
 			pixsize = atof(strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "mean_count") == 0)
+			mean_count = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "fluence") == 0)
 			fluence = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "mean_count_spread") == 0)
@@ -247,13 +258,29 @@ int setup(char *config_fname) {
 		fprintf(stderr, "Need num_data (number of frames to be generated)\n") ;
 		return 1 ;
 	}
-	if (fluence == 0.) {
-		fprintf(stderr, "Need fluence (incident beam intensity in photons/micron^2/pulse)\n") ;
-		return 1 ;
-	}
 	if (output_fname[0] == ' ') {
 		fprintf(stderr, "Need out_photons (name of output emc format file)\n") ;
 		return 1 ;
+	}
+	if (fluence < 0.) {
+		if (mean_count < 0.) {
+			fprintf(stderr, "Need either:\n") ;
+			fprintf(stderr, "\tfluence (incident beam intensity in photons/micron^2/pulse)\n") ;
+			fprintf(stderr, "\tmean_count (mean number of photons/frame)\n") ;
+			return 1 ;
+		}
+		else {
+			scale_method = COUNTS ;
+			fprintf(stderr, "Target mean_count = %f\n", mean_count) ;
+		}
+	}
+	else {
+		if (mean_count < 0.)
+			scale_method = FLUENCE ;
+		else {
+			fprintf(stderr, "Please specify only one of fluence of mean_count\n") ;
+			return 1 ;
+		}
 	}
 	
 	char *config_folder = dirname(config_fname) ;
