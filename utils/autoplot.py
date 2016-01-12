@@ -142,7 +142,12 @@ class Plotter:
             print "Unable to open", fname
             return
 
-        self.vol = np.fromfile(f, dtype='f8', count=s*s*s).reshape((s,s,s))
+        #self.vol = np.fromfile(f, dtype='f8', count=s*s*s).reshape((s,s,s))
+        self.vol = np.fromfile(f, dtype='f8')
+        self.size = int(np.ceil(np.power(len(self.vol), 1./3.)))
+        self.vol = self.vol.reshape(self.size, self.size, self.size)
+        self.center = self.size/2
+        self.layernum.set(self.center)
 
         self.old_fname = fname
 
@@ -253,5 +258,5 @@ class Plotter:
         self.master.quit()
 
 root = Tk.Tk()
-plotter = Plotter(root, 89)
+plotter = Plotter(root, 210)
 root.mainloop()
