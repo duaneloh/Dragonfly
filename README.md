@@ -18,8 +18,14 @@ Change the experiment parameters in config.ini to your liking.
 Here are some things that you might like to change:
 - ***in_pdb_file***: relative path to your own PDB file
 - scattering setup (detector distance, photon wavelength, etc)
+	* parameter unit:
+		* ***detd*** (detector distance): millimeter
+		* ***lambda*** (photon wavelength): Angstrom
+		* ***detsize*** (linear size of detector): pixels in integer
+		* ***pixsize***: millimeter
+		* ***stoprad*** (radius of beamstop): pixels in float
 - ***num_data***: the number of diffraction patterns
-- ***mean_count***: the average number of photons per pattern
+- ***fluence***: the incident beam intensity in photons per micron squared
 - ***log_file***: name of log file
 
 When ready to start creating synthetic data, type:
