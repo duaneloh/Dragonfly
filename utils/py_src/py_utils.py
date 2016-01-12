@@ -140,7 +140,7 @@ def name_quat_file_sensibly(config_fname):
     config.read(config_fname)
 
     quat_num_div = int(config.get("make_quaternion", "num_div"))
-    quat_fname  = os.path.join("aux", "quat_%03d.dat"%quat_num_div)
+    quat_fname  = os.path.join("aux", "quat_%02d.dat"%quat_num_div)
     config.set("make_quaternion", "out_quat_file", quat_fname)
     logging.info("Setting quaternion file to " + quat_fname)
 
@@ -156,7 +156,7 @@ def increment_quat_file_sensibly(config_fname, incr):
     logging.info(' '.join(msg))
     quat_num_div += incr
     config.set("make_quaternion", "num_div", quat_num_div)
-    quat_fname  = os.path.join("aux", "quat_%03d.dat"%quat_num_div)
+    quat_fname  = os.path.join("aux", "quat_%02d.dat"%quat_num_div)
     config.set("make_quaternion", "out_quat_file", quat_fname)
     logging.info("Setting quaternion file to " + quat_fname)
 
