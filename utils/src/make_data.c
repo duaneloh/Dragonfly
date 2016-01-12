@@ -16,7 +16,7 @@
 double rot[2][2] ;
 int size, num_data, num_data_p, num_pix ;
 int **place_ones, **place_multi, *ones, *multi, **count_multi ;
-double mean_count, spread, detd, back, center ;
+double fluence, rescale, mean_count, spread, detd, back, center ;
 double *intens, *det, *view ;
 char output_fname[999] ;
 uint8_t *mask ;
@@ -85,10 +85,17 @@ int main(int argc, char *argv[]) {
 	}
 	
 	intens_ave /= NUM_AVE ;
-	fprintf(stderr, "intens_ave = %f\n", intens_ave) ;
+    rescale = fluence*pow(2.81794e-9, 2) ;
+    mean_count = rescale*intens_ave ;
+	spread /= mean_count ;
+	for (d = 0 ; d < num_data ; ++d) {
+		place_ones[d] = malloc((long) 5 * mean_count * (1+spread) * sizeof(int)) ;
+		place_multi[d] = malloc((long) mean_count * (1+spread) * sizeof(int)) ;
+		count_multi[d] = malloc((long) mean_count * (1+spread) * sizeof(int)) ;
+	}
 	
 	for (x = 0 ; x < size * size * size ; ++x)
-		intens[x] *= mean_count / intens_ave ;
+		intens[x] *= rescale ;
 	
 	#pragma omp parallel default(shared)
 	{
@@ -176,7 +183,7 @@ int setup(char *config_fname) {
 	size = 0 ;
 	center = 0 ;
 	num_data = 0 ;
-	mean_count = 0. ;
+	fluence = 0. ;
 	spread = 0. ;
 	back = 0. ;
 	output_fname[0] = ' ' ;
@@ -202,8 +209,8 @@ int setup(char *config_fname) {
 			detsize = atoi(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "pixsize") == 0)
 			pixsize = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "mean_count") == 0)
-			mean_count = atof(strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "fluence") == 0)
+			fluence = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "mean_count_spread") == 0)
 			spread = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "bg_count") == 0)
@@ -240,15 +247,14 @@ int setup(char *config_fname) {
 		fprintf(stderr, "Need num_data (number of frames to be generated)\n") ;
 		return 1 ;
 	}
-	if (mean_count == 0.) {
-		fprintf(stderr, "Need mean_count (mean_number of photons/frame)\n") ;
+	if (fluence == 0.) {
+		fprintf(stderr, "Need fluence (incident beam intensity in photons/micron^2/pulse)\n") ;
 		return 1 ;
 	}
 	if (output_fname[0] == ' ') {
 		fprintf(stderr, "Need out_photons (name of output emc format file)\n") ;
 		return 1 ;
 	}
-	spread /= mean_count ;
 	
 	char *config_folder = dirname(config_fname) ;
 	strcpy(line, det_fname) ;
@@ -290,11 +296,6 @@ int setup(char *config_fname) {
 	place_ones = malloc(num_data * sizeof(int*)) ;
 	place_multi = malloc(num_data * sizeof(int*)) ;
 	count_multi = malloc(num_data * sizeof(int*)) ;
-	for (d = 0 ; d < num_data ; ++d) {
-		place_ones[d] = malloc((long) 5 * mean_count * (1+spread) * sizeof(int)) ;
-		place_multi[d] = malloc((long) mean_count * (1+spread) * sizeof(int)) ;
-		count_multi[d] = malloc((long) mean_count * (1+spread) * sizeof(int)) ;
-	}
 	
 	return 0 ;
 }
