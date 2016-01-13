@@ -209,7 +209,6 @@ void calc_scale() {
 	int d, t ;
 	struct dataset *curr ;
 	curr = frames ;
-	double inner_mean_count = 0. ;
 	FILE *fp ;
 	char fname[999] ;
 	
@@ -219,22 +218,16 @@ void calc_scale() {
 	while (curr != NULL) {
 		ones_counter = 0 ;
 		multi_counter = 0 ;
-		for (d = d_counter ; d < d_counter + curr->num_data ; ++d) {
-			for (t = 0 ; t < curr->ones[d-d_counter] ; ++t) {
-				if (mask[curr->place_ones[ones_counter + t]] == 1)
-					scale[d]++ ;
-				else if (mask[curr->place_ones[ones_counter + t]] < 1)
-					count[d]++ ;
-			}
+		for (d = 0 ; d < curr->num_data ; ++d) {
+			scale[d_counter + d] = 1. ;
+			for (t = 0 ; t < curr->ones[d] ; ++t)
+			if (mask[curr->place_ones[ones_counter + t]] < 1)
+				count[d_counter + d]++ ;
 			
-			for (t = 0 ; t < curr->multi[d-d_counter] ; ++t) {
-				if (mask[curr->place_multi[multi_counter + t]] == 1)
-					scale[d] += curr->count_multi[multi_counter + t] ;
-				else if (mask[curr->place_multi[multi_counter + t]] < 1)
-					count[d] += curr->count_multi[multi_counter + t] ;
-			}
+			for (t = 0 ; t < curr->multi[d] ; ++t)
+			if (mask[curr->place_multi[multi_counter + t]] < 1)
+				count[d_counter + d] += curr->count_multi[multi_counter + t] ;
 			
-			inner_mean_count += scale[d] ;
 			ones_counter += curr->ones[d - d_counter] ;
 			multi_counter += curr->multi[d - d_counter] ;
 		}
@@ -243,15 +236,13 @@ void calc_scale() {
 		curr = curr->next ;
 	}
 	
-	inner_mean_count /= tot_num_data ;
-	for (d = 0 ; d < tot_num_data ; ++d)
-		scale[d] /= inner_mean_count ;
-	
-	sprintf(fname, "%s/scale/scale000.dat", output_folder) ;
-	fp = fopen(fname, "w") ;
-	for (d = 0 ; d < tot_num_data ; ++d)
-		fprintf(fp, "%.6e\n", scale[d]) ;
-	fclose(fp) ;
+	if (start_iter == 1) {
+		sprintf(fname, "%s/scale/scale_000.dat", output_folder) ;
+		fp = fopen(fname, "w") ;
+		for (d = 0 ; d < tot_num_data ; ++d)
+			fprintf(fp, "%.6e\n", scale[d]) ;
+		fclose(fp) ;
+	}
 }
 
 void calc_sum_fact() {
@@ -426,11 +417,6 @@ int setup(char *config_fname, int continue_flag) {
 	else if (parse_data(data_flist))
 		return 1 ;
 	
-	if (need_scaling) {
-		calc_scale() ;
-		parse_scale(scale_fname) ;
-	}
-	
 	calc_sum_fact() ;
 	gen_blacklist(blacklist_fname) ;
 	
@@ -447,9 +433,16 @@ int setup(char *config_fname, int continue_flag) {
 			fclose(fp) ;
 			
 			sprintf(input_fname, "%s/output/intens_%.3d.bin", output_folder, start_iter) ;
+			if (need_scaling)
+				sprintf(scale_fname, "%s/scale/scale_%.3d.dat", output_folder, start_iter) ;
 			start_iter += 1 ;
 			fprintf(stderr, "Continuing from previous run starting from iteration %d.\n", start_iter) ;
 		}
+	}
+	
+	if (need_scaling) {
+		calc_scale() ;
+		parse_scale(scale_fname) ;
 	}
 	
 	parse_input(input_fname) ;
