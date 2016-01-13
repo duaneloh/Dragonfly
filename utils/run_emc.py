@@ -27,6 +27,7 @@ if __name__ == "__main__":
     parser.add_argument("--kahuna", action='store_true', default=False)
     parser.add_argument("--bayes", action='store_true', default=False)
     parser.add_argument("--tukey", action='store_true', default=False)
+    parser.add_argument("--slac", action='store_true', default=False)
     parser.add_argument("--dry_run", action='store_true', default=False,
                         help="print commands to screen but we won't actually run them")
     args = parser.parse_args()
@@ -43,6 +44,9 @@ if __name__ == "__main__":
     elif args.tukey:
         args.num_mpi = 6
         args.num_threads = 4
+    elif args.slac:
+        args.num_mpi = 16
+        args.num_threads = 2
 
     # We might not need this anymore, except with the extend with quaternion up-refinement.
     # Decide if we are just refining the reconstruction with more iterations
