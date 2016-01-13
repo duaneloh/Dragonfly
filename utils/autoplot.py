@@ -198,7 +198,6 @@ class Plotter:
         elif self.old_fname == self.fname.get() and self.old_rangestr != self.rangestr.get():
             self.plot_vol(self.layernum.get())
         else:
-            print "Reparsing volume:", self.fname.get()
             self.parse()
             self.plot_vol(self.layernum.get())
 
@@ -237,18 +236,18 @@ class Plotter:
 
     def increment_iter(self, event=None):
         self.iter.set(min(self.iter.get()+1, self.max_iter))
-        if self.iter.get() > 0:
+        if self.iter.get() >= 0:
             self.fname.set('data/output/intens_%.3d.bin' % self.iter.get())
             self.parse_and_plot()
 
     def decrement_iter(self, event=None):
         self.iter.set(max(self.iter.get()-1, 0))
-        if self.iter.get() > 0:
+        if self.iter.get() >= 0:
             self.fname.set('data/output/intens_%.3d.bin' % self.iter.get())
             self.parse_and_plot()
 
     def change_iter(self, event=None):
-        if self.iter.get() > 0:
+        if self.iter.get() >= 0:
             self.fname.set('data/output/intens_%.3d.bin' % self.iter.get())
 
     def save_plot(self, event=None):
