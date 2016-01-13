@@ -12,10 +12,10 @@ if __name__ == "__main__":
     logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s -%(message)s')
     parser = argparse.ArgumentParser("Starts EMC reconstruction")
     parser.add_argument("-c", "--config_file", dest="config_file", default="config.ini")
-    parser.add_argument("-x", dest="auto_extend_recon", action='store_true', default=False,
-                        help="continue reconstruction from last output")
-    parser.add_argument("-X", dest="auto_extend_recon_add_quat", action='store_true', default=False,
-                        help="same as -x, except we increase quaternion sampling by one")
+    parser.add_argument("-r", dest="resume_recon", action='store_true', default=False,
+                        help="resume reconstruction from last output")
+    parser.add_argument("-R", dest="resume_recon_add_quat", action='store_true', default=False,
+                        help="same as -r, except we increase quaternion sampling by one")
     parser.add_argument("-q", dest="quat_add", type=int, default=0,
                         help="increase quaternion sampling by an integer (default=0)")
     parser.add_argument("-m", dest="num_mpi", type=int, default=0,
@@ -25,6 +25,8 @@ if __name__ == "__main__":
     parser.add_argument("-t", dest="num_threads", type=int, default=-1,
                         help="number of openMP thread(defaults to $OMP_NUM_THREADS on machine")
     parser.add_argument("--kahuna", action='store_true', default=False)
+    parser.add_argument("--bayes", action='store_true', default=False)
+    parser.add_argument("--tukey", action='store_true', default=False)
     parser.add_argument("--dry_run", action='store_true', default=False,
                         help="print commands to screen but we won't actually run them")
     args = parser.parse_args()
@@ -35,14 +37,20 @@ if __name__ == "__main__":
     if args.kahuna:
         args.num_mpi = 8
         args.num_threads = 11
+    elif args.bayes:
+        args.num_mpi = 6
+        args.num_threads = 8
+    elif args.tukey:
+        args.num_mpi = 6
+        args.num_threads = 4
 
     # We might not need this anymore, except with the extend with quaternion up-refinement.
     # Decide if we are just refining the reconstruction with more iterations
-    if args.auto_extend_recon:
+    if args.resume_recon:
         if not args.dry_run:
             py_utils.use_last_recon_as_starting_model(args.config_file)
         ext_str = "-r"
-    elif args.auto_extend_recon_add_quat:
+    elif args.resume_recon_add_quat:
         args.quat_add = 1
         if not args.dry_run:
             py_utils.use_last_recon_as_starting_model(args.config_file)
