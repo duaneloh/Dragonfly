@@ -28,7 +28,7 @@ class Plotter:
         self.logfname.set('EMC.log')
         self.imagename.set('images/' + os.path.splitext(os.path.basename(self.fname.get()))[0] + '.png')
         self.image_exists = False
-        self.rangestr.set(str(2.5))
+        self.rangestr.set(str(1.))
         self.layernum.set(self.center)
         self.ifcheck.set(0)
         self.iter.set(0)
