@@ -195,6 +195,12 @@ void parse_input(char *fname) {
 			model_mean = tot_mean_count / rel_num_pix * 2. ;
 			for (x = 0 ; x < size * size * size ; ++x)
 				model1[x] = ((double) rand() / RAND_MAX) * model_mean ;
+			
+			char fname0[999] ;
+			sprintf(fname0, "%s/output/intens_000.bin", output_folder) ;
+			FILE *fp0 = fopen(fname0, "wb") ;
+			fwrite(model1, sizeof(double), size*size*size, fp0) ;
+			fclose(fp0) ;
 		}
 		else {
 			fprintf(stderr, "Starting from %s\n", fname) ;
