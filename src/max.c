@@ -81,7 +81,7 @@ double maximize() {
 		long ones_counter = 0, multi_counter = 0 ;
 		double sum, temp, *priv_scale = NULL ;
 		double *view = malloc(num_pix * sizeof(double)) ;
-//		double *old_view = malloc(num_pix * sizeof(double)) ;
+		double *old_view = malloc(num_pix * sizeof(double)) ;
 		int *priv_rmax = calloc(tot_num_data, sizeof(int)) ;
 		double *priv_max = malloc(tot_num_data * sizeof(double)) ;
 		double *priv_sum = malloc(tot_num_data * sizeof(double)) ;
@@ -282,7 +282,8 @@ double maximize() {
 				curr = curr->next ;
 			}
 			
-//			slice_gen(&quat[(num_rot_shift + r)*5], rescale, old_view, model1, det) ;
+			if (alpha > 0.)
+				slice_gen(&quat[(num_rot_shift + r)*5], rescale, old_view, model1, det) ;
 			
 			// If no data frame has any probability for this orientation, don't merge
 			// Otherwise divide the updated tomogram by the sum over all probabilities and merge
@@ -290,12 +291,16 @@ double maximize() {
 				for (t = 0 ; t < num_pix ; ++t) {
 					view[t] /= sum ;
 					
-//					old_view[t] = (1.-alpha) * view[t] + alpha * old_view[t] ;
+					if (alpha > 0.)
+						old_view[t] = (1.-alpha) * view[t] + alpha * old_view[t] ;
 				}
-				slice_merge(&quat[(num_rot_shift + r)*5], view, priv_model, priv_weight, det) ;
+				
+				if (alpha == 0.)
+					slice_merge(&quat[(num_rot_shift + r)*5], view, priv_model, priv_weight, det) ;
 			}
 			
-//			slice_merge(&quat[(num_rot_shift + r)*5], old_view, priv_model, priv_weight, det) ;
+			if (alpha > 0.)
+				slice_merge(&quat[(num_rot_shift + r)*5], old_view, priv_model, priv_weight, det) ;
 			
 			free(probab[r]) ;
 		}
@@ -335,6 +340,7 @@ double maximize() {
 		free(priv_sum) ;
 		free(priv_max) ;
 		free(view) ;
+		free(old_view) ;
 	}
 
 	if (rank == 0) {
@@ -363,7 +369,7 @@ double maximize() {
 		
 		if (rank == 0) {
 			char fname[100] ;
-			sprintf(fname, "%s/scale/scale%.3d.dat", output_folder, iteration) ;
+			sprintf(fname, "%s/scale/scale_%.3d.dat", output_folder, iteration) ;
 			FILE *fp_scale = fopen(fname, "w") ;
 			for (d = 0 ; d < tot_num_data ; ++d)
 			if (!blacklist[d])
