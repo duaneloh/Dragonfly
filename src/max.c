@@ -5,7 +5,6 @@ double maximize() {
 	double total = 0., rescale, likelihood = 0. ;
 	struct timeval t1, t2 ;
 	
-	beta = 1. ;
 	// beta increase schedule (in testing)
 //	if (iteration > 20 && iteration % 10 == 1)
 //		beta *= 1.4 ;
@@ -73,7 +72,7 @@ double maximize() {
 	#pragma omp parallel for schedule(static,1) default(shared) private(r)
 	for (r = 0 ; r < num_rot_p ; ++r)
 //		u[r] = log(quat[(num_rot_shift + r)*5 + 4]) - u[r] * rescale ;
-		u[r] = - u[r] ;
+		u[r] = log(quat[(num_rot_shift + r)*5 + 4]) - u[r] ;
 
 	// Main loop: Calculate and update tomograms
 	#pragma omp parallel default(shared) private(r,d,t,x)
@@ -215,8 +214,7 @@ double maximize() {
 		#pragma omp for schedule(static,1) reduction(+:info,likelihood)
 		for (r = 0 ; r < num_rot_p ; ++r) {
 			sum = 0. ;
-			for (t = 0 ; t < num_pix ; ++t)
-				view[t] = 0. ;
+			memset(view, 0, num_pix*sizeof(double)) ;
 			
 			prob = probab[r] ;
 			d_counter = 0 ;
@@ -237,7 +235,8 @@ double maximize() {
 					// Exponentiate log-likelihood and normalize to get probabilities
 					temp = prob[d_counter+d] ;
 					prob[d_counter+d] = exp(beta*(prob[d_counter+d] - max_exp[d_counter+d])) / p_sum[d_counter+d] ; 
-					likelihood += (double) prob[d_counter+d] * (temp - sum_fact[d_counter+d]) ;
+//					likelihood += prob[d_counter+d] * (temp - sum_fact[d_counter+d]) ;
+					likelihood += prob[d_counter+d] * temp ;
 					
 					// Calculate denominator for update rule
 					if (need_scaling) {
@@ -373,13 +372,13 @@ double maximize() {
 		}
 		
 		// Reject frames which require too high a scale factor
-		if (iteration == 200)
+/*		if (iteration == 200)
 		for (d = 0 ; d < tot_num_data ; ++d)
 		if (!blacklist[d] && scale[d] > 4.) {
 			num_blacklist++ ;
 			blacklist[d] = 1 ;
 		}
-		
+*/		
 /*		if (rank == 0) {
 			fprintf(stderr, "num_blacklist = %d\n", num_blacklist) ;
 			char fname[100] ;
