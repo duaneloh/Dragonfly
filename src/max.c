@@ -146,7 +146,7 @@ double maximize() {
 					// Note maximum log-likelihood for each frame among 'r's tested by this MPI rank and OMP rank
 					if (prob[d_counter+d] > priv_max[d_counter+d]) {
 						priv_max[d_counter+d] = prob[d_counter+d] ;
-						priv_rmax[d_counter+d] = r ;
+						priv_rmax[d_counter+d] = num_rot_shift + r ;
 					}
 					
 					ones_counter += curr->ones[d] ;
@@ -178,8 +178,25 @@ double maximize() {
 		#pragma omp barrier
 		
 		// Combine information about maximum log-likelihood among all 'r's
-		if (omp_rank == 0)
+		if (omp_rank == 0) {
 			MPI_Allreduce(max_exp_p, max_exp, tot_num_data, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD) ;
+
+			// Determine 'r' for which log-likelihood is maximum
+			for (d = 0 ; d < tot_num_data ; ++d)
+			if (max_exp[d] != max_exp_p[d])
+				rmax[d] = -1 ;
+			
+			MPI_Allreduce(MPI_IN_PLACE, rmax, tot_num_data, MPI_INT, MPI_MAX, MPI_COMM_WORLD) ;
+			
+			if (rank == 0) {
+				char fnamermax[999] ;
+				sprintf(fnamermax, "%s/orientations/orientations_%.3d.dat", output_folder, iteration) ;
+				FILE *fprmax = fopen(fnamermax, "w") ;
+				for (d = 0 ; d < tot_num_data ; ++d)
+					fprintf(fprmax, "%d\n", rmax[d]) ;
+				fclose(fprmax) ;
+			}
+		}
 		#pragma omp barrier
 		
 		// Calculate local normalization factor by summing over all orientations
@@ -244,7 +261,6 @@ double maximize() {
 						// Calculate denominator for scale factor update rule
 						if (iteration > 1)
 							priv_scale[d_counter+d] -= prob[d_counter+d] * u[r] ;
-//							priv_scale[d_counter+d] -= prob[d_counter+d] * u[r] * scale[d_counter + d] ;
 						else
 							priv_scale[d_counter+d] -= prob[d_counter+d] * u[r] * rescale ;
 					}
