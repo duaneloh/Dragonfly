@@ -147,7 +147,8 @@ class Plotter:
         self.size = int(np.ceil(np.power(len(self.vol), 1./3.)))
         self.vol = self.vol.reshape(self.size, self.size, self.size)
         self.center = self.size/2
-        self.layernum.set(self.center)
+        if not self.image_exists:
+            self.layernum.set(self.center)
 
         self.old_fname = fname
 
