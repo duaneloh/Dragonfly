@@ -65,7 +65,7 @@ double maximize() {
 	
 	if (rank == 0) {
 		gettimeofday(&t1, NULL) ;
-		fprintf(stderr, "\trescale\t%f (= %f)\n", (double)(t1.tv_sec - t2.tv_sec) + (t1.tv_usec - t2.tv_usec) / 1000000., rescale) ;
+		fprintf(stderr, "\trescale\t%.6e (= %f)\n", (double)(t1.tv_sec - t2.tv_sec) + (t1.tv_usec - t2.tv_usec) / 1000000., rescale) ;
 	}
 	
 	// Sum over all pixels of model tomogram (data-independent part of probability)
