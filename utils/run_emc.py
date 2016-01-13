@@ -47,13 +47,9 @@ if __name__ == "__main__":
     # We might not need this anymore, except with the extend with quaternion up-refinement.
     # Decide if we are just refining the reconstruction with more iterations
     if args.resume_recon:
-        if not args.dry_run:
-            py_utils.use_last_recon_as_starting_model(args.config_file)
         ext_str = "-r"
     elif args.resume_recon_add_quat:
         args.quat_add = 1
-        if not args.dry_run:
-            py_utils.use_last_recon_as_starting_model(args.config_file)
         ext_str = "-r"
     else:
         ext_str = ""
@@ -75,7 +71,6 @@ if __name__ == "__main__":
             print cmd
 
     # Switch between openMP only or openMPI + openMP
-
     if args.num_mpi > 0:
         cmd = ' '.join(["mpirun -n", str(args.num_mpi)] + openMP_cmd)
         if not args.dry_run:
