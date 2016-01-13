@@ -22,3 +22,6 @@ data
 
 # Config file
 config.ini
+
+# Reconstruction directories
+/recon_*
