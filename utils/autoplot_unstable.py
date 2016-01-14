@@ -124,7 +124,7 @@ class Plotter:
         Tk.Button(line,text="Plot",command=self.parse_and_plot).pack(side=Tk.RIGHT)
 
         with open("recon.log", 'r') as f:
-            all_lines = ''.join([f.readlines()])
+            all_lines = ''.join(f.readlines())
         scroll2 = Tk.Scrollbar(self.options)
         self.txt2 = Tk.Text(self.options, height=10, width=70, font=("Arial",8))
         scroll2.pack(side=Tk.RIGHT, fill=Tk.Y)
