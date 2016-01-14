@@ -100,7 +100,8 @@ class Plotter:
         Tk.Label(line,text='Layer no. ').pack(side=Tk.LEFT)
         Tk.Button(line,text="-",command=self.decrement_layer).pack(side=Tk.LEFT,fill=Tk.Y)
         self.layerSlider = Tk.Scale(line,from_=0,to=int(self.size),orient=Tk.HORIZONTAL,length=250,width=20,
-                 variable=self.layernum).pack(side=Tk.LEFT, expand=1, fill=Tk.BOTH)
+                 variable=self.layernum,command=self.change_iter)
+        self.layerSlider.pack(side=Tk.LEFT, expand=1, fill=Tk.BOTH)
         Tk.Button(line,text="+",command=self.increment_layer).pack(side=Tk.LEFT,fill=Tk.Y)
 
         line = Tk.Frame(self.options)
