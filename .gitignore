@@ -32,4 +32,6 @@ config.ini
 *.out
 *.pdf
 *.log
+*.blg
+*.bbl
 *.DS_Store
