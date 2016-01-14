@@ -226,7 +226,8 @@ class Plotter:
                         #self.orient.append(np.asarray([int(l.rstrip()) for l in f.readlines()]))
                         self.orient.append(np.fromfile(f, sep="", dtype='int32'))
                 else:
-                    print "skipping", label
+                    #print "skipping", label
+                    pass
         else:
             o_files = sorted(glob("data/orientations/*.dat"))
             for p in o_files:
@@ -238,7 +239,8 @@ class Plotter:
                     with open(p, 'r') as f:
                         self.orient.append(np.asarray([int(l.rstrip()) for l in f.readlines()]))
                 else:
-                    print "skipping", label
+                    #print "skipping", label
+                    pass
 
         o_array = np.asarray(self.orient)
         ord = o_array[-1].argsort()
@@ -251,8 +253,8 @@ class Plotter:
             return
         iter = loglines[:,0].astype(np.int32)
         change = loglines[:,3].astype(np.float64)
-        info = loglines[:,4].astype(np.float64)
-        like = loglines[:,5].astype(np.float64)
+        info = loglines[:,3].astype(np.float64)
+        like = loglines[:,4].astype(np.float64)
 
         self.log_fig.clf()
         grid = gridspec.GridSpec(2,3, wspace=0.3, hspace=0.2)
@@ -279,7 +281,8 @@ class Plotter:
 
         s4 = plt.Subplot(self.log_fig, grid[:,2])
         sh = o_array.shape
-        s4.imshow(o_array, aspect=(1.*sh[1]/sh[0]))
+        #s4.imshow(o_array, aspect=(1.*sh[1]/sh[0]))
+        s4.imshow(o_array, aspect=(1.*sh[1]/sh[0]), extent=[1,sh[1],sh[0],0])
         s4.get_yaxis().set_ticks([])
         s4.set_xlabel('Iteration')
         s4.set_ylabel('Most likely orientations of data\n(sorted/colored by last iteration\'s quat)')
