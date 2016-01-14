@@ -1,0 +1,24 @@
+%!
+%%BoundingBox: 0 0 120 200
+
+gsave
+/bdf{bind def} def
+/m{moveto} bdf
+/l {lineto} bdf
+/c {l closepath fill} bdf
+
+0 0 m 120 0 l 120 200 l 0 200 l closepath stroke
+
+/ZapfChancery-MediumItalic findfont 12 scalefont setfont
+2 4 m (lower left corner (0,0)) show
+76 190 m ((120,200)) show
+40 178 m (upper right corner) show
+grestore
+
+/Courier findfont 7 scalefont setfont
+4 98 m
+(%!) show
+4 90 m
+(%%BoundingBox: 0 0 120 200) show
+
+showpage
