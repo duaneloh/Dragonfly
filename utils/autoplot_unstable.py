@@ -252,7 +252,7 @@ class Plotter:
         if len(loglines) == 0:
             return
         iter = loglines[:,0].astype(np.int32)
-        change = loglines[:,3].astype(np.float64)
+        change = loglines[:,2].astype(np.float64)
         info = loglines[:,3].astype(np.float64)
         like = loglines[:,4].astype(np.float64)
 
