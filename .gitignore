@@ -25,3 +25,10 @@ config.ini
 
 # Reconstruction directories
 /recon_*
+
+# Latex files
+*.gz
+*.aux
+*.out
+*.pdf
+*.log
