@@ -215,15 +215,16 @@ class Plotter:
                     flag = True
 
         # Read orientation files only if they haven't already been read
-        o_files = sorted(glob("data/orientations/*.dat"))
+        o_files = sorted(glob("data/orientations/*.bin"))
         for p in o_files:
             fn = os.path.split(p)[-1]
-            label = int(re.search("orientations_(\d+).dat", fn).groups(1)[0])
+            label = int(re.search("orientations_(\d+).bin", fn).groups(1)[0])
             if label not in self.orientnum:
                 print "reading",  fn
                 self.orientnum.add(label)
                 with open(p, 'r') as f:
-                    self.orient.append(np.asarray([int(l.rstrip()) for l in f.readlines()]))
+                    #self.orient.append(np.asarray([int(l.rstrip()) for l in f.readlines()]))
+                    self.append(np.fromfile(f, sep=""))
             else:
                 print "skipping", label
 
