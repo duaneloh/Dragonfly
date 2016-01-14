@@ -109,7 +109,7 @@ class Plotter:
         Tk.Label(line,text='Iteration: ').pack(side=Tk.LEFT)
         Tk.Button(line,text="-",command=self.decrement_iter).pack(side=Tk.LEFT,fill=Tk.Y)
         self.slider = Tk.Scale(line,from_=0,to=self.max_iter,orient=Tk.HORIZONTAL,length=250,width=20,
-                               variable=self.iter,command=self.change_iter)
+                               variable=self.iter,command=None)
         self.slider.pack(side=Tk.LEFT, expand=1, fill=Tk.BOTH)
         Tk.Button(line,text="+",command=self.increment_iter).pack(side=Tk.LEFT,fill=Tk.Y)
 
