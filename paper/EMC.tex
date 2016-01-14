@@ -21,6 +21,8 @@
                                   %   M - IUCrJ
                                   %   S - Journal of Synchrotron Radiation
 
+\usepackage{amsmath}
+
 \begin{document}                  % DO NOT DELETE THIS LINE
 
      %-------------------------------------------------------------------------
@@ -43,7 +45,7 @@
 \author[c]{N. Duane}{Loh}
 \author[b]{Veit}{Elser}
 
-\aff[a]{First affiliation address \country{England}}
+\aff[a]{Center for Free-Electron Laser Science, Deutsches Elektronen-Synchrotron DESY, Notkestra{\ss}e 85, 22607 Hamburg, \country{Germany}}
 \aff[b]{Second affiliation address}
 \aff[c]{Centre for Bio-imaging Sciences, National University of Singapore, Singapore 117543.}
 
@@ -124,8 +126,20 @@ Several convenience utilities are included to help prepare the data for or view 
 \section{Solid angle correction for square detectors}
 Calculation of solid angle 
 
-\section{Solid angle correction for square detectors}
-Rescaling intensities given a Poisson noise model.
+\section{Frame-by-frame intensity scale factor updates}
+In many real world applications, the incident fluence on each particle will be different. The default implementation in \citeasnoun{loh2009} assumes uniform incident fluence. Here we derive the likelihood maximizing update rule employed in this package when the \texttt{need\_scaling} option is turned on. The approach used is similar to that employed in \citeasnoun{loh2010}, except for a Poisson probability model rather than Gaussian.
+Let $d$, $r$ and $t$ represent the indices for the frame number, the orientation number and the pixel number respectively. The number of photons in frame $d$ at pixel $t$ is given by $K_{dt}$, and the value of the intensity in the tomogram with orientation $r$ at pixel $t$ is $W_{rt}$. In addition, one assumes a scale factor $\phi_d$ which is proportional to the incident fluence on the particle in frame $d$. Thus, 
+\begin{align}
+P_{dr} &= \frac{R_{dr}}{\sum\limits_r R_{dr}} \\
+\mathrm{with, }\;R_{dr} &= \prod_t \frac{(W_{rt}\phi_d)^{K_{dt}} e^{-W_{rt}\phi_d}}{K_{dt}!}
+\end{align}
+is the probability of frame $d$ belonging to orientation $r$. In expectation maximization, one would like to find updates for the intensity tomograms, $W'$ and $\phi'$ which maximize the total log-likelihood $Q$ given by
+\[Q(W', \phi') = \sum_d \sum_r \sum_t P_{dr} \left[K_{dt}\log(W'_{rt} \phi'_d) - W'_{rt} \phi'_d\right]\]
+Here, $P_{dr}$ are the probabilities calculated using the current models for $W$ and $\phi$. Unfortunately, an analytical update rule for these quantities which maximizes $Q$ is not available. We use the strategy of updating one while keeping the other constant. Setting partial derivatives with respect to $W'$ and $\phi'$ equal to 0, we obtain
+\begin{align}
+W'_{rt} &= \frac{\sum\limits_d P_{dr} K_{dt}}{\sum\limits_d P_{dr} \phi_d} \\
+\phi'_d &= \frac{\sum\limits_t K_{dt}}{\sum\limits_{rt} P_{dr} W_{rt}}
+\end{align}
 
      %-------------------------------------------------------------------------
      % The back matter of the paper - acknowledgements and references
@@ -136,10 +150,11 @@ Rescaling intensities given a Poisson noise model.
 \ack{Acknowledgements}
 N.D.L. would like to thank the support of the Lee Kuan Yew Endowment fund, and the assistance by the IT facility at the Centre for Bio-Imaging Sciences.
 
-\begin{references}
-\reference{Author, A. \& Author, B. (1984). \emph{Journal} \textbf{Vol}, 
-first page--last page.}
-\end{references}
+\referencelist[EMC]
+
+%\begin{references}
+%\reference{Author, A. \& Author, B. (1984). \emph{Journal} \textbf{Vol}, first page--last page.}
+%\end{references}
 
      %-------------------------------------------------------------------------
      % TABLES AND FIGURES SHOULD BE INSERTED AFTER THE MAIN BODY OF THE TEXT

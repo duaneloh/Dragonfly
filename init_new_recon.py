@@ -41,6 +41,7 @@ if __name__ == "__main__":
                                       "make_quaternion",
                                       "run_emc.py",
                                       "autoplot.py",
+                                      "autoplot_unstable.py",
                                       "powder.py"])
 
     os.chdir(new_recon_dir)

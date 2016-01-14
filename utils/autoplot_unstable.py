@@ -211,21 +211,34 @@ class Plotter:
                     continue
                 if flag is True:
                     loglines.append(l)
-                elif l[0] == 'Iteration':
+                elif l[0] == 'Iter':
                     flag = True
 
         # Read orientation files only if they haven't already been read
-        o_files = sorted(glob("data/orientations/*.dat"))
-        for p in o_files:
-            fn = os.path.split(p)[-1]
-            label = int(re.search("orientations_(\d+).dat", fn).groups(1)[0])
-            if label not in self.orientnum:
-                print "reading",  fn
-                self.orientnum.add(label)
-                with open(p, 'r') as f:
-                    self.orient.append(np.asarray([int(l.rstrip()) for l in f.readlines()]))
-            else:
-                print "skipping", label
+        o_files = sorted(glob("data/orientations/*.bin"))
+        if len(o_files) > 0:
+            for p in o_files:
+                fn = os.path.split(p)[-1]
+                label = int(re.search("orientations_(\d+).bin", fn).groups(1)[0])
+                if label not in self.orientnum:
+                    self.orientnum.add(label)
+                    with open(p, 'r') as f:
+                        #self.orient.append(np.asarray([int(l.rstrip()) for l in f.readlines()]))
+                        self.orient.append(np.fromfile(f, sep="", dtype='int32'))
+                else:
+                    print "skipping", label
+        else:
+            o_files = sorted(glob("data/orientations/*.dat"))
+            for p in o_files:
+                fn = os.path.split(p)[-1]
+                label = int(re.search("orientations_(\d+).dat", fn).groups(1)[0])
+                if label not in self.orientnum:
+                    print "reading ASCII file",  fn
+                    self.orientnum.add(label)
+                    with open(p, 'r') as f:
+                        self.orient.append(np.asarray([int(l.rstrip()) for l in f.readlines()]))
+                else:
+                    print "skipping", label
 
         o_array = np.asarray(self.orient)
         ord = o_array[-1].argsort()
