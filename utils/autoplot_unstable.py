@@ -74,29 +74,29 @@ class Plotter:
         line = Tk.Frame(self.options)
         line.pack(fill=Tk.X)
         Tk.Label(line,text="Log Filename: ").pack(side=Tk.LEFT)
-        Tk.Entry(line,textvariable=self.logfname,width=20).pack(side=Tk.LEFT, expand=1)
-        Tk.Label(line,text="PlotMax: ").pack(side=Tk.LEFT)
-        Tk.Entry(line,textvariable=self.rangestr,width=10).pack(side=Tk.LEFT, expand=1)
+        Tk.Entry(line,textvariable=self.logfname,width=20).pack(side=Tk.LEFT, fill=Tk.X, expand=1)
+        Tk.Label(line,text="PlotMax: ").pack(side=Tk.LEFT, fill=Tk.X)
+        Tk.Entry(line,textvariable=self.rangestr,width=10).pack(side=Tk.LEFT)
 
         line = Tk.Frame(self.options)
         line.pack(fill=Tk.X)
         Tk.Label(line,text="Filename: ").pack(side=Tk.LEFT)
-        Tk.Entry(line,textvariable=self.fname,width=45).pack(side=Tk.LEFT, expand=1)
+        Tk.Entry(line,textvariable=self.fname,width=45).pack(side=Tk.LEFT, fill=Tk.X, expand=1)
 
         line = Tk.Frame(self.options)
         line.pack(fill=Tk.X)
         Tk.Label(line,text="Image name: ").pack(side=Tk.LEFT)
-        Tk.Entry(line,textvariable=self.imagename,width=30).pack(side=Tk.LEFT, expand=1)
+        Tk.Entry(line,textvariable=self.imagename,width=30).pack(side=Tk.LEFT, fill=Tk.X, expand=1)
         Tk.Button(line,text="Save",command=self.save_plot).pack(side=Tk.LEFT)
 
         line = Tk.Frame(self.options)
         line.pack(fill=Tk.X)
         Tk.Label(line,text="Log image name: ").pack(side=Tk.LEFT)
-        Tk.Entry(line,textvariable=self.log_imagename,width=30).pack(side=Tk.LEFT, expand=1)
+        Tk.Entry(line,textvariable=self.log_imagename,width=30).pack(side=Tk.LEFT, fill=Tk.X, expand=1)
         Tk.Button(line,text="Save",command=self.save_log_plot).pack(side=Tk.LEFT)
 
         line = Tk.Frame(self.options)
-        line.pack()
+        line.pack(fill=Tk.BOTH, expand=1)
         Tk.Label(line,text='Layer no. ').pack(side=Tk.LEFT)
         Tk.Button(line,text="-",command=self.decrement_layer).pack(side=Tk.LEFT,fill=Tk.Y)
         self.layerSlider = Tk.Scale(line,from_=0,to=int(self.size),orient=Tk.HORIZONTAL,length=250,width=20,
@@ -105,7 +105,7 @@ class Plotter:
         Tk.Button(line,text="+",command=self.increment_layer).pack(side=Tk.LEFT,fill=Tk.Y)
 
         line = Tk.Frame(self.options)
-        line.pack()
+        line.pack(fill=Tk.BOTH, expand=1)
         Tk.Label(line,text='Iteration: ').pack(side=Tk.LEFT)
         Tk.Button(line,text="-",command=self.decrement_iter).pack(side=Tk.LEFT,fill=Tk.Y)
         self.slider = Tk.Scale(line,from_=0,to=self.max_iter,orient=Tk.HORIZONTAL,length=250,width=20,
@@ -200,6 +200,7 @@ class Plotter:
         with open(self.logfname.get(), 'r') as f:
             all_lines = f.readlines()
             self.log_txt = ''.join(all_lines)
+            self.txt.delete('1.0', Tk.END)
             self.txt.insert(Tk.END, self.log_txt)
 
             lines = [l.rstrip().split() for l in all_lines]
