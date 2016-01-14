@@ -211,7 +211,7 @@ class Plotter:
                     continue
                 if flag is True:
                     loglines.append(l)
-                elif l[0] == 'Iteration':
+                elif l[0] == 'Iter':
                     flag = True
 
         # Read orientation files only if they haven't already been read
@@ -221,11 +221,10 @@ class Plotter:
                 fn = os.path.split(p)[-1]
                 label = int(re.search("orientations_(\d+).bin", fn).groups(1)[0])
                 if label not in self.orientnum:
-                    print "reading binary file",  fn
                     self.orientnum.add(label)
                     with open(p, 'r') as f:
                         #self.orient.append(np.asarray([int(l.rstrip()) for l in f.readlines()]))
-                        self.append(np.fromfile(f, sep=""))
+                        self.orient.append(np.fromfile(f, sep="", dtype='int32'))
                 else:
                     print "skipping", label
         else:
