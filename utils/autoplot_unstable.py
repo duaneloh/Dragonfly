@@ -44,19 +44,19 @@ class Plotter:
         self.fig = plt.figure(figsize=(14,5))
         self.fig.subplots_adjust(left=0.0, bottom=0.00, right=0.99, wspace=0.0)
         self.canvas = FigureCanvasTkAgg(self.fig, self.master)
-        self.canvas.get_tk_widget().grid()
+        self.canvas.get_tk_widget().grid(row=0,column=0)
 
         self.log_fig = plt.figure(figsize=(14,5), facecolor='white')
         #self.log_fig.subplots_adjust(left=0.0, bottom=0.00, right=0.99, wspace=0.0)
         self.plotcanvas = FigureCanvasTkAgg(self.log_fig, self.master)
-        self.plotcanvas.get_tk_widget().grid(row=1)
+        self.plotcanvas.get_tk_widget().grid(row=1,column=0)
 
         self.options = Tk.Frame(self.master,relief=Tk.GROOVE,borderwidth=5,width=400, height=200)
         #self.options.grid(row=0,column=1,rowspan=2,sticky=Tk.N+Tk.S)
-        self.options.grid(row=0,column=1,rowspan=2,sticky=Tk.N)
+        self.options.grid(row=0,column=1,sticky=Tk.N)
 
         self.log_display = Tk.Frame(self.master,relief=Tk.GROOVE,borderwidth=5,width=400, height=200)
-        self.log_display.grid(row=1,column=1,rowspan=2,sticky=Tk.N)
+        self.log_display.grid(row=1,column=1,sticky=Tk.N)
 
         self.old_fname = self.fname.get()
         self.old_rangestr = self.rangestr.get()
@@ -128,16 +128,16 @@ class Plotter:
             all_lines = ''.join(f.readlines())
         scroll2 = Tk.Scrollbar(self.options)
         self.txt2 = Tk.Text(self.options, height=10, width=70, font=("Arial",8))
-        scroll2.pack(side=Tk.RIGHT, fill=Tk.Y)
-        self.txt2.pack(side=Tk.LEFT, fill=Tk.Y)
+        scroll2.pack(side=Tk.RIGHT, fill=Tk.Y, expand=1)
+        self.txt2.pack(side=Tk.LEFT, fill=Tk.Y, expand=1)
         scroll2.config(command=self.txt2.yview)
         self.txt2.config(yscrollcommand=scroll2.set)
         self.txt2.insert(Tk.END, all_lines)
 
         scroll = Tk.Scrollbar(self.log_display)
-        self.txt = Tk.Text(self.log_display, height=25, width=70, font=("Arial",8))
-        scroll.pack(side=Tk.RIGHT, fill=Tk.Y)
-        self.txt.pack(side=Tk.LEFT, fill=Tk.Y)
+        self.txt = Tk.Text(self.log_display, height=28, width=70, font=("Arial",8))
+        scroll.pack(side=Tk.RIGHT, fill=Tk.Y, expand=1)
+        self.txt.pack(side=Tk.LEFT, fill=Tk.Y, expand=1)
         scroll.config(command=self.txt.yview)
         self.txt.config(yscrollcommand=scroll.set)
         self.txt.insert(Tk.END, self.log_txt)
@@ -255,6 +255,20 @@ class Plotter:
         change = loglines[:,2].astype(np.float64)
         info = loglines[:,3].astype(np.float64)
         like = loglines[:,4].astype(np.float64)
+        num_rot = loglines[:,5].astype(np.int32)
+        beta = loglines[:,6].astype(np.float64)
+        num_rot_change = np.append(np.where(np.diff(num_rot)>0)[0], num_rot.shape[0])
+        beta_change = np.where(np.diff(beta)>0.)[0]
+
+        o_array = np.asarray(self.orient)
+        istart = 0
+        for i in range(len(num_rot_change)):
+            istop = num_rot_change[i]
+            ord = o_array[istop-1].argsort()
+            for index in np.arange(istart,istop):
+                o_array[index] = o_array[index][ord]
+            istart = istop
+        o_array = o_array.T
 
         self.log_fig.clf()
         grid = gridspec.GridSpec(2,3, wspace=0.3, hspace=0.2)
@@ -265,18 +279,24 @@ class Plotter:
         s1.set_yscale('log')
         s1.set_xlabel('Iteration')
         s1.set_ylabel('RMS change')
+        for i in beta_change:
+            s1.plot([i+1,i+1], s1.get_ylim(),'k-',lw=1)
         self.log_fig.add_subplot(s1)
 
         s2 = plt.Subplot(self.log_fig, grid[0,1])
         s2.plot(iter, info, 'o-')
         s2.set_xlabel('Iteration')
         s2.set_ylabel(r'Mutual info. $I(K,\theta)$')
+        for i in beta_change:
+            s2.plot([i+1,i+1], s2.get_ylim(),'k-',lw=1)
         self.log_fig.add_subplot(s2)
 
         s3 = plt.Subplot(self.log_fig, grid[1,1])
         s3.plot(iter, like, 'o-')
         s3.set_xlabel('Iteration')
         s3.set_ylabel('Avg log-likelihood')
+        for i in beta_change:
+            s3.plot([i+1,i+1], s3.get_ylim(),'k-',lw=1)
         self.log_fig.add_subplot(s3)
 
         s4 = plt.Subplot(self.log_fig, grid[:,2])
