@@ -6,8 +6,8 @@ double maximize() {
 	struct timeval t1, t2 ;
 	
 	// beta increase schedule (in testing)
-//	if (iteration > 20 && iteration % 10 == 1)
-//		beta *= 1.4 ;
+//	if (iteration % 10 == 1)
+//		beta *= 2. ;
 	
 	info = 0. ;
 	
@@ -190,10 +190,9 @@ double maximize() {
 			
 			if (rank == 0) {
 				char fnamermax[999] ;
-				sprintf(fnamermax, "%s/orientations/orientations_%.3d.dat", output_folder, iteration) ;
+				sprintf(fnamermax, "%s/orientations/orientations_%.3d.bin", output_folder, iteration) ;
 				FILE *fprmax = fopen(fnamermax, "w") ;
-				for (d = 0 ; d < tot_num_data ; ++d)
-					fprintf(fprmax, "%d\n", rmax[d]) ;
+				fwrite(rmax, sizeof(int), tot_num_data, fprmax) ;
 				fclose(fprmax) ;
 			}
 		}
