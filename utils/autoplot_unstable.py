@@ -23,15 +23,18 @@ class Plotter:
         self.logfname = Tk.StringVar()
         self.rangestr = Tk.StringVar()
         self.imagename = Tk.StringVar()
+        self.log_imagename = Tk.StringVar()
         self.layernum = Tk.IntVar()
         self.ifcheck = Tk.IntVar()
         self.iter = Tk.IntVar()
         self.orientnum = set()
         self.orient = []
+        self.log_txt = ""
 
         self.fname.set('data/output/intens_001.bin')
         self.logfname.set('EMC.log')
         self.imagename.set('images/' + os.path.splitext(os.path.basename(self.fname.get()))[0] + '.png')
+        self.log_imagename.set('images/log_fig.png')
         self.image_exists = False
         self.rangestr.set(str(1.))
         self.layernum.set(self.center)
@@ -48,9 +51,12 @@ class Plotter:
         self.plotcanvas = FigureCanvasTkAgg(self.log_fig, self.master)
         self.plotcanvas.get_tk_widget().grid(row=1)
 
-        self.options = Tk.Frame(self.master,relief=Tk.GROOVE,borderwidth=5,width=300, height=200)
+        self.options = Tk.Frame(self.master,relief=Tk.GROOVE,borderwidth=5,width=400, height=200)
         #self.options.grid(row=0,column=1,rowspan=2,sticky=Tk.N+Tk.S)
         self.options.grid(row=0,column=1,rowspan=2,sticky=Tk.N)
+
+        self.log_display = Tk.Frame(self.master,relief=Tk.GROOVE,borderwidth=5,width=400, height=200)
+        self.log_display.grid(row=1,column=1,rowspan=2,sticky=Tk.N)
 
         self.old_fname = self.fname.get()
         self.old_rangestr = self.rangestr.get()
@@ -68,27 +74,33 @@ class Plotter:
         line = Tk.Frame(self.options)
         line.pack(fill=Tk.X)
         Tk.Label(line,text="Log Filename: ").pack(side=Tk.LEFT)
-        Tk.Entry(line,textvariable=self.logfname,width=20).pack(side=Tk.LEFT)
+        Tk.Entry(line,textvariable=self.logfname,width=20).pack(side=Tk.LEFT, expand=1)
         Tk.Label(line,text="PlotMax: ").pack(side=Tk.LEFT)
-        Tk.Entry(line,textvariable=self.rangestr,width=10).pack(side=Tk.LEFT)
+        Tk.Entry(line,textvariable=self.rangestr,width=10).pack(side=Tk.LEFT, expand=1)
 
         line = Tk.Frame(self.options)
         line.pack(fill=Tk.X)
         Tk.Label(line,text="Filename: ").pack(side=Tk.LEFT)
-        Tk.Entry(line,textvariable=self.fname,width=40).pack(side=Tk.LEFT)
+        Tk.Entry(line,textvariable=self.fname,width=45).pack(side=Tk.LEFT, expand=1)
 
         line = Tk.Frame(self.options)
         line.pack(fill=Tk.X)
         Tk.Label(line,text="Image name: ").pack(side=Tk.LEFT)
-        Tk.Entry(line,textvariable=self.imagename,width=30).pack(side=Tk.LEFT)
+        Tk.Entry(line,textvariable=self.imagename,width=30).pack(side=Tk.LEFT, expand=1)
         Tk.Button(line,text="Save",command=self.save_plot).pack(side=Tk.LEFT)
+
+        line = Tk.Frame(self.options)
+        line.pack(fill=Tk.X)
+        Tk.Label(line,text="Log image name: ").pack(side=Tk.LEFT)
+        Tk.Entry(line,textvariable=self.log_imagename,width=30).pack(side=Tk.LEFT, expand=1)
+        Tk.Button(line,text="Save",command=self.save_log_plot).pack(side=Tk.LEFT)
 
         line = Tk.Frame(self.options)
         line.pack()
         Tk.Label(line,text='Layer no. ').pack(side=Tk.LEFT)
         Tk.Button(line,text="-",command=self.decrement_layer).pack(side=Tk.LEFT,fill=Tk.Y)
         Tk.Scale(line,from_=0,to=int(self.size),orient=Tk.HORIZONTAL,length=250,width=20,
-                 variable=self.layernum).pack(side=Tk.LEFT)
+                 variable=self.layernum).pack(side=Tk.LEFT, expand=1, fill=Tk.BOTH)
         Tk.Button(line,text="+",command=self.increment_layer).pack(side=Tk.LEFT,fill=Tk.Y)
 
         line = Tk.Frame(self.options)
@@ -97,7 +109,7 @@ class Plotter:
         Tk.Button(line,text="-",command=self.decrement_iter).pack(side=Tk.LEFT,fill=Tk.Y)
         self.slider = Tk.Scale(line,from_=0,to=self.max_iter,orient=Tk.HORIZONTAL,length=250,width=20,
                                variable=self.iter,command=self.change_iter)
-        self.slider.pack(side=Tk.LEFT)
+        self.slider.pack(side=Tk.LEFT, expand=1, fill=Tk.BOTH)
         Tk.Button(line,text="+",command=self.increment_iter).pack(side=Tk.LEFT,fill=Tk.Y)
 
         line = Tk.Frame(self.options)
@@ -110,6 +122,24 @@ class Plotter:
         Tk.Button(line,text="Quit",command=self.master.quit).pack(side=Tk.RIGHT)
         Tk.Button(line,text="Reparse",command=self.force_plot).pack(side=Tk.RIGHT)
         Tk.Button(line,text="Plot",command=self.parse_and_plot).pack(side=Tk.RIGHT)
+
+        with open("recon.log", 'r') as f:
+            all_lines = ''.join([f.readlines()])
+        scroll2 = Tk.Scrollbar(self.options)
+        self.txt2 = Tk.Text(self.options, height=10, width=70, font=("Arial",8))
+        scroll2.pack(side=Tk.RIGHT, fill=Tk.Y)
+        self.txt2.pack(side=Tk.LEFT, fill=Tk.Y)
+        scroll2.config(command=self.txt2.yview)
+        self.txt2.config(yscrollcommand=scroll2.set)
+        self.txt2.insert(Tk.END, all_lines)
+
+        scroll = Tk.Scrollbar(self.log_display)
+        self.txt = Tk.Text(self.log_display, height=25, width=70, font=("Arial",8))
+        scroll.pack(side=Tk.RIGHT, fill=Tk.Y)
+        self.txt.pack(side=Tk.LEFT, fill=Tk.Y)
+        scroll.config(command=self.txt.yview)
+        self.txt.config(yscrollcommand=scroll.set)
+        self.txt.insert(Tk.END, self.log_txt)
 
     def plot_vol(self, num):
         self.imagename.set('images/' + os.path.splitext(os.path.basename(self.fname.get()))[0] + '.png')
@@ -124,19 +154,19 @@ class Plotter:
 
         s1 = plt.Subplot(self.fig, grid[:,0])
         s1.imshow(a, vmin=0, vmax=rangemax, cmap='jet', interpolation='none')
-        s1.set_title("YZ plane", y = 1.01)
+        s1.set_title("YZ plane", y=1.01)
         s1.axis('off')
         self.fig.add_subplot(s1)
 
         s2 = plt.Subplot(self.fig, grid[:,1])
         s2.matshow(b, vmin=0, vmax=rangemax, cmap='jet', interpolation='none')
-        s2.set_title("XZ plane", y = 1.01)
+        s2.set_title("XZ plane", y=1.01)
         s2.axis('off')
         self.fig.add_subplot(s2)
 
         s3 = plt.Subplot(self.fig, grid[:,2])
         s3.matshow(c, vmin=0, vmax=rangemax, cmap='jet', interpolation='none')
-        s3.set_title("XY plane", y = 1.01)
+        s3.set_title("XY plane", y=1.01)
         s3.axis('off')
         self.fig.add_subplot(s3)
 
@@ -155,7 +185,6 @@ class Plotter:
             print "Unable to open", fname
             return
 
-        #self.vol = np.fromfile(f, dtype='f8', count=s*s*s).reshape((s,s,s))
         self.vol = np.fromfile(f, dtype='f8')
         self.size = int(np.ceil(np.power(len(self.vol), 1./3.)))
         self.vol = self.vol.reshape(self.size, self.size, self.size)
@@ -167,16 +196,22 @@ class Plotter:
 
     def plot_log(self):
         with open(self.logfname.get(), 'r') as f:
-            lines = [l.rstrip().split() for l in f.readlines()]
+            all_lines = f.readlines()
+            self.log_txt = ''.join(all_lines)
+            self.txt.insert(Tk.END, self.log_txt)
+
+            lines = [l.rstrip().split() for l in all_lines]
             flag = False
             loglines = []
             for l in lines:
                 if len(l) < 1:
                     continue
-                if flag == True:
+                if flag is True:
                     loglines.append(l)
                 elif l[0] == 'Iteration':
                     flag = True
+
+        # Read orientation files only if they haven't already been read
         o_files = sorted(glob("data/orientations/*.dat"))
         for p in o_files:
             fn = os.path.split(p)[-1]
@@ -216,7 +251,7 @@ class Plotter:
 
         s2 = plt.Subplot(self.log_fig, grid[0,1])
         s2.plot(iter, info, 'o-')
-        s2.get_xaxis().set_ticks([])
+        s2.set_xlabel('Iteration')
         s2.set_ylabel(r'Mutual info. $I(K,\theta)$')
         self.log_fig.add_subplot(s2)
 
@@ -231,24 +266,10 @@ class Plotter:
         s4.imshow(o_array, aspect=(1.*sh[1]/sh[0]))
         s4.get_yaxis().set_ticks([])
         s4.set_xlabel('Iteration')
-        s4.set_ylabel('Most likely orientations')
+        s4.set_ylabel('Most likely orientations of data\n(sorted/colored by last iteration\'s quat)')
         self.log_fig.add_subplot(s4)
 
-        #s1 = self.log_fig.add_subplot(131)
-        #s1.plot(iter, change, 'o-')
-        #s1.set_yscale('log')
-        #s1.set_xlabel('Iteration')
-        #s1.set_ylabel('RMS change')
-        #s2 = self.log_fig.add_subplot(132)
-        #s2.plot(iter, info, 'o-')
-        #s2.set_xlabel('Iteration')
-        #s2.set_ylabel(r'Mutual info. $I(K,\theta)$')
-        #s3 = self.log_fig.add_subplot(133)
-        #s3.plot(iter, like, 'o-')
-        #s3.set_xlabel('Iteration')
-        #s3.set_ylabel('Avg log-likelihood')
-        #self.log_fig.tight_layout()
-
+        grid.tight_layout(self.log_fig)
         self.plotcanvas.show()
 
     def parse_and_plot(self, event=None):
@@ -314,9 +335,13 @@ class Plotter:
         self.fig.savefig(self.imagename.get(), bbox_inches='tight')
         print "Saved to", self.imagename.get()
 
+    def save_log_plot(self, event=None):
+        self.log_fig.savefig(self.log_imagename.get(), bbox_inches='tight')
+        print "Saved to", self.log_imagename.get()
+
     def quit_(self, event=None):
         self.master.quit()
 
 root = Tk.Tk()
-plotter = Plotter(root, 210)
+plotter = Plotter(root)
 root.mainloop()
