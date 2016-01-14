@@ -106,6 +106,7 @@ This software package uses the EMC algorithm to reconstruct a 3D diffraction vol
 \subsection{EMC algorithm}
 
 \subsection{Convenience utilities}
+\label{subsec:conv}
 Here, the EMC algorithm is implemented with hybrid openMPI+openMP, and hence suitable for shared and/or distributed memory systems. 
 
 Several convenience utilities are included to help prepare the data for or view the results from the EMC reconstruction algorithm. These utilities are briefly described here. 
@@ -122,6 +123,34 @@ Several convenience utilities are included to help prepare the data for or view 
 \item{\bf autoplot.py}. Renders the results of the EMC reconstruction with the option of automatically updating the plots when newer intensities become available.
 \end{enumerate}
 
+\subsection{Data formats}
+\subsubsection{Configuration file}
+The configuration file is used to pass parameters and file names to the main reconstruction code as well as to the various utilities. The file has the standard \texttt{key = value} format with the parameters for different modules grouped by module names in square brackets. There is a global \texttt{[parameters]} module containing information about the experimental setup. A typical configuration file is shown in Fig.~\ref{fig:config}. This default file also shows the use of special keywords used to point to other configuration file parameters (eg. \texttt{in\_photons\_file}). The \texttt{[parameters]} module is described below. For other modules, refer to the relevant convenience utility in Section~\ref{subsec:conv}.
+
+The basic parameters of the experiment are:
+\begin{itemize}
+\item \texttt{detd}: Detector distance in mm
+\item \texttt{lambda}: Wavelength in \AA
+\item \texttt{detsize}: Detector size (assuming square detector) in pixels
+\item \texttt{pixsize}: Pixel size in mm
+\item \texttt{stoprad}: Radius of beamstop in pixels
+\item \texttt{polarization}: Polarization direction (can be x, y, or none)
+\end{itemize}
+
+\subsubsection{Detector file}
+The detector file is an ASCII (human readable) file which describes various properties of the detector. The first line of the file contains a single number which represents the number of pixels. Following that, for each pixel, there are five columns of numbers. The first three columns give the 3D coordinates of the detector pixel in voxels, where the voxels refer to the 3D grid containing the intensity model. The next column gives the product of the polarization and solid angle corrections for that pixel. The last column is an 8-byte unsigned integer whose value is used by the EMC code as well as other utilities to categorize the pixel. Currently, there are three categories:
+\begin{itemize}
+\item 0: Good pixel, used to determine the orientation of a given frame.
+\item 1: These pixels will not be used to determine the orientation, but will still be merged into the 3D grid using the orientations calculated from category 0 pixels.
+\item 2: Bad pixel. Pixels whose value will be used neither to determine the orientation nor to calculate the merged 3D intensities.
+\end{itemize}
+
+\subsubsection{Photons file (emc format)}
+Since the data in many relevant experiments utilizing the EMC algorithm have very few photons/frame, a sparse binary format is used to store the data. Instead of storing the number of counts at each pixel, only the locations of non-zero counts are stored. since most of the non-zero counts are ones, only the locations of those are stored. For the rest, two numbers are stored, the location and photon count. 
+
+The header resides in the first 1024 bytes. The first 4 bytes are a 32 bit integer giving the number of data frames (\texttt{num\_data}) contained in the file. The next 4 bytes are also a 32 bit integer giving the number of pixels in the detector file used to number the pixels. The next 1016 bytes are currently empty (filled with zeros).
+
+After this, there are \texttt{num\_data} 32 bit integers giving the number of one-photon events in each frame (\texttt{ones}). Similarily, there are \texttt{num\_data} integers giving the number of multi-photon events (\texttt{multi}). Let the sum of all numbers in the \texttt{ones} and \texttt{multi} arrays be \texttt{total\_ones} and \texttt{total\_multi}. 
 \appendix
 \section{Solid angle correction for square detectors}
 Calculation of solid angle 
