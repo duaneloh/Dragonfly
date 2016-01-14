@@ -28,7 +28,7 @@ class my_timer(object):
         self.t0 = t1
 
     def report_time_since_beginning(self):
-        logging.info("="*80)
+        logging.info("="*20)
         logging.info("{:-<30}:{:5.5f} seconds".format("Since beginning", time.time() - self.ts))
 
 class my_argparser(argparse.ArgumentParser):
