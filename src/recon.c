@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
 		        alpha, 
 		        beta, 
 		        need_scaling?"yes":"no") ;
-		fprintf(fp, "\n\nIteration\titer_time\trms_change\tinfo_rate\tlog-likelihood\n") ;
+		fprintf(fp, "\n\nIter\ttime\trms_change\tinfo_rate\tlog-likelihood\tnum_rot\tbeta\n") ;
 		fclose(fp) ;
 	}
 	
@@ -145,9 +145,9 @@ int main(int argc, char *argv[]) {
 				gettimeofday(&t2, NULL) ;
 				
 				fp = fopen(log_fname, "a") ;
-				fprintf(fp, "%d\t\t", iteration) ;
-				fprintf(fp, "%.2f s  \t", (double)(t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.) ;
-				fprintf(fp, "%1.4e\t%f\t%.6e\n", rms_change, info, likelihood) ;
+				fprintf(fp, "%d\t", iteration) ;
+				fprintf(fp, "%4.2f\t", (double)(t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.) ;
+				fprintf(fp, "%1.4e\t%f\t%.6e\t%-7d\t%f\n", rms_change, info, likelihood, num_rot, beta) ;
 				fclose(fp) ;
 			}
 			
