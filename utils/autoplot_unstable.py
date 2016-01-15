@@ -100,7 +100,7 @@ class Plotter:
         Tk.Label(line,text='Layer no. ').pack(side=Tk.LEFT)
         Tk.Button(line,text="-",command=self.decrement_layer).pack(side=Tk.LEFT,fill=Tk.Y)
         self.layerSlider = Tk.Scale(line,from_=0,to=int(self.size),orient=Tk.HORIZONTAL,length=250,width=20,
-                 variable=self.layernum,command=self.change_iter)
+                                    variable=self.layernum,command=self.change_iter)
         self.layerSlider.pack(side=Tk.LEFT, expand=1, fill=Tk.BOTH)
         Tk.Button(line,text="+",command=self.increment_layer).pack(side=Tk.LEFT,fill=Tk.Y)
 
@@ -279,30 +279,41 @@ class Plotter:
         s1.set_yscale('log')
         s1.set_xlabel('Iteration')
         s1.set_ylabel('RMS change')
+        s1_lim = s1.get_ylim()
+        s1.set_ylim(s1_lim)
         for i in beta_change:
-            s1.plot([i+1,i+1], s1.get_ylim(),'k-',lw=1)
+            s1.plot([i+1,i+1], s1_lim,'k-',lw=1)
+        for i in num_rot_change:
+            s1.plot([i+1,i+1], s1_lim,'r--',lw=1)
         self.log_fig.add_subplot(s1)
 
         s2 = plt.Subplot(self.log_fig, grid[0,1])
         s2.plot(iter, info, 'o-')
         s2.set_xlabel('Iteration')
         s2.set_ylabel(r'Mutual info. $I(K,\theta)$')
+        s2_lim = s2.get_ylim()
+        s2.set_ylim(s2_lim)
         for i in beta_change:
-            s2.plot([i+1,i+1], s2.get_ylim(),'k-',lw=1)
+            s2.plot([i+1,i+1], s2_lim,'k-',lw=1)
+        for i in num_rot_change:
+            s2.plot([i+1,i+1], s2_lim,'r--',lw=1)
         self.log_fig.add_subplot(s2)
 
         s3 = plt.Subplot(self.log_fig, grid[1,1])
-        s3.plot(iter, like, 'o-')
+        s3.plot(iter[1:], like[1:], 'o-')
         s3.set_xlabel('Iteration')
         s3.set_ylabel('Avg log-likelihood')
+        s3_lim = s3.get_ylim()
+        s3.set_ylim(s3_lim)
         for i in beta_change:
-            s3.plot([i+1,i+1], s3.get_ylim(),'k-',lw=1)
+            s3.plot([i+1,i+1], s3_lim,'k-',lw=1)
+        for i in num_rot_change:
+            s3.plot([i+1,i+1], s3_lim,'r--',lw=1)
         self.log_fig.add_subplot(s3)
 
         s4 = plt.Subplot(self.log_fig, grid[:,2])
         sh = o_array.shape
-        #s4.imshow(o_array, aspect=(1.*sh[1]/sh[0]))
-        s4.imshow(o_array, aspect=(1.*sh[1]/sh[0]), extent=[1,sh[1],sh[0],0])
+        s4.imshow(o_array**0.5, aspect=(1.*sh[1]/sh[0]), extent=[1,sh[1],sh[0],0])
         s4.get_yaxis().set_ticks([])
         s4.set_xlabel('Iteration')
         s4.set_ylabel('Most likely orientations of data\n(sorted/colored by last iteration\'s quat)')
