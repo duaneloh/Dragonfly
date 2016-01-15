@@ -110,30 +110,27 @@ Abstract goes here.
      % and \subsubsection's as required.
 
 \section{Introduction}
-Introduction:
-What is single-particle imaging in the XFEL context?
-The goal of single-particle imaging (SPI) is to assemble the three-dimensional (3D) structure of an object from incomplete data collected from very many of its copies.
-With X-ray Free-electron Laser (XFEL) based SPI, noisy and unoriented two-dimensional (2D) diffraction patterns of many individual copies of the object are computationally assembled into a 3D diffraction volume. The object?s 3D electron density distribution is then recovered from this diffraction volume via de novo phase-retrieval.
+The goal of single-particle imaging (SPI) is to assemble the three-dimensional (3D) structure of an object from incomplete data collected from very many of its copies. With X-ray Free-electron Laser (XFEL) based SPI, noisy and un-oriented two-dimensional (2D) diffraction patterns of many individual copies of the object are computationally assembled into a 3D diffraction volume. The object?s 3D electron density distribution is then recovered from this diffraction volume via de novo phase-retrieval. 
+
 Include reference that discusses XFEL SPI.
 
 \subsection{Purpose of this software package}
-What is the EMC reconstruction algorithm?
 What is EMC? Reference 1D and 3D EMC paper. Expectation maximization in the space of unknown orientations?
 Features are shot-noise-limited diffraction patterns.
 How does EMC compare with other methods?
 Extensions of this algorithm have been successfully adapted for tomography and crystallography [...]. Describe what is different about these applications. 
 
 \section{Structure of this package}
-This software package uses the EMC algorithm to reconstruct a 3D diffraction volume from noisy, randomly-oriented single particle diffraction patterns. These patterns could be from simulations or actual single-particle experiments, where the minimum input are: a configuration file, a file with detector coordinates and pixel status, and a sparse representation of the photon data from diffraction patterns \figref{flowchart}. Here?s an example of the configuration file that simulates a single-particle imaging data stream and reconstructs the 3D intensities afterwards:
+This software package uses the EMC algorithm to reconstruct a 3D diffraction volume from noisy, randomly-oriented single particle diffraction patterns. These patterns could be from simulations or actual single-particle experiments, where the minimum input are: a configuration file, a file with detector coordinates and pixel status, and a sparse representation of the photon data from diffraction patterns \figref{flowchart}. Here's an example of the configuration file that simulates a single-particle imaging data stream and reconstructs the 3D intensities afterwards:
 
 
 \subsection{Typical experiment and key parameters}
+Several 
 
 \begin{figure}
-\caption{Caption describing figure.}
-\includegraphics[width=3.5in]{figures/geometry.eps}
+\caption{Experimental geometry of single-particle imaging adopted in the data stream simulator. Notably, we implement a square detector comprising square pixels. The scatterer, while depicted here as a sphere of radius $R_p$, is typically an electron density map sampled from a Protein Data Bank file.}
+\includegraphics[width=3.5in]{figures/geometry.eps} \label{fig:expGeometry}
 \end{figure}
-
 
 \subsection{Data stream simulator}
 Discuss the data stream simulator. 
@@ -198,7 +195,7 @@ Several convenience utilities are included to help prepare the data for or view 
 \end{enumerate}
 
 
-\subsection{Data formats}
+\subsection{Configuration and data formats}
 \label{subsec:formats}
 \subsubsection{Configuration file}
 \label{subsec:config}
@@ -257,7 +254,7 @@ need_scaling = 1
 alpha = 0.
 beta = 1.
 \end{lstlisting}
-\caption{Typical configuration file describing various parameters used to perform a basic simulation and reconstruction using the KLH1 (\texttt{4BED.pdb}) molecule.}
+\caption{Typical configuration file describing various parameters used to perform a basic simulation and reconstruction using the KLH1 (\texttt{4BED.pdb}) molecule. Compare with Table \ref{table:simParams}}
 \label{fig:config}
 \end{figure}
 
@@ -291,32 +288,40 @@ to estimate the required number of frames $M_{data}$ for $S\sim50$, where $M_{ro
 The third simulation was performed to demonstrate the deterministic annealing method to deal with convergence issues caused by very high signal. Most of the parameters were kept identical to the low fluence AMO simulation, but the fluence was adjusted to correspond to a pulse energy of 1 mJ.
 
 \begin{table}
-\caption{Simulation parameters for EMC reconstructions}
+\caption{Parameters for EMC reconstructions of simulated single-particle imaging} \label{table:simParams}
 \label{parameters}
-\begin{tabular}{ lllll}
-                        & & AMO (low)           & & CXI              & & AMO (high)\\
+\begin{tabular}{p{3.3cm} p{1.4cm} p{1.4cm} p{1.4cm}}
+                        & AMO (low)           & CXI              & AMO (high)\\
 \hline
-sample                  & & KLH1                & & TMV              & & KLH1 \\
-photon energy (keV)     & & 2.0                 & & 7.0              & & 2.0 \\
-detector distance (mm)  & & 300                 & & 350              & & 290 \\
-detector size (pixel)   & & 150                 & & 150              & & 150 \\
-pixel size (mm)         & & 0.512               & & 0.751            & & 0.512 \\
-beamstop radius (pixel) & & 10.0                & & 8.0              & & 10.0 \\
-fluence (photons/um$^2$)& & $1\times10^{10}$    & & $1\times10^{12}$ & & $3.125\times10^{12}$ \\
+photon energy (keV)     & 2.0                 & 7.0              & 2.0 \\
+photon wavelength (\AA)	& 6.2                 & 1.77             & 6.2 \\
+detector distance (mm)  & 300                 & 350              & 290 \\
+detector size (pixel)   & 150                 & 150              & 150 \\
+pixel size (mm)         & 0.512               & 0.751            & 0.512 \\
+beamstop radius (pixel) & 10.0                & 8.0              & 10.0 \\
+fluence (photons/um$^2$)& $1\times10^{10}$    & $1\times10^{12}$ & $3.125\times10^{12}$ \\
+resolution at edge (nm) & 2.45                & 0.56             & 2.5 \\
 \hline
-resolution at edge (nm) & & 2.45                & & 0.56             & & 2.5 \\
-number of RU            & & 16                  & & 3                & & 16 \\
-mean photon count       & & 90                  & & 90               & & $2.8\times10^{4}$ \\
-number of frames        & & $3\times10^5$       & & $1\times10^6$    & & $1\times10^5$ \\
-quaternion sampling     & & 6                   & & 9                & & 6 \\
+sample                  & KLH1\footnote{Keyhole Limpet Hemocyanin 1}& TMV\footnote{Four-layer Tobacco Mosaic Virus}& KLH1$^\dagger$ \\
+mass (kDa)	            & 8000                & 18               & 8000 \\
+number of resolution units& 16                & 3                & 16 \\
+mean photons/frame      & 90                  & 90               & $2.8\times10^{4}$ \\
+number of frames        & $3\times10^5$       & $1\times10^6$    & $1\times10^5$ \\
+quaternion sampling     & 6                   & 9                & 6 \\
 
 \end{tabular}
 \end{table}
 
-\subsection{AMO reconstruction at low fluence}
+\subsection{AMO reconstruction}
 \subsection{CXI reconstruction}
 \subsection{AMO reconstruction at high fluence}
 \label{subsec:amohigh}
+
+\begin{figure}
+\caption{}
+\includegraphics[width=3.5in]{figures/cxi_intens_055.png} \label{fig:cxi_intens}
+\includegraphics[width=3.5in]{figures/cxi_log_fig.png} \label{fig:cxi_log_fig}
+\end{figure}
 
 
 \section{Conclusions and future work}
