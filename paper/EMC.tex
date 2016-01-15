@@ -326,8 +326,26 @@ quaternion sampling     & 6                   & 9                & 6 \\
 
 \appendix
 
-\section{Computing speckle sampling}\label{sec:speckle}
+\section{Computing speckle sampling on the detector}\label{sec:speckle}
+We use a spherical approximate to estimate the size of diffraction speckles from a scatterer. A sphere of radius $R_p$, produces diffraction intensities 
+\begin{equation}
+I(\widetilde{q}) = \left|\frac{\sin(\widetilde{q}) - \widetilde{q} \cos(\widetilde{q})} {\widetilde{q}^3} \right|^2 \;, \label{eqn:speckle}
+\end{equation}
+with dimensionless resolution $\widetilde{q} = 2 \pi \widehat{q} R_p$, where we define $\widehat{q} = 2 \sin(\phi/2) / \lambda$ as the spatial resolution commonly used in structural biology. Here, $\phi$ and $\lambda$ are the scattering angles and photon wavelength respectively (see Figure \ref{fig:solidAngle}). The width of a diffraction speckle of this spherical approximate is the separation in $\Delta \widehat{q} $ between the zeros of \eqref{eqn:speckle}. These zeros occur when 
+\begin{equation}
+\tan(\widetilde{q}) = \widetilde{q} \;,
+\end{equation}
+which approaches $\widetilde{q} \to (2n+1) \pi / 2$, where $n \in \mathbb{Z}$, for large $\widetilde{q}$. As a result, for large $\widetilde{q}$ the separation between the zeros of \eqref{eqn:speckle} $\Delta \widetilde{q} \to \pi$, which results in a speckle width in spatial resolution of 
+\begin{equation}
+\Delta \widehat{q} \to 1/(2 R_p) \;. 
+\end{equation}
+According to Figure \ref{fig:expGeometry}, the coarsest sample in spatial frequency has spacings that is inversely proportional to the field of view $L$, or $\Delta \widehat{q}_{\text{min}} \sim 1/L$. 
 
+The sampling ratio of the diffraction speckle is defined as:
+\begin{equation}
+\Delta \widehat{q} \,/\, \Delta \widehat{q}_{\text{min}} = \frac{L}{2R_p} = \frac{\lambda}{4 R_p \sin\left( \arctan (l_D / z_D) \,/\,2 \right)}\; ,
+\end{equation}
+where $l_D$ and $z_D$ are the detector's pixel width and detector-interaction region respectively (see Figure \ref{fig:solidAngle}).
 
 \section{Solid angle correction for square pixels on planar detectors}\label{sec:solidAngle}
 \begin{figure}
