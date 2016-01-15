@@ -5,9 +5,10 @@
 % Version 1.6 (28 March 2013)
 %------------------------------------------------------------------------------
 
-\documentclass[]{iucr}              % DO NOT DELETE THIS LINE
+\documentclass[preprint]{iucr}              % DO NOT DELETE THIS LINE
 \usepackage{verbatim}
 \usepackage{graphicx}
+\usepackage{tikz}
      %-------------------------------------------------------------------------
      % Information about journal to which submitted
      %-------------------------------------------------------------------------
@@ -25,7 +26,6 @@
 \usepackage{amsmath}
 
 \begin{document}                  % DO NOT DELETE THIS LINE
-
      %-------------------------------------------------------------------------
      % The introductory (header) part of the paper
      %-------------------------------------------------------------------------
@@ -108,17 +108,22 @@ This software package uses the EMC algorithm to reconstruct a 3D diffraction vol
 
 \begin{figure}
 \caption{Caption describing figure.}
-\includegraphics[width=3in]{figures/geometry.eps}
+\includegraphics[width=3.5in]{figures/geometry.eps}
 \end{figure}
 
 
 \subsection{Data stream simulator}
 
+\begin{figure}
+\caption{Caption describing figure.}
+\includegraphics[width=4in]{figures/emc_flowchart.eps}
+\end{figure}
+
 \subsection{EMC algorithm}
 
 \subsection{Convenience utilities}
 \label{subsec:conv}
-Here, the EMC algorithm is implemented with hybrid openMPI+openMP, and hence suitable for shared and/or distributed memory systems. 
+Here, the EMC algorithm is implemented with hybrid MPI+openMP, and hence suitable for shared and/or distributed memory systems. 
 
 Several convenience utilities are included to help prepare the data for or view the results from the EMC reconstruction algorithm. These utilities are briefly described here. 
 
@@ -163,8 +168,14 @@ The header resides in the first 1024 bytes. The first 4 bytes are a 32 bit integ
 
 After this, there are \texttt{num\_data} 32 bit integers giving the number of one-photon events in each frame (\texttt{ones}). Similarily, there are \texttt{num\_data} integers giving the number of multi-photon events (\texttt{multi}). Let the sum of all numbers in the \texttt{ones} and \texttt{multi} arrays be \texttt{total\_ones} and \texttt{total\_multi}. 
 \appendix
+
 \section{Solid angle correction for square detectors}
-Calculation of solid angle 
+\begin{figure}
+\caption{Caption describing figure.}
+\includegraphics[width=3.in]{figures/solidAngle.eps}
+\end{figure}
+
+
 
 \section{Frame-by-frame intensity scale factor updates}
 In many real world applications, the incident fluence on each particle will be different. The default implementation in \citeasnoun{loh2009} assumes uniform incident fluence. Here we derive the likelihood maximizing update rule employed in this package when the \texttt{need\_scaling} option is turned on. The approach used is similar to that employed in \citeasnoun{loh2010}, except for a Poisson probability model rather than Gaussian.
@@ -216,10 +227,10 @@ N.D.L. would like to thank the support of the Lee Kuan Yew Endowment fund, and t
 
      % Postscript figures can be included with multiple figure blocks
 
-\begin{figure}
-\caption{Caption describing figure.}
-\includegraphics{figures/geometry.eps}
-\end{figure}
+%\begin{figure}
+%\caption{Caption describing figure.}
+%\includegraphics{figures/geometry.eps}
+%\end{figure}
 
 
 \end{document}                    % DO NOT DELETE THIS LINE
