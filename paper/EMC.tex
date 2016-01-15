@@ -5,7 +5,7 @@
 % Version 1.6 (28 March 2013)
 %------------------------------------------------------------------------------
 
-\documentclass[preprint]{iucr}              % DO NOT DELETE THIS LINE
+\documentclass[]{iucr}              % DO NOT DELETE THIS LINE
      %-------------------------------------------------------------------------
      % Information about journal to which submitted
      %-------------------------------------------------------------------------
@@ -30,7 +30,7 @@
 	frame=single
 }
 \lstdefinelanguage{ini} {
-	basicstyle=\ttfamily\small,
+	basicstyle=\ttfamily\scriptsize,
 	columns=fullflexible,
 	morecomment=[s][\color{red}\bfseries]{[}{]},
 	morecomment=[l]{\#},
@@ -110,12 +110,20 @@ Abstract goes here.
      % and \subsubsection's as required.
 
 \section{Introduction}
+Introduction:
+What is single-particle imaging in the XFEL context?
+The goal of single-particle imaging (SPI) is to assemble the three-dimensional (3D) structure of an object from incomplete data collected from very many of its copies.
+With X-ray Free-electron Laser (XFEL) based SPI, noisy and unoriented two-dimensional (2D) diffraction patterns of many individual copies of the object are computationally assembled into a 3D diffraction volume. The object?s 3D electron density distribution is then recovered from this diffraction volume via de novo phase-retrieval.
+Include reference that discusses XFEL SPI.
 
-\subsection{Purpose software package}
- A Computer Program article should make clear the novelty of the program and its scientific context. 
+\subsection{Purpose of this software package}
+What is the EMC reconstruction algorithm?
+What is EMC? Reference 1D and 3D EMC paper. Expectation maximization in the space of unknown orientations?
+Features are shot-noise-limited diffraction patterns.
+How does EMC compare with other methods?
+Extensions of this algorithm have been successfully adapted for tomography and crystallography [...]. Describe what is different about these applications. 
 
-\section{Structure of package}
-
+\section{Structure of this package}
 This software package uses the EMC algorithm to reconstruct a 3D diffraction volume from noisy, randomly-oriented single particle diffraction patterns. These patterns could be from simulations or actual single-particle experiments, where the minimum input are: a configuration file, a file with detector coordinates and pixel status, and a sparse representation of the photon data from diffraction patterns \figref{flowchart}. Here?s an example of the configuration file that simulates a single-particle imaging data stream and reconstructs the 3D intensities afterwards:
 
 
@@ -128,7 +136,7 @@ This software package uses the EMC algorithm to reconstruct a 3D diffraction vol
 
 
 \subsection{Data stream simulator}
-
+Discuss the data stream simulator. 
 \begin{figure}
 \caption{Caption describing figure.}
 \includegraphics[width=4in]{figures/emc_flowchart.eps}
@@ -140,7 +148,7 @@ Here, the EMC algorithm is implemented with hybrid MPI+openMP, and hence suitabl
 
 \subsection{Modules and convenience utilites}
 \label{subsec:mod+utils}
-
+\subsubsection{Modules}
 Here are the essential modules for simulating a data stream from a single-particle imaging experiment. By default, these modules uses parameters listed in a single \texttt{config.ini} configuration file, although point each module to different configuration files for each is straightforward as well.
 
 \begin{enumerate}
@@ -150,6 +158,7 @@ Here are the essential modules for simulating a data stream from a single-partic
 \item{\bf make\_quaternions.py}. Creates a list of quasi-uniform rotation group samples based on a refinement scheme of the 600-cell, as described in \citeasnoun{loh2009}. These samples are used by the {\bf emc} reconstruction algorithm, as instructed by the \texttt{config.ini} configuration file.
 \end{enumerate}
 
+\subsubsection{Convenience utilities}
 Several convenience utilities are included to help prepare the data for or view the results from the EMC reconstruction algorithm. These utilities are briefly described here. 
 \begin{enumerate}
 \item{\bf init\_new\_recon.py.} This Python utility compiles the C executables in the package, and makes them plus other the rest of the utilities available in a newly initialized reconstruction sub-directory.
@@ -238,6 +247,49 @@ Since the data in many relevant experiments utilizing the EMC algorithm have ver
 The header resides in the first 1024 bytes. The first 4 bytes are a 32 bit integer giving the number of data frames (\texttt{num\_data}) contained in the file. The next 4 bytes are also a 32 bit integer giving the number of pixels in the detector file used to number the pixels. The next 1016 bytes are currently empty (filled with zeros).
 
 After this, there are \texttt{num\_data} 32 bit integers giving the number of one-photon events in each frame (\texttt{ones}). Similarily, there are \texttt{num\_data} integers giving the number of multi-photon events (\texttt{multi}). Let the sum of all numbers in the \texttt{ones} and \texttt{multi} arrays be \texttt{total\_ones} and \texttt{total\_multi}. 
+
+\section{Example reconstructions of simulated experiments}
+
+We exemplify our package with three simulated single-particle reconstructions using the specifications of AMO [Ferguson et al. 2015] and CXI [Liang et al. 2015] endstations at LCLS. Because AMO has lower photon energy and beam fluence than CXI, a larger sample is required for the latter to be finely resolved and scatter enough photons. Therefore, we chose keyhole limpet hemocyanin (KLH) 1 didecamer [Gatsogiannis,  Markl 2009] and four-layer Tobacco Mosaic Virus (TMV) [Bhyravbhatla, Watowich, Caspar 1998] as our samples for simulations at AMO and CXI respectively.
+
+The simulation parameters are shown in Table \ref{parameters}. The detector dimensions correspond to an 1024 by 1024 pnCCD and CSPAD. We decrease the beam fluence to obtain mean photon counts $N\sim 90$ for both setups. This level of reduction is possible in real experiments due to the beamline and instrument transmission. We use the signal-to-noise ratio parameter defined in Eq. 37 of [Loh, Elser 2009]
+\begin{equation}
+S = \sqrt{\frac{N M_{data}}{M_{rot}}}
+\end{equation}
+to estimate the required number of frames $M_{data}$ for $S\sim50$, where $M_{rot}$ is the number of rotation samplings. Assuming uniform distribution of the simulated diffraction frames in orientation space, $S^2$ has the interpretation of total photons per orientation.
+
+\begin{table}
+\caption{Simulation parameters for EMC reconstructions}
+\label{parameters}
+\begin{tabular}{ lllll}
+                                  & & AMO     & & CXI\\
+\hline
+photon energy (keV)    & & 2.0      & & 7.0 \\
+detector distance (mm)  & & 300    &  & 350 \\
+detector size (pixel)        & & 150    &  & 150 \\
+pixel size (mm)              & & 0.512  & & 0.751 \\
+beamstop radius (pixel)  & & 10.0   &  & 8.0 \\
+fluence (photons/um^2) & & $1 \times 10^{10}$  &  & $1 \times 10^{12}$  \\
+\hline
+resolution at edge (nm)  & & 2.45    & & 0.56 \\
+number of RU                 & & 16      & & 3 \\
+mean photon count         & & 90     &  & 90 \\
+number of frames           & & $3\times10^5$    &  & $1\times10^6$ \\
+quaternion sampling        & & 6         & & 9 \\
+
+\end{tabular}
+\end{table}
+
+\subsection{AMO reconstruction at low fluence}
+\subsection{CXI reconstruction}
+\subsection{AMO reconstruction at high fluence}
+
+
+\section{Conclusions and future work}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 \appendix
 
 \section{Solid angle correction for square pixels on planar detectors}
@@ -246,7 +298,7 @@ After this, there are \texttt{num\_data} 32 bit integers giving the number of on
 \includegraphics[width=2.5in]{figures/solidAngle.eps} \label{fig:solidAngle}
 \end{figure}
 
-<<<<<<< HEAD
+
 In this section we compute the solid angle $\Delta \Omega$ subtended by a square pixel of area $l_D \times l_D$ about the point where a scatterer sits (see Figure \ref{fig:solidAngle}). To first approximation, the solid angle $\Delta \Omega \sim \cos(\theta) \Delta \phi \cdot \Delta \theta$. The estimate  $\Delta \phi$ and $\Delta \theta$, we use the following relations. On a detector $z_D$ from the interaction point, we consider a pixel at position $\{x,y,z_D\}$ in its spherical coordinate representation:
 \begin{equation}
 \sin (\phi) = y /\rho ,&\qquad \cos(\phi) = z_D / \rho \;,
