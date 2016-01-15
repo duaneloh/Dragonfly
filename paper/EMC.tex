@@ -6,9 +6,6 @@
 %------------------------------------------------------------------------------
 
 \documentclass[preprint]{iucr}              % DO NOT DELETE THIS LINE
-\usepackage{verbatim}
-\usepackage{graphicx}
-\usepackage{tikz}
      %-------------------------------------------------------------------------
      % Information about journal to which submitted
      %-------------------------------------------------------------------------
@@ -23,7 +20,25 @@
                                   %   M - IUCrJ
                                   %   S - Journal of Synchrotron Radiation
 
+\usepackage{verbatim}
+\usepackage{graphicx}
+\usepackage{tikz}
 \usepackage{amsmath}
+\usepackage{listings}
+
+\lstset {
+	frame=single
+}
+\lstdefinelanguage{ini} {
+	basicstyle=\ttfamily\small,
+	columns=fullflexible,
+	morecomment=[s][\color{red}\bfseries]{[}{]},
+	morecomment=[l]{\#},
+	commentstyle=\color{blue}\ttfamily,
+	morekeywords={},
+	otherkeywords={=,:::},
+	keywordstyle={\color{green}\bfseries}
+}
 
 \begin{document}                  % DO NOT DELETE THIS LINE
      %-------------------------------------------------------------------------
@@ -160,6 +175,53 @@ The basic parameters of the experiment are:
 \item \texttt{polarization}: Polarization direction (can be x, y, or none)
 \end{itemize}
 
+\begin{figure}
+\begin{lstlisting}[language=ini]
+[parameters]
+detd = 290
+lambda = 6.2
+detsize = 150
+pixsize = 0.512
+stoprad = 10
+polarization = x
+
+[make_densities]
+in_pdb_file = aux/4BED.pdb
+scatt_dir = aux/henke_table
+out_density_file = data/densityMap.bin
+
+[make_intensities]
+in_density_file = make_densities:::out_density_file
+out_intensity_file = data/intensities.bin
+
+[make_detector]
+out_detector_file = data/det_sim.dat
+
+[make_data]
+num_data = 100000
+fluence = 3.125e12
+in_detector_file = make_detector:::out_detector_file
+in_intensity_file = make_intensities:::out_intensity_file
+out_photons_file = data/photons.emc
+
+[make_quaternion]
+num_div = 6
+out_quat_file = aux/quat_06.dat
+
+[emc]
+in_photons_file = make_data:::out_photons_file
+in_detector_file = make_detector:::out_detector_file
+in_quat_file = make_quaternion:::out_quat_file
+out_folder = data/
+log_file = EMC.log
+need_scaling = 1
+alpha = 0.
+beta = 1.
+\end{lstlisting}
+\caption{Typical configuration file describing various parameters used to perform a basic simulation and reconstruction using the KLH1 (\texttt{4BED.pdb}) molecule.}
+\label{fig:config}
+\end{figure}
+
 \subsubsection{Detector file}
 \label{subsec:detector}
 The detector file is an ASCII (human readable) file which describes various properties of the detector. The first line of the file contains a single number which represents the number of pixels. Following that, for each pixel, there are five columns of numbers. The first three columns give the 3D coordinates of the detector pixel in voxels, where the voxels refer to the 3D grid containing the intensity model. The next column gives the product of the polarization and solid angle corrections for that pixel. The last column is an 8-byte unsigned integer whose value is used by the EMC code as well as other utilities to categorize the pixel. Currently, there are three categories:
@@ -243,17 +305,6 @@ N.D.L. would like to thank the support of the Lee Kuan Yew Endowment fund, and t
 
      % Simple tables should use the tabular environment according to this
      % model
-
-\begin{table}
-\caption{Caption to table}
-\begin{tabular}{llcr}      % Alignment for each cell: l=left, c=center, r=right
- HEADING    & FOR        & EACH       & COLUMN     \\
-\hline
- entry      & entry      & entry      & entry      \\
- entry      & entry      & entry      & entry      \\
- entry      & entry      & entry      & entry      \\
-\end{tabular}
-\end{table}
 
      % Postscript figures can be included with multiple figure blocks
 
