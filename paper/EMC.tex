@@ -273,7 +273,7 @@ After this, there are \texttt{num\_data} 32 bit integers giving the number of on
 
 \section{Example reconstructions of simulated experiments}\label{sec:simulations}
 
-We exemplify our package with three simulated single-particle reconstructions using the specifications of AMO~\cite{ferguson2015} and CXI~\cite{liang2015} endstations at LCLS. Because AMO has lower photon energy, a larger sample was chosen for the latter to be finely resolved and scatter enough photons. Therefore, we chose keyhole limpet hemocyanin (KLH) 1 didecamer~\cite{gatsogiannis2009} and four-layer Tobacco Mosaic Virus (TMV)~\cite{bhyravbhatla1998} as our samples for simulations at AMO and CXI respectively.
+We exemplify our package with three simulated single-particle reconstructions using the specifications of AMO~\cite{ferguson2015} and CXI~\cite{liang2015} endstations at LCLS. \hl{Because AMO has lower photon energy, a larger sample was chosen for the latter to be finely resolved and scatter enough photons.}Therefore, we chose keyhole limpet hemocyanin (KLH) 1 didecamer~\cite{gatsogiannis2009} and four-layer Tobacco Mosaic Virus (TMV)~\cite{bhyravbhatla1998} as our samples for simulations at AMO and CXI respectively.
 
 The simulation parameters are shown in Table \ref{parameters}. The detector dimensions correspond to an 1024 by 1024 pnCCD and CSPAD. We decrease the beam fluence to obtain mean photon counts $N\sim 90$ for the first two simulations. This level of reduction is possible in real experiments due to the beamline and instrument transmission. We use the signal-to-noise ratio parameter defined in Eq. 37 of \citeasnoun{loh2009}. 
 \begin{equation}
@@ -295,10 +295,10 @@ detector distance (mm)  & 300                 & 350              & 290 \\
 detector size (pixel)   & 150                 & 150              & 150 \\
 pixel size (mm)         & 0.512               & 0.751            & 0.512 \\
 beamstop radius (pixel) & 10.0                & 8.0              & 10.0 \\
-fluence (photons/um$^2$)& $1\times10^{10}$    & $1\times10^{12}$ & $3.125\times10^{12}$ \\
+fluence (photons/um$^2$)& $1\times10^{10}$\footnote{See \citeasnoun{Loh2013}.}    & $1\times10^{12}$ & $3.125\times10^{12}$ \\
 resolution at edge (nm) & 2.45                & 0.56             & 2.5 \\
 \hline
-sample                  & KLH1\footnote{Keyhole Limpet Hemocyanin 1}& TMV\footnote{Four-layer Tobacco Mosaic Virus}& KLH1$^\dagger$ \\
+sample                  & KLH1\footnote{Keyhole Limpet Hemocyanin 1.}& TMV\footnote{Four-layer Tobacco Mosaic Virus.}& KLH1$^\ddagger$ \\
 mass (kDa)	            & 8000                & 18               & 8000 \\
 number of resolution units& 16                & 3                & 16 \\
 mean photons/frame      & 90                  & 90               & $2.8\times10^{4}$ \\
@@ -308,8 +308,8 @@ quaternion sampling     & 6                   & 9                & 6 \\
 \end{tabular}
 \end{table}
 
-\subsection{AMO reconstruction}
-\subsection{CXI reconstruction}
+\subsection{AMO reconstruction at low fluence} \label{subsec:amolow}
+\subsection{CXI reconstruction} \label{subsec:cxi}
 \subsection{AMO reconstruction at high fluence} \label{subsec:amohigh}
 
 \begin{figure}
@@ -335,17 +335,17 @@ with dimensionless resolution $\widetilde{q} = 2 \pi \widehat{q} R_p$, where we 
 \begin{equation}
 \tan(\widetilde{q}) = \widetilde{q} \;,
 \end{equation}
-which approaches $\widetilde{q} \to (2n+1) \pi / 2$, where $n \in \mathbb{Z}$, for large $\widetilde{q}$. As a result, for large $\widetilde{q}$ the separation between the zeros of \eqref{eqn:speckle} $\Delta \widetilde{q} \to \pi$, which results in a speckle width in spatial resolution of 
+which approaches $\widetilde{q} \to (2n+1) \pi / 2$, where $n \in \mathbb{Z}$, for large $\widetilde{q}$. As a result, for large $\widetilde{q}$ the separation between the zeros of \eqref{eqn:speckle} $\Delta \widetilde{q} \to \pi$, which results in a speckle width in spatial frequency of 
 \begin{equation}
 \Delta \widehat{q} \to 1/(2 R_p) \;. 
 \end{equation}
-According to Figure \ref{fig:expGeometry}, the coarsest sample in spatial frequency has spacings that is inversely proportional to the field of view $L$, or $\Delta \widehat{q}_{\text{min}} \sim 1/L$. 
+Referring to Figure \ref{fig:expGeometry}, the coarsest spacings in spatial frequency occur at small scattering angles and is inversely proportional to the field of view $L$, or $\Delta \widehat{q}_{\text{min}} \sim 1/L$. 
 
 The sampling ratio of the diffraction speckle is defined as:
 \begin{equation}
 \Delta \widehat{q} \,/\, \Delta \widehat{q}_{\text{min}} = \frac{L}{2R_p} = \frac{\lambda}{4 R_p \sin\left( \arctan (l_D / z_D) \,/\,2 \right)}\; ,
 \end{equation}
-where $l_D$ and $z_D$ are the detector's pixel width and detector-interaction region respectively (see Figure \ref{fig:solidAngle}).
+where $l_D$ is the width of the detector pixel, and $z_D$ is separation between the detector and interaction region (see Figures \ref{fig:expGeometry} or \ref{fig:solidAngle}). While the ideal sampling ratio of the diffraction speckles should exceed two, the time and memory required for intensity reconstruction rises rapidly when this ratio becomes excessively large (e.g. $ \Delta \widehat{q} \,/\, \Delta \widehat{q}_{\text{min}} \gg 5$). 
 
 \section{Solid angle correction for square pixels on planar detectors}\label{sec:solidAngle}
 \begin{figure}
