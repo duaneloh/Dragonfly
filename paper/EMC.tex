@@ -100,7 +100,7 @@ Supply a synopsis of the paper for inclusion in the Table of Contents.
 \end{synopsis}
 
 \begin{abstract}
-Abstract goes here.
+TODO: Abstract goes here.
 \end{abstract}
 
 
@@ -111,9 +111,11 @@ Abstract goes here.
      % and \subsubsection's as required.
 
 \section{Introduction}
-The goal of single-particle imaging (SPI) is to assemble the three-dimensional (3D) structure of an object from incomplete data collected from very many of its copies. With X-ray Free-electron Laser (XFEL) based SPI, noisy and un-oriented two-dimensional (2D) diffraction patterns of many individual copies of the object are computationally assembled into a 3D diffraction volume. The object?s 3D electron density distribution is then recovered from this diffraction volume via de novo phase-retrieval. 
+TODO: Some mumbo jumbo about how SPI will revolutionize the world.
 
-Include reference that discusses XFEL SPI.
+The goal of single-particle imaging (SPI) is to assemble the three-dimensional (3D) structure of an object from incomplete data collected from very many of its copies. With X-ray Free-electron Laser (XFEL) based SPI, noisy and un-oriented two-dimensional (2D) diffraction patterns of many individual copies of the object are computationally assembled into a 3D diffraction volume. The object's 3D electron density distribution is then recovered from this diffraction volume via de novo phase-retrieval. 
+
+TODO: Include references that discusses XFEL SPI.
 
 \subsection{Purpose of this software package}
 What is EMC? Reference 1D and 3D EMC paper. Expectation maximization in the space of unknown orientations?
@@ -126,7 +128,8 @@ This software package uses the EMC algorithm to reconstruct a 3D diffraction vol
 
 
 \subsection{Typical experiment and key parameters}\label{sec:expParams}
-Several 
+
+TODO: Briefly describe the key parameters, which will be later echoed in config.ini. Also state choice of crystallographic spatial frequency, discuss dimensionless radius, speckle sampling, solid angle correction.
 
 \begin{figure}
 \caption{Experimental geometry of single-particle imaging adopted in the data stream simulator. Notably, we implement a square detector comprising square pixels. The scatterer, while depicted here as a sphere of radius $R_p$, is typically an electron density map sampled from a Protein Data Bank file.}
@@ -134,7 +137,9 @@ Several
 \end{figure}
 
 \subsection{Data stream simulator}\label{sec:dataStreamSim}
-Discuss the data stream simulator. 
+
+TODO: Short overview of data stream simulator: why this is convenient and any key design choices we made.
+
 \begin{figure}
 \caption{Flowchart of how to simulate a data set and perform a reconstruction starting from a sample PDB file and a configuration file with information about the experimental setup.}
 \includegraphics[width=\textwidth]{figures/emc_sim.pdf}
@@ -145,8 +150,8 @@ Discuss the data stream simulator.
 \includegraphics[width=\textwidth]{figures/emc_exp.pdf}
 \end{figure}
 
-\subsection{EMC algorithm}\label{sec:EMC}
-Here, the EMC algorithm \cite{loh2009} is implemented with hybrid MPI+OpenMP, and hence suitable for shared and/or distributed memory systems. In this section, we describe the implementation of the algorithm and discuss some modifications. In the current version, the code assumes a Poisson probability model for the number of photons in a pixel. This means that if the mean number of photons at a pixel is $W$, the probability of getting $K$ photons is given by
+\subsection{Implementing the EMC algorithm}\label{sec:EMC}
+The EMC algorithm \cite{loh2009} is implemented here with hybrid MPI+OpenMP, and hence suitable for shared and/or distributed memory systems. In this section, we describe this implementation and an extension to deal with high signal data. In the current version, the code assumes a Poisson probability model for the number of photons in a pixel. This means that if the mean number of photons at a pixel is $W$, the probability of getting $K$ photons is given by
 \begin{equation}
 P(K{\big\vert}W) = \frac{W^K e^{-W}}{K!}
 \end{equation}
@@ -170,7 +175,7 @@ The most time-consuming step of each iteration is the calculation of Eq.~\ref{eq
 
 In many experimental situations, the incident fluence varies from shot-to-shot. Thus, the tomograms would be scaled differently for each data frame. One can enable the recovery of these scale factors using the update rule described in Appendix~\ref{sec:rescaling}. 
 
-We also find that if the signal is too strong, the reconstructions get stuck in local maxima by having all the orientations overlap each other. This effect is similar to what is observed if the background is too high~\cite{ayyer2015}. However, we also observe that the reconstruction is stable around the true solution, and only falters when one starts from a random initial guess. This problem can be avoided by using the deterministic annealing variant of expectation maximization ~\cite{ueda1998}. In the EMC case, this is implemented by raising $R_{dr}$ calculated in Eq.~\ref{eqn:probnumr} to a small power $\beta$, and then normalizing. This has the effect of broadening the distribution and results in a rotationally blurred, but stable reconstruction. The power $\beta$ can then be raised gradually in a manner similar to simulated annealing to slowly improve the reconstruction. An example of this is shown in Section~\ref{subsec:amohigh}, where $\beta$ starts at 0.001 and is raised by a factor of 2 every 10 iterations 8 times.
+We also find that if the signal is too strong, the reconstructions get stuck in local maxima by having all the orientations overlap each other. This effect is similar to what is observed if the background is too high~\cite{ayyer2015}. However, we also observe that the reconstruction is stable around the true solution, and only falters when one starts from a random initial guess. This problem can be avoided by using the deterministic annealing variant of expectation maximization ~\cite{ueda1998}. In the EMC case, this is implemented by raising $R_{dr}$ calculated in Eq.~\ref{eqn:probnumr} to a small power $\beta$, and then normalizing. This has the effect of broadening the distribution and results in a rotationally blurred, but stable reconstruction. The power $\beta$ can then be raised gradually in a manner similar to simulated annealing to slowly improve the reconstruction. An example of this is shown in Section~\ref{subsec:recon}, where $\beta$ starts at 0.001 and is raised by a factor of 2 every 10 iterations 8 times.
 
 \subsection{Modules and convenience utilities}\label{subsec:mod+utils}
 \subsubsection{Modules}\label{subsubsec:mods}
@@ -189,7 +194,7 @@ Several convenience utilities are included to help prepare the data for or view 
 \begin{enumerate}
 \item{\bf init\_new\_recon.py.} This Python utility compiles the C executables in the package, and makes them plus other the rest of the utilities available in a newly initialized reconstruction sub-directory.
 \item{\bf sim\_setup.py.} This Python utility simulates a single-particle data stream using the parameters listed in the configuration file. This utility, in turn, calls the following modules listed above: {\bf make\_densities.py}, {\bf make\_intensities.py}, {\bf make\_data.py}, and {\bf make\_quaternions.py}.
-\item{\bf make\_powder.py}. Makes a virtual powder pattern from the sparse photon format adopted in this package.
+\item{\bf make\_powder.py}. Makes a virtual powder pattern from a large stack of diffraction patterns stored in the sparse photon format adopted in this package.
 \item{\bf run\_emc.py}. Starts the EMC reconstruction by calling its MPI+OpenMP implementation in C. Includes a few convenience operations like calling the {\bf make\_quaternion} module to increase the sampling of the rotation group just before starting a reconstruction.
 \item{\bf autoplot.py}. Renders the results of the EMC reconstruction, including the diagnostics it generates, with the option of automatically updating the plots when newer intensities become available.
 \end{enumerate}
@@ -273,7 +278,7 @@ After this, there are \texttt{num\_data} 32 bit integers giving the number of on
 
 \section{Example reconstructions of simulated experiments}\label{sec:simulations}
 
-We exemplify our package with three simulated single-particle reconstructions using the specifications of AMO~\cite{ferguson2015} and CXI~\cite{liang2015} endstations at LCLS. \hl{Because AMO has lower photon energy, a larger sample was chosen for the latter to be finely resolved and scatter enough photons.}Therefore, we chose keyhole limpet hemocyanin (KLH) 1 didecamer~\cite{gatsogiannis2009} and four-layer Tobacco Mosaic Virus (TMV)~\cite{bhyravbhatla1998} as our samples for simulations at AMO and CXI respectively.
+We exemplify our package with three simulated single-particle reconstructions using the specifications of Atomic Molecular and Optical Science (AMO)~\cite{ferguson2015} and Coherent X-ray Imaging (CXI) ~\cite{liang2015} endstations at Linac Coherent Light Source (LCLS) \cite{Emma2010} \hl{Because AMO has lower photon energy, a larger sample was chosen for the latter to be finely resolved and scatter enough photons.}Therefore, we chose keyhole limpet hemocyanin (KLH) 1 didecamer~\cite{gatsogiannis2009} and four-layer Tobacco Mosaic Virus (TMV)~\cite{bhyravbhatla1998} as our samples for simulations at AMO and CXI respectively.
 
 The simulation parameters are shown in Table \ref{parameters}. The detector dimensions correspond to an 1024 by 1024 pnCCD and CSPAD. We decrease the beam fluence to obtain mean photon counts $N\sim 90$ for the first two simulations. This level of reduction is possible in real experiments due to the beamline and instrument transmission. We use the signal-to-noise ratio parameter defined in Eq. 37 of \citeasnoun{loh2009}. 
 \begin{equation}
@@ -308,18 +313,31 @@ quaternion sampling     & 6                   & 9                & 6 \\
 \end{tabular}
 \end{table}
 
-\subsection{AMO reconstruction at low fluence} \label{subsec:amolow}
-\subsection{CXI reconstruction} \label{subsec:cxi}
-\subsection{AMO reconstruction at high fluence} \label{subsec:amohigh}
+\subsection{Discussions on simulated reconstructions} \label{subsec:recon}
+TODO: Describe how we know a reconstruction converges and monitor its progress. Describe how we nurse reconstructions to higher rotation group sampling. Describe how we guide a ``heating'' up of a beta parameter reconstruction.
 
 \begin{figure}
-\caption{}
+\caption{A simulated reconstruction at the AMO endstation at LCLS. The parameters are listed in Table \ref{table:simParams}. These figures were generated by the \texttt{autoplot.py} utility of Section ~\ref{subsubsec:utils}.}
+%\includegraphics[width=3.5in]{figures/cxi_intens_055.png} \label{fig:cxi_intens}
+%\includegraphics[width=3.5in]{figures/cxi_log_fig.png} \label{fig:cxi_log_fig}
+\end{figure}
+
+\begin{figure}
+\caption{A simulated reconstruction at the CXI endstation at LCLS (see Table \ref{table:simParams}).}
 \includegraphics[width=3.5in]{figures/cxi_intens_055.png} \label{fig:cxi_intens}
 \includegraphics[width=3.5in]{figures/cxi_log_fig.png} \label{fig:cxi_log_fig}
 \end{figure}
 
+\begin{figure}
+\caption{A simulated reconstruction at the AMO endstation at LCLS with high photon fluence (see Table \ref{table:simParams}).}
+%\includegraphics[width=3.5in]{figures/cxi_intens_055.png} \label{fig:cxi_intens}
+%\includegraphics[width=3.5in]{figures/cxi_log_fig.png} \label{fig:cxi_log_fig}
+\end{figure}
+
 
 \section{Conclusions and future work}
+
+TODO:
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
