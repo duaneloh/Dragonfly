@@ -5,12 +5,11 @@
 % Version 1.6 (28 March 2013)
 %------------------------------------------------------------------------------
 
-\documentclass[preprint]{iucr}              % DO NOT DELETE THIS LINE
-\usepackage{verbatim}
+\documentclass[]{iucr}              % DO NOT DELETE THIS LINE
      %-------------------------------------------------------------------------
      % Information about journal to which submitted
      %-------------------------------------------------------------------------
-     \journalcode{A}              % Indicate the journal to which submitted
+     \journalcode{J}              % Indicate the journal to which submitted
                                   %   A - Acta Crystallographica Section A
                                   %   B - Acta Crystallographica Section B
                                   %   C - Acta Crystallographica Section C
@@ -21,10 +20,27 @@
                                   %   M - IUCrJ
                                   %   S - Journal of Synchrotron Radiation
 
+\usepackage{verbatim}
+\usepackage{graphicx}
+\usepackage{tikz}
 \usepackage{amsmath}
+\usepackage{listings}
+
+\lstset {
+	frame=single
+}
+\lstdefinelanguage{ini} {
+	basicstyle=\ttfamily\scriptsize,
+	columns=fullflexible,
+	morecomment=[s][\color{red}\bfseries]{[}{]},
+	morecomment=[l]{\#},
+	commentstyle=\color{blue}\ttfamily,
+	morekeywords={},
+	otherkeywords={=,:::},
+	keywordstyle={\color{green}\bfseries}
+}
 
 \begin{document}                  % DO NOT DELETE THIS LINE
-
      %-------------------------------------------------------------------------
      % The introductory (header) part of the paper
      %-------------------------------------------------------------------------
@@ -40,14 +56,17 @@
      % Use lower-case letters in square brackets to link authors to their
      % affiliations; if there is only one affiliation address, remove the [a].
 
-\cauthor[a]{Kartik}{Ayyer}{kartik.ayyer@desy.de}
-\author[b]{Ti-Yen}{Lan}
-\author[c]{N. Duane}{Loh}
+\author[a]{Kartik}{Ayyer}
+
+\author[b]{Ti\-Yen}{Lan}
+
+\cauthor[c]{N. Duane}{Loh}{duaneloh@nus.edu.sg}
+
 \author[b]{Veit}{Elser}
 
 \aff[a]{Center for Free-Electron Laser Science, Deutsches Elektronen-Synchrotron DESY, Notkestra{\ss}e 85, 22607 Hamburg, \country{Germany}}
 \aff[b]{Second affiliation address}
-\aff[c]{Centre for Bio-imaging Sciences, National University of Singapore, Singapore 117543.}
+\aff[c]{Centre for Bio-imaging Sciences, National University of Singapore, 117543, \country{Singapore}.}
 
      % Use \shortauthor to indicate an abbreviated author list for use in
      % running heads (you will need to uncomment it).
@@ -91,41 +110,69 @@ Abstract goes here.
      % and \subsubsection's as required.
 
 \section{Introduction}
+Introduction:
+What is single-particle imaging in the XFEL context?
+The goal of single-particle imaging (SPI) is to assemble the three-dimensional (3D) structure of an object from incomplete data collected from very many of its copies.
+With X-ray Free-electron Laser (XFEL) based SPI, noisy and unoriented two-dimensional (2D) diffraction patterns of many individual copies of the object are computationally assembled into a 3D diffraction volume. The object?s 3D electron density distribution is then recovered from this diffraction volume via de novo phase-retrieval.
+Include reference that discusses XFEL SPI.
 
-\subsection{Purpose software package}
- A Computer Program article should make clear the novelty of the program and its scientific context. 
+\subsection{Purpose of this software package}
+What is the EMC reconstruction algorithm?
+What is EMC? Reference 1D and 3D EMC paper. Expectation maximization in the space of unknown orientations?
+Features are shot-noise-limited diffraction patterns.
+How does EMC compare with other methods?
+Extensions of this algorithm have been successfully adapted for tomography and crystallography [...]. Describe what is different about these applications. 
 
-\section{Structure of package}
+\section{Structure of this package}
 This software package uses the EMC algorithm to reconstruct a 3D diffraction volume from noisy, randomly-oriented single particle diffraction patterns. These patterns could be from simulations or actual single-particle experiments, where the minimum input are: a configuration file, a file with detector coordinates and pixel status, and a sparse representation of the photon data from diffraction patterns \figref{flowchart}. Here?s an example of the configuration file that simulates a single-particle imaging data stream and reconstructs the 3D intensities afterwards:
 
 
 \subsection{Typical experiment and key parameters}
 
+\begin{figure}
+\caption{Caption describing figure.}
+\includegraphics[width=3.5in]{figures/geometry.eps}
+\end{figure}
+
+
 \subsection{Data stream simulator}
+Discuss the data stream simulator. 
+\begin{figure}
+\caption{Caption describing figure.}
+\includegraphics[width=4in]{figures/emc_flowchart.eps}
+\end{figure}
 
 \subsection{EMC algorithm}
+Here, the EMC algorithm is implemented with hybrid MPI+openMP, and hence suitable for shared and/or distributed memory systems. 
+.... write more text ....
 
-\subsection{Convenience utilities}
-\label{subsec:conv}
-Here, the EMC algorithm is implemented with hybrid openMPI+openMP, and hence suitable for shared and/or distributed memory systems. 
-
-Several convenience utilities are included to help prepare the data for or view the results from the EMC reconstruction algorithm. These utilities are briefly described here. 
+\subsection{Modules and convenience utilites}
+\label{subsec:mod+utils}
+\subsubsection{Modules}
+Here are the essential modules for simulating a data stream from a single-particle imaging experiment. By default, these modules uses parameters listed in a single \texttt{config.ini} configuration file, although point each module to different configuration files for each is straightforward as well.
 
 \begin{enumerate}
-\item{\bf init\_new\_recon.py.} This Python utility compiles the C executables in the package, and makes them plus other the rest of the utilities available in a newly initialized reconstruction sub-directory.
-\item{\bf sim\_setup.py.} This Python utility simulates a single-particle data stream using the parameters listed in the configuration file. This utility, in turn, calls the following utilities that all depend on the configuration file.
 \item{\bf make\_densities.py.} Creates an electron density map from a PDB file, given the resolution and field of view expected from the configuration file.
 \item{\bf make\_intensities.py}. Creates a set of 3D diffraction intensities from an electron density map and the experimental parameters found in the configuration file.  
-\item{\bf make\_data.py}. Simulates a sparse photon diffraction pattern using a 3D diffraction volume (e.g. the one generated by make_intensities.py), and the configuration file.
-\item{\bf make\_quaternions.py}. Creates a list of quasi-uniform rotation group samples based on a refinement scheme of the 600-cell.
-\item{\bf make\_powder.py}. Makes a virtual powder pattern from the sparse photon format adopted in this package.
-\item{\bf run\_emc.py}. Starts the EMC reconstruction by calling its MPI+openMP implementation in C. Includes a few convenience operations like increasing the sampling of the rotation group.
-\item{\bf autoplot.py}. Renders the results of the EMC reconstruction with the option of automatically updating the plots when newer intensities become available.
+\item{\bf make\_data.py}. Simulates a sparse photon diffraction pattern using a 3D diffraction volume (e.g. the one generated by {\bf make\_intensities.py}), and the configuration file. By default these photon data are saved as a binary file, \texttt{photons.emc}, detailed in Section~\ref{subsec:emcformat}.
+\item{\bf make\_quaternions.py}. Creates a list of quasi-uniform rotation group samples based on a refinement scheme of the 600-cell, as described in \citeasnoun{loh2009}. These samples are used by the {\bf emc} reconstruction algorithm, as instructed by the \texttt{config.ini} configuration file.
 \end{enumerate}
+
+\subsubsection{Convenience utilities}
+Several convenience utilities are included to help prepare the data for or view the results from the EMC reconstruction algorithm. These utilities are briefly described here. 
+\begin{enumerate}
+\item{\bf init\_new\_recon.py.} This Python utility compiles the C executables in the package, and makes them plus other the rest of the utilities available in a newly initialized reconstruction sub-directory.
+\item{\bf sim\_setup.py.} This Python utility simulates a single-particle data stream using the parameters listed in the configuration file. This utility, in turn, calls the following modules listed above: {\bf make\_densities.py}, {\bf make\_intensities.py}, {\bf make\_data.py}, and {\bf make\_quaternions.py}.
+\item{\bf make\_powder.py}. Makes a virtual powder pattern from the sparse photon format adopted in this package.
+\item{\bf run\_emc.py}. Starts the EMC reconstruction by calling its MPI+openMP implementation in C. Includes a few convenience operations like calling the {\bf make\_quaternion} module to increase the sampling of the rotation group just before starting a reconstruction.
+\item{\bf autoplot.py}. Renders the results of the EMC reconstruction, including the diagnostics it generates, with the option of automatically updating the plots when newer intensities become available.
+\end{enumerate}
+
 
 \subsection{Data formats}
 \subsubsection{Configuration file}
-The configuration file is used to pass parameters and file names to the main reconstruction code as well as to the various utilities. The file has the standard \texttt{key = value} format with the parameters for different modules grouped by module names in square brackets. There is a global \texttt{[parameters]} module containing information about the experimental setup. A typical configuration file is shown in Fig.~\ref{fig:config}. This default file also shows the use of special keywords used to point to other configuration file parameters (eg. \texttt{in\_photons\_file}). The \texttt{[parameters]} module is described below. For other modules, refer to the relevant convenience utility in Section~\ref{subsec:conv}.
+\label{subsec:config}
+The configuration file is used to pass parameters and file names to the main reconstruction code as well as to the various utilities. The file has the standard \texttt{key = value} format with the parameters for different modules grouped by module names in square brackets. There is a global \texttt{[parameters]} module containing information about the experimental setup. A typical configuration file is shown in Fig.~\ref{fig:config}. This default file also shows the use of special keywords used to point to other configuration file parameters (eg. \texttt{in\_photons\_file}). The \texttt{[parameters]} module is described below. For other modules, refer to Section~\ref{subsec:mod+utils}.
 
 The basic parameters of the experiment are:
 \begin{itemize}
@@ -137,7 +184,55 @@ The basic parameters of the experiment are:
 \item \texttt{polarization}: Polarization direction (can be x, y, or none)
 \end{itemize}
 
+\begin{figure}
+\begin{lstlisting}[language=ini]
+[parameters]
+detd = 290
+lambda = 6.2
+detsize = 150
+pixsize = 0.512
+stoprad = 10
+polarization = x
+
+[make_densities]
+in_pdb_file = aux/4BED.pdb
+scatt_dir = aux/henke_table
+out_density_file = data/densityMap.bin
+
+[make_intensities]
+in_density_file = make_densities:::out_density_file
+out_intensity_file = data/intensities.bin
+
+[make_detector]
+out_detector_file = data/det_sim.dat
+
+[make_data]
+num_data = 100000
+fluence = 3.125e12
+in_detector_file = make_detector:::out_detector_file
+in_intensity_file = make_intensities:::out_intensity_file
+out_photons_file = data/photons.emc
+
+[make_quaternion]
+num_div = 6
+out_quat_file = aux/quat_06.dat
+
+[emc]
+in_photons_file = make_data:::out_photons_file
+in_detector_file = make_detector:::out_detector_file
+in_quat_file = make_quaternion:::out_quat_file
+out_folder = data/
+log_file = EMC.log
+need_scaling = 1
+alpha = 0.
+beta = 1.
+\end{lstlisting}
+\caption{Typical configuration file describing various parameters used to perform a basic simulation and reconstruction using the KLH1 (\texttt{4BED.pdb}) molecule.}
+\label{fig:config}
+\end{figure}
+
 \subsubsection{Detector file}
+\label{subsec:detector}
 The detector file is an ASCII (human readable) file which describes various properties of the detector. The first line of the file contains a single number which represents the number of pixels. Following that, for each pixel, there are five columns of numbers. The first three columns give the 3D coordinates of the detector pixel in voxels, where the voxels refer to the 3D grid containing the intensity model. The next column gives the product of the polarization and solid angle corrections for that pixel. The last column is an 8-byte unsigned integer whose value is used by the EMC code as well as other utilities to categorize the pixel. Currently, there are three categories:
 \begin{itemize}
 \item 0: Good pixel, used to determine the orientation of a given frame.
@@ -146,14 +241,85 @@ The detector file is an ASCII (human readable) file which describes various prop
 \end{itemize}
 
 \subsubsection{Photons file (emc format)}
+\label{subsec:emcformat}
 Since the data in many relevant experiments utilizing the EMC algorithm have very few photons/frame, a sparse binary format is used to store the data. Instead of storing the number of counts at each pixel, only the locations of non-zero counts are stored. since most of the non-zero counts are ones, only the locations of those are stored. For the rest, two numbers are stored, the location and photon count. 
 
 The header resides in the first 1024 bytes. The first 4 bytes are a 32 bit integer giving the number of data frames (\texttt{num\_data}) contained in the file. The next 4 bytes are also a 32 bit integer giving the number of pixels in the detector file used to number the pixels. The next 1016 bytes are currently empty (filled with zeros).
 
 After this, there are \texttt{num\_data} 32 bit integers giving the number of one-photon events in each frame (\texttt{ones}). Similarily, there are \texttt{num\_data} integers giving the number of multi-photon events (\texttt{multi}). Let the sum of all numbers in the \texttt{ones} and \texttt{multi} arrays be \texttt{total\_ones} and \texttt{total\_multi}. 
+
+\section{Example reconstructions of simulated experiments}
+
+We exemplify our package with three simulated single-particle reconstructions using the specifications of AMO [Ferguson et al. 2015] and CXI [Liang et al. 2015] endstations at LCLS. Because AMO has lower photon energy and beam fluence than CXI, a larger sample is required for the latter to be finely resolved and scatter enough photons. Therefore, we chose keyhole limpet hemocyanin (KLH) 1 didecamer [Gatsogiannis,  Markl 2009] and four-layer Tobacco Mosaic Virus (TMV) [Bhyravbhatla, Watowich, Caspar 1998] as our samples for simulations at AMO and CXI respectively.
+
+The simulation parameters are shown in Table \ref{parameters}. The detector dimensions correspond to an 1024 by 1024 pnCCD and CSPAD. We decrease the beam fluence to obtain mean photon counts $N\sim 90$ for both setups. This level of reduction is possible in real experiments due to the beamline and instrument transmission. We use the signal-to-noise ratio parameter defined in Eq. 37 of [Loh, Elser 2009]
+\begin{equation}
+S = \sqrt{\frac{N M_{data}}{M_{rot}}}
+\end{equation}
+to estimate the required number of frames $M_{data}$ for $S\sim50$, where $M_{rot}$ is the number of rotation samplings. Assuming uniform distribution of the simulated diffraction frames in orientation space, $S^2$ has the interpretation of total photons per orientation.
+
+\begin{table}
+\caption{Simulation parameters for EMC reconstructions}
+\label{parameters}
+\begin{tabular}{ lllll}
+                                  & & AMO     & & CXI\\
+\hline
+photon energy (keV)    & & 2.0      & & 7.0 \\
+detector distance (mm)  & & 300    &  & 350 \\
+detector size (pixel)        & & 150    &  & 150 \\
+pixel size (mm)              & & 0.512  & & 0.751 \\
+beamstop radius (pixel)  & & 10.0   &  & 8.0 \\
+fluence (photons/um^2) & & $1 \times 10^{10}$  &  & $1 \times 10^{12}$  \\
+\hline
+resolution at edge (nm)  & & 2.45    & & 0.56 \\
+number of RU                 & & 16      & & 3 \\
+mean photon count         & & 90     &  & 90 \\
+number of frames           & & $3\times10^5$    &  & $1\times10^6$ \\
+quaternion sampling        & & 6         & & 9 \\
+
+\end{tabular}
+\end{table}
+
+\subsection{AMO reconstruction at low fluence}
+\subsection{CXI reconstruction}
+\subsection{AMO reconstruction at high fluence}
+
+
+\section{Conclusions and future work}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 \appendix
-\section{Solid angle correction for square detectors}
-Calculation of solid angle 
+
+\section{Solid angle correction for square pixels on planar detectors}
+\begin{figure}
+\caption{Setup for solid angle correction. In this section we compute the solid angle subtended by the square pixel (red) on the detector plane (gray). The scatterer (blue sphere) is set at the origin of this figure.}
+\includegraphics[width=2.5in]{figures/solidAngle.eps} \label{fig:solidAngle}
+\end{figure}
+
+
+In this section we compute the solid angle $\Delta \Omega$ subtended by a square pixel of area $l_D \times l_D$ about the point where a scatterer sits (see Figure \ref{fig:solidAngle}). To first approximation, the solid angle $\Delta \Omega \sim \cos(\theta) \Delta \phi \cdot \Delta \theta$. The estimate  $\Delta \phi$ and $\Delta \theta$, we use the following relations. On a detector $z_D$ from the interaction point, we consider a pixel at position $\{x,y,z_D\}$ in its spherical coordinate representation:
+\begin{equation}
+\sin (\phi) = y /\rho ,&\qquad \cos(\phi) = z_D / \rho \;,
+\end{equation}
+where $\rho = \sqrt{y^2 + z_D^2}$.
+Differentiating $\sin(\phi)$ with respect to $\phi$ gives
+\begin{equation}
+\cos(\phi) \Delta \phi &\approx \frac{\Delta y}{\rho} \left[1 - \left( y/\rho\right)^2 \right]\;.
+\end{equation}
+Repeating this for $\theta$
+\begin{equation}
+\sin (\theta) = x /R ,\;  \cos(\theta) = \rho / R \;,
+\end{equation}
+with $R = \sqrt{x^2 + y^2 + z_D^2}$, leads to 
+\begin{equation}
+\cos(\theta)\Delta \theta = \frac{\Delta x}{\rho} \left[ 1 - \left(x/R\right)^2\right] \;.
+\end{equation}
+Combining the two, then simplifying, we get the solid angle subtended by the square pixel as
+\begin{equation}
+\Delta \Omega = \cos(\theta) \Delta \phi \Delta \theta = \frac{l_D^2\, z_D}{R^3} =  \frac{l_D^2\, z_D}{\left( x^2 + y^2 + z_D^2\right)^{3/2}} \; .
+\end{equation}
 
 \section{Frame-by-frame intensity scale factor updates}
 In many real world applications, the incident fluence on each particle will be different. The default implementation in \citeasnoun{loh2009} assumes uniform incident fluence. Here we derive the likelihood maximizing update rule employed in this package when the \texttt{need\_scaling} option is turned on. The approach used is similar to that employed in \citeasnoun{loh2010}, except for a Poisson probability model rather than Gaussian.
@@ -192,23 +358,12 @@ N.D.L. would like to thank the support of the Lee Kuan Yew Endowment fund, and t
      % Simple tables should use the tabular environment according to this
      % model
 
-\begin{table}
-\caption{Caption to table}
-\begin{tabular}{llcr}      % Alignment for each cell: l=left, c=center, r=right
- HEADING    & FOR        & EACH       & COLUMN     \\
-\hline
- entry      & entry      & entry      & entry      \\
- entry      & entry      & entry      & entry      \\
- entry      & entry      & entry      & entry      \\
-\end{tabular}
-\end{table}
-
      % Postscript figures can be included with multiple figure blocks
 
-\begin{figure}
-\caption{Caption describing figure.}
-\includegraphics{fig1.ps}
-\end{figure}
+%\begin{figure}
+%\caption{Caption describing figure.}
+%\includegraphics{figures/geometry.eps}
+%\end{figure}
 
 
 \end{document}                    % DO NOT DELETE THIS LINE
