@@ -125,7 +125,7 @@ Extensions of this algorithm have been successfully adapted for tomography and c
 
 \section{Structure of this package}\label{sec:package}
 
-This software package uses the EMC algorithm to reconstruct a 3D diffraction volume from noisy, randomly-oriented single particle diffraction patterns. These patterns could be from simulations or actual single-particle experiments, where the minimum input are: a configuration file, a file with detector coordinates and pixel status, and a sparse representation of the photon data from diffraction patterns \figref{flowchart}. Here's an example of the configuration file that simulates a single-particle imaging data stream and reconstructs the 3D intensities afterwards:
+This software package uses the EMC algorithm to reconstruct a 3D diffraction volume from noisy, randomly-oriented single particle diffraction patterns. These patterns could be from simulations or actual single-particle experiments.
 
 
 \subsection{Typical experiment and key parameters}\label{sec:expParams}
@@ -145,16 +145,15 @@ where the $\phi_{\text{max}}$ is the maximum scattering angle. We also note that
 
 \subsection{Data stream simulator}\label{sec:dataStreamSim}
 
-TODO: Short overview of data stream simulator: why this is convenient and any key design choices we made.
-This is
+Whether the photon patterns are derived from simulations (Figure \ref{fig:simFlowchart}) or experiments (Figure \ref{fig:expFlowchart}), the minimum input to this reconstruction package are: a configuration file, a file with detector coordinates and pixel status, and a sparse representation of the photon data from diffraction patterns. 
 
 \begin{figure}
-\caption{Flowchart of how to simulate a data set and perform a reconstruction starting from a sample PDB file and a configuration file with information about the experimental setup.}
+\caption{Flowchart of how to simulate a data set and perform a reconstruction starting from a sample PDB file and a configuration file with information about the experimental setup.}\label{fig:simFlowchart}
 \includegraphics[width=\textwidth]{figures/emc_sim.pdf}
 \end{figure}
 
 \begin{figure}
-\caption{Flowchart of how to process experimental data in sparse format. Information about the experimental parameters is placed in the configuration file and the detector geometry is in the detector file. The formats of all three input files is described in Section~\ref{subsec:formats}.}
+\caption{Flowchart of how to process experimental data in sparse format. Information about the experimental parameters is placed in the configuration file and the detector geometry is in the detector file. The formats of all three input files is described in Section~\ref{subsec:formats}.}\label{fig:expFlowchart}
 \includegraphics[width=\textwidth]{figures/emc_exp.pdf}
 \end{figure}
 
