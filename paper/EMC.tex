@@ -111,24 +111,23 @@ TODO: Abstract goes here.
      % and \subsubsection's as required.
 
 \section{Introduction}
+
 TODO: Some mumbo jumbo about how SPI will revolutionize the world.
 
 The goal of single-particle imaging (SPI) is to assemble the three-dimensional (3D) structure of an object from incomplete data collected from very many of its copies. With X-ray Free-electron Laser (XFEL) based SPI, noisy and un-oriented two-dimensional (2D) diffraction patterns of many individual copies of the object are computationally assembled into a 3D diffraction volume. The object's 3D electron density distribution is then recovered from this diffraction volume via de novo phase-retrieval. 
 
 TODO: Include references that discusses XFEL SPI.
 
-\subsection{Purpose of this software package}
 What is EMC? Reference 1D and 3D EMC paper. Expectation maximization in the space of unknown orientations?
 Features are shot-noise-limited diffraction patterns.
 How does EMC compare with other methods?
 Extensions of this algorithm have been successfully adapted for tomography and crystallography [...]. Describe what is different about these applications. 
 
-\section{Structure of this package}\label{sec:package}
+\section{Purpose and structure of this package}\label{sec:package}
 
-This software package uses the EMC algorithm to reconstruct a 3D diffraction volume from noisy, randomly-oriented single particle diffraction patterns. These patterns could be from simulations or actual single-particle experiments.
+This software package uses the EMC algorithm to reconstruct a 3D diffraction volume from noisy, randomly-oriented single particle diffraction patterns. These patterns could be from simulations or actual single-particle experiments. Although this package includes a data stream generator that feeds data into the EMC reconstruction algorithm, the latter could also receive data from physical experiments as long as the input/output formats are maintained.
 
-
-\subsection{Typical experiment and key parameters}\label{sec:expParams}
+\subsection{Key parameters in single particle imaging}\label{sec:expParams}
 
 The key parameters of the experiment are illustrated in Figure \ref{fig:expGeometry}, which include the photon wavelength $\lambda$, and the maximum scattering angle. These parameters help determine the maximum half period resolution $a$ as well as the field of view $L$ of the reconstructed electron density map. Given these parameters, one can then decide if an candidate scatterer can yield enough diffraction signal to the desired resolution. These parameters are revisited in Section \ref{subsubsec:config}.
 
@@ -136,50 +135,52 @@ Throughout this document, we adopt the crystallographer's convention for spatial
 \begin{equation}
 \widehat{q} = \frac{2 \sin(\phi_{\text{max}}\,/\,2)}{\lambda}\;,
 \end{equation}
-where the $\phi_{\text{max}}$ is the maximum scattering angle. We also note that a corrective factor is also needed to compensate for different solid angles subtended by different pixels on the detector (Appendix \ref{sec:solidAngle}). 
+where the $\phi_{\text{max}}$ is the maximum scattering angle. A corrective factor is also needed to compensate for different solid angles subtended by different pixels on the detector (Appendix \ref{sec:solidAngle}). 
 
 \begin{figure}
-\caption{Experimental geometry of single-particle imaging adopted in the data stream simulator. This simulator implements a planar square detector comprising $d\times d$ square pixels, each of area $l_D^2$. The detector is positioned a $z_D$ from the x-ray interaction region, where the scatterer (depicted here as a sphere of radius $R_p$) is typically an electron density map sampled from a Protein Data Bank file. The incident photon wavelength is $\lambda \,\AA$. From these, one can compute the maximum scattering angle captured by the detector, subtended by gray triangles to either the edge or corner of the detector. From the former we compute the half-period resolution $a$, which is equivalent to the length of the voxel (red) in the reconstructed electron density map.}
+\caption{Experimental geometry of single-particle imaging adopted in the data stream simulator. This simulator implements a planar square detector comprising $d\times d$ square pixels, each of area $l_D^2$. The detector is positioned a $z_D$ from the x-ray interaction region, where the scatterer (depicted here as a sphere of radius $R_p$) is typically an electron density map sampled from a Protein Data Bank file. The incident photon wavelength is $\lambda \,\AA$. From these, one can compute the maximum scattering angle captured by the detector, subtended by gray triangles to either the edge or corner of the detector. We compute the half-period resolution, $a$, from the detector's edge, which is equivalent to the length of the voxel (red) in the reconstructed electron density map.}
 \includegraphics[width=3.5in]{figures/geometry.eps} \label{fig:expGeometry}
 \end{figure}
 
-\subsection{Data stream simulator}\label{sec:dataStreamSim}
+\subsection{Reconstruction workflows}\label{sec:dataStreamSim}
 
 Whether the photon patterns are derived from simulations (Figure \ref{fig:simFlowchart}) or experiments (Figure \ref{fig:expFlowchart}), the minimum input to this reconstruction package are: a configuration file, a file with detector coordinates and pixel status, and a sparse representation of the photon data from diffraction patterns. 
 
+Modules in this package can be replaced by alternatives that maintain input and output data formats that are compatible with other modules. Binary files have extensions \texttt{*.bin} or \texttt{*.emc}. Plain text files terminate with \texttt{*.log}, \texttt{*.dat}, or \texttt{*.ini}.
+
 \begin{figure}
-\caption{Flowchart of how to simulate a data set and perform a reconstruction starting from a sample PDB file and a configuration file with information about the experimental setup.}\label{fig:simFlowchart}
+\caption{Flowchart to simulate a data set and perform a reconstruction starting from a sample PDB file and a configuration file, \texttt{config.ini}, with information about the experimental setup. Input and output are written in text; modules are written in boxes.}\label{fig:simFlowchart}
 \includegraphics[width=\textwidth]{figures/emc_sim.pdf}
 \end{figure}
 
 \begin{figure}
-\caption{Flowchart of how to process experimental data in sparse format. Information about the experimental parameters is placed in the configuration file and the detector geometry is in the detector file. The formats of all three input files is described in Section~\ref{subsec:formats}.}\label{fig:expFlowchart}
+\caption{Flowchart to process experimental data in sparse format. Information about the experimental parameters is placed in the configuration file \texttt{config.ini} and the detector geometry is in \texttt{detector.dat}. The formats of all three input files is described in Section~\ref{subsec:formats}.}\label{fig:expFlowchart}
 \includegraphics[width=\textwidth]{figures/emc_exp.pdf}
 \end{figure}
 
 \subsection{Implementing the EMC algorithm}\label{subsec:EMC}
 The EMC algorithm \cite{loh2009} is implemented here with hybrid MPI+OpenMP, and hence suitable for shared and/or distributed memory systems. In this section, we describe this implementation and an extension to deal with high signal data. In the current version, the code assumes a Poisson probability model for the number of photons in a pixel. This means that if the mean number of photons at a pixel is $W$, the probability of getting $K$ photons is given by
 \begin{equation}
-P(K{\big\vert}W) = \frac{W^K e^{-W}}{K!}
+P(K{\big\vert}W) = \frac{W^K e^{-W}}{K!}\;.
 \end{equation}
 Gaussian noise models have been used in situations with bright, but noisy data \cite{loh2010,ekeberg2015}, but if single photons can be accurately counted, the noise model will be Poissonian. Let the number of photons at pixel number $t$ in data frame (interchangeably termed {\it photon/diffraction pattern}) $d$ be $K_{dt}$. Also let, for a given orientation $r$, the predicted mean intensity at the same pixel be $W_{rt}$. Since an independent Poisson process occurs at each pixel, the probability of that frame being generated by that particular tomogram is
 \begin{equation}
-R_{dr} = \prod_t \frac{W_{rt}^{K_{dt}} e^{-W_{rt}}}{K_{dt}!}
+R_{dr} = \prod_t \frac{W_{rt}^{K_{dt}} e^{-W_{rt}}}{K_{dt}!} \;.
 \label{eqn:probnumr}
 \end{equation}
 But since the particle must have some orientation, the probability of frame $d$ having orientation $r$ is obtained by normalizing over all orientations.
 \begin{equation}
-P_{dr} = \frac{R_{dr}}{\sum\limits_r R_{dr}}
+P_{dr} = \frac{R_{dr}}{\sum\limits_r R_{dr}}\;.
 \label{eqn:prob}
 \end{equation}
 With these probabilities, one can define a total log-likelihood of the data being generated by the model with the current probabilities as
 \begin{equation}
-Q(W') = \sum_d \sum_r \sum_t P_{dr} (K_{dt} \log(W'_{rt}) - W'_{rt})
+Q(W') = \sum_d \sum_r \sum_t P_{dr} (K_{dt} \log(W'_{rt}) - W'_{rt}) \;.
 \label{eqn:totalq}
 \end{equation}
 From this, we get the update rule on the tomograms $W_{rt}$ which maximize $Q$,
 \begin{equation}
-W'_{rt} = \frac{\sum\limits_d P_{dr} K_{dt}}{\sum\limits_d P_{dr}}
+W'_{rt} = \frac{\sum\limits_d P_{dr} K_{dt}}{\sum\limits_d P_{dr}}\;.
 \label{eqn:wupdate}
 \end{equation}
 
@@ -190,8 +191,11 @@ In many experimental situations, the incident fluence varies from shot-to-shot. 
 We also find that if the signal is too strong, the reconstructions get stuck in local maxima by having all the orientations overlap each other. This effect is similar to what is observed if the background is too high~\cite{ayyer2015}. However, we also observe that the reconstruction is stable around the true solution, and only falters when one starts from a random initial guess. This problem can be avoided by using the deterministic annealing variant of expectation maximization ~\cite{ueda1998}. In the EMC case, this is implemented by raising $R_{dr}$ calculated in Eq.~\ref{eqn:probnumr} to a small power $\beta$, and then normalizing. This has the effect of broadening the distribution and results in a rotationally blurred, but stable reconstruction. The power $\beta$ can then be raised gradually in a manner similar to simulated annealing to slowly improve the reconstruction. An example of this is shown in Section~\ref{subsec:recon}, where $\beta$ starts at 0.001 and is raised by a factor of 2 every 10 iterations 8 times.
 
 \subsection{Modules and convenience utilities}\label{subsec:mod+utils}
+
+\hl{The modules and utilities here are either written in C or Python (files with $*.py$ extensions). The C files require the following libraries to compile: stdlibc, mpi, openmp, and the gnu scientific library. The Python files need Python version 2.7 or higher to run, and non-standard libraries Numpy, and Scipy.}
+
 \subsubsection{Modules}\label{subsubsec:mods}
-Here are the essential modules for simulating a data stream from a single-particle imaging experiment. By default, these modules uses parameters listed in a single \texttt{config.ini} configuration file, although point each module to different configuration files for each is straightforward as well.
+Here are the essential modules for simulating a data stream from a single-particle imaging experiment. By default, these modules use parameters listed in a single \texttt{config.ini} configuration file, although different modules can use different configuration files as well.
 
 \begin{enumerate}
 \item{\bf make\_detector.py.} Creates a detector file using the experimental parameters specified in the configuration file. The format of this file is specified in Section~\ref{subsubsec:detector}.
@@ -213,17 +217,20 @@ Several convenience utilities are included to help prepare the data for or view 
 
 
 \subsection{Configuration and data formats}\label{subsec:formats}
+
+We outline only the data formats for the input and output in Figure \ref{fig:expFlowchart}. The formats for the data stream generator, which are auxiliary to the reconstruction algorithm, are detailed in the distributed software package. 
+
 \subsubsection{Configuration file}\label{subsubsec:config}
 The configuration file is used to pass parameters and file names to the main reconstruction code as well as to the various utilities. The file has the standard \texttt{key = value} format with the parameters for different modules grouped by module names in square brackets. There is a global \texttt{[parameters]} section containing information about the experimental setup. A typical configuration file is shown in Fig.~\ref{fig:config}, which corresponds to the first simulation case in Table \ref{table:simParams}. This default file also shows the use of special keywords used to point to other configuration file parameters (eg. \texttt{in\_photons\_file}). The \texttt{[parameters]} section is described below. For other sections, refer to the appropriate module in Section~\ref{subsec:mod+utils}.
 
 The basic parameters of the experiment are:
 \begin{itemize}
-\item \texttt{detd}: Detector distance in mm
-\item \texttt{lambda}: Wavelength in \AA
-\item \texttt{detsize}: Detector size (assuming square detector) in pixels
-\item \texttt{pixsize}: Pixel size in mm
-\item \texttt{stoprad}: Radius of beamstop in pixels
-\item \texttt{polarization}: Polarization direction (can be x, y, or none)
+\item \texttt{detd}: Detector distance in mm.
+\item \texttt{lambda}: Wavelength in \AA.
+\item \texttt{detsize}: Detector size (assuming square detector) in pixels.
+\item \texttt{pixsize}: Pixel size in mm.
+\item \texttt{stoprad}: Radius of beamstop in pixels.
+\item \texttt{polarization}: Polarization direction of the x-ray pulses (can be x, y, or none).
 \end{itemize}
 
 \begin{figure}
@@ -282,9 +289,9 @@ The detector file is an ASCII (human readable) file which describes various prop
 \end{itemize}
 
 \subsubsection{Photons file (emc format)}\label{subsubsec:emcformat}
-Since the data in many relevant experiments utilizing the EMC algorithm have very few photons/pattern, a sparse binary format is used to store the data. Instead of storing the number of counts at each pixel, only the locations of non-zero counts are stored. since most of the non-zero counts are ones, only the locations of those are stored. For the rest, two numbers are stored, the location and photon count. 
+Since the photon data in many single-particle experiments utilizing the EMC algorithm have very few photons/pattern, a sparse binary format is used to store the data. Instead of storing the number of counts at each pixel, only the locations of non-zero counts are stored. Additionally, since most of the non-zero counts are ones, only their pixel locations are stored. For pixels receiving two or more photons, we store both their pixel location and photon count. 
 
-The header resides in the first 1024 bytes. The first 4 bytes are a 32 bit integer giving the number of patterns (\texttt{num\_data}) contained in the file. The next 4 bytes are also a 32 bit integer giving the number of pixels in the detector file used to number the pixels. The next 1016 bytes are currently empty (filled with zeros).
+The file's header resides in the first 1024 bytes. The first 4 bytes are a 32 bit integer giving the number of patterns (\texttt{num\_data}) contained in the file. The next 4 bytes are also a 32 bit integer giving the number of pixels in the detector file used to number the pixels. The next 1016 bytes are currently empty (filled with zeros).
 
 After this, there are \texttt{num\_data} 32 bit integers giving the number of one-photon events in each pattern (\texttt{ones}). Similarily, there are \texttt{num\_data} integers giving the number of multi-photon events (\texttt{multi}). The total number of single photon events in all the patterns is the sum of all numbers in the \texttt{ones} array ($S_o$). Similarily, let $S_m$ be the total number of multiple photon events. The file contains $S_o$ 32 bit integers giving the locations of the single photon pixels, and then $S_m$ integers with the locations of the multiple photon pixels. This is followed by $S_m$ integers giving the number of photons in each of those multiple photon pixels. 
 
@@ -315,7 +322,7 @@ $\widetilde{R}$\footnote{Dimensionless radius, $R_p / a$.}, dimensionless radius
 $\sigma$, speckle sampling\footnote{Defined as $\widetilde{R} = L\,/(2 R_p)$. See appendix \ref{sec:speckle}.}  & 9.6                & 4.45               & 9.2 \\
 $N$, mean photons/frame & 90                  & 90               &  $\mathbf{2.8\times10^{4}}$ \\
 number of data frames & $3\times 10^5$       & $5\times 10^5$    & $1\times 10^5$ \\
-max. quaternion sampling\footnote{Sampling and criterion defined in \citeasnoun{loh2009}.}   & 9                   & 16                & \hl{9} \\
+max. quaternion sampling\footnote{Sampling and criterion defined in \citeasnoun{loh2009}.}   & 9                   & 16                & 9 \\
 
 \end{tabular}
 \end{table}
@@ -324,29 +331,40 @@ The simulation parameters are shown in Table \ref{parameters}. The detectors her
 
 For data sufficiency we use the signal-to-noise ratio parameter defined in Eq. 37 of \citeasnoun{loh2009}, 
 \begin{equation}
-S = \sqrt{\frac{N M_{data}}{M_{rot}}}\; ,
+S = \sqrt{\frac{N M_{\text{data}}}{M_{\text{rot}}}}\; ,
 \end{equation}
-to estimate the required number of data frames $M_{data}$ for $S\sim50$, where $M_{rot}$ is the number of rotation samplings. Assuming the diffraction patterns are uniformly distributed in orientation space, $S^2$ can be interpreted as the average number of photons per orientation.
+to estimate the required number of data frames $M_{\text{data}}$ for $S\sim50$, where $M_{\text{rot}}$ is the number of rotation samplings. Assuming the diffraction patterns are uniformly distributed in orientation space, $S^2$ can be interpreted as the average number of photons per orientation.
 
-The third simulation of of Table \ref{table:simParams} was designed to demonstrate how deterministic annealing method can deal with convergence issues caused by very high signal. Most of the parameters were kept identical to the low fluence AMO simulation, but the fluence was up-adjusted to receive 1 mJ x-ray pulses (within an order of magnitude of design specifications \cite{Emma2010}).
+The third simulation of Table \ref{table:simParams} was designed to demonstrate how deterministic annealing method can deal with convergence issues caused by very high signal. Most of the parameters were identical to the low fluence AMO simulation except the fluence was up-adjusted to receive 1 mJ x-ray pulses, which is within an order of magnitude of design specifications \cite{Emma2010}.
 
-\subsection{Discussions on simulated reconstructions} \label{subsec:recon}
-Figures \ref{fig:amo_low_intens}, \ref{fig:cxi_intens} and \ref{fig:amo_high_intens} show orthogonal slices through the final converged intensities for the three parameter sets mentioned above. Accompanying each figure is a set of plots generated by \texttt{autoplot.py} which can be used to monitor the progress of the reconstruction. We first describe Fig.~\ref{fig:amo_low_log} as it is the most straightforward one. The leftmost plot shows the root mean squared change between the 3D intensity models in successive iterations. This is, of course, the most straightforward indicator of convergence. 
+\subsection{Diagnostics on simulated reconstructions} \label{subsec:recon}
+In this section, we describe useful diagnostics for monitoring the progress of each 3D reconstruction. Figures \ref{fig:amo_low_intens}, \ref{fig:cxi_intens} and \ref{fig:amo_high_intens} show orthogonal slices through the final converged intensities for the three parameter sets in Table \ref{table:simParams}. Below each figure is a set of plots generated by \texttt{autoplot.py} utility, which helps visualize these diagnostics. 
 
-In the next column, the top plot shows the average mutual information of $P_{dr}$. This is defined as
+We discuss these diagnostics while referring to the AMO reconstruction in Figure \ref{fig:amo_low_log}, which consistently converges from random restarts. With each new reconstruction attempt, diffraction speckles readily converge. Incidentally, the overall orientation of the reconstructed 3D volume is arbitrary between random restarts. 
+
+\subsubsection{RMS change in the 3D model}
+Watching how the root mean squared change, \hl{per pixel?}, between the 3D intensity models from successive iterations in Figure \ref{fig:amo_low_log} is a straightforward indicator of convergence. 
+
+\subsubsection{Mutual information between model and data}
+An additional diagnostic is the average mutual information of the reconstruction model given each photon pattern indexed by $d$: \hl{Isn't this averaged over all data?}
 \begin{equation}
-I_d(K, \Omega) = \sum_r P_{dr} \log(P_{dr} / P_{r})
+I_d(K, \Omega) = \sum_r P_{dr} \log(P_{dr} / P_{r})\;,
 \end{equation}
-where $P_r$ is the prior probability of orientations (assumed to be uniform except for a small variation due to non-uniform quaternion sampling). This is a measure of the `peakiness' of the probability distribution over orientations. For a Delta function distribution, the value is the log of the number of quaternion samples. Below that is a plot of the total log-likelihood in Eq.~\ref{eqn:totalq}. In most situations, this quantity increases monotonically, and a significant decrease indicates an error. 
+where $P_r$ is the prior probability of orientations (assumed here to be uniform). This is a measure of the `peakiness' of the probability distribution over orientations. For a Delta function distribution, the value is the logarithm of the number of quaternion samples. Below that is a plot of the total log-likelihood in Eq.~\ref{eqn:totalq}. In most situations, this quantity increases monotonically, and a significant decrease indicates an error. 
 
+\subsubsection{Most likely orientations of each pattern}
 The rightmost plot is the most useful for monitoring convergence. This is a matrix plot where the vertical axis is the frame number while the horizontal is iteration. The color represents the orientation number of the best orientation (maximum $P_{dr}$) for each frame. The rows have been sorted by the orientation number of the last iteration. Thus, the colors at the right end form a smooth color bar. The variation of colors along a row indicates how the most likely orientation has changed for that frame. Thus, if the colors vary smoothly over a few iterations, this indicates that most likely orientations are not changing from iteration to iteration which is a good indicator of convergence.
 
+\subsection{Strategies for reconstruction} \label{subsec:strategy}
+
+\subsubsection{Gradually increasing rotation group sampling} \label{subsec:quatRefine}
 For the CXI reconstruction (Fig.~\ref{fig:cxi_log}), due to the size of the problem, the quaternion sampling number was increased in steps. If one chooses too coarse a rotation group sampling, low resolution speckles get reconstructed but higher resolution features remain blurry. However, once the switch to the right sampling is made, convergence is very quick. As the computation time scales as the number of samples, it is faster to slowly ramp up the fineness such that only a few iterations are performed at the highest sampling rate. The red dashed lines indicate iterations where the sampling rate was increased, starting from 6 and ending at 9. Also, since the orientation numbers change when modifying the quaternion file, each subset is independently sorted in the best orientation matrix plot. Also note how the mutual information does not increase much in the last jump, indicating that even finer sampling would not help.
 
+\subsubsection{Regularization via simulated annealing} \label{subsec:regularization}
 For the high fluence AMO reconstruction (Fig.~\ref{fig:amo_high_log}), the situation is slightly different. As mentioned before, due to very high signal, the algorithm can fall into a local maxima trap in the first few iterations. This can be avoided by choosing a low $\beta$ as described in Section~\ref{subsec:EMC} to start with. In this particular case $\beta$ was 0.001 for the first 10 iterations and was then doubled every 10 iterations. The black dashed lines represent the iterations at which $\beta$ was doubled. After 80 iterations, the quaternion number was increased from 6 to 9 and 10 iterations were done for reasons similar to the CXI reconstruction. 
 
 \begin{figure}
-\caption{Convergence of diffraction speckle features in a simulated AMO single-particle experiment (parameters listed in Table \ref{table:simParams}). In each row we render central slices of the 3D diffraction intensities recovered from KLH1 during an EMC reconstruction, after iterations 1,10,20 and 50 in ascending row order. These figures were generated by the \texttt{autoplot.py} utility of Section ~\ref{subsubsec:utils}.}
+\caption{Convergence of diffraction speckle features in a simulated AMO single-particle experiment (parameters listed in Table \ref{table:simParams}). In each row we render central slices of the 3D diffraction intensities recovered from KLH1 during an EMC reconstruction, after iterations 1,10,20 and 50 in ascending row order. The bottom plots are additional diagnostics on the reconstructed 3D diffraction model: (left column) the root mean squared change in the 3D model; (middle column) mutual information and log-likelihood of model; (right) the most likely orientations of all the patterns.}
 \includegraphics[width=3.5in]{figures/amo_low_intens_001.png} 
 \includegraphics[width=3.5in]{figures/amo_low_intens_010.png}
 \includegraphics[width=3.5in]{figures/amo_low_intens_020.png} 
