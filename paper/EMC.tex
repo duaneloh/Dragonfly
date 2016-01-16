@@ -202,7 +202,7 @@ Several convenience utilities are included to help prepare the data for or view 
 
 \subsection{Configuration and data formats}\label{subsec:formats}
 \subsubsection{Configuration file}\label{subsubsec:config}
-The configuration file is used to pass parameters and file names to the main reconstruction code as well as to the various utilities. The file has the standard \texttt{key = value} format with the parameters for different modules grouped by module names in square brackets. There is a global \texttt{[parameters]} module containing information about the experimental setup. A typical configuration file is shown in Fig.~\ref{fig:config}. This default file also shows the use of special keywords used to point to other configuration file parameters (eg. \texttt{in\_photons\_file}). The \texttt{[parameters]} module is described below. For other modules, refer to Section~\ref{subsec:mod+utils}.
+The configuration file is used to pass parameters and file names to the main reconstruction code as well as to the various utilities. The file has the standard \texttt{key = value} format with the parameters for different modules grouped by module names in square brackets. There is a global \texttt{[parameters]} \hl{module, (change to SECTION to avoid confusing with compute modules) } containing information about the experimental setup. A typical configuration file is shown in Fig.~\ref{fig:config}, which corresponds to the first simulation case in Table \ref{table:simParams}. This default file also shows the use of special keywords used to point to other configuration file parameters (eg. \texttt{in\_photons\_file}). The \texttt{[parameters]} module is described below. For other modules, refer to Section~\ref{subsec:mod+utils}.
 
 The basic parameters of the experiment are:
 \begin{itemize}
@@ -217,7 +217,7 @@ The basic parameters of the experiment are:
 \begin{figure}
 \begin{lstlisting}[language=ini]
 [parameters]
-detd = 290
+detd = 300
 lambda = 6.2
 detsize = 150
 pixsize = 0.512
@@ -237,8 +237,8 @@ out_intensity_file = data/intensities.bin
 out_detector_file = data/det_sim.dat
 
 [make_data]
-num_data = 100000
-fluence = 3.125e12
+num_data = 300000
+fluence = 1e10
 in_detector_file = make_detector:::out_detector_file
 in_intensity_file = make_intensities:::out_intensity_file
 out_photons_file = data/photons.emc
@@ -257,7 +257,7 @@ need_scaling = 1
 alpha = 0.
 beta = 1.
 \end{lstlisting}
-\caption{Typical configuration file describing various parameters used to perform a basic simulation and reconstruction using the KLH1 (\texttt{4BED.pdb}) molecule. Compare with Table \ref{table:simParams}}
+\caption{Typical configuration file describing various parameters used to perform a basic simulation and reconstruction using the KLH1 (\texttt{4BED.pdb}) molecule. Compare these with numbers from Table \ref{table:simParams}.}
 \label{fig:config}
 \end{figure}
 
@@ -278,40 +278,45 @@ After this, there are \texttt{num\_data} 32 bit integers giving the number of on
 
 \section{Example reconstructions of simulated experiments}\label{sec:simulations}
 
-We exemplify our package with three simulated single-particle reconstructions using the specifications of Atomic Molecular and Optical Science (AMO)~\cite{ferguson2015} and Coherent X-ray Imaging (CXI) ~\cite{liang2015} endstations at Linac Coherent Light Source (LCLS) \cite{Emma2010} \hl{Because AMO has lower photon energy, a larger sample was chosen for the latter to be finely resolved and scatter enough photons.}Therefore, we chose keyhole limpet hemocyanin (KLH) 1 didecamer~\cite{gatsogiannis2009} and four-layer Tobacco Mosaic Virus (TMV)~\cite{bhyravbhatla1998} as our samples for simulations at AMO and CXI respectively.
-
-The simulation parameters are shown in Table \ref{parameters}. The detector dimensions correspond to an 1024 by 1024 pnCCD and CSPAD. We decrease the beam fluence to obtain mean photon counts $N\sim 90$ for the first two simulations. This level of reduction is possible in real experiments due to the beamline and instrument transmission. We use the signal-to-noise ratio parameter defined in Eq. 37 of \citeasnoun{loh2009}. 
-\begin{equation}
-S = \sqrt{\frac{N M_{data}}{M_{rot}}}
-\end{equation}
-to estimate the required number of frames $M_{data}$ for $S\sim50$, where $M_{rot}$ is the number of rotation samplings. Assuming uniform distribution of the simulated diffraction frames in orientation space, $S^2$ has the interpretation of total photons per orientation.
-
-The third simulation was performed to demonstrate the deterministic annealing method to deal with convergence issues caused by very high signal. Most of the parameters were kept identical to the low fluence AMO simulation, but the fluence was adjusted to correspond to a pulse energy of 1 mJ.
+We exemplify our package with three simulated single-particle reconstructions using the specifications of Atomic Molecular and Optical Science (AMO)~\cite{ferguson2015} and Coherent X-ray Imaging (CXI) ~\cite{liang2015} endstations at Linac Coherent Light Source (LCLS) \cite{Emma2010}. For these experiments chose to simulate the reconstruction of keyhole limpet hemocyanin \hl{(KLH) 1 didecamer}~\cite{gatsogiannis2009} and four-layer Tobacco Mosaic Virus (TMV)~\cite{bhyravbhatla1998} at AMO and CXI respectively. Notably, the choices in Table \ref{table:simParams} yield and average of $\sim 100$ photons per single-particle diffraction frame.
 
 \begin{table}
-\caption{Parameters for EMC reconstructions of simulated single-particle imaging} \label{table:simParams}
+\caption{Parameters for EMC reconstructions of simulated single-particle imaging.} \label{table:simParams}
 \label{parameters}
-\begin{tabular}{p{3.3cm} p{1.4cm} p{1.4cm} p{1.4cm}}
-                        & AMO (low)           & CXI              & AMO (high)\\
+\begin{tabular}{p{3.5cm} p{1.4cm} p{1.4cm} p{1.4cm}}
+                        			& AMO (low)          & CXI              & AMO (high)\\
 \hline
-photon energy (keV)     & 2.0                 & 7.0              & 2.0 \\
-photon wavelength (\AA)	& 6.2                 & 1.77             & 6.2 \\
-detector distance (mm)  & 300                 & 350              & 290 \\
-detector size (pixel)   & 150                 & 150              & 150 \\
-pixel size (mm)         & 0.512               & 0.751            & 0.512 \\
-beamstop radius (pixel) & 10.0                & 8.0              & 10.0 \\
-fluence (photons/um$^2$)& $1\times10^{10}$\footnote{See \citeasnoun{Loh2013}.}    & $1\times10^{12}$ & $3.125\times10^{12}$ \\
-resolution at edge (nm) & 2.45                & 0.56             & 2.5 \\
+photon energy (keV)     	& 2.0                 & 7.0              & 2.0 \\
+$\lambda$, photon wavelength (\AA)	& 6.2                 & 1.77             & 6.2 \\
+$z_D$, detector distance (mm)  	& 300                 & 350              & 290 \\
+$d$, detector size (pixel)   	& 150                 & 150              & 150 \\
+$l_D$, pixel side length (mm)         		& 0.512               & 0.751            & 0.512 \\
+$L$, full field of view (nm) 	& 363		& 82.4		& 351 \\
+beamstop radius (pixel) 	& 10.0                & 8.0              & 10.0 \\
+fluence (photons/um$^2$)& $1\times10^{10}$\footnote{Estimated from \citeasnoun{Loh2013}.}    & $1\times10^{12}$ & $\mathbf{3.1\times10^{12}}$ \\
+$a$, half-period resolution\footnote{Resolution defined from detector's edge.}(nm) 	& 2.45                & 0.56             & 2.5 \\
 \hline
-sample                  & KLH1\footnote{Keyhole Limpet Hemocyanin 1.}& TMV\footnote{Four-layer Tobacco Mosaic Virus.}& KLH1$^\ddagger$ \\
-mass (kDa)	            & 8000                & 18               & 8000 \\
-number of resolution units& 16                & 3                & 16 \\
-mean photons/frame      & 90                  & 90               & $2.8\times10^{4}$ \\
-number of frames        & $3\times10^5$       & $1\times10^6$    & $1\times10^5$ \\
-quaternion sampling     & 6                   & 9                & 6 \\
+particle                  		& KLH1\footnote{Keyhole Limpet Hemocyanin 1. \label{KLH1}}& TMV\footnote{Four-layer Tobacco Mosaic Virus.}& KLH1$^\ref{KLH1}$ \\
+mass (kDa)	            	& 8000                & 18               & 8000 \\
+$R_p$, particle radius (nm) 		& 18.9                & 9.3                & 18.9 \\
+$\widetilde{R}$\footnote{Dimensionless radius, $R_p / a$.}, dimensionless radius  & 7.7               & 16.6               & 7.6 \\
+$\sigma$, speckle sampling\footnote{Defined as $\widetilde{R} = L\,/(2 R_p)$. See appendix \ref{sec:speckle}.}  & 9.6                & 4.45               & 9.2 \\
+$N$, mean photons/frame & 90                  & 90               &  $\mathbf{2.8\times10^{4}}$ \\
+number of frames       	& $3\times 10^5$       & $5\times 10^5$    & $1\times 10^5$ \\
+target \hl{quaternion sampling}\footnote{Sampling and criterion defined in \citeasnoun{loh2009}.}   & 6                   & 9                & 6 \\
 
 \end{tabular}
 \end{table}
+
+The simulation parameters are shown in Table \ref{parameters}. The detectors here had $1024\times1024$-pixels, taking on the pixel pitch of the pnCCD\cite{Struder2010} and CSPAD\hl{citation needed} detectors. We decrease the beam fluence to obtain mean photon counts $N\sim 90$ for the first two simulations, mimicking realistic losses from imperfect beam transmission, optics, and cleanup apertures \cite{Loh2013}. 
+
+For data sufficiency we use the signal-to-noise ratio parameter defined in Eq. 37 of \citeasnoun{loh2009}, 
+\begin{equation}
+S = \sqrt{\frac{N M_{data}}{M_{rot}}}\; ,
+\end{equation}
+to estimate the required number of frames $M_{data}$ for $S\sim50$, where $M_{rot}$ is the number of rotation samplings. Assuming the diffraction frames are uniformly distributed in orientation space, $S^2$ can be interpreted as the average number of photons per orientation.
+
+The third simulation of of Table \ref{table:simParams} was designed to demonstrate how deterministic annealing method can deal with convergence issues caused by very high signal. Most of the parameters were kept identical to the low fluence AMO simulation, but the fluence was up-adjusted to receive 1 mJ x-ray pulses (within an order of magnitude of design specifications \cite{Emma2010}).
 
 \subsection{Discussions on simulated reconstructions} \label{subsec:recon}
 TODO: Describe how we know a reconstruction converges and monitor its progress. Describe how we nurse reconstructions to higher rotation group sampling. Describe how we guide a ``heating'' up of a beta parameter reconstruction.
@@ -323,7 +328,7 @@ TODO: Describe how we know a reconstruction converges and monitor its progress. 
 \end{figure}
 
 \begin{figure}
-\caption{A simulated reconstruction at the CXI endstation at LCLS (see Table \ref{table:simParams}).}
+\caption{The simulated reconstruction of TMV at the CXI endstation of LCLS (see Table \ref{table:simParams}). Show here are the central sections of the reconstructed 3D diffraction volume of TMV after 55 iterations. With 88 Intel Xeon X7542 (2.67 GHz) cores this full reconstruction took 7 hours, spending 15 minutes for each of the slowest refinement iterations using 204,960 rotation group samples.}
 \includegraphics[width=3.5in]{figures/cxi_intens_055.png} \label{fig:cxi_intens}
 \includegraphics[width=3.5in]{figures/cxi_log_fig.png} \label{fig:cxi_log_fig}
 \end{figure}
