@@ -130,12 +130,16 @@ This software package uses the EMC algorithm to reconstruct a 3D diffraction vol
 
 \subsection{Typical experiment and key parameters}\label{sec:expParams}
 
-The key parameters of the experiment fall into two classes: those related to the experimental geometry, and those related to the sample. 
+The key parameters of the experiment are illustrated in Figure \ref{fig:expGeometry}, which include the photon wavelength $\lambda$, and the maximum scattering angle. These parameters help determine the maximum half period resolution $a$ as well as the field of view $L$ of the reconstructed electron density map. Given these parameters, one can then decide if an candidate scatterer can yield enough diffraction signal to the desired resolution. These parameters are revisited in Section \ref{subsubsec:config}.
 
-TODO: Briefly describe the key parameters, which will be later echoed in config.ini. Also state choice of crystallographic spatial frequency, discuss dimensionless radius, speckle sampling, solid angle correction.
+Throughout this document, we adopt the crystallographer's convention for spatial frequency 
+\begin{equation}
+\widehat{q} = \frac{2 \sin(\phi_{\text{max}}\,/\,2)}{\lambda}\;,
+\end{equation}
+where the $\phi_{\text{max}}$ is the maximum scattering angle. We also note that a corrective factor is also needed to compensate for different solid angles subtended by different pixels on the detector (Appendix \ref{sec:solidAngle}). 
 
 \begin{figure}
-\caption{Experimental geometry of single-particle imaging adopted in the data stream simulator. Notably, we implement a square detector comprising square pixels. The scatterer, while depicted here as a sphere of radius $R_p$, is typically an electron density map sampled from a Protein Data Bank file.}
+\caption{Experimental geometry of single-particle imaging adopted in the data stream simulator. This simulator implements a planar square detector comprising $d\times d$ square pixels, each of area $l_D^2$. The detector is positioned a $z_D$ from the x-ray interaction region, where the scatterer (depicted here as a sphere of radius $R_p$) is typically an electron density map sampled from a Protein Data Bank file. The incident photon wavelength is $\lambda \,\AA$. From these, one can compute the maximum scattering angle captured by the detector, subtended by gray triangles to either the edge or corner of the detector. From the former we compute the half-period resolution $a$, which is equivalent to the length of the voxel (red) in the reconstructed electron density map.}
 \includegraphics[width=3.5in]{figures/geometry.eps} \label{fig:expGeometry}
 \end{figure}
 
