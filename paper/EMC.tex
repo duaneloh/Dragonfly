@@ -350,10 +350,12 @@ An additional diagnostic is the average mutual information of the reconstruction
 \begin{equation}
 I_d(K, \Omega) = \sum_r P_{dr} \log(P_{dr} / P_{r})\;,
 \end{equation}
-where $P_r$ is the prior probability of orientations (assumed here to be uniform). This is a measure of the `peakiness' of the probability distribution over orientations. For a Delta function distribution, the value is the logarithm of the number of quaternion samples. Below that is a plot of the total log-likelihood in Eq.~\ref{eqn:totalq}. In most situations, this quantity increases monotonically, and a significant decrease indicates an error. 
+where $P_r$ is the prior probability of orientations (assumed here to be uniform). \hl{Somewhat unclear. Could clean up.}This is a measure of the `peakiness' of the probability distribution over orientations. For a Delta function distribution, the value is the logarithm of the number of quaternion samples. Below that is a plot of the total log-likelihood in Eq.~\ref{eqn:totalq}. In most situations, this quantity increases monotonically, and a significant decrease indicates an error. 
 
 \subsubsection{Most likely orientations of each pattern}
-The rightmost plot is the most useful for monitoring convergence. This is a matrix plot where the vertical axis is the frame number while the horizontal is iteration. The color represents the orientation number of the best orientation (maximum $P_{dr}$) for each frame. The rows have been sorted by the orientation number of the last iteration. Thus, the colors at the right end form a smooth color bar. The variation of colors along a row indicates how the most likely orientation has changed for that frame. Thus, if the colors vary smoothly over a few iterations, this indicates that most likely orientations are not changing from iteration to iteration which is a good indicator of convergence.
+The bottom rightmost plot in Figure \ref{fig:amo_low_log} is the most useful for monitoring convergence. This is a matrix plot where the vertical axis is the frame number while the horizontal is iteration. The color represents the orientation number of the best orientation (maximum $P_{dr}$) for each frame. Thus, the colors at the right end form a smooth spectrum and the pattern numbers differ between rotation-sampling blocks. The variation of colors along a row indicates how the most likely orientation has changed for that frame. Patterns settle into their most likely orientations when these colors become constant with iterations, which is a good indicator of convergence.
+
+This is also useful for cases when group sampling is steadily increased (i.e. Figure \ref{fig:cxi_intens}). For each iteration block where the rotation group sampling is fixed, we sort the patterns (rows) such that the last iteration in the block has ascending orientation numbers. However, note that while the pattern index is constant within each such block, they differ between blocks because each block is separately sorted by the orientations of the final iteration within the block.
 
 \subsection{Strategies for reconstruction} \label{subsec:strategy}
 
@@ -373,13 +375,13 @@ For the high fluence AMO reconstruction (Fig.~\ref{fig:amo_high_log}), the situa
 \end{figure}
 
 \begin{figure}
-\caption{The simulated reconstruction of TMV at the CXI endstation of LCLS (see Table \ref{table:simParams}). Show here are the central sections of the reconstructed 3D diffraction volume of TMV after 55 iterations. With 88 Intel Xeon X7542 (2.67 GHz) cores this full reconstruction took 7 hours, spending 15 minutes for each of the slowest refinement iterations using 204,960 rotation group samples.}
+\caption{The simulated reconstruction of TMV at the CXI endstation of LCLS (see Table \ref{table:simParams}). Show here are the central sections of the reconstructed 3D diffraction volume of TMV after 55 iterations. With 88 Intel Xeon X7542 (2.67 GHz) cores this full reconstruction took 7 hours, spending 15 minutes for each of the slowest refinement iterations using 204,960 rotation group samples. Red dashed lines in the r.m.s. model change mark when the refinement level of the rotation group was increased by one. (Bottom right) Rows are colored by each photon pattern's most likely orientation number, which stabilizes after twenty iterations and thereafter quickly re-stabilizes when we increase the rotation group refinement. Since the number of quaternions increase with rotation refinement, blocks of higher refinement show a wider color spectrum.}
 \includegraphics[width=3.5in]{figures/cxi_intens_055.png} \label{fig:cxi_intens}
 \includegraphics[width=3.5in]{figures/cxi_log_fig.png} \label{fig:cxi_log}
 \end{figure}
 
 \begin{figure}
-\caption{A simulated reconstruction at the AMO endstation at LCLS with high photon fluence (see Table \ref{table:simParams}).}
+\caption{A simulated reconstruction at the AMO endstation at LCLS with high photon fluence (see Table \ref{table:simParams}). \hl{Say a bit about the dashed lines like how we know to increase $\beta$}}
 \includegraphics[width=3.5in]{figures/amo_high_intens.png} \label{fig:amo_high_intens}
 \includegraphics[width=3.5in]{figures/amo_high_log.png} \label{fig:amo_high_log}
 \end{figure}
