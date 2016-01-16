@@ -208,7 +208,7 @@ Several convenience utilities are included to help prepare the data for or view 
 
 \subsection{Configuration and data formats}\label{subsec:formats}
 \subsubsection{Configuration file}\label{subsubsec:config}
-The configuration file is used to pass parameters and file names to the main reconstruction code as well as to the various utilities. The file has the standard \texttt{key = value} format with the parameters for different modules grouped by module names in square brackets. There is a global \texttt{[parameters]} \hl{module, (change to SECTION to avoid confusing with compute modules) } containing information about the experimental setup. A typical configuration file is shown in Fig.~\ref{fig:config}, which corresponds to the first simulation case in Table \ref{table:simParams}. This default file also shows the use of special keywords used to point to other configuration file parameters (eg. \texttt{in\_photons\_file}). The \texttt{[parameters]} module is described below. For other modules, refer to Section~\ref{subsec:mod+utils}.
+The configuration file is used to pass parameters and file names to the main reconstruction code as well as to the various utilities. The file has the standard \texttt{key = value} format with the parameters for different modules grouped by module names in square brackets. There is a global \texttt{[parameters]} section containing information about the experimental setup. A typical configuration file is shown in Fig.~\ref{fig:config}, which corresponds to the first simulation case in Table \ref{table:simParams}. This default file also shows the use of special keywords used to point to other configuration file parameters (eg. \texttt{in\_photons\_file}). The \texttt{[parameters]} section is described below. For other sections, refer to the appropriate module in Section~\ref{subsec:mod+utils}.
 
 The basic parameters of the experiment are:
 \begin{itemize}
@@ -314,7 +314,7 @@ max. quaternion sampling\footnote{Sampling and criterion defined in \citeasnoun{
 \end{tabular}
 \end{table}
 
-The simulation parameters are shown in Table \ref{parameters}. The detectors here had $1024\times1024$-pixels, taking on the pixel pitch of the pnCCD\cite{Struder2010} and CSPAD\hl{citation needed} detectors. We decrease the beam fluence to obtain mean photon counts $N\sim 90$ for the first two simulations, mimicking realistic losses from imperfect beam transmission, optics, and cleanup apertures \cite{Loh2013}. 
+The simulation parameters are shown in Table \ref{parameters}. The detectors here had $1024\times1024$-pixels, taking on the pixel pitch of the pnCCD\cite{Struder2010} and CSPAD\cite{hart2012} detectors. We decrease the beam fluence to obtain mean photon counts $N\sim 90$ for the first two simulations, mimicking realistic losses from imperfect beam transmission, optics, and cleanup apertures \cite{Loh2013}. 
 
 For data sufficiency we use the signal-to-noise ratio parameter defined in Eq. 37 of \citeasnoun{loh2009}, 
 \begin{equation}
