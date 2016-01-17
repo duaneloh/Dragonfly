@@ -66,7 +66,7 @@
 \author[b]{Veit}{Elser}
 
 \aff[a]{Center for Free-Electron Laser Science, Deutsches Elektronen-Synchrotron DESY, Notkestra{\ss}e 85, 22607 Hamburg, \country{Germany}}
-\aff[b]{Second affiliation address}
+\aff[b]{Laboratory of Atomic and Solid State Physics, Cornell University, Ithaca, NY 14853 \country{USA}}
 \aff[c]{Centre for Bio-imaging Sciences, National University of Singapore, 117543, \country{Singapore}.}
 
      % Use \shortauthor to indicate an abbreviated author list for use in
@@ -125,7 +125,7 @@ Extensions of this algorithm have been successfully adapted for tomography and c
 
 \section{Purpose and structure of this package}\label{sec:package}
 
-This software package uses the EMC algorithm to reconstruct a 3D diffraction volume from noisy, randomly-oriented single particle diffraction patterns. These patterns could be from simulations or actual single-particle experiments. Although this package includes a data stream generator that feeds data into the EMC reconstruction algorithm, the latter could also receive data from physical experiments as long as the input/output formats are maintained.
+This software package uses the EMC algorithm to reconstruct a 3D diffraction volume from noisy, randomly-oriented single particle diffraction patterns. These patterns could be from simulations or actual single-particle experiments. Although this package includes a data stream generator that feeds data into the EMC reconstruction algorithm, the algorithm can also take data from physical experiments as long as the input/output formats are maintained.
 
 \subsection{Key parameters in single particle imaging}\label{sec:expParams}
 
@@ -408,7 +408,7 @@ with dimensionless resolution $\widetilde{q} = 2 \pi \widehat{q} R_p$, where we 
 \begin{equation}
 \tan(\widetilde{q}) = \widetilde{q} \;,
 \end{equation}
-which approaches $\widetilde{q} \to (2n+1) \pi / 2$, where $n \in \mathbb{Z}$, for large $\widetilde{q}$. As a result, for large $\widetilde{q}$ the separation between the zeros of \eqref{eqn:speckle} $\Delta \widetilde{q} \to \pi$, which results in a speckle width in spatial frequency of 
+%which approaches $\widetilde{q} \to (2n+1) \pi / 2$, where $n \in \mathbb{Z}$, for large $\widetilde{q}$. As a result, for large $\widetilde{q}$ the separation between the zeros of \eqref{eqn:speckle} $\Delta \widetilde{q} \to \pi$, which results in a speckle width in spatial frequency of 
 \begin{equation}
 \Delta \widehat{q} \to 1/(2 R_p) \;. 
 \end{equation}
@@ -429,7 +429,7 @@ where $l_D$ is the width of the detector pixel, and $z_D$ is separation between 
 
 In this section we compute the solid angle $\Delta \Omega$ subtended by a square pixel of area $l_D \times l_D$ about the point where a scatterer sits (see Figure \ref{fig:solidAngle}). To first approximation, the solid angle $\Delta \Omega \sim \cos(\theta) \Delta \phi \cdot \Delta \theta$. The estimate  $\Delta \phi$ and $\Delta \theta$, we use the following relations. On a detector $z_D$ from the interaction point, we consider a pixel at position $\{x,y,z_D\}$ in its spherical coordinate representation:
 \begin{equation}
-\sin (\phi) = y /\rho ,&\qquad \cos(\phi) = z_D / \rho \;,
+\sin (\phi) = y /\rho , \qquad \cos(\phi) = z_D / \rho \;,  
 \end{equation}
 where $\rho = \sqrt{y^2 + z_D^2}$.
 Differentiating $\sin(\phi)$ with respect to $\phi$ gives
