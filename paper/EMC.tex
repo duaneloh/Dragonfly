@@ -67,7 +67,7 @@
 
 \aff[a]{Center for Free-Electron Laser Science, Deutsches Elektronen-Synchrotron DESY, Notkestra{\ss}e 85, 22607 Hamburg, \country{Germany}}
 \aff[b]{Laboratory of Atomic and Solid State Physics, Cornell University, Ithaca, NY 14853 \country{USA}}
-\aff[c]{Centre for Bio-imaging Sciences, National University of Singapore, 117543, \country{Singapore}.}
+\aff[c]{Centre for Bio-imaging Sciences, National University of Singapore, 117543, \country{Singapore}}
 
      % Use \shortauthor to indicate an abbreviated author list for use in
      % running heads (you will need to uncomment it).
@@ -129,16 +129,16 @@ This software package uses the EMC algorithm to reconstruct a 3D diffraction vol
 
 \subsection{Key parameters in single particle imaging}\label{sec:expParams}
 
-The key parameters of the experiment are illustrated in Figure \ref{fig:expGeometry}, which include the photon wavelength $\lambda$, and the maximum scattering angle. These parameters help determine the maximum half period resolution $a$ as well as the field of view $L$ of the reconstructed electron density map. Given these parameters, one can then decide if an candidate scatterer can yield enough diffraction signal to the desired resolution. These parameters are revisited in Section \ref{subsubsec:config}.
+The key parameters of an SPI experiment are illustrated in Figure \ref{fig:expGeometry}, which include the photon wavelength $\lambda$ and the maximum scattering angle $\phi_{\text{max}}$. These parameters determine the half period resolution $a$ of the reconstructed electron density map. Given these parameters together with the beam fluence, one can then decide if a candidate scatterer can yield enough diffraction signal to the desired resolution. These parameters are revisited in Section \ref{subsubsec:config}.
 
-Throughout this document, we adopt the crystallographer's convention for spatial frequency 
+Throughout this document, we adopt the crystallographers' convention for spatial frequency 
 \begin{equation}
-\widehat{q} = \frac{2 \sin(\phi_{\text{max}}\,/\,2)}{\lambda}\;,
+\widehat{q} = \frac{2 \sin(\phi_{\text{max}}\,/\,2)}{\lambda}\;.
 \end{equation}
-where the $\phi_{\text{max}}$ is the maximum scattering angle. A corrective factor is also needed to compensate for different solid angles subtended by different pixels on the detector (Appendix \ref{sec:solidAngle}). 
+A corrective factor is also needed to compensate for different solid angles subtended by different pixels on the detector (Appendix \ref{sec:solidAngle}). 
 
 \begin{figure}
-\caption{Experimental geometry of single-particle imaging adopted in the data stream simulator. This simulator implements a planar square detector comprising $d\times d$ square pixels, each of area $l_D^2$. The detector is positioned a $z_D$ from the x-ray interaction region, where the scatterer (depicted here as a sphere of radius $R_p$) is typically an electron density map sampled from a Protein Data Bank file. The incident photon wavelength is $\lambda \,\AA$. From these, one can compute the maximum scattering angle captured by the detector, subtended by gray triangles to either the edge or corner of the detector. We compute the half-period resolution, $a$, from the detector's edge, which is equivalent to the length of the voxel (red) in the reconstructed electron density map.}
+\caption{Experimental geometry of single-particle imaging adopted in the data stream simulator. This simulator implements a planar square detector comprising $d\times d$ square pixels, with area $l_D^2$ each. The detector is positioned at $z_D$ from the x-ray interaction region, where the scatterer (depicted here as a sphere of radius $R_p$) is typically an electron density map sampled from a Protein Data Bank file. From these, one can compute the maximum scattering angle captured by the detector, subtended by gray triangles to either the edge or corner of the detector. Combined with the incident photon wavelength $\lambda$,  we can determine the half-period resolution, $a$, from the detector's edge, which is equivalent to the length of the voxel (red) in the reconstructed electron density map.}
 \includegraphics[width=3.5in]{figures/geometry.eps} \label{fig:expGeometry}
 \end{figure}
 
