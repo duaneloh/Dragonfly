@@ -96,7 +96,7 @@
 \maketitle                        % DO NOT DELETE THIS LINE
 
 \begin{synopsis}
-Description of a single partiticle X-ray imaging reconstruction and simulation package named EMC.
+Description of a single-particle X-ray imaging reconstruction and simulation package named EMC.
 \end{synopsis}
 
 \begin{abstract}
@@ -191,7 +191,7 @@ The most time-consuming step of each iteration is the calculation of Eq.~\ref{eq
 
 In many experimental situations, the incident fluence varies between x-ray pulses. Thus, the tomograms would be scaled differently for each pattern. One can enable the recovery of these scale factors using the update rule described in Appendix~\ref{sec:rescaling}. 
 
-We also find that if the signal is too strong, and when rotation group sampling is too fine or data is too few, reconstructions get stuck in local maxima in which all frames are assigned the same orientation and overlap each other in reciprocal space. This effect is similar to what is observed if the background is too high~\cite{ayyer2015}. Such reconstructions, however, are empirically stable around the true solution, and only falters when one starts from a random initial guess. This problem can be avoided by using the deterministic annealing variant of expectation maximization ~\cite{ueda1998}. In the EMC case, this is implemented by raising $R_{dr}$ calculated in Eq.~\ref{eqn:probnumr} to a small power $\beta$, and then normalizing. This has a regularizing effect of broadening the orientation distribution and results in a rotationally blurred, but stable reconstruction. The power $\beta$ can then be raised gradually in a manner similar to simulated annealing to slowly improve the reconstruction. An example of this is shown in Section~\ref{subsec:regularization}.
+We also find that if the signal is too strong, and when rotation group sampling is too fine or data is too few, reconstructions get stuck in local maxima in which all frames are assigned the same orientation and overlap with each other in reciprocal space. This effect is similar to what is observed if the background is too high~\cite{ayyer2015}. Such reconstructions, however, are empirically stable around the true solution, and only falters when one starts from a random initial guess. This problem can be avoided by using the deterministic annealing variant of expectation maximization ~\cite{ueda1998}. In the EMC case, this is implemented by raising $R_{dr}$ calculated in Eq.~\ref{eqn:probnumr} to a small power $\beta$, and then normalizing. This has a regularizing effect of broadening the orientation distribution and results in a rotationally blurred, but stable reconstruction. The power $\beta$ can then be raised gradually in a manner similar to simulated annealing to slowly improve the reconstruction. An example of this is shown in Section~\ref{subsec:regularization}.
 
 \subsection{Modules and convenience utilities}\label{subsec:mod+utils}
 
@@ -319,7 +319,7 @@ fluence (photons/um$^2$)& $1\times10^{10}$\footnote{Estimated from \citeasnoun{L
 $a$, half-period resolution\footnote{Resolution defined from detector's edge.}(nm) 	& 2.45                & 0.56             & 2.5 \\
 \hline
 particle                  		& KLH1\footnote{Keyhole Limpet Hemocyanin 1. \label{KLH1}}& TMV\footnote{Four-layer Tobacco Mosaic Virus.}& KLH1$^\ref{KLH1}$ \\
-mass (kDa)	            	& 8000                & 18               & 8000 \\
+mass (MDa)	            	& 7.3                & 1.3               & 7.3 \\
 $R_p$, particle radius (nm) 		& 18.9                & 9.3                & 18.9 \\
 $\widetilde{R}$\footnote{Dimensionless radius, $R_p / a$.}, dimensionless radius  & 7.7               & 16.6               & 7.6 \\
 $\sigma$, speckle sampling\footnote{Defined as $\widetilde{R} = L\,/(2 R_p)$. See appendix \ref{sec:speckle}.}  & 9.6                & 4.45               & 9.2 \\

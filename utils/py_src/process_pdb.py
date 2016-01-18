@@ -90,6 +90,9 @@ def apply_symmetry(atoms, sym_list, trans_list):
     org_atoms = atoms[:,1:4].T.copy()
     f0s = np.asarray([atoms[:,0]]).T.copy()
     ms = np.asarray([atoms[:,4]]).T.copy()
+    total_ms = len(sym_list)*np.sum(ms) / 1.0e6
+    msg = "Mass of particle (MDa), %.3f"%(total_ms)
+    logging.info(msg)
     out_atoms = np.zeros((len(sym_list),)+atoms.shape)
     for i in xrange(len(sym_list)):
         sym_op = sym_list[i]
