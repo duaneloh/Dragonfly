@@ -68,8 +68,8 @@ if __name__ == "__main__":
         py_utils.increment_quat_file_sensibly(args.config_file, args.quat_add)
         cmd = "./make_quaternion " + args.config_file
         if not args.dry_run:
-            logging.info(80*"=" + "\n")
-            logging.info(80*"=" + "\n" + cmd)
+            logging.info(20*"=" + "\n")
+            logging.info(20*"=" + "\n" + cmd)
             subprocess.call(cmd, shell=True)
         else:
             print cmd
@@ -78,16 +78,16 @@ if __name__ == "__main__":
     if args.num_mpi > 0:
         cmd = ' '.join(["mpirun -n", str(args.num_mpi)] + openMP_cmd)
         if not args.dry_run:
-            logging.info(80*"=" + "\n")
-            logging.info(80*"=" + "\n" + cmd)
+            logging.info(20*"=" + "\n")
+            logging.info(20*"=" + "\n" + cmd)
             subprocess.call(cmd, shell=True)
         else:
             print cmd
     else:
         cmd = ' '.join(openMP_cmd)
         if not args.dry_run:
-            logging.info(80*"=" + "\n")
-            logging.info(80*"=" + "\n" + cmd)
+            logging.info(20*"=" + "\n")
+            logging.info(20*"=" + "\n" + cmd)
             subprocess.call(cmd, shell=True)
         else:
             print cmd

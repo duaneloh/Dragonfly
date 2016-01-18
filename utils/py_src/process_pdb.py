@@ -109,7 +109,8 @@ def atoms_to_density_map(atoms, voxelSZ):
     R = np.int(np.ceil(grid_len / voxelSZ))
     if R % 2 == 0:
         R += 1
-
+    msg = "Length of particle (voxels), %d"%(R)
+    logging.info(msg)
     elec_den = atoms[:,0].copy()
 
     x = (x-x_min)/voxelSZ
