@@ -234,8 +234,8 @@ void calc_scale() {
 			if (mask[curr->place_multi[multi_counter + t]] < 1)
 				count[d_counter + d] += curr->count_multi[multi_counter + t] ;
 			
-			ones_counter += curr->ones[d - d_counter] ;
-			multi_counter += curr->multi[d - d_counter] ;
+			ones_counter += curr->ones[d] ;
+			multi_counter += curr->multi[d] ;
 		}
 		
 		d_counter += curr->num_data ;
