@@ -36,8 +36,8 @@ if __name__ == "__main__":
 
     # Here are some custom hybrid configurations
     if args.kahuna:
-        args.num_mpi = 8
-        args.num_threads = 11
+        args.num_mpi = 15
+        args.num_threads = 6
     elif args.bayes:
         args.num_mpi = 6
         args.num_threads = 8
