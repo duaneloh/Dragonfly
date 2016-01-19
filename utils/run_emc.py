@@ -39,8 +39,8 @@ if __name__ == "__main__":
         args.num_mpi = 15
         args.num_threads = 6
     elif args.bayes:
-        args.num_mpi = 6
-        args.num_threads = 8
+        args.num_mpi = 4
+        args.num_threads = 12
     elif args.tukey:
         args.num_mpi = 6
         args.num_threads = 4
