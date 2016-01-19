@@ -124,8 +124,11 @@ class Plotter:
         Tk.Button(line,text="Reparse",command=self.force_plot).pack(side=Tk.RIGHT)
         Tk.Button(line,text="Plot",command=self.parse_and_plot).pack(side=Tk.RIGHT)
 
-        with open("recon.log", 'r') as f:
-            all_lines = ''.join(f.readlines())
+        if os.path.exists('recon.log'):
+            with open("recon.log", 'r') as f:
+                all_lines = ''.join(f.readlines())
+        else:
+            all_lines = ''
         scroll2 = Tk.Scrollbar(self.options)
         self.txt2 = Tk.Text(self.options, height=10, width=70, font=("Arial",8))
         scroll2.pack(side=Tk.RIGHT, fill=Tk.Y, expand=1)
@@ -282,8 +285,8 @@ class Plotter:
         s1_lim = s1.get_ylim()
         s1.set_ylim(s1_lim)
         for i in beta_change:
-            s1.plot([i+1,i+1], s1_lim,'k-',lw=1)
-        for i in num_rot_change:
+            s1.plot([i+1,i+1], s1_lim,'k--',lw=1)
+        for i in num_rot_change[:-1]:
             s1.plot([i+1,i+1], s1_lim,'r--',lw=1)
         self.log_fig.add_subplot(s1)
 
@@ -294,8 +297,8 @@ class Plotter:
         s2_lim = s2.get_ylim()
         s2.set_ylim(s2_lim)
         for i in beta_change:
-            s2.plot([i+1,i+1], s2_lim,'k-',lw=1)
-        for i in num_rot_change:
+            s2.plot([i+1,i+1], s2_lim,'k--',lw=1)
+        for i in num_rot_change[:-1]:
             s2.plot([i+1,i+1], s2_lim,'r--',lw=1)
         self.log_fig.add_subplot(s2)
 
@@ -306,8 +309,8 @@ class Plotter:
         s3_lim = s3.get_ylim()
         s3.set_ylim(s3_lim)
         for i in beta_change:
-            s3.plot([i+1,i+1], s3_lim,'k-',lw=1)
-        for i in num_rot_change:
+            s3.plot([i+1,i+1], s3_lim,'k--',lw=1)
+        for i in num_rot_change[:-1]:
             s3.plot([i+1,i+1], s3_lim,'r--',lw=1)
         self.log_fig.add_subplot(s3)
 
