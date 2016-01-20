@@ -4,7 +4,7 @@ Type in the topmost directory:
 	```
 	./init_new_recon.py
 	```.
-This makes the binaries needed for the package and links them into a new reconstruction directory named "recon_xxxx". For help on customizing this setup script (e.g. custom folder name or counter):
+This makes the binaries needed for the package and links them into a new reconstruction directory named "recon_nnnn". For help on customizing this setup script (e.g. custom folder name or counter):
 	```
 	./init_new_recon.py -h
 	```.
@@ -12,7 +12,7 @@ This makes the binaries needed for the package and links them into a new reconst
 ### Configure experiment
 Go to your newly created recon directory
 	```
-	cd recon_xxxx
+	cd recon_nnnn
 	```.
 Change the experiment parameters in config.ini to your liking. 
 Here are some things that you might like to change:
@@ -46,11 +46,11 @@ Typing
 will start the reconstruction with the default of 10 iterations.
 You can continue to refine the last reconstruction by typing 
 	```
-	./run_emc.py -x 
+	./run_emc.py -r
 	```,
 or if you wanted to increase the quaternion sampling by one, 
 	```
-	./run_emc.py -X
+	./run_emc.py -R
 	```.
 
 If you have enough processors to do an MPI reconstruction:
