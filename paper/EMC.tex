@@ -241,9 +241,9 @@ The detector file is an ASCII (human readable) file which describes various prop
 \subsubsection{Photon file (emc format)}\label{subsubsec:emcformat}
 Since the photon data in many high-resolution SPI experiments expect few photons per pattern, a sparse binary format is used to store the data. Hence, for each pattern we only store information of pixels that receive photons. Additionally, since most of the non-zero counts are ones, only their pixel locations are stored. For pixels receiving two or more photons, we store both their pixel location and photon count. 
 
-Figure \ref{fig:dataFormat} shows a cartoon of this data format. The file's header resides in the first 1024 bytes. The first 4 bytes are a 32-bit integer giving the number of patterns (\texttt{num\_data}) contained in the file. The next 4 bytes are also a 32-bit integer giving the number of pixels in the detector file used to number the pixels. The next 1016 bytes are currently empty (filled with zeros).
+Figure \ref{fig:dataFormat} shows a cartoon of this data format. These are arranged in six blocks. The file's header resides in the first block, which is 1024 bytes long. The first 4 bytes are a 32-bit integer giving the number of patterns (\texttt{num\_data}) contained in the file. The next 4 bytes are also a 32-bit integer giving the number of pixels in the detector file used to number the pixels. The next 1016 bytes are currently empty (filled with zeros).
 
-The photon data follow immediately after the 1024-byte long header. These are arranged in five blocks. The first block contains \texttt{num\_data} 32-bit integers giving the number of one-photon events in each pattern (\texttt{ones}). The second block contains \texttt{num\_data} integers giving the number of multi-photon events (\texttt{multi}). The total number of single photon events in all the patterns is the sum of all numbers in the \texttt{ones} array ($S_o$). Similarly, let $S_m$ be the total number of multiple photon events. The third block contains $S_o$ 32-bit integers giving the locations of the single photon pixels; the fourth block has $S_m$ integers with the locations of the multiple photon pixels. Finally, the fifth block has $S_m$ 32-bit integers giving the number of photons in each of those multiple photon pixels. 
+The second block contains \texttt{num\_data} 32-bit integers giving the number of one-photon events in each pattern (\texttt{ones}). The third block contains \texttt{num\_data} integers giving the number of multi-photon events (\texttt{multi}). The total number of single photon events in all the patterns is the sum of all numbers in the \texttt{ones} array ($S_o$). Similarly, let $S_m$ be the total number of multiple photon events. The fourth block contains $S_o$ 32-bit integers giving the locations of the single photon pixels; the fifth block has $S_m$ integers with the locations of the multiple photon pixels. Finally, the sixth block has $S_m$ 32-bit integers giving the number of photons in each of those multiple photon pixels. 
 
 
      %-------------------------------------------------------------------------
@@ -252,47 +252,45 @@ The photon data follow immediately after the 1024-byte long header. These are ar
      
 \section{Example reconstructions of simulated experiments}\label{sec:simulations}
 
-We exemplify our package with three simulated single-particle reconstructions using the specifications of Atomic Molecular and Optical Science (AMO)~\cite{ferguson2015} and Coherent X-ray Imaging (CXI) ~\cite{liang2015} endstations at Linac Coherent Light Source (LCLS) \cite{Emma2010}. For these experiments we choose to simulate the reconstruction of keyhole limpet hemocyanin (KLH1) didecamer~\cite{gatsogiannis2009} and four-layer Tobacco Mosaic Virus (TMV)~\cite{bhyravbhatla1998} at AMO and CXI respectively. Notably, the choices in Table \ref{table:simParams} yield an average of $\sim 100$ photons per single-particle diffraction pattern.
+The use of our package is exemplified in three simulated single-particle imaging (SPI) reconstructions using the specifications of Atomic Molecular and Optical Science (AMO)~\cite{ferguson2015} and Coherent X-ray Imaging (CXI) ~\cite{liang2015} endstations at Linac Coherent Light Source (LCLS) \cite{Emma2010}. We chose to simulate SPI of keyhole limpet hemocyanin (KLH1) didecamer~\cite{gatsogiannis2009} and four-layer Tobacco Mosaic Virus (TMV)~\cite{bhyravbhatla1998} at AMO and CXI respectively. Notably, the choices in Table \ref{table:simParams} yield an average of $\sim 100$ photons per single-particle diffraction pattern.
 
 
 
-The simulation parameters are shown in Table \ref{parameters}. The detectors here have $1024\times1024$ pixels, taking on the pixel pitch of the pnCCD\cite{Struder2010} and CSPAD\cite{hart2012} detectors. We decrease the beam fluence to obtain mean photon counts $N\sim 90$ for the first two simulations, mimicking realistic losses from imperfect beam transmission, optics, and cleanup apertures \cite{Loh2013}. 
+The simulation parameters are shown in Table \ref{parameters}. The detectors here have $1024\times1024$ pixels, taking on the pixel pitch of the pnCCD\cite{Struder2010} and CSPAD\cite{hart2012} detectors. We decrease the beam fluence to obtain mean photon counts $N\sim 90$ for the first two simulations, mimicking realistic losses from imperfect beam transmission, optics, and cleanup apertures \cite{Loh2013}. The third simulation of Table \ref{table:simParams} was designed to demonstrate how deterministic annealing method can deal with convergence issues caused by very high signal. Most of the parameters were identical to the low fluence AMO simulation except the fluence was up-adjusted to receive 1 mJ x-ray pulses, which is within an order of magnitude of design specifications \cite{Emma2010}.
 
 For data sufficiency we use the signal-to-noise ratio parameter defined in Eq. 37 of \citeasnoun{loh2009}, 
 \begin{equation}
 S = \sqrt{\frac{N M_{\text{data}}}{M_{\text{rot}}}}\; ,
 \end{equation}
-to estimate the required number of data frames $M_{\text{data}}$ for $S\sim50$, where $M_{\text{rot}}$ is the number of rotation samplings. Assuming the diffraction patterns are uniformly distributed in orientation space, $S^2$ can be interpreted as the average number of photons per orientation.
-
-The third simulation of Table \ref{table:simParams} was designed to demonstrate how deterministic annealing method can deal with convergence issues caused by very high signal. Most of the parameters were identical to the low fluence AMO simulation except the fluence was up-adjusted to receive 1 mJ x-ray pulses, which is within an order of magnitude of design specifications \cite{Emma2010}.
+to estimate the required number of data frames $M_{\text{data}}$ for $S\sim50$, where $M_{\text{rot}}$ is the number of quasi-uniform rotation samples. Assuming the diffraction patterns are uniformly distributed in orientation space, $S^2$ can be interpreted as the average number of photons per orientation.
 
 \subsection{Diagnostics on simulated reconstructions} \label{subsec:recon}
-In this section, we describe useful diagnostics for monitoring the progress of each 3D reconstruction. Figures \ref{fig:amo_low_intens}, \ref{fig:cxi_intens} and \ref{fig:amo_high_intens} show orthogonal slices through the final converged intensities for the three parameter sets in Table \ref{table:simParams}. Below each figure is a set of plots generated by \texttt{autoplot.py} utility, which helps visualize these diagnostics. 
+In this section, we describe useful diagnostics for monitoring the progress of each 3D reconstruction. Figures \ref{fig:amo_low_intens}, \ref{fig:cxi_intens} and \ref{fig:amo_high_intens} show orthogonal slices through the reconstructed intensities for the three parameter sets in Table \ref{table:simParams}. Below each figure is a set of plots generated by \texttt{autoplot.py} utility, which helps visualize these diagnostics. 
 
-We discuss these diagnostics while referring to the AMO reconstruction in Figure \ref{fig:amo_low_log}, which consistently converges from random restarts. With each new reconstruction attempt, diffraction speckles readily converge. Incidentally, the overall orientation of the reconstructed 3D volume is arbitrary between random restarts. 
+We discuss these diagnostics starting with the AMO reconstruction in Figure \ref{fig:amo_low_log}, which consistently converges from random restarts. With each new reconstruction attempt, diffraction speckles readily converge, although each time at a different overall orientation.
 
 \subsubsection{R.M.S. change in the 3D model}
-Watching how the root mean squared change, per voxel, between the 3D intensity models from successive iterations in Figure \ref{fig:amo_low_log} is a straightforward indicator of convergence. The model changes by smaller and smaller amounts as the algorithm converges on a solution.
+The root mean squared change per voxel between the 3D intensity models from successive iterations in Figure \ref{fig:amo_low_log} is a straightforward indicator of convergence. The model changes by smaller and smaller amounts as the algorithm converges on a solution.
 
 \subsubsection{Mutual information between model and data}
 An additional diagnostic is the sharpness of the probability distribution over orientations $P_{dr}$ calculated in Eq.~\ref{eqn:prob}. This can be assessed by calculating the mutual information of the joint distribution of the data and the orientations, $P(K,\Omega) = P(\Omega) P(K{\big\vert}\Omega) = P_r P_{dr}$. Here, $P_r$ is the prior probability of orientations (assumed here to be uniform). This quantity is evaluated as
 \begin{equation}
-I(K, \Omega) = \langle\sum_r P_{dr} \log(P_{dr} / P_{r})\rangle,
+I(K, \Omega) = \langle\sum_r P_{dr} \log(P_{dr} / P_{r})\rangle, \label{eq:mutualInfo}
 \end{equation}
-where $\langle \dots \rangle$ is the average over data frames. For a Delta function distribution, the value is the logarithm of the number of quaternion samples, and it is zero for a uniform distribution. Below that is a plot of the model log-likelihood defined in Eq.~\ref{eqn:totalq}. In most situations, this quantity increases monotonically, and a significant decrease over many iterations indicates an error. 
+where $\langle \dots \rangle$ is the average over data frames. The quantity in Eq.~\ref{eq:mutualInfo} approaches the entropy of the rotation group sampling when each pattern fits only one orientation, while it vanishes for a uniform distribution. The fact that this quantity rises asymptotically in Figure ~\ref{fig:amo_low_log} (bottom panel, top plot) is consistent with model convergence. Below that is a plot of the model log-likelihood defined in Eq.~\ref{eqn:totalq}. In most situations, this quantity increases monotonically, and a significant decrease over many iterations indicates an error. 
 
 \subsubsection{Most likely orientations of each pattern}
 The bottom rightmost plot in Figure \ref{fig:amo_low_log} is the most useful for monitoring convergence. This is a matrix plot where the vertical axis is the frame number while the horizontal is iteration. The color represents the orientation number of the best orientation (maximum $P_{dr}$) for each frame. Thus, the colors at the right end form a smooth spectrum and the pattern numbers differ between rotation-sampling blocks. The variation of colors along a row indicates how the most likely orientation has changed for that frame. Patterns settle into their most likely orientations when these colors become constant with iterations, which is a good indicator of convergence.
 
-This is also useful for cases when group sampling is steadily increased (i.e. Figure \ref{fig:cxi_intens}). For each iteration block where the rotation group sampling is fixed, we sort the patterns (rows) such that the last iteration in the block has ascending orientation numbers. However, note that while the pattern index is constant within each such block, they differ between blocks because each block is separately sorted by the orientations of the final iteration within the block.
+This is also useful for cases when the rotation group sampling is steadily increased (i.e. Figure \ref{fig:cxi_intens}). For each iteration block where the rotation group sampling is fixed, we sort the patterns (rows in this orientation plot) such that the last iteration in the block has ascending orientation numbers. However, note that while the pattern index is constant within each block, they differ between blocks because each block is separately sorted.
 
 \subsection{Strategies for reconstruction} \label{subsec:strategy}
 
 \subsubsection{Gradually increasing rotation group sampling} \label{subsec:quatRefine}
-For the CXI reconstruction (Fig.~\ref{fig:cxi_log}), due to the size of the problem, the quaternion sampling number was increased in steps. If one chooses too coarse a rotation group sampling, low resolution speckles get reconstructed but higher resolution features remain blurry. However, once the switch to the right sampling is made, convergence is very quick. Since the computation time scales as the number of samples, it is faster to slowly increase rotation group sampling such that only a few iterations are performed with the finest sampling that takes the longest time. The red dashed lines in the bottom plots of Fig.~\ref{fig:cxi_log} indicate iterations where the sampling rate was increased, starting from 10 and ending at 16. Note that the mutual information does not increase much in the last rotation group refinement, indicating that further refinement would not substantially improve model likelihood.
+For the CXI reconstruction (Fig.~\ref{fig:cxi_log}), due to the size of the problem, the quaternion sampling number was increased in steps. If one chooses too coarse a rotation group sampling, low resolution speckles get reconstructed but higher resolution features remain blurry. These higher resolution speckles quickly sharpen when we increase the rotation group sampling for reconstructions starting from this blurry model. Since the computation time scales as the number of rotation group samples, it is faster to slowly increase rotation group sampling such that only a few iterations are performed with the most time-consuming but finest sampling. Red dashed lines in the bottom plots of Fig.~\ref{fig:cxi_log} indicate iterations where the sampling rate was increased, starting from 10 and ending at 16. Note that the mutual information does not increase much in the last rotation group refinement, indicating that further refinement would not substantially improve model likelihood.
 
 \subsubsection{Regularization via deterministic annealing} \label{subsec:regularization}
-For the high fluence AMO reconstruction (Fig.~\ref{fig:amo_high_log}), the situation is slightly different. As mentioned before, due to very high signal, the algorithm can fall into a local maxima trap in the first few iterations. This can be avoided by choosing a low $\beta$ as described in Section~\ref{subsec:EMC} to start with. In this particular case $\beta$ was 0.001 for the first 10 iterations and was then doubled every 10 iterations. The black dashed lines represent the iterations at which $\beta$ was doubled. After 80 iterations, the quaternion number was increased from 6 to 9 and 10 iterations were done for reasons similar to the CXI reconstruction. 
+For the high fluence AMO reconstruction (Fig.~\ref{fig:amo_high_log}), the situation is slightly different. As mentioned before, due to very high signal, the algorithm can fall into a local maxima trap in the first few iterations. This can be avoided by starting with a low $\beta$ as described in Section~\ref{subsec:EMC}. This reduces the propensity for over-fitting at the start of the reconstruction. In this particular case $\beta$ was 0.001 for the first 10 iterations and was then doubled every 10 iterations. The black dashed lines represent the iterations at which $\beta$ was doubled. After 80 iterations, the quaternion number was increased from 6 to 9 and 10 iterations were done for reasons similar to the CXI reconstruction. When $\beta$ rises back near unity, the speckle features in the reconstructed intensities also sharpen.
 
      %-------------------------------------------------------------------------
      % Conclusions
@@ -300,9 +298,9 @@ For the high fluence AMO reconstruction (Fig.~\ref{fig:amo_high_log}), the situa
      
 \section{Conclusions and future work}
 
-The future work can be divided broadly into the two main use cases, namely simulations and experimental data. On the simulation side, we plan to include support for non-uniform background distributions, both for data generation as well as to be used as \emph{a priori} knowledge during the reconstruction. We also plan to include realistic distributions for incident fluence fluctuations. One big challenge in single molecule imaging is the heterogeneity of the particles from shot to shot. For particles with a few conformation classes, one can reconstruct multiple 3D model intensities simultaneously by solving for both the orientation and the class index. We plan to implement this both for the data generation pipeline as well as for the EMC code.
+The future work can be divided broadly into the two main use cases, namely simulations and experimental data. For simulations, we plan to include support for non-uniform background distributions, both for data generation as well as to be used as \emph{a priori} knowledge during the reconstruction. We also plan to include realistic distributions for incident fluence fluctuations. One big challenge in single molecule imaging is the heterogeneity of the particles between patterns. For particles with a few conformation classes, one can reconstruct multiple 3D model intensities simultaneously by solving for both the orientation and the class index \cite{Loh2012a}. We plan to implement this both for the data generation pipeline as well as for the EMC code.
 
-To deal with experimental data, we will add utilities to convert from current experimental data to the sparse \texttt{emc} format. Similar utilities will be provided to generate detector files from a variety of formats currently employed to describe the experimental geometry. The ability to deal with known structured background mentioned above would, of course, also be valuable for experimental data. The user would be able to provide a measured `background file' to the reconstruction code. Alternatively, there are also plans to incorporate single-particle reconstruction with while learning and rejecting initially unknown background \cite{Loh2014}.
+To deal with experimental data, we will add utilities to convert current experimental data to the sparse \texttt{emc} format. Similar utilities will be provided to generate detector files from a variety of formats currently employed to describe the experimental geometry. The ability to deal with known structured background mentioned above would also be valuable for experimental data: the user would be able to provide a measured `background file' to the reconstruction code. There are also plans to incorporate single-particle reconstruction while learning and rejecting initially unknown background \cite{Loh2014}.
 
      %-------------------------------------------------------------------------
      % Access
@@ -332,9 +330,9 @@ with dimensionless resolution $\widetilde{q} = 2 \pi \widehat{q} R_p$, where we 
 \end{equation}
 which approaches $\widetilde{q} \to (2n+1) \pi / 2$, where $n \in \mathbb{Z}$, for large $\widetilde{q}$. As a result, for large $\widetilde{q}$ the separation between the zeros of \eqref{eqn:speckle} $\Delta \widetilde{q} \to \pi$, which results in a speckle width 
 \begin{equation}
-\Delta \widehat{q} \to 1/(2 R_p) \; 
+\Delta \widehat{q} \to 1/(2 R_p) \; .
 \end{equation}
- in the spatial frequency. Referring to Figure \ref{fig:expGeometry}, the coarsest spacings in the spatial frequency occur at small scattering angles and is inversely proportional to the field of view $L$, or $\Delta \widehat{q}_{\text{min}} \sim 1/L$. 
+Referring to Figure \ref{fig:expGeometry}, the coarsest spacings in the spatial frequency occur at small scattering angles and is inversely proportional to the field of view $L$, or $\Delta \widehat{q}_{\text{min}} \sim 1/L$. 
 
 The sampling ratio of the diffraction speckle is defined as:
 \begin{equation}
@@ -343,10 +341,7 @@ The sampling ratio of the diffraction speckle is defined as:
 where $l_D$ is the width of the detector pixel, and $z_D$ is the separation between the detector and interaction region (see Figures \ref{fig:expGeometry} or \ref{fig:solidAngle}). While the ideal sampling ratio of the diffraction speckles should exceed two, the time and memory required for intensity reconstruction rises rapidly when this ratio becomes excessively large (e.g. $ \Delta \widehat{q} \,/\, \Delta \widehat{q}_{\text{min}} \gg 5$). 
 
 \section{Solid angle correction for square pixels on planar detectors}\label{sec:solidAngle}
-\begin{figure}
-\caption{Setup for solid angle correction. In this section we compute the solid angle subtended by the square pixel (red) on the detector plane (gray). The scatterer (blue sphere) is set at the origin of this figure.}
-\includegraphics[width=2.5in]{figures/solidAngle.eps} \label{fig:solidAngle}
-\end{figure}
+
 
 
 In this section we compute the solid angle $\Delta \Omega$ subtended by a square pixel of area $l_D \times l_D$ about the point where a scatterer sits (see Figure \ref{fig:solidAngle}). To first approximation, the solid angle $\Delta \Omega \sim \cos(\theta) \Delta \phi \cdot \Delta \theta$. We use the following relations to estimate  $\Delta \phi$ and $\Delta \theta$. On a detector $z_D$ from the interaction point, we consider a pixel at position $\{x,y,z_D\}$ in its spherical coordinate representation:
@@ -372,7 +367,7 @@ Combining the two and simplifying, we get the solid angle subtended by the squar
 \end{equation}
 
 \section{Pattern-wise intensity scale factor updates}\label{sec:rescaling}
-In many real world applications, the incident fluence on each particle will be different. The default implementation in \citeasnoun{loh2009} assumes uniform incident fluence. Here we derive the likelihood maximizing update rule employed in this package when the \texttt{need\_scaling} option is turned on. The approach used is similar to that employed in \citeasnoun{loh2010}, except for a Poisson probability model rather than Gaussian. Let $\phi_d$ be a scale factor which is proportional to the fluence incident on the particle in pattern $d$. Thus, Eq.~\ref{eqn:prob} and Eq.~\ref{eqn:probnumr} become,
+In many real world applications, the incident fluence on each particle will be different. The default implementation in \citeasnoun{loh2009} assumes uniform incident fluence. Here we derive the likelihood maximizing update rule employed in this package when the \texttt{need\_scaling} option is turned on. The approach used is similar to that employed in \citeasnoun{loh2010}, except here we use a Poisson rather than Gaussian probability model. Let $\phi_d$ be a scale factor which is proportional to the fluence incident on the particle in pattern $d$. Thus, Eq.~\ref{eqn:prob} and Eq.~\ref{eqn:probnumr} become,
 \begin{align}
 P_{dr} &= \frac{R_{dr}}{\sum\limits_r R_{dr}} \\
 \mathrm{and }\;R_{dr} &= \prod_t \frac{(W_{rt}\phi_d)^{K_{dt}} e^{-W_{rt}\phi_d}}{K_{dt}!}.
@@ -413,7 +408,7 @@ N.D.L. would like to thank the support of the Lee Kuan Yew Endowment fund, and t
  %-------------------------------------------------------------------------
 \begin{figure}
 \caption{Experimental geometry of single-particle imaging adopted in the data stream simulator. This simulator implements a planar square detector comprising $d\times d$ square pixels, with area $l_D^2$ each. The detector is positioned at $z_D$ from the x-ray interaction region, where the scatterer (depicted here as a sphere of radius $R_p$) is typically an electron density map sampled from a Protein Data Bank file. From these, one can compute the maximum scattering angle captured by the detector, subtended by gray triangles to either the edge or corner of the detector. Combined with the incident photon wavelength $\lambda$,  we can determine the half-period resolution, $a$, from the detector's edge, which is equivalent to the length of the voxel (red) in the reconstructed electron density map.}
-\includegraphics[width=3.5in]{figures/geometry.eps} \label{fig:expGeometry}
+\includegraphics[width=\textwidth]{figures/geometry.eps} \label{fig:expGeometry}
 \end{figure}
 
  %-------------------------------------------------------------------------
@@ -477,8 +472,8 @@ beta = 1.
 
  %-------------------------------------------------------------------------
 \begin{figure}
-\caption{Pictorial representation of sparse data format for 50 patterns. The data is stored contiguously but shown here in row-major format (i.e. left to right, then down the rows). Each block is a 32-bit integer. Details found in Section \ref{subsubsec:emcformat}.}\label{fig:dataFormat}
-\includegraphics[width=0.6\textwidth]{figures/dataFormat}
+\caption{Six blocks in the parse data format for 50 patterns. The data is stored contiguously but shown here in row-major format (i.e. to be read from left to right, then down the rows). Each square represents a 32-bit integer. The colors in blocks three to six connect listings of the same pattern. Details found in Section \ref{subsubsec:emcformat}.}\label{fig:dataFormat}
+\includegraphics[height=0.8\textheight]{figures/dataFormat}
 \end{figure}
 
  %-------------------------------------------------------------------------
@@ -513,25 +508,31 @@ max. quaternion sampling\footnote{Sampling and criterion defined in \citeasnoun{
  %-------------------------------------------------------------------------
 \begin{figure}
 \caption{Convergence of diffraction speckle features in a simulated AMO single-particle experiment (parameters listed in Table \ref{table:simParams}). In each row we render central slices of the 3D diffraction intensities recovered from KLH1 during an EMC reconstruction, after iterations 1,10,20 and 50 in ascending row order. The bottom plots are additional diagnostics on the reconstructed 3D diffraction model: (left column) the root mean squared change in the 3D model; (middle column) mutual information and log-likelihood of the model; (right) the most likely orientations of all the patterns.}
-\includegraphics[width=3.5in]{figures/amo_low_intens_001.png} 
-\includegraphics[width=3.5in]{figures/amo_low_intens_010.png}
-\includegraphics[width=3.5in]{figures/amo_low_intens_020.png} 
-\includegraphics[width=3.5in]{figures/amo_low_intens_050.png} \label{fig:amo_low_intens}
-\includegraphics[width=3.5in]{figures/amo_low_log.png} \label{fig:amo_low_log}
+\includegraphics[height=0.15\textheight]{figures/amo_low_intens_001.png} 
+\includegraphics[height=0.15\textheight]{figures/amo_low_intens_010.png}
+\includegraphics[height=0.15\textheight]{figures/amo_low_intens_020.png} 
+\includegraphics[height=0.15\textheight]{figures/amo_low_intens_050.png} \label{fig:amo_low_intens}
+\includegraphics[height=0.15\textheight]{figures/amo_low_log.png} \label{fig:amo_low_log}
 \end{figure}
 
  %-------------------------------------------------------------------------
 \begin{figure}
 \caption{The simulated reconstruction of TMV at the CXI endstation of LCLS (see Table \ref{table:simParams}). Shown here are the central sections of the reconstructed 3D diffraction volume of TMV after 55 iterations. With 88 Intel Xeon X7542 (2.67 GHz) cores this full reconstruction took 7 hours, spending 15 minutes for each of the slowest refinement iterations using 204,960 rotation group samples. Red dashed lines in the r.m.s. model change mark when the refinement level of the rotation group was increased by one. ({\bf Bottom right plot}) Rows are colored by each photon pattern's most likely orientation number, which stabilizes after twenty iterations and thereafter quickly re-stabilizes when we increase the rotation group refinement. Since the number of quaternions increase with rotation refinement, blocks of higher refinement show a wider color spectrum. See Section ~\ref{subsec:quatRefine} for details.}
-\includegraphics[width=3.5in]{figures/cxi_intens_055.png} \label{fig:cxi_intens}
-\includegraphics[width=3.5in]{figures/cxi_log_fig.png} \label{fig:cxi_log}
+\includegraphics[width=\textwidth]{figures/cxi_intens_055.png} \label{fig:cxi_intens}
+\includegraphics[width=\textwidth]{figures/cxi_log_fig.png} \label{fig:cxi_log}
 \end{figure}
 
  %-------------------------------------------------------------------------
 \begin{figure}
 \caption{A simulated reconstruction at the AMO endstation at LCLS with high photon fluence (see Table \ref{table:simParams}). This reconstruction was performed by doubling the $\beta$ parameter (Section~\ref{subsec:regularization}) every 10 iterations starting from $\beta=0.001$. These iterations are indicated by dashed black lines in the log file. This interval of 10 iterations was chosen as it provided enough time for the reconstruction to stabilize before parameters were changed. This can be judged by saturation of the average mutual information in every block. After 80 iterations ($\beta = 0.256$), this increase was stopped as there did not seem to be much further improvement in the average mutual information. After this, the rotational sampling rate was increased from 6 to the target of 9. As in the CXI reconstruction (Fig.~\ref{fig:cxi_log}), this was done in order to save computational time by doing fewer iterations at the highest sampling.}
-\includegraphics[width=3.5in]{figures/amo_high_intens.png} \label{fig:amo_high_intens}
-\includegraphics[width=3.5in]{figures/amo_high_log.png} \label{fig:amo_high_log}
+\includegraphics[width=\textwidth]{figures/amo_high_intens.png} \label{fig:amo_high_intens}
+\includegraphics[width=\textwidth]{figures/amo_high_log.png} \label{fig:amo_high_log}
+\end{figure}
+
+ %-------------------------------------------------------------------------
+\begin{figure}
+\caption{Setup for solid angle correction. In this section we compute the solid angle subtended by the square pixel (red) on the detector plane (gray). The scatterer (blue sphere) is set at the origin of this figure.}
+\includegraphics[width=0.8\textwidth]{figures/solidAngle.png} \label{fig:solidAngle}
 \end{figure}
 
 
