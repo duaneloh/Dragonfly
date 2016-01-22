@@ -121,7 +121,7 @@ Manifold embedding methods \cite{Schwander2012} try to find a consistent set of 
 
 Intensity cross-correlation methods offer another approach for deriving structure from un-oriented particle ensembles \cite{Kam1977, Saldin2010}. These methods work best when the x-ray flux passes through the fewest number of particles. However, in the single particle limit these methods work at an enormous information deficit relative to EMC. That is because EMC uses the correlated arrangement of \textit{all} 100-1000 photons in a typical diffraction pattern rather than just the correlations among pairs.
 
-While EMC is just beginning to be used for SPI of bio-particles, it has been field-tested in a number of proof-of-principle experiments \cite{philipp2012,ayyer2014,wierman2016}. The most significant feature of these experiments is the demonstration that EMC's probabilistic modeling of the detector photon counts continues to be valid even in the extremely sparse regime. Recording highly sparse data, with the hope that it reveals structure, will require a leap of faith on the part of structural biologists. Our EMC software package comes with tools to make that leap less blind for new users.
+While EMC is just beginning to be used for SPI of bio-particles, it has been field-tested in a number of proof-of-principle experiments \cite{philipp2012,ayyer2014,ayyer2015a,wierman2016}. The most significant feature of these experiments is the demonstration that EMC's probabilistic modeling of the detector photon counts continues to be valid even in the extremely sparse regime. Recording highly sparse data, with the hope that it reveals structure, will require a leap of faith on the part of structural biologists. Our EMC software package comes with tools to make that leap less blind for new users.
 
      %-------------------------------------------------------------------------
      % Purpose and structure of this package
@@ -256,7 +256,7 @@ The use of our package is exemplified in three simulated single-particle imaging
 
 
 
-The simulation parameters are shown in Table \ref{parameters}. The detectors here have $1024\times1024$ pixels, taking on the pixel pitch of the pnCCD\cite{Struder2010} and CSPAD\cite{hart2012} detectors. We decrease the beam fluence to obtain mean photon counts $N\sim 90$ for the first two simulations, mimicking realistic losses from imperfect beam transmission, optics, and cleanup apertures \cite{Loh2013}. The third simulation of Table \ref{table:simParams} was designed to demonstrate how deterministic annealing method can deal with convergence issues caused by very high signal. Most of the parameters were identical to the low fluence AMO simulation except the fluence was up-adjusted to receive 1 mJ x-ray pulses, which is within an order of magnitude of design specifications \cite{Emma2010}.
+The simulation parameters are shown in Table \ref{parameters}. The detectors here have $1024\times1024$ pixels, taking on the pixel pitch of the pnCCD~\cite{Struder2010} and CSPAD~\cite{hart2012} detectors. We decrease the beam fluence to obtain mean photon counts $N\sim 90$ for the first two simulations, mimicking realistic losses from imperfect beam transmission, optics, and cleanup apertures \cite{Loh2013}. The third simulation of Table \ref{table:simParams} was designed to demonstrate how deterministic annealing method can deal with convergence issues caused by very high signal. Most of the parameters were identical to the low fluence AMO simulation except the fluence was up-adjusted to receive 1 mJ x-ray pulses, which is within an order of magnitude of design specifications \cite{Emma2010}.
 
 For data sufficiency we use the signal-to-noise ratio parameter defined in Eq. 37 of \citeasnoun{loh2009}, 
 \begin{equation}
@@ -275,9 +275,9 @@ The root mean squared change per voxel between the 3D intensity models from succ
 \subsubsection{Mutual information between model and data}
 An additional diagnostic is the sharpness of the probability distribution over orientations $P_{dr}$ calculated in Eq.~\ref{eqn:prob}. This can be assessed by calculating the mutual information of the joint distribution of the data and the orientations, $P(K,\Omega) = P(\Omega) P(K{\big\vert}\Omega) = P_r P_{dr}$. Here, $P_r$ is the prior probability of orientations (assumed here to be uniform). This quantity is evaluated as
 \begin{equation}
-I(K, \Omega) = \langle\sum_r P_{dr} \log(P_{dr} / P_{r})\rangle, \label{eq:mutualInfo}
+I(K, \Omega) = \left\langle\sum_r P_{dr} \log(P_{dr} / P_{r})\right\rangle_d, \label{eq:mutualInfo}
 \end{equation}
-where $\langle \dots \rangle$ is the average over data frames. The quantity in Eq.~\ref{eq:mutualInfo} approaches the entropy of the rotation group sampling when each pattern fits only one orientation, while it vanishes for a uniform distribution. The fact that this quantity rises asymptotically in Figure ~\ref{fig:amo_low_log} (bottom panel, top plot) is consistent with model convergence. Below that is a plot of the model log-likelihood defined in Eq.~\ref{eqn:totalq}. In most situations, this quantity increases monotonically, and a significant decrease over many iterations indicates an error. 
+where $\langle \dots \rangle_d$ is the average over data frames. The quantity in Eq.~\ref{eq:mutualInfo} approaches the entropy of the rotation group sampling when each pattern fits only one orientation, while it vanishes for a uniform distribution. The fact that this quantity rises asymptotically in Figure ~\ref{fig:amo_low_log} (bottom panel, top plot) is consistent with model convergence. Below that is a plot of the model log-likelihood defined in Eq.~\ref{eqn:totalq}. In most situations, this quantity increases monotonically, and a significant decrease over many iterations indicates an error. 
 
 \subsubsection{Most likely orientations of each pattern}
 The bottom rightmost plot in Figure \ref{fig:amo_low_log} is the most useful for monitoring convergence. This is a matrix plot where the vertical axis is the frame number while the horizontal is iteration. The color represents the orientation number of the best orientation (maximum $P_{dr}$) for each frame. Thus, the colors at the right end form a smooth spectrum and the pattern numbers differ between rotation-sampling blocks. The variation of colors along a row indicates how the most likely orientation has changed for that frame. Patterns settle into their most likely orientations when these colors become constant with iterations, which is a good indicator of convergence.
@@ -472,7 +472,7 @@ beta = 1.
 
  %-------------------------------------------------------------------------
 \begin{figure}
-\caption{Six blocks in the parse data format for 50 patterns. The data is stored contiguously but shown here in row-major format (i.e. to be read from left to right, then down the rows). Each square represents a 32-bit integer. The two integers in the header block are the number of patterns, followed by number of pixels in the detector. The colors in blocks three to six connect listings of the same pattern. Details found in Section \ref{subsubsec:emcformat}.}\label{fig:dataFormat}
+\caption{Six blocks in the sparse data format for 50 patterns. The data is stored contiguously but shown here in row-major format (i.e. to be read from left to right, then down the rows). Each square represents a 32-bit integer. The two integers in the header block are the number of patterns, followed by number of pixels in the detector. The colors in blocks three to six connect listings of the same pattern. Details found in Section \ref{subsubsec:emcformat}.}\label{fig:dataFormat}
 \includegraphics[height=0.8\textheight]{figures/dataFormat}
 \end{figure}
 
