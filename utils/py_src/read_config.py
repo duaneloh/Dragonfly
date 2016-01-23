@@ -25,6 +25,13 @@ def get_detector_config(config_file, show=False):
     params['pixsize']      = config.getfloat('parameters', 'pixsize')
     params['stoprad']      = config.getfloat('parameters', 'stoprad')
     params['polarization'] = config.get('parameters', 'polarization')
+
+    # Optional arguments
+    try:
+        params['qscale'] = config.get('parameters', 'qscale')
+    except ConfigParser.NoOptionError:
+        qscale = params['detd'] / params['pixsize']
+
     if show:
         for k,v in params.items():
             #print '{:<15}:{:10.4f}'.format(k, v)
