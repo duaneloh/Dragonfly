@@ -28,7 +28,7 @@ def get_detector_config(config_file, show=False):
 
     # Optional arguments
     try:
-        params['qscale'] = config.get('parameters', 'qscale')
+        params['qscale'] = config.getfloat('parameters', 'qscale')
     except ConfigParser.NoOptionError:
         qscale = params['detd'] / params['pixsize']
 
