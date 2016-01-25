@@ -334,6 +334,7 @@ int setup(char *config_fname, int continue_flag) {
 	detd = 0. ;
 	pixsize = 0. ;
 	detsize = 0 ;
+	size = -1 ;
 	
 	char line[999], *token ;
 	fp = fopen(config_fname, "r") ;
@@ -358,6 +359,8 @@ int setup(char *config_fname, int continue_flag) {
 			alpha = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "beta") == 0)
 			beta = atof(strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "size") == 0)
+			size = atoi(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "in_photons_file") == 0)
 			strcpy(data_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "out_photons_file") == 0)
@@ -397,9 +400,11 @@ int setup(char *config_fname, int continue_flag) {
 		return 1 ;
 	}
 	
-	qmax = 2. * sin(0.5 * atan(sqrt(2.)*((detsize-1)/2)*pixsize/detd)) ;
-	qmin = 2. * sin(0.5 * atan(pixsize/detd)) ;
-	size = ceil(2. * qmax / qmin) + 1 ;
+	if (size == -1) {
+		qmax = 2. * sin(0.5 * atan(sqrt(2.)*((detsize-1)/2)*pixsize/detd)) ;
+		qmin = 2. * sin(0.5 * atan(pixsize/detd)) ;
+		size = ceil(2. * qmax / qmin) + 1 ;
+	}
 	center = size / 2 ;
 	
 	if (parse_det(det_fname))
