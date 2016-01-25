@@ -46,7 +46,8 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "Missing <num_iter>\n") ;
 		return 1 ;
 	}
-	fprintf(stderr, "Doing %d iteration(s) using %s\n", num_iter, config_fname) ;
+	if (!rank)
+		fprintf(stderr, "Doing %d iteration(s) using %s\n", num_iter, config_fname) ;
 	
 	gettimeofday(&t1, NULL) ;
 	

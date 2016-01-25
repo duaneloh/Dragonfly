@@ -191,23 +191,27 @@ void parse_input(char *fname) {
 	if (rank == 0) {
 		FILE *fp = fopen(fname, "r") ;
 		if (fp == NULL) {
-			fprintf(stderr, "Random start\n") ;
+			if (!rank)
+				fprintf(stderr, "Random start\n") ;
+			
 			model_mean = tot_mean_count / rel_num_pix * 2. ;
 			for (x = 0 ; x < size * size * size ; ++x)
 				model1[x] = ((double) rand() / RAND_MAX) * model_mean ;
-			
-			char fname0[999] ;
-			sprintf(fname0, "%s/output/intens_000.bin", output_folder) ;
-			FILE *fp0 = fopen(fname0, "wb") ;
-			fwrite(model1, sizeof(double), size*size*size, fp0) ;
-			fclose(fp0) ;
 		}
 		else {
-			fprintf(stderr, "Starting from %s\n", fname) ;
+			if (!rank)
+				fprintf(stderr, "Starting from %s\n", fname) ;
+			
 			fread(model1, sizeof(double), size * size * size, fp) ;
 			fclose(fp) ;
 		}
 	}
+	
+	char fname0[999] ;
+	sprintf(fname0, "%s/output/intens_000.bin", output_folder) ;
+	FILE *fp0 = fopen(fname0, "wb") ;
+	fwrite(model1, sizeof(double), size*size*size, fp0) ;
+	fclose(fp0) ;
 }
 
 void calc_scale() {
