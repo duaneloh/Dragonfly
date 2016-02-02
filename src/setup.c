@@ -207,11 +207,13 @@ void parse_input(char *fname) {
 		}
 	}
 	
-	char fname0[999] ;
-	sprintf(fname0, "%s/output/intens_000.bin", output_folder) ;
-	FILE *fp0 = fopen(fname0, "wb") ;
-	fwrite(model1, sizeof(double), size*size*size, fp0) ;
-	fclose(fp0) ;
+	if (start_iter == 1) {
+		char fname0[999] ;
+		sprintf(fname0, "%s/output/intens_000.bin", output_folder) ;
+		FILE *fp0 = fopen(fname0, "wb") ;
+		fwrite(model1, sizeof(double), size*size*size, fp0) ;
+		fclose(fp0) ;
+	}
 }
 
 void calc_scale() {
@@ -325,6 +327,7 @@ int setup(char *config_fname, int continue_flag) {
 	char data_flist[999], input_fname[999] ;
 	char scale_fname[999], blacklist_fname[999] ;
 	char data_fname[999], out_data_fname[999] ;
+	char merge_flist[999], merge_fname[999] ;
 	char out_det_fname[999], out_quat_fname[999] ;
 	double qmax, qmin, detd, pixsize ;
 	int detsize ;
@@ -335,6 +338,9 @@ int setup(char *config_fname, int continue_flag) {
 	strcpy(output_folder, "data/") ;
 	data_flist[0] = '\0' ;
 	data_fname[0] = '\0' ;
+	merge_flist[0] = '\0' ;
+	merge_fname[0] = '\0' ;
+	merge_frames = NULL ;
 	detd = 0. ;
 	pixsize = 0. ;
 	detsize = 0 ;
@@ -367,10 +373,16 @@ int setup(char *config_fname, int continue_flag) {
 			size = atoi(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "in_photons_file") == 0)
 			strcpy(data_fname, strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "in_photons_file") == 0)
+			strcpy(data_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "out_photons_file") == 0)
 			strcpy(out_data_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "in_photons_list") == 0)
 			strcpy(data_flist, strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "merge_photons_file") == 0)
+			strcpy(merge_fname, strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "merge_photons_list") == 0)
+			strcpy(merge_flist, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "output_folder") == 0)
 			strcpy(output_folder, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "log_file") == 0)
@@ -431,6 +443,23 @@ int setup(char *config_fname, int continue_flag) {
 	}
 	else if (parse_data(data_flist))
 		return 1 ;
+	
+	if (merge_flist[0] != '\0' && merge_fname[0] != '\0') {
+		fprintf(stderr, "Config file contains both merge_photons_file and merge_photons_list. Pick one.\n") ;
+		return 1 ;
+	}
+	else if (merge_fname[0] != '\0') {
+		if (!rank)
+			fprintf(stderr, "Parsing merge file %s\n", merge_fname) ;
+		merge_frames = malloc(sizeof(struct dataset)) ;
+		merge_frames->next = NULL ;
+		if (parse_dataset(merge_fname, merge_frames))
+			return 1 ;
+	}
+	else if (merge_flist[0] != '\0') {
+		if (parse_data(merge_flist))
+			return 1 ;
+	}
 	
 	calc_sum_fact() ;
 	gen_blacklist(blacklist_fname) ;

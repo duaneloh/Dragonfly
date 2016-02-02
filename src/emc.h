@@ -40,7 +40,7 @@ struct dataset {
 	char filename[999] ;
 } ;
 
-struct dataset *frames ;
+struct dataset *frames, *merge_frames ;
 int tot_num_data ;
 double tot_mean_count ;
 
