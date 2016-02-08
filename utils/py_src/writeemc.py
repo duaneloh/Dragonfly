@@ -6,6 +6,7 @@ class EMC_writer():
     def __init__(self, flist, out_fname, num_pix):
         self.f = [open(fname, 'wb') for fname in flist]
         self.out_fname = out_fname
+        print 'Writing emc file to', out_fname
         self.num_data = 0
         self.num_pix = num_pix
         self.mean_count = 0.
