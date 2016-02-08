@@ -21,7 +21,15 @@ def get_detector_config(config_file, show=False):
     params      = OrderedDict()
     params['wavelength']   = config.getfloat('parameters', 'lambda')
     params['detd']         = config.getfloat('parameters', 'detd')
-    params['detsize']      = config.getint('parameters', 'detsize')
+    detstr = config.get('parameters', 'detsize').split(' ')
+    if len(detstr) == 1:
+        params['dets_x']   = int(detstr[0])
+        params['dets_y']   = int(detstr[0])
+        params['detsize']  = int(detstr[0])
+    else:
+        params['dets_x']   = int(detstr[0])
+        params['dets_y']   = int(detstr[1])
+        params['detsize']  = max(params['dets_x'], params['dets_y'])
     params['pixsize']      = config.getfloat('parameters', 'pixsize')
     params['stoprad']      = config.getfloat('parameters', 'stoprad')
     params['polarization'] = config.get('parameters', 'polarization')
@@ -32,6 +40,11 @@ def get_detector_config(config_file, show=False):
     except ConfigParser.NoOptionError:
         qscale = params['detd'] / params['pixsize']
 
+    try:
+        params['mask_fname'] = config.get('make_detector', 'in_mask_file')
+    except ConfigParser.NoOptionError:
+        params['mask_fname'] = None
+
     if show:
         for k,v in params.items():
             #print '{:<15}:{:10.4f}'.format(k, v)
@@ -39,20 +52,16 @@ def get_detector_config(config_file, show=False):
             logging.info('{:<15}:{:>10}'.format(k, v))
     return params
 
-def compute_q_params(det_dist, det_size, pix_size, in_wavelength, show=False, squareDetector=True):
+def compute_q_params(det_dist, dets_x, dets_y, pix_size, in_wavelength, show=False):
     """
     Resolution computed in inverse Angstroms, crystallographer's convention
     In millimeters: det_dist, pix_size
     In Angstroms:   in_wavelength
-    Unitless: det_size
+    In pixels:      dets_x, dets_y
 
     """
-    det_max_half_len = pix_size * int((det_size-1)/2.)
     params      = OrderedDict()
-    if squareDetector:
-        max_angle   = np.arctan(np.sqrt(2.) * det_max_half_len / det_dist)
-    else:
-        max_angle   = np.arctan(det_max_half_len / det_dist)
+    max_angle   = np.arctan(np.sqrt(dets_x**2 + dets_y**2) / 2. / det_dist)
     min_angle   = np.arctan(pix_size / det_dist)
     q_max       = 2. * np.sin(0.5 * max_angle) / in_wavelength
     q_sep       = 2. * np.sin(0.5 * min_angle) / in_wavelength

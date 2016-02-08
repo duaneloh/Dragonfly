@@ -11,24 +11,13 @@ if __name__ == "__main__":
     parser      = py_utils.my_argparser(description="make detector")
     args        = parser.special_parse_args()
 
-    det_file    = os.path.join(args.main_dir, read_config.get_param(args.config_file, 'make_detector', "out_detector_file"))
-    photons_file    = os.path.join(args.main_dir, read_config.get_param(args.config_file, 'make_data', "out_photons_file"))
+    photons_file    = os.path.join(args.main_dir, read_config.get_param(args.config_file, 'emc', "in_photons_file"))
 
-    # Parse detector file
-    qx, qy, qz = np.loadtxt(det_file, skiprows=1, usecols=(0,1,2), unpack=True)
-
-    # Calculate detd for each pixel
-    # Set q=0 pixel detd to mean of the rest
-    qz[qz==0.] = 1.
-    detd = -(qx**2 + qy**2 + qz**2) / (2.*qz)
-    qz[qz==1.] = 0.
-    detd[qz==0.] = np.mean(detd[qz!=0.])
-
-    # Calculate x and y for each pixel
-    x = np.round(qx*detd/(detd+qz)).astype('i4')
-    y = np.round(qy*detd/(detd+qz)).astype('i4')
-    x -= x.min()
-    y -= y.min()
+    pm          = read_config.get_detector_config(args.config_file, show=args.vb)
+    
+    x, y = np.indices((pm['dets_x'], pm['dets_y']))
+    x = x.flatten()
+    y = y.flatten()
 
     # Read photon data
     with open(photons_file, 'rb') as f:
