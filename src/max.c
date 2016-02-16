@@ -6,7 +6,7 @@ double maximize() {
 	struct timeval t1, t2 ;
 	
 	// beta increase schedule (in testing)
-//	if (iteration % 10 == 1)
+//	if (iteration % 10 == 1 && iteration > 1)
 //		beta *= 2. ;
 	
 	info = 0. ;
