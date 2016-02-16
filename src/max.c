@@ -23,7 +23,7 @@ double maximize() {
 	double *p_sum = malloc(tot_num_data * sizeof(double)) ;
 	double *bestprob = malloc(tot_num_data * sizeof(double)) ;
 	for (d = 0 ; d < tot_num_data ; ++d) {
-		max_exp_p[d] = -100. * num_pix ;
+		max_exp_p[d] = -DBL_MAX ;
 		p_sum[d] = 0. ;
 	}
 	
