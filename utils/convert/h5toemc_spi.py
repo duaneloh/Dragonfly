@@ -40,7 +40,7 @@ if extension == '.txt':
     print 'Selection file is text file'
     tag = 'txt'
     run = int(os.path.basename(sys.argv[1]).split('_')[1])
-    lines = np.loadtxt(sys.argv[2], delimiter='_', skiprows=1, usecols=(1,4), dtype='i4')
+    lines = np.loadtxt(sys.argv[2], dtype='i4')
     ind = lines[lines[:,0] == run][:,1]
 elif extension == '.h5':
     print 'Selection file is h5 file'
