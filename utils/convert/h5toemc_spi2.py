@@ -30,7 +30,10 @@ if not os.path.isfile(sys.argv[1]):
 
 f = h5py.File(sys.argv[1], 'r')
 frames = f['photonConverter/pnccdBack/photonCount'][:]
-num_frames = frames.shape[0]
+leastsq = f['particleCorrelator/leastSq'][:]
+std = f['angularAverage/std'][:]
+ind = np.where((leastsq < 20.) & (std < 0.35))[0]
+num_frames = len(ind)
 print num_frames, "frames in h5 file"
 
 emcwriter = writeemc.EMC_writer(['data/temp.po', 'data/temp.pm', 'data/temp.cm'], 
@@ -38,7 +41,7 @@ emcwriter = writeemc.EMC_writer(['data/temp.po', 'data/temp.pm', 'data/temp.cm']
                                 257*260)
 
 for i in range(num_frames):
-    emcwriter.write_frame(frames[i].T.flatten().astype('i4'))
+    emcwriter.write_frame(frames[ind[i]].T.flatten().astype('i4'))
     sys.stderr.write('\rFinished %d/%d' % (i+1, num_frames))
 
 f.close()
