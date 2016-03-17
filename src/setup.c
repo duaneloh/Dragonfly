@@ -302,7 +302,8 @@ void gen_blacklist(char *fname) {
 				num_blacklist++ ;
 		}
 	}
-	fprintf(stderr, "%d blacklisted frames\n", num_blacklist) ;
+	if (!rank)
+		fprintf(stderr, "%d blacklisted frames\n", num_blacklist) ;
 }
 
 void parse_scale(char *fname) {
