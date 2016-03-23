@@ -5,9 +5,9 @@ double maximize() {
 	double total = 0., rescale, likelihood = 0. ;
 	struct timeval t1, t2 ;
 	
-	// beta increase schedule (in testing)
-//	if (iteration % 10 == 1 && iteration > 1)
-//		beta *= 2. ;
+	// Increasing beta by a factor of 'beta_jump' every 'beta_period' iterations
+	if (iteration % beta_period == 1 && iteration > 1)
+		beta *= beta_jump ;
 	
 	info = 0. ;
 	

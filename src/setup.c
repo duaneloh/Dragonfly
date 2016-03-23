@@ -402,6 +402,10 @@ int setup(char *config_fname, int continue_flag) {
 			strcpy(blacklist_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "scale_file") == 0)
 			strcpy(scale_fname, strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "beta_schedule") == 0) {
+			beta_jump = atof(strtok(NULL, " =\n")) ;
+			beta_period = atoi(strtok(NULL, " =\n")) ;
+		}
 	}
 	fclose(fp) ;
 	
