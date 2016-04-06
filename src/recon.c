@@ -19,6 +19,11 @@ int main(int argc, char *argv[]) {
 	omp_set_num_threads(omp_get_max_threads()) ;
 	num_iter = 0 ;
 	strcpy(config_fname, "config.ini") ;
+	char hname[99] ;
+	gethostname(hname, 99) ;
+	fprintf(stderr, "%d: %s\n", rank, hname) ;
+
+	int num_threads = omp_get_max_threads() ;
 	
 	while (optind < argc) {
 		if ((c = getopt(argc, argv, "rc:t:")) != -1) {
@@ -27,7 +32,8 @@ int main(int argc, char *argv[]) {
 					continue_flag = 1 ;
 					break ;
 				case 't':
-					omp_set_num_threads(atoi(optarg)) ;
+					num_threads = atoi(optarg) ;
+					omp_set_num_threads(num_threads) ;
 					break ;
 				case 'c':
 					strcpy(config_fname, optarg) ;
@@ -46,7 +52,8 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "Missing <num_iter>\n") ;
 		return 1 ;
 	}
-	fprintf(stderr, "Doing %d iteration(s) using %s\n", num_iter, config_fname) ;
+	if (!rank)
+		fprintf(stderr, "Doing %d iteration(s) using %s\n", num_iter, config_fname) ;
 	
 	gettimeofday(&t1, NULL) ;
 	
@@ -68,8 +75,8 @@ int main(int argc, char *argv[]) {
 		        rel_num_pix, num_pix, 
 		        size, size, size) ;
 		fprintf(fp, "Reconstruction parameters:\n") ;
-		fprintf(fp, "\tnum_threads = %d\n\tnum_proc = %d\n\talpha = %.2f\n\tbeta = %.2f\n\tneed_scaling = %s", 
-		        argc>3?atoi(argv[3]):omp_get_max_threads(), 
+		fprintf(fp, "\tnum_threads = %d\n\tnum_proc = %d\n\talpha = %.6f\n\tbeta = %.6f\n\tneed_scaling = %s", 
+		        num_threads, 
 		        num_proc, 
 		        alpha, 
 		        beta, 
@@ -147,7 +154,7 @@ int main(int argc, char *argv[]) {
 				fp = fopen(log_fname, "a") ;
 				fprintf(fp, "%d\t", iteration) ;
 				fprintf(fp, "%4.2f\t", (double)(t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.) ;
-				fprintf(fp, "%1.4e\t%f\t%.6e\t%-7d\t%f\n", rms_change, info, likelihood, num_rot, beta) ;
+				fprintf(fp, "%1.4e\t%f\t%.6e\t%-7d\t%f\n", rms_change, mutual_info, likelihood, num_rot, beta) ;
 				fclose(fp) ;
 			}
 			

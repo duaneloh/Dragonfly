@@ -99,14 +99,13 @@ def check_to_overwrite(fn):
     return overwrite
 
 def name_recon_dir(tag, num):
-    #return "{}_{:04}".format(tag, num)
     return "%s_%04d"%(tag, num)
 
-def create_new_recon_dir(tag="recon", num=1):
-    recon_dir = name_recon_dir(tag, num)
+def create_new_recon_dir(tag="recon", num=1, prefix="./"):
+    recon_dir = os.path.join(prefix, name_recon_dir(tag, num))
     while(os.path.exists(recon_dir)):
         num += 1
-        recon_dir = name_recon_dir(tag, num)
+        recon_dir = os.path.join(name_recon_dir(tag, num))
     msg = 'New recon directory created with name: ' + recon_dir
     logging.info(msg)
     os.mkdir(recon_dir)

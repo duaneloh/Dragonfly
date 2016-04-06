@@ -53,20 +53,10 @@ int parse_quat(char *fname) {
 		quat[r*5 + 4] *= total_weight ;
 	fclose(fp) ;
 	
-	if (num_proc > 1) {
-		num_rot_p = (int) num_rot / num_proc ;
-		int num_proc_rem = num_rot % num_proc ;
-		if (rank <= num_proc_rem) {
-			num_rot_p++ ;
-			num_rot_shift = rank * num_rot_p ;
-		}
-		else
-			num_rot_shift = rank * num_rot_p + num_proc_rem ;
-	}
-	else {
-		num_rot_p = num_rot ;
-		num_rot_shift = 0 ;
-	}
+	num_rot_p = num_rot / num_proc ;
+	if (rank < (num_rot % num_proc))
+		num_rot_p++ ;
+	fprintf(stderr, "%d: num_rot_p = %d\n", rank, num_rot_p) ;
 	
 	return 0 ;
 }
@@ -191,22 +181,28 @@ void parse_input(char *fname) {
 	if (rank == 0) {
 		FILE *fp = fopen(fname, "r") ;
 		if (fp == NULL) {
-			fprintf(stderr, "Random start\n") ;
+			if (!rank)
+				fprintf(stderr, "Random start\n") ;
+			
 			model_mean = tot_mean_count / rel_num_pix * 2. ;
 			for (x = 0 ; x < size * size * size ; ++x)
 				model1[x] = ((double) rand() / RAND_MAX) * model_mean ;
-			
-			char fname0[999] ;
-			sprintf(fname0, "%s/output/intens_000.bin", output_folder) ;
-			FILE *fp0 = fopen(fname0, "wb") ;
-			fwrite(model1, sizeof(double), size*size*size, fp0) ;
-			fclose(fp0) ;
 		}
 		else {
-			fprintf(stderr, "Starting from %s\n", fname) ;
+			if (!rank)
+				fprintf(stderr, "Starting from %s\n", fname) ;
+			
 			fread(model1, sizeof(double), size * size * size, fp) ;
 			fclose(fp) ;
 		}
+	}
+	
+	if (start_iter == 1) {
+		char fname0[999] ;
+		sprintf(fname0, "%s/output/intens_000.bin", output_folder) ;
+		FILE *fp0 = fopen(fname0, "wb") ;
+		fwrite(model1, sizeof(double), size*size*size, fp0) ;
+		fclose(fp0) ;
 	}
 }
 
@@ -296,17 +292,19 @@ void gen_blacklist(char *fname) {
 				num_blacklist++ ;
 		}
 	}
-	fprintf(stderr, "%d blacklisted frames\n", num_blacklist) ;
+	if (!rank)
+		fprintf(stderr, "%d blacklisted frames\n", num_blacklist) ;
 }
 
 void parse_scale(char *fname) {
 	FILE *fp = fopen(fname, "r") ;
 	if (fp == NULL) {
-		if (rank == 0)
+		if (!rank)
 			fprintf(stderr, "Using uniform scale factors\n") ;
 	}
 	else {
-		fprintf(stderr, "Using scale factors from %s\n", fname) ;
+		if (!rank)
+			fprintf(stderr, "Using scale factors from %s\n", fname) ;
 		known_scale = 1 ;
 		int d ;
 		for (d = 0 ; d < tot_num_data ; ++d)
@@ -321,6 +319,7 @@ int setup(char *config_fname, int continue_flag) {
 	char data_flist[999], input_fname[999] ;
 	char scale_fname[999], blacklist_fname[999] ;
 	char data_fname[999], out_data_fname[999] ;
+	char merge_flist[999], merge_fname[999] ;
 	char out_det_fname[999], out_quat_fname[999] ;
 	double qmax, qmin, detd, pixsize ;
 	int detsize ;
@@ -331,9 +330,15 @@ int setup(char *config_fname, int continue_flag) {
 	strcpy(output_folder, "data/") ;
 	data_flist[0] = '\0' ;
 	data_fname[0] = '\0' ;
+	merge_flist[0] = '\0' ;
+	merge_fname[0] = '\0' ;
+	merge_frames = NULL ;
 	detd = 0. ;
 	pixsize = 0. ;
 	detsize = 0 ;
+	size = -1 ;
+	beta_period = 100 ;
+	beta_jump = 1. ;
 	
 	char line[999], *token ;
 	fp = fopen(config_fname, "r") ;
@@ -358,12 +363,20 @@ int setup(char *config_fname, int continue_flag) {
 			alpha = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "beta") == 0)
 			beta = atof(strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "size") == 0)
+			size = atoi(strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "in_photons_file") == 0)
+			strcpy(data_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "in_photons_file") == 0)
 			strcpy(data_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "out_photons_file") == 0)
 			strcpy(out_data_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "in_photons_list") == 0)
 			strcpy(data_flist, strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "merge_photons_file") == 0)
+			strcpy(merge_fname, strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "merge_photons_list") == 0)
+			strcpy(merge_flist, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "output_folder") == 0)
 			strcpy(output_folder, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "log_file") == 0)
@@ -382,6 +395,10 @@ int setup(char *config_fname, int continue_flag) {
 			strcpy(blacklist_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "scale_file") == 0)
 			strcpy(scale_fname, strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "beta_schedule") == 0) {
+			beta_jump = atof(strtok(NULL, " =\n")) ;
+			beta_period = atoi(strtok(NULL, " =\n")) ;
+		}
 	}
 	fclose(fp) ;
 	
@@ -397,9 +414,11 @@ int setup(char *config_fname, int continue_flag) {
 		return 1 ;
 	}
 	
-	qmax = 2. * sin(0.5 * atan(sqrt(2.)*((detsize-1)/2)*pixsize/detd)) ;
-	qmin = 2. * sin(0.5 * atan(pixsize/detd)) ;
-	size = ceil(2. * qmax / qmin) + 1 ;
+	if (size == -1) {
+		qmax = 2. * sin(0.5 * atan(sqrt(2.)*((detsize-1)/2)*pixsize/detd)) ;
+		qmin = 2. * sin(0.5 * atan(pixsize/detd)) ;
+		size = ceil(2. * qmax / qmin) + 1 ;
+	}
 	center = size / 2 ;
 	
 	if (parse_det(det_fname))
@@ -423,6 +442,23 @@ int setup(char *config_fname, int continue_flag) {
 	else if (parse_data(data_flist))
 		return 1 ;
 	
+	if (merge_flist[0] != '\0' && merge_fname[0] != '\0') {
+		fprintf(stderr, "Config file contains both merge_photons_file and merge_photons_list. Pick one.\n") ;
+		return 1 ;
+	}
+	else if (merge_fname[0] != '\0') {
+		if (!rank)
+			fprintf(stderr, "Parsing merge file %s\n", merge_fname) ;
+		merge_frames = malloc(sizeof(struct dataset)) ;
+		merge_frames->next = NULL ;
+		if (parse_dataset(merge_fname, merge_frames))
+			return 1 ;
+	}
+	else if (merge_flist[0] != '\0') {
+		if (parse_data(merge_flist))
+			return 1 ;
+	}
+	
 	calc_sum_fact() ;
 	gen_blacklist(blacklist_fname) ;
 	
@@ -442,7 +478,8 @@ int setup(char *config_fname, int continue_flag) {
 			if (need_scaling)
 				sprintf(scale_fname, "%s/scale/scale_%.3d.dat", output_folder, start_iter) ;
 			start_iter += 1 ;
-			fprintf(stderr, "Continuing from previous run starting from iteration %d.\n", start_iter) ;
+			if (!rank)
+				fprintf(stderr, "Continuing from previous run starting from iteration %d.\n", start_iter) ;
 		}
 	}
 	

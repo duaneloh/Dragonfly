@@ -41,22 +41,34 @@ class Plotter:
         self.ifcheck.set(0)
         self.iter.set(0)
 
+        master.rowconfigure(0, weight=1)
+        master.columnconfigure(0, weight=1)
+
+        fig_frame = Tk.Frame(self.master)
+        fig_frame.grid(row=0, column=0, sticky='nsew')
+        fig_frame.columnconfigure(0, weight=1)
+        fig_frame.rowconfigure(0, weight=1)
         self.fig = plt.figure(figsize=(14,5))
         self.fig.subplots_adjust(left=0.0, bottom=0.00, right=0.99, wspace=0.0)
-        self.canvas = FigureCanvasTkAgg(self.fig, self.master)
-        self.canvas.get_tk_widget().grid(row=0,column=0)
+        self.canvas = FigureCanvasTkAgg(self.fig, fig_frame)
+        self.canvas.show()
+        self.canvas.get_tk_widget().pack(fill='both', expand=1)
 
+        log_fig_frame = Tk.Frame(self.master)
+        log_fig_frame.grid(row=1, column=0, sticky='nsew')
+        log_fig_frame.columnconfigure(0, weight=1)
+        log_fig_frame.rowconfigure(1, weight=1)
         self.log_fig = plt.figure(figsize=(14,5), facecolor='white')
         #self.log_fig.subplots_adjust(left=0.0, bottom=0.00, right=0.99, wspace=0.0)
-        self.plotcanvas = FigureCanvasTkAgg(self.log_fig, self.master)
-        self.plotcanvas.get_tk_widget().grid(row=1,column=0)
+        self.plotcanvas = FigureCanvasTkAgg(self.log_fig, log_fig_frame)
+        self.plotcanvas.show()
+        self.plotcanvas.get_tk_widget().pack(fill='both', expand=1)
 
         self.options = Tk.Frame(self.master,relief=Tk.GROOVE,borderwidth=5,width=400, height=200)
-        #self.options.grid(row=0,column=1,rowspan=2,sticky=Tk.N+Tk.S)
         self.options.grid(row=0,column=1,sticky=Tk.N)
 
         self.log_display = Tk.Frame(self.master,relief=Tk.GROOVE,borderwidth=5,width=400, height=200)
-        self.log_display.grid(row=1,column=1,sticky=Tk.N)
+        self.log_display.grid(row=1,column=1,sticky='ns')
 
         self.old_fname = self.fname.get()
         self.old_rangestr = self.rangestr.get()
@@ -100,7 +112,7 @@ class Plotter:
         Tk.Label(line,text='Layer no. ').pack(side=Tk.LEFT)
         Tk.Button(line,text="-",command=self.decrement_layer).pack(side=Tk.LEFT,fill=Tk.Y)
         self.layerSlider = Tk.Scale(line,from_=0,to=int(self.size),orient=Tk.HORIZONTAL,length=250,width=20,
-                                    variable=self.layernum,command=self.change_iter)
+                                    variable=self.layernum,command=None)
         self.layerSlider.pack(side=Tk.LEFT, expand=1, fill=Tk.BOTH)
         Tk.Button(line,text="+",command=self.increment_layer).pack(side=Tk.LEFT,fill=Tk.Y)
 
@@ -109,7 +121,7 @@ class Plotter:
         Tk.Label(line,text='Iteration: ').pack(side=Tk.LEFT)
         Tk.Button(line,text="-",command=self.decrement_iter).pack(side=Tk.LEFT,fill=Tk.Y)
         self.slider = Tk.Scale(line,from_=0,to=self.max_iter,orient=Tk.HORIZONTAL,length=250,width=20,
-                               variable=self.iter,command=None)
+                               variable=self.iter,command=self.change_iter)
         self.slider.pack(side=Tk.LEFT, expand=1, fill=Tk.BOTH)
         Tk.Button(line,text="+",command=self.increment_iter).pack(side=Tk.LEFT,fill=Tk.Y)
 
@@ -149,9 +161,9 @@ class Plotter:
         self.imagename.set('images/' + os.path.splitext(os.path.basename(self.fname.get()))[0] + '.png')
         rangemax = float(self.rangestr.get())
 
-        a = self.vol[num,:,:]**0.2
-        b = self.vol[:,num,:]**0.2
-        c = self.vol[:,:,num]**0.2
+        a = self.vol[num,:,:]**0.4
+        b = self.vol[:,num,:]**0.4
+        c = self.vol[:,:,num]**0.4
 
         self.fig.clf()
         grid = gridspec.GridSpec(1,3, wspace=0., hspace=0.)
@@ -200,6 +212,7 @@ class Plotter:
         self.old_fname = fname
 
     def plot_log(self):
+        # Read log file to get log lines (one for each completed iteration)
         with open(self.logfname.get(), 'r') as f:
             all_lines = f.readlines()
             self.log_txt = ''.join(all_lines)
@@ -217,33 +230,18 @@ class Plotter:
                 elif l[0] == 'Iter':
                     flag = True
 
-        # Read orientation files only if they haven't already been read
+        loglines = np.array(loglines)
+        if len(loglines) == 0:
+            return
+
+        # Read orientation files for the first n iterations
         o_files = sorted(glob("data/orientations/*.bin"))
-        if len(o_files) > 0:
-            for p in o_files:
-                fn = os.path.split(p)[-1]
-                label = int(re.search("orientations_(\d+).bin", fn).groups(1)[0])
-                if label not in self.orientnum:
-                    self.orientnum.add(label)
-                    with open(p, 'r') as f:
-                        #self.orient.append(np.asarray([int(l.rstrip()) for l in f.readlines()]))
-                        self.orient.append(np.fromfile(f, sep="", dtype='int32'))
-                else:
-                    #print "skipping", label
-                    pass
-        else:
-            o_files = sorted(glob("data/orientations/*.dat"))
-            for p in o_files:
-                fn = os.path.split(p)[-1]
-                label = int(re.search("orientations_(\d+).dat", fn).groups(1)[0])
-                if label not in self.orientnum:
-                    print "reading ASCII file",  fn
-                    self.orientnum.add(label)
-                    with open(p, 'r') as f:
-                        self.orient.append(np.asarray([int(l.rstrip()) for l in f.readlines()]))
-                else:
-                    #print "skipping", label
-                    pass
+        self.orient = []
+        for i in range(len(loglines)):
+            p = 'data/orientations/orientations_%.3d.bin' % (i+1)
+            fn = os.path.split(p)[-1]
+            with open(p, 'r') as f:
+                self.orient.append(np.fromfile(f, '=i4'))
 
         o_array = np.asarray(self.orient)
         ord = o_array[-1].argsort()
@@ -251,9 +249,6 @@ class Plotter:
             o_array[index] = o_array[index][ord]
         o_array = o_array.T
 
-        loglines = np.array(loglines)
-        if len(loglines) == 0:
-            return
         iter = loglines[:,0].astype(np.int32)
         change = loglines[:,2].astype(np.float64)
         info = loglines[:,3].astype(np.float64)
@@ -277,6 +272,7 @@ class Plotter:
         grid = gridspec.GridSpec(2,3, wspace=0.3, hspace=0.2)
         grid.update(left=0.05, right=0.99, hspace=0.0, wspace=0.2)
 
+        # Plot RMS change
         s1 = plt.Subplot(self.log_fig, grid[:,0])
         s1.plot(iter, change, 'o-')
         s1.set_yscale('log')
@@ -290,6 +286,7 @@ class Plotter:
             s1.plot([i+1,i+1], s1_lim,'r--',lw=1)
         self.log_fig.add_subplot(s1)
 
+        # Plot average mutual information
         s2 = plt.Subplot(self.log_fig, grid[0,1])
         s2.plot(iter, info, 'o-')
         s2.set_xlabel('Iteration')
@@ -302,6 +299,7 @@ class Plotter:
             s2.plot([i+1,i+1], s2_lim,'r--',lw=1)
         self.log_fig.add_subplot(s2)
 
+        # Plot average log-likelihood
         s3 = plt.Subplot(self.log_fig, grid[1,1])
         s3.plot(iter[1:], like[1:], 'o-')
         s3.set_xlabel('Iteration')
@@ -314,13 +312,15 @@ class Plotter:
             s3.plot([i+1,i+1], s3_lim,'r--',lw=1)
         self.log_fig.add_subplot(s3)
 
-        s4 = plt.Subplot(self.log_fig, grid[:,2])
-        sh = o_array.shape
-        s4.imshow(o_array**0.5, aspect=(1.*sh[1]/sh[0]), extent=[1,sh[1],sh[0],0])
-        s4.get_yaxis().set_ticks([])
-        s4.set_xlabel('Iteration')
-        s4.set_ylabel('Most likely orientations of data\n(sorted/colored by last iteration\'s quat)')
-        self.log_fig.add_subplot(s4)
+        # Plot most likely orientation convergence plot
+        if len(loglines) > 1:
+            s4 = plt.Subplot(self.log_fig, grid[:,2])
+            sh = o_array.shape
+            s4.imshow(o_array**0.5, aspect=(1.*sh[1]/sh[0]), extent=[1,sh[1],sh[0],0])
+            s4.get_yaxis().set_ticks([])
+            s4.set_xlabel('Iteration')
+            s4.set_ylabel('Most likely orientations of data\n(sorted/colored by last iteration\'s quat)')
+            self.log_fig.add_subplot(s4)
 
         grid.tight_layout(self.log_fig)
         self.plotcanvas.show()
