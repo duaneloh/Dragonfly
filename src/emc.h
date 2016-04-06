@@ -19,10 +19,10 @@
 
 #define PROB_MIN 0.000001
 
-int rank, num_proc, iteration, num_iter, start_iter, num_rot_p, num_rot_shift ;
+int rank, num_proc, iteration, num_iter, start_iter, num_rot_p ;
 int size, center, num_rot, num_pix, rel_num_pix, beta_period ;
 
-double info, rms_change, alpha, beta, beta_jump ;
+double mutual_info, rms_change, alpha, beta, beta_jump ;
 double *det, *quat, *model1, *model2, *inter_weight ;
 
 double *sum_fact ;

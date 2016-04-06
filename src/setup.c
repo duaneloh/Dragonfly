@@ -53,20 +53,10 @@ int parse_quat(char *fname) {
 		quat[r*5 + 4] *= total_weight ;
 	fclose(fp) ;
 	
-	if (num_proc > 1) {
-		num_rot_p = (int) num_rot / num_proc ;
-		int num_proc_rem = num_rot % num_proc ;
-		if (rank <= num_proc_rem) {
-			num_rot_p++ ;
-			num_rot_shift = rank * num_rot_p ;
-		}
-		else
-			num_rot_shift = rank * num_rot_p + num_proc_rem ;
-	}
-	else {
-		num_rot_p = num_rot ;
-		num_rot_shift = 0 ;
-	}
+	num_rot_p = num_rot / num_proc ;
+	if (rank < (num_rot % num_proc))
+		num_rot_p++ ;
+	fprintf(stderr, "%d: num_rot_p = %d\n", rank, num_rot_p) ;
 	
 	return 0 ;
 }
@@ -309,11 +299,12 @@ void gen_blacklist(char *fname) {
 void parse_scale(char *fname) {
 	FILE *fp = fopen(fname, "r") ;
 	if (fp == NULL) {
-		if (rank == 0)
+		if (!rank)
 			fprintf(stderr, "Using uniform scale factors\n") ;
 	}
 	else {
-		fprintf(stderr, "Using scale factors from %s\n", fname) ;
+		if (!rank)
+			fprintf(stderr, "Using scale factors from %s\n", fname) ;
 		known_scale = 1 ;
 		int d ;
 		for (d = 0 ; d < tot_num_data ; ++d)
@@ -346,6 +337,8 @@ int setup(char *config_fname, int continue_flag) {
 	pixsize = 0. ;
 	detsize = 0 ;
 	size = -1 ;
+	beta_period = 100 ;
+	beta_jump = 1. ;
 	
 	char line[999], *token ;
 	fp = fopen(config_fname, "r") ;
@@ -485,7 +478,8 @@ int setup(char *config_fname, int continue_flag) {
 			if (need_scaling)
 				sprintf(scale_fname, "%s/scale/scale_%.3d.dat", output_folder, start_iter) ;
 			start_iter += 1 ;
-			fprintf(stderr, "Continuing from previous run starting from iteration %d.\n", start_iter) ;
+			if (!rank)
+				fprintf(stderr, "Continuing from previous run starting from iteration %d.\n", start_iter) ;
 		}
 	}
 	
