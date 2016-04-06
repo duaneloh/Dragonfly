@@ -30,9 +30,7 @@ if not os.path.isfile(sys.argv[1]):
 
 f = h5py.File(sys.argv[1], 'r')
 frames = f['photonConverter/pnccdBack/photonCount'][:]
-leastsq = f['particleCorrelator/leastSq'][:]
-std = f['angularAverage/std'][:]
-ind = np.where((leastsq < 20.) & (std < 0.35))[0]
+ind = range(len(frames))
 num_frames = len(ind)
 print num_frames, "frames in h5 file"
 
