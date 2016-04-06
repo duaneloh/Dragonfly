@@ -154,7 +154,7 @@ int main(int argc, char *argv[]) {
 				fp = fopen(log_fname, "a") ;
 				fprintf(fp, "%d\t", iteration) ;
 				fprintf(fp, "%4.2f\t", (double)(t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.) ;
-				fprintf(fp, "%1.4e\t%f\t%.6e\t%-7d\t%f\n", rms_change, info, likelihood, num_rot, beta) ;
+				fprintf(fp, "%1.4e\t%f\t%.6e\t%-7d\t%f\n", rms_change, mutual_info, likelihood, num_rot, beta) ;
 				fclose(fp) ;
 			}
 			
