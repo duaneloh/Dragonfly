@@ -22,6 +22,7 @@ class Plotter:
         self.fname = Tk.StringVar()
         self.logfname = Tk.StringVar()
         self.rangestr = Tk.StringVar()
+        self.expstr = Tk.StringVar()
         self.imagename = Tk.StringVar()
         self.log_imagename = Tk.StringVar()
         self.layernum = Tk.IntVar()
@@ -37,6 +38,7 @@ class Plotter:
         self.log_imagename.set('images/log_fig.png')
         self.image_exists = False
         self.rangestr.set(str(1.))
+        self.expstr.set(str(1.))
         self.layernum.set(self.center)
         self.ifcheck.set(0)
         self.iter.set(0)
@@ -88,12 +90,14 @@ class Plotter:
         Tk.Label(line,text="Log Filename: ").pack(side=Tk.LEFT)
         Tk.Entry(line,textvariable=self.logfname,width=20).pack(side=Tk.LEFT, fill=Tk.X, expand=1)
         Tk.Label(line,text="PlotMax: ").pack(side=Tk.LEFT, fill=Tk.X)
-        Tk.Entry(line,textvariable=self.rangestr,width=10).pack(side=Tk.LEFT)
+        Tk.Entry(line,textvariable=self.rangestr,width=6).pack(side=Tk.LEFT)
 
         line = Tk.Frame(self.options)
         line.pack(fill=Tk.X)
         Tk.Label(line,text="Filename: ").pack(side=Tk.LEFT)
-        Tk.Entry(line,textvariable=self.fname,width=45).pack(side=Tk.LEFT, fill=Tk.X, expand=1)
+        Tk.Entry(line,textvariable=self.fname,width=20).pack(side=Tk.LEFT, fill=Tk.X, expand=1)
+        Tk.Label(line,text="Exp: ").pack(side=Tk.LEFT)
+        Tk.Entry(line,textvariable=self.expstr,width=6).pack(side=Tk.LEFT)
 
         line = Tk.Frame(self.options)
         line.pack(fill=Tk.X)
@@ -160,10 +164,11 @@ class Plotter:
     def plot_vol(self, num):
         self.imagename.set('images/' + os.path.splitext(os.path.basename(self.fname.get()))[0] + '.png')
         rangemax = float(self.rangestr.get())
+        exponent = float(self.expstr.get())
 
-        a = self.vol[num,:,:]**0.4
-        b = self.vol[:,num,:]**0.4
-        c = self.vol[:,:,num]**0.4
+        a = self.vol[num,:,:]**exponent
+        b = self.vol[:,num,:]**exponent
+        c = self.vol[:,:,num]**exponent
 
         self.fig.clf()
         grid = gridspec.GridSpec(1,3, wspace=0., hspace=0.)
@@ -243,12 +248,6 @@ class Plotter:
             with open(p, 'r') as f:
                 self.orient.append(np.fromfile(f, '=i4'))
 
-        o_array = np.asarray(self.orient)
-        ord = o_array[-1].argsort()
-        for index in range(len(o_array)):
-            o_array[index] = o_array[index][ord]
-        o_array = o_array.T
-
         iter = loglines[:,0].astype(np.int32)
         change = loglines[:,2].astype(np.float64)
         info = loglines[:,3].astype(np.float64)
@@ -258,13 +257,15 @@ class Plotter:
         num_rot_change = np.append(np.where(np.diff(num_rot)>0)[0], num_rot.shape[0])
         beta_change = np.where(np.diff(beta)>0.)[0]
 
-        o_array = np.asarray(self.orient)
+        # Sort o_array by the last iteration which has the same number of orientations
+        o_array = np.asarray(self.orient, dtype='f8')
         istart = 0
         for i in range(len(num_rot_change)):
             istop = num_rot_change[i]
             ord = o_array[istop-1].argsort()
             for index in np.arange(istart,istop):
                 o_array[index] = o_array[index][ord]
+                #o_array[index] /= float(num_rot[index])
             istart = istop
         o_array = o_array.T
 
