@@ -17,7 +17,6 @@ if __name__ == "__main__":
     parser.add_argument("--skip_intensities", dest="skip_intensities", action="store_true", default=False)
     parser.add_argument("--skip_detector", dest="skip_detector", action="store_true", default=False)
     parser.add_argument("--skip_data", dest="skip_data", action="store_true", default=False)
-    parser.add_argument("--skip_quat", dest="skip_quat", action="store_true", default=False)
     args = parser.parse_args()
     logging.info("Starting.... setup")
     logging.info(' '.join(sys.argv))
@@ -58,13 +57,6 @@ if __name__ == "__main__":
 
     if not args.skip_data:
         cmd = "./make_data -c " + args.config_file
-        logging.info(20*"=" + "\n")
-        logging.info(20*"=" + "\n" + cmd)
-        subprocess.call(cmd, shell=True)
-
-    if not args.skip_quat:
-        py_utils.name_quat_file_sensibly(args.config_file)
-        cmd = "./make_quaternion " + args.config_file
         logging.info(20*"=" + "\n")
         logging.info(20*"=" + "\n" + cmd)
         subprocess.call(cmd, shell=True)
