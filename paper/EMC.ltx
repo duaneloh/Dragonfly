@@ -28,6 +28,9 @@
 \usepackage{listings}
 \usepackage{color,soul}
 
+\newcommand{\corr}[1]{\textcolor{red}{#1}}
+\renewcommand{\eqref}[1]{(\ref{#1})}
+
 \lstset {
 	frame=single
 }
@@ -72,8 +75,7 @@
 \aff[d]{Department of Physics, National University of Singapore, 2 Science Drive 3, 117551, \country{Singapore}}
 \aff[e]{Department of Biological Sciences, National University of Singapore, 14 Science Drive 4, 117543, \country{Singapore}}
 
-     % Use \shortauthor to indicate an abbreviated author list for use in
-     % running heads (you will need to uncomment it).
+     % Use \shortauthor to indicate an abbreviated author list for use in     % running heads (you will need to uncomment it).
 
 %\shortauthor{Soape, Author and Doe}
 
@@ -115,7 +117,7 @@ Single Particle Imaging (SPI) with X-ray Free-Electron Lasers (XFELs) has the po
 
 \section{Introduction}
 
-Experiments performed in 2015 at Linac Coherent Light Source (LCLS) \cite{Aquila2015} have demonstrated that single particle imaging (SPI) of large biomolecules at resolutions approaching $5 \,\AA$ is nearly at hand\footnote{Manuscript in preparation.}. To prepare for a future where SPI is routine, we are making available a software package that will make this new imaging modality accessible to a broad user base.
+\corr{Experiments within the Single Particle Imaging Initiative \cite{Aquila2015} performed at the Linac Coherent Light Source (LCLS) have demonstrated that single particle imaging (SPI) of large biomolecules at resolutions approaching $5 \,\AA$ is nearly at hand\footnote{Manuscript in preparation.}}. To prepare for a future where SPI is routine, we are making available a software package that will make this new imaging modality accessible to a broad user base.
 
 By now the defining characteristics of an SPI experiment are well known \cite{Neutze2000}: collect individual noisy diffraction patterns from very many reasonably identical copies of a particle, injected with unknown orientations into a pulsed x-ray beam. The Expand-Maximize-Compress (EMC) algorithm \cite{loh2009} was developed specifically for processing SPI data sets. It was designed to take advantage of all the available information in these experiments while also scaling well computationally. To get a better sense of the information processing advantages of EMC, we briefly contrast it with two alternative methods that have been proposed.
 
@@ -123,7 +125,7 @@ Manifold embedding methods \cite{Schwander2012} try to find a consistent set of 
 
 Intensity cross-correlation methods offer another approach for deriving structure from un-oriented particle ensembles \cite{Kam1977, Saldin2010}. These methods work best when the x-ray flux passes through the fewest number of particles. However, in the single particle limit these methods work at an enormous information deficit relative to EMC. That is because EMC uses the correlated arrangement of \textit{all} 100-1000 photons in a typical diffraction pattern rather than just the correlations among pairs.
 
-While EMC is just beginning to be used for SPI of bio-particles, it has been field-tested in a number of proof-of-principle experiments \cite{philipp2012,ayyer2014,ayyer2015a,wierman2016}. The most significant feature of these experiments is the demonstration that EMC's probabilistic modeling of the detector photon counts continues to be valid even in the extremely sparse regime. Recording highly sparse data, with the hope that it reveals structure, will require a leap of faith on the part of structural biologists. Our EMC software package comes with tools to make that leap less blind for new users.
+While EMC is just beginning to be used for SPI of bio-particles, it has been field-tested in a number of proof-of-principle experiments \cite{philipp2012,ayyer2014,ayyer2015a,wierman2016}. \corr{The most significant feature of these experiments is the demonstration that EMC's probabilistic modeling of the detector photon counts continues to be valid even when the counts per scattering pattern are extremely sparse.} Recording highly sparse data, with the hope that it reveals structure, will require a leap of faith on the part of structural biologists. Our EMC software package comes with tools to make that leap less blind for new users.
 
      %-------------------------------------------------------------------------
      % Purpose and structure of this package
@@ -180,11 +182,13 @@ W_{rt} \longrightarrow W'_{rt} = \frac{\sum\limits_d P_{dr} K_{dt}}{\sum\limits_
 \label{eqn:wupdate}
 \end{equation}
 
-The most time-consuming step of each iteration is the calculation of Eq.~\ref{eqn:probnumr}. This involves comparing all the tomograms with all the patterns for each pixel which has at least one photon. The code is parallelized over orientations, so each MPI and OpenMP rank performs the calculation for a subset of orientations. At the start of the iterations, each MPI rank gets a copy of the current 3D intensity model $W$. Each MPI and OpenMP rank then calculates the relevant tomograms, $W_{rt}$, as needed and then computes $R_{dr}$ for that orientation using Eq.~\ref{eqn:probnumr}. Subsequently, these $R_{dr}$ are synchronously reduced across all ranks for the normalization operation Eq.~\ref{eqn:prob}. The $P_{dr}$ array is then used to calculate updated tomograms for each $r$, and then merged to obtain an updated 3D model for each MPI rank. These models are then reduced to obtain an updated model $W'$.
+The most time-consuming step of each iteration is the calculation of Eq. \eqref{eqn:probnumr}. This involves comparing all the tomograms with all the patterns for each pixel which has at least one photon. The code is parallelized over orientations, so each MPI and OpenMP rank performs the calculation for a subset of orientations. At the start of the iterations, each MPI rank gets a copy of the current 3D intensity model $W$. Each MPI and OpenMP rank then calculates the relevant tomograms, $W_{rt}$, as needed and then computes $R_{dr}$ for that orientation using Eq. \eqref{eqn:probnumr}. Subsequently, these $R_{dr}$ are synchronously reduced across all ranks for the normalization operation Eq. \eqref{eqn:prob}. The $P_{dr}$ array is then used to calculate updated tomograms for each $r$, and then merged to obtain an updated 3D model for each MPI rank. These models are then reduced to obtain an updated model $W'$.
 
 In many experimental situations, the incident fluence varies between x-ray pulses. Thus, the tomograms would be scaled differently for each pattern \cite{loh2010,ekeberg2015}. One can enable the recovery of these scale factors using the update rule described in Appendix~\ref{sec:rescaling}. 
 
-We also find that if the signal is too strong, and when rotation group sampling is too fine or data is too few, reconstructions get stuck in local maxima in which all frames are assigned the same orientation and overlap with each other in reciprocal space. This effect is similar to what is observed if the background is too high~\cite{ayyer2015}. Such reconstructions, however, are empirically stable around the true solution, $W^{\text{true}}$, and only gets trapped when one starts from random initial guesses. This problem can be avoided by using the deterministic annealing variant of expectation maximization ~\cite{ueda1998}. In the EMC case, this is implemented by raising $R_{dr}$ calculated in Eq.~\ref{eqn:probnumr} to a small power $\beta$, and then normalizing similar to Eq.~\ref{eqn:prob}. This has a regularizing effect of broadening the orientation distribution and results in a rotationally blurred, but stable reconstruction. Once a metastable model intensities is resolved, the power $\beta$ can then be raised gradually in a manner similar to simulated annealing to slowly guide the reconstruction to the true global maxima around $W^{\text{true}}$. An example of this is shown in Section~\ref{subsec:regularization}.
+We also find that if the signal is too strong, and when rotation group sampling is too fine or data is too few, reconstructions get stuck in local maxima in which all frames are assigned the same orientation and overlap with each other in reciprocal space. This effect is similar to what is observed if the background is too high~\cite{ayyer2015}. Such reconstructions, however, are empirically stable around the true solution, $W^{\text{true}}$, and only gets trapped when one starts from random initial guesses. This problem can be avoided by using the deterministic annealing variant of expectation maximization ~\cite{ueda1998}. In the EMC case, this is implemented by raising $R_{dr}$ calculated in Eq. \eqref{eqn:probnumr} to a small power $\beta$, and then normalizing similar to Eq. \eqref{eqn:prob}:
+$ P_{dr} = R_{dr}^\beta / \sum\limits_r R_{dr}^\beta}$.
+This has a regularizing effect of broadening the orientation distribution and results in a rotationally blurred, but stable reconstruction. Once a metastable model intensities is resolved, the power $\beta$ can then be raised gradually in a manner similar to simulated annealing to slowly guide the reconstruction to the true global maxima around $W^{\text{true}}$. An example of this is shown in Section~\ref{subsec:regularization}, and \corr{elaborated in a plausibility argument in appendix \ref{sec:stability}}. 
 
 \subsection{Modules and convenience utilities}\label{subsec:mod+utils}
 
@@ -268,33 +272,33 @@ S = \sqrt{\frac{N M_{\text{data}}}{M_{\text{rot}}}}\; ,
 \end{equation}
 to estimate the required number of data frames $M_{\text{data}}$ for $S\sim50$, where $M_{\text{rot}}$ is the number of quasi-uniform rotation samples. Assuming the diffraction patterns are uniformly distributed in orientation space, $S^2$ can be interpreted as the average number of photons per orientation.
 
-\subsection{Diagnostics on simulated reconstructions} \label{subsec:recon}
+\subsection{Diagnostics on simulated reconstructions.} \label{subsec:recon}
 In this section, we describe useful diagnostics for monitoring the progress of each 3D reconstruction. Figures \ref{fig:amo_low_intens}, \ref{fig:cxi_intens} and \ref{fig:amo_high_intens} show orthogonal slices through the reconstructed intensities for the three parameter sets in Table \ref{table:simParams}. Below each figure is a set of plots generated by \texttt{autoplot.py} utility, which helps visualize these diagnostics. 
 
 We discuss these diagnostics starting with the AMO reconstruction in Figure \ref{fig:amo_low_log}, which consistently converges from random restarts. With each new reconstruction attempt, diffraction speckles readily converge, although each time at a different overall orientation.
 
-\subsubsection{R.M.S. change in the 3D model}
+\subsubsection{R.M.S. change in the 3D model.}
 The root mean squared change per voxel between the 3D intensity models from successive iterations in Figure \ref{fig:amo_low_log} is a straightforward indicator of convergence. The model changes by smaller and smaller amounts as the algorithm converges on a solution.
 
-\subsubsection{Mutual information between model and data}
-An additional diagnostic is the sharpness of the probability distribution over orientations $P_{dr}$ calculated in Eq.~\ref{eqn:prob}. This can be assessed by calculating the mutual information of the joint distribution of the data and the orientations, $P(K,\Omega) = P(\Omega) P(K{\big\vert}\Omega) = P_r P_{dr}$. Here, $P_r$ is the prior probability of orientations (assumed here to be uniform). This quantity is evaluated as
+\subsubsection{Mutual information between model and data.}
+An additional diagnostic is the sharpness of the probability distribution over orientations $P_{dr}$ calculated in Eq.~\eqref{eqn:prob}. This can be assessed by calculating the mutual information of the joint distribution of the data and the orientations, $P(K,\Omega) = P(\Omega) P(K{\big\vert}\Omega) = P_r P_{dr}$. Here, $P_r$ is the prior probability of orientations (assumed here to be uniform). This quantity is evaluated as
 \begin{equation}
 I(K, \Omega) = \left\langle\sum_r P_{dr} \log(P_{dr} / P_{r})\right\rangle_d, \label{eq:mutualInfo}
 \end{equation}
-where $\langle \dots \rangle_d$ is the average over data frames. The quantity in Eq.~\ref{eq:mutualInfo} approaches the entropy of the rotation group sampling when each pattern fits only one orientation, while it vanishes for a uniform distribution. The fact that this quantity rises asymptotically in Figure ~\ref{fig:amo_low_log} (bottom panel, top plot) is consistent with model convergence. Below that is a plot of the model log-likelihood defined in Eq.~\ref{eqn:totalq}. In most situations, this quantity increases monotonically, and a significant decrease over many iterations indicates an error. 
+where $\langle \dots \rangle_d$ is the average over data frames. The quantity in Eq.~\ref{eq:mutualInfo} approaches the entropy of the rotation group sampling when each pattern fits only one orientation, while it vanishes for a uniform distribution. The fact that this quantity rises asymptotically in Figure ~\ref{fig:amo_low_log} (bottom panel, top plot) is consistent with model convergence. Below that is a plot of the model log-likelihood defined in Eq.~\eqref{eqn:totalq}. In most situations, this quantity increases monotonically, and a significant decrease over many iterations indicates an error. 
 
-\subsubsection{Most likely orientations of each pattern}
+\subsubsection{Most likely orientations of each pattern.}
 The bottom rightmost plot in Figure \ref{fig:amo_low_log} is the most useful for monitoring convergence. This is a matrix plot where the vertical axis is the pattern number while the horizontal one is iteration. The color represents the orientation number of the most likely orientation (maximum $P_{dr}$) for each pattern. Thus, the colors at the right end form a smooth spectrum and the pattern numbers differ between rotation-sampling blocks. The variation of colors along a row indicates how the most likely orientation has changed for that pattern. Patterns settle into their most likely orientations when these colors become constant with iterations, which is a good indicator of convergence.
 
 This is also useful for cases when the rotation group sampling is steadily increased (i.e. Figure \ref{fig:cxi_intens}). For each iteration block where the rotation group sampling is fixed, we sort the patterns (rows in this orientation plot) such that the last iteration in the block has ascending orientation numbers. However, note that while the pattern index is constant within each block, they differ between rotation group sampling blocks because each block is separately sorted.
 
-\subsection{Strategies for reconstruction} \label{subsec:strategy}
+\subsection{Strategies for reconstruction.} \label{subsec:strategy}
 
-\subsubsection{Gradually increasing rotation group sampling} \label{subsec:quatRefine}
+\subsubsection{Gradually increasing rotation group sampling.} \label{subsec:quatRefine}
 For the CXI reconstruction (Figure ~\ref{fig:cxi_log}), due to the size of the problem, the quaternion sampling number was increased in steps. If one chooses too coarse a rotation group sampling, low resolution speckles get reconstructed but higher resolution features remain blurry. These higher resolution speckles quickly sharpen when we increase the rotation group sampling for reconstructions starting from this blurry model. Since the computation time scales as the number of rotation group samples, it is faster to slowly increase rotation group sampling such that only a few iterations are performed with the most time-consuming but finest sampling. Red dashed lines in the bottom plots of Figure ~\ref{fig:cxi_log} indicate iterations where the rotation group refinement level was gradually increased from 10 to 16 (details in Table \ref{table:simParams}). Note that the mutual information does not increase much in the last rotation group refinement, indicating that further refinement would not substantially improve model likelihood.
 
-\subsubsection{Regularization via deterministic annealing} \label{subsec:regularization}
-For the high fluence AMO reconstruction (Figure ~\ref{fig:amo_high_log}), the situation is slightly different. As mentioned before when the patterns have very high signal to noise ratio, starting the algorithm from random initial models can cause the reconstruction to be trapped in local maxima. This can be avoided by starting with a low $\beta$ as described in Section~\ref{subsec:EMC}, which reduces the propensity for over-fitting at the start of the reconstruction. In this particular case $\beta$ was 0.001 for the first 10 iterations. Once this intermediate reconstruction converges, we gradually doubled $\beta$ every 10 iterations to restore the speckles to the highest contrast allowable by the data and likelihood model. The black dashed lines in Figure ~\ref{fig:amo_high_log} represent the iterations when $\beta$ was doubled. After 80 iterations, the rotation group refinement level was increased from 6 to 9, and continued for another 10 iterations (see Section \ref{subsec:quatRefine} for rotation group refinement). Evident in Figure ~\ref{fig:amo_high_log}, the speckle features in the reconstructed intensities sharpen when $\beta$ rises back near unity.
+\subsubsection{Regularization via deterministic annealing.} \label{subsec:regularization}
+For the high fluence AMO reconstruction (Figure ~\ref{fig:amo_high_log}), the situation is slightly different. As mentioned before when the patterns have very high signal to noise ratio, starting the algorithm from random initial models can cause the reconstruction to be trapped in local maxima.This can be avoided by starting with a low $\beta$ as described in Section~\ref{subsec:EMC}, which reduces the propensity for over-fitting at the start of the reconstruction. In this particular case $\beta$ was 0.001 for the first 10 iterations. Once this intermediate reconstruction converges, we gradually doubled $\beta$ every 10 iterations to restore the speckles to the highest contrast allowable by the data and likelihood model. The black dashed lines in Figure ~\ref{fig:amo_high_log} represent the iterations when $\beta$ was doubled. After 80 iterations, the rotation group refinement level was increased from 6 to 9, and continued for another 10 iterations (see Section \ref{subsec:quatRefine} for rotation group refinement). Evident in Figure ~\ref{fig:amo_high_log}, the speckle features in the reconstructed intensities sharpen when $\beta$ rises back near unity.
 
      %-------------------------------------------------------------------------
      % Conclusions
@@ -314,13 +318,13 @@ To deal with experimental data, we will add utilities to convert current experim
 
 The source code for this software package can be downloaded from $$\texttt{http://www.github.com/duaneloh/ExpandMaximizeCompress}\;,$$ and is distributed under the terms of the GNU General Public License (GPL) version 3\footnote{\texttt{http://www.gnu.org/licenses/gpl}}. One can find instructions to run a basic simulation in the README file available with the repository. In addition, one can find detailed up-to-date documentation in the repository wiki accessible here: $$\texttt{http://github.com/duaneloh/ExpandMaximizeCompress/wiki}\;.$$ This wiki includes descriptions of all the options available for each of the modules and utilities supplied in the package.
 
-The modules and utilities are written in C and Python 2. The C files require the following libraries to compile: mpi, openmp, and the gnu scientific library\footnote{\texttt{http://www.gnu.org/software/gsl}}. The Python files need Python version 2.7 or higher to run, and non-standard libraries Numpy, and Scipy\footnote{\texttt{http://www.scipy.org}}.
+The modules and utilities are written in C and Python 2. The C files require the following libraries to compile: mpi, openmp, and the gnu scientific library\footnote{\texttt{http://www.gnu.org/software/gsl}}. The Python files need \corr{Python version 2.7.x to run}, and non-standard libraries Numpy, and Scipy\footnote{\texttt{http://www.scipy.org}}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \appendix
-
+ %-------------------------------------------------------------------------
 \section{Computing speckle sampling on the detector}\label{sec:speckle}
 We use a spherical approximate to estimate the size of diffraction speckles from a scatterer. A sphere of radius $R_p$, produces diffraction intensities 
 \begin{equation}
@@ -342,9 +346,8 @@ The sampling ratio of the diffraction speckle is defined as:
 \end{equation}
 where $l_D$ is the width of the detector pixel, and $z_D$ is the separation between the detector and interaction region (see Figures \ref{fig:expGeometry} or \ref{fig:solidAngle}). While the ideal sampling ratio of the diffraction speckles should exceed two, the time and memory required for intensity reconstruction rises rapidly when this ratio becomes excessively large (e.g. $ \Delta \widehat{q} \,/\, \Delta \widehat{q}_{\text{min}} \gg 5$). 
 
+ %-------------------------------------------------------------------------
 \section{Solid angle correction for square pixels on planar detectors}\label{sec:solidAngle}
-
-
 
 In this section we compute the solid angle $\Delta \Omega$ subtended by a square pixel of area $l_D \times l_D$ about the point where a scatterer sits (see Figure \ref{fig:solidAngle}). To first approximation, the solid angle $\Delta \Omega \sim \cos(\theta) \Delta \phi \cdot \Delta \theta$. We use the following relations to estimate  $\Delta \phi$ and $\Delta \theta$. On a detector $z_D$ from the interaction point, we consider a pixel at position $\{x,y,z_D\}$ in its spherical coordinate representation:
 \begin{equation}
@@ -368,8 +371,9 @@ Combining the two and simplifying, we get the solid angle subtended by the squar
 \Delta \Omega = \cos(\theta) \Delta \phi \Delta \theta = \frac{l_D^2\, z_D}{R^3} =  \frac{l_D^2\, z_D}{\left( x^2 + y^2 + z_D^2\right)^{3/2}} \; .
 \end{equation}
 
+ %-------------------------------------------------------------------------
 \section{Pattern-wise intensity scale factor updates}\label{sec:rescaling}
-In many real world applications, the incident fluence on each particle will be different. The original implementation of EMC in \citeasnoun{loh2009} assumes uniform incident fluence. Here we derive the likelihood maximizing update rule employed in this package when the \texttt{need\_scaling} option is turned on. The approach used is similar to that employed in \citeasnoun{loh2010}, except here we use a Poisson rather than Gaussian probability model. Let $\phi_d$ be a scale factor which is proportional to the fluence incident on the particle in pattern $d$. Thus, Eq.~\ref{eqn:prob} and Eq.~\ref{eqn:probnumr} become,
+In many real world applications, the incident fluence on each particle will be different. The original implementation of EMC in \citeasnoun{loh2009} assumes uniform incident fluence. Here we derive the likelihood maximizing update rule employed in this package when the \texttt{need\_scaling} option is turned on. The approach used is similar to that employed in \citeasnoun{loh2010}, except here we use a Poisson rather than Gaussian probability model. Let $\phi_d$ be a scale factor which is proportional to the fluence incident on the particle in pattern $d$. Thus, Eq.~\eqref{eqn:prob} and Eq.~\eqref{eqn:probnumr} become,
 \begin{align}
 P_{dr} &= \frac{R_{dr}}{\sum\limits_r R_{dr}} \\
 \mathrm{and }\;R_{dr} &= \prod_t \frac{(W_{rt}\phi_d)^{K_{dt}} e^{-W_{rt}\phi_d}}{K_{dt}!}.
@@ -381,7 +385,58 @@ Here, $P_{dr}$ are the probabilities calculated using the current models $W$ and
 W'_{rt} &= \frac{\sum\limits_d P_{dr} K_{dt}}{\sum\limits_d P_{dr} \phi_d} \\
 \phi'_d &= \frac{\sum\limits_t K_{dt}}{\sum\limits_{rt} P_{dr} W_{rt}}
 \end{align}
-This modification to the update rule in Eq.~\ref{eqn:wupdate} is used when the user expects variable incident fluence on the particle.
+This modification to the update rule in Eq.~\eqref{eqn:wupdate} is used when the user expects variable incident fluence on the particle.
+
+ %-------------------------------------------------------------------------
+\section{Mapping the detector onto the Ewald sphere}\label{sec:detector}
+Insert text.
+
+ %-------------------------------------------------------------------------
+\section{\corr{Instability due to overfitting}}\label{sec:stability}
+We propose a simple plausibility argument to explain how an EMC reconstruction can get trapped in local maxima with patterns of high fluence. This trap typically occurs when EMC overfits a 3D set of intensities to the patterns.
+
+Consider the extreme scenario when only two high-signal 2D patterns are measured, $\left\{A_i\right\}$ and $\left\{B_i\right\}$, where index $i$ labels the $M_{\text{pix}}$ detector pixels of each pattern. We further assume that each pattern is diffracted from separate copies of the 3D object at exactly the same orientation in the laboratory frame. However, despite their identical orientations, these two patterns will be quantifiably different because they are different noisy realizations of the same 2D pattern. After one iteration, the EMC algorithm proposes a 3D diffraction volume that maximizes the likelihood of measuring both patterns. Since the ``Compress" step of EMC populates this volume from weighted sums of $\left\{A_i\right\}$ and $\left\{B_i\right\}$, the possible model updates fall into two broad cases: 
+\begin{enumerate}
+\item place the two 2D patterns at the same orientation and average over them or, 
+\item at two distinct orientations such that the patterns only intersect on a one-dimensional line in the 3D volume. 
+\end{enumerate}
+In what follows, we compare the log-likelihood of these two maximal cases under EMC.
+
+To simplify case 1, we assume that both patterns adopt the same orientation. Hence, the log-likelihood of measuring $\left\{B_i\right\}$ given the underlying pattern with $M_{\text{pix}}$ pixels  averages over $\left\{A_i\right\}$ and $\left\{B_i\right\}$ is 
+\begin{equation}
+\mathcal{L}\left( B \left| \frac{A+B}{2} \right. \right) \approx \sum_{i}^{M_{\text{pix}}} \left[\frac{B_i - A_i}{2} - B_i \log{\left(\frac{B_i}{(A_i+B_i)/2}}\right) \right]\;,
+\label{eqn:stability1}
+\end{equation}
+where we have used Stirling's approximation\footnote{$\log{n!} \approx n \log{n} - n$, if $n \gg 1$.} since $A_i\gg 1$ and $B_i\gg1$ at high fluence. The complementary likelihood of $\mathcal{L}\left(A |(A+B) / 2 \right)$ simply switches the $A$ and $B$ labels in the Eq. \eqref{eqn:stability1}, giving the combined log-likelihood of both patterns sharing the same orientation as
+\begin{align}
+\mathcal{L}_{\text{shared}} &=\mathcal{L}\left( A \left| \frac{A+B}{2} \right. \right) + \mathcal{L}\left( B \left| \frac{A+B}{2} \right. \right)   \nonumber\\
+&\approx \sum_{i}^{M_{\text{pix}}} \left[- B_i \log{\left(\frac{B_i}{(A_i+B_i)/2}}\right) - A_i \log{\left(\frac{A_i}{(A_i+B_i)/2}}\right)\right]\nonumber \\
+&\approx \sum_{i}^{M_{\text{pix}}} \; \alpha(A_i,B_i) \;,
+\label{eqn:stability2}
+\end{align}
+where $\alpha(A_i,B_i)$ denotes the expression between the square brackets a line above. Using Gibbs' inequality\footnote{$\sum_i p_i \log{p_i/q_i} \geq 0$ where equality occurs when $p_i = q_i$.} when averaging over all possible values of $A$ and $B$, we expect 
+\begin{equation}
+\langle \alpha(A_i,B_i) \rangle_{A/B} \leq 0\;.\label{eqn:stability2.5}
+\end{equation}
+Hence, the combined likelihood $\mathcal{L}_{\text{shared}}$ in Eq. \eqref{eqn:stability2} must be negative and scales with the number of pixels $M_{\text{pix}}$.
+
+Case 2 has a similar calculation except the pixels are separated into two categories: those that lie on the common line between the two oriented patterns $M_{\text{com}}$ and those that do not $M_{\text{sep}} = M_{\text{pix}} - M_{\text{com}}$. Ignoring corrections due to interpolating these patterns into the 3D volume, it is straightforward to show that log-likelihood of measuring patterns $\left\{A_i\right\}$ and $\left\{B_i\right\}$ when they are placed in different orientations is
+\begin{equation}
+\mathcal{L}_{\text{distinct}} \approx \sum_{i}^{M_{\text{com}}} \alpha(A_i,B_i)\;,
+\label{eqn:stability3}
+\end{equation}
+It should be clear from Equations \eqref{eqn:stability2}, \eqref{eqn:stability2.5} and \eqref{eqn:stability3} that on average 
+\begin{align}
+\langle \mathcal{L}_{\text{shared}} \rangle &< \langle \mathcal{L}_{\text{distinct}} \rangle \\
+\langle \mathcal{L}_{\text{distinct}} \rangle - \langle \mathcal{L}_{\text{shared}} \rangle  & \propto M_{\text{sep}} \left(|A| + |B|\right) \;,
+\label{eqn:stability4}
+\end{align}
+where the moduli denote the average photon count on the pixels.
+This last relation `separates' these two patterns into distinct orientations when EMC overfits the 3D intensity model to few high signal data patterns by maximizing the log-likelihood.
+
+When overfitting occurs, EMC tends to re-orient one pattern away from the other so that each pattern matches best to itself (except along their common line). This tendency can be intuitively extended beyond two patterns, where local clusters of like-patterns are `repelled' from each other when the signal level is high.
+
+The artificial overfitting described in this section is inconsequential when we have many patterns of moderate signal levels. Overfitting aside we expect the log-likelihood of the data given the 3D model to be high when like-patterns cluster into the same orientation. When the 3D model is densely populated with diffraction patterns EMC cannot locally re-orient patterns into neighboring orientation tomograms without causing the log-likelihood of data occupying these neighbors to decline.  Furthermore, the difference in the log-likelihood of Eq. \eqref{eqn:stability4} driving this instability is small with moderate rather than high signal levels. This reduction can also be effected by the parameter $\beta \leq 1$ described in Section \ref{subsec:EMC}, which multiplies into and hence reduces the instability metric in  Eq. \eqref{eqn:stability4}. A slightly rotationally-blurred 3D volume recovered at small $\beta$ can be stabilizing enough against overfitting when we eventually increase $\beta$ back to the default value of unity.
 
      %-------------------------------------------------------------------------
      % The back matter of the paper - acknowledgements and references
@@ -389,7 +444,8 @@ This modification to the update rule in Eq.~\ref{eqn:wupdate} is used when the u
 
      % Acknowledgements come after the appendices
 
-\ack{Acknowledgements}
+
+\ack{{\bf Acknowledgements}}
 N.D.L. would like to thank the support of the Lee Kuan Yew Endowment fund, and the assistance by the IT facility at the Centre for Bio-Imaging Sciences. T.-Y.L. and V.E. would like to thank the support of the U.S. Department of Energy Grant No. DE-SC0005827. K.A. would like to acknowledge the support of the Helmholtz Association through project oriented funds.
 
 \referencelist[EMC]
