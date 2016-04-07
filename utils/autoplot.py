@@ -319,7 +319,8 @@ class Plotter:
             s4.imshow(o_array**0.5, aspect=(1.*sh[1]/sh[0]), extent=[1,sh[1],sh[0],0])
             s4.get_yaxis().set_ticks([])
             s4.set_xlabel('Iteration')
-            s4.set_ylabel('Most likely orientations of data\n(sorted/colored by last iteration\'s quat)')
+            s4.set_ylabel('Pattern number (sorted)')
+            s4.set_title('Most likely orientations of data\n(sorted/colored by last iteration)')
             self.log_fig.add_subplot(s4)
 
         grid.tight_layout(self.log_fig)
