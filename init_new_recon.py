@@ -45,7 +45,10 @@ if __name__ == "__main__":
     (relC, copies,) = (parent_dir, ["config.ini"])
     (relU, ln_utils,) = (os.path.join(parent_dir, "utils"), ["make_detector.py",
                                                              "make_data",
+                                                             "make_densities.py",
+                                                             "make_intensities.py",
                                                              "make_quaternion",
+                                                             "sim_setup.py",
                                                              "run_emc.py",
                                                              "autoplot.py",
                                                              "powder.py", 
