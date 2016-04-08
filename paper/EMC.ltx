@@ -253,7 +253,7 @@ The detector file is an ASCII (human readable) file which describes various prop
 \subsubsection{Photon file (emc format)}\label{subsubsec:emcformat}
 Since the photon data in many high-resolution SPI experiments expect few photons per pattern, a sparse binary format is used to store the data. Hence, for each pattern we only store information about pixels that receive photons. Additionally, since most of the non-zero counts are ones, only their pixel locations are stored. For pixels receiving two or more photons, we store both their pixel location and photon count. 
 
-The data in the photon file are arranged in six blocks (Figure \ref{fig:dataFormat}). The file's header resides in the first block, which is 1024 bytes long. This begins with two 4-byte chunks: a 32-bit integer describing the number of patterns (\texttt{num\_data}) contained in the file, followed by another 32-bit integer for the number of pixels in each pattern. The next 1016 bytes are currently empty (filled with zeros).
+The data in the photon file are arranged in six blocks (Figure \ref{fig:dataFormat}). The file's header resides in the first block, which is 1024 bytes long. This begins with two 4-byte chunks: a 32-bit integer describing the number of patterns (\texttt{num\_data}) contained in the file, followed by another 32-bit integer for the number of pixels in each pattern. \corr{These pixels belong all the pixel categories stated in Section \ref{subsubsec:detector}.} The next 1016 bytes are currently empty (filled with zeros).
 
 The second block contains \texttt{num\_data} 32-bit integers giving the number of one-photon events in each pattern (\texttt{ones}). The third block contains \texttt{num\_data} integers giving the number of multi-photon events (\texttt{multi}). The total number of single photon events in all the patterns is the sum of all numbers in the \texttt{ones} array ($S_o$). Similarly, let $S_m$ be the total number of multiple photon events. The fourth block contains $S_o$ 32-bit integers giving the locations of the single photon pixels; the fifth block has $S_m$ integers with the locations of the multiple photon pixels. Finally, the sixth block has $S_m$ 32-bit integers giving the number of photons in each of those multiple photon pixels. 
 
@@ -267,11 +267,11 @@ The second block contains \texttt{num\_data} 32-bit integers giving the number o
      
 \section{Example reconstructions of simulated experiments}\label{sec:simulations}
 
-The use of our package is exemplified in three simulated single-particle imaging (SPI) reconstructions using the specifications of Atomic Molecular and Optical Science (AMO)~\cite{ferguson2015} and Coherent X-ray Imaging (CXI) ~\cite{liang2015} endstations at Linac Coherent Light Source (LCLS) \cite{Emma2010}. We chose to simulate SPI of keyhole limpet hemocyanin 1 (KLH1) didecamer~\cite{gatsogiannis2009} and four-layer Tobacco Mosaic Virus (TMV)~\cite{bhyravbhatla1998} at AMO and CXI respectively. Notably, the choices in Table \ref{table:simParams} yield an average of $\sim 100$ photons per single-particle diffraction pattern.
+The use of our package is exemplified in three simulated single-particle imaging (SPI) reconstructions using the specifications of Atomic Molecular and Optical Science (AMO)~\cite{ferguson2015} and Coherent X-ray Imaging (CXI) ~\cite{liang2015} endstations at Linac Coherent Light Source (LCLS) \cite{Emma2010}. We chose to simulate SPI of keyhole limpet hemocyanin 1 (KLH1) didecamer~\cite{gatsogiannis2009} and four-layer Tobacco Mosaic Virus (TMV)~\cite{bhyravbhatla1998} at AMO and CXI respectively. Notably, the choices in Table \ref{table:simParams} yield an average of $\sim 100$ photons per single-particle diffraction pattern \corr{(pixel categories 0 and 1)}.
 
 
 
-The simulation parameters are shown in Table \ref{parameters}. The detectors here have $150\times150$ pixels, with the pixel sizes chosen to emulate an $1024\times1024$-pixel pnCCD~\cite{Struder2010} and CSPAD~\cite{Philipp:2011fq,hart2012}. We decrease the beam fluence to obtain mean photon counts $N\sim 90$ for the first two simulations, mimicking realistic losses from imperfect beam transmission, optics, and cleanup apertures \cite{Loh2013}. The third simulation of Table \ref{table:simParams} was designed to demonstrate how deterministic annealing method can deal with convergence issues caused by very high signal. Most of the parameters were identical to the low fluence AMO simulation except the fluence was up-adjusted to receive 1 mJ x-ray pulses, which is within an order of magnitude of design specifications \cite{Emma2010}.
+The simulation parameters are shown in Table \ref{parameters}. The detectors here have $150\times150$ pixels, with the pixel sizes chosen to emulate an $1024\times1024$-pixel pnCCD~\cite{Struder2010} and CSPAD~\cite{Philipp:2011fq,hart2012}. We decrease the beam fluence to obtain mean photon counts $N\sim 90$ \corr{(pixel categories 0 and 1)} for the first two simulations, mimicking realistic losses from imperfect beam transmission, optics, and cleanup apertures \cite{Loh2013}. The third simulation of Table \ref{table:simParams} was designed to demonstrate how deterministic annealing method can deal with convergence issues caused by very high signal. Most of the parameters were identical to the low fluence AMO simulation except the fluence was up-adjusted to receive 1 mJ x-ray pulses, which is within an order of magnitude of design specifications \cite{Emma2010}.
 
 For data sufficiency we use the signal-to-noise ratio parameter defined in Eq. 37 of \citeasnoun{loh2009}, 
 \begin{equation}
@@ -295,7 +295,7 @@ I(K, \Omega | W) = \left\langle\sum_r P_{dr} \log(P_{dr} / P_{r})\right\rangle_d
 where $\langle \dots \rangle_d$ is the average over data frames. The quantity in Eq.~\ref{eq:mutualInfo} approaches the entropy of the rotation group sampling when each pattern fits only one orientation, while it vanishes for a uniform distribution. The fact that this quantity rises asymptotically in Figure ~\ref{fig:amo_low_log} (bottom panel, top plot) is consistent with model convergence. Below that is a plot of the model log-likelihood defined in Eq.~\eqref{eqn:totalq}. In most situations, this quantity increases monotonically, and a significant decrease over many iterations indicates an error. 
 
 \subsubsection{Most likely orientations of each pattern.}
-The bottom rightmost plot in Figure \ref{fig:amo_low_log} is the most useful for monitoring convergence. This is a matrix plot where the vertical axis is the pattern number while the horizontal one is iteration. The color represents the orientation number of the most likely orientation (maximum $P_{dr}$) for each pattern. Thus, the colors at the right end form a smooth spectrum and the pattern numbers differ between rotation-sampling blocks. The variation of colors along a row indicates how the most likely orientation has changed for that pattern. Patterns settle into their most likely orientations when these colors become constant with iterations, which is a good indicator of convergence.
+The bottom rightmost plot in Figure \ref{fig:amo_low_log} is the most useful for monitoring convergence. This is a matrix plot where the vertical axis is the pattern number while the horizontal one is iteration. The color represents the orientation number of the most likely orientation (maximum $P_{dr}$) for each pattern. In Figure \ref{fig:amo_low_log} \corr{we sorted the patterns by the most likely quaternion in the final iteration of each rotation-sampling block. As a result} colors at the right end form a smooth spectrum and the pattern numbers differ between rotation-sampling blocks. The variation of colors along a row indicates how the most likely orientation has changed for that pattern. Patterns settle into their most likely orientations when these colors become constant with iterations, which is a good indicator of convergence.
 
 This is also useful for cases when the rotation group sampling is steadily increased (i.e. Figure \ref{fig:cxi_intens}). For each iteration block where the rotation group sampling is fixed, we sort the patterns (rows in this orientation plot) such that the last iteration in the block has ascending orientation numbers. However, note that while the pattern index is constant within each block, they differ between rotation group sampling blocks because each block is separately sorted.
 
@@ -347,7 +347,7 @@ which approaches $\widetilde{q} \to (2n+1) \pi / 2$, where $n \in \mathbb{Z}$, f
 \begin{equation}
 \Delta \widehat{q} \to 1/(2 R_p) \; .
 \end{equation}
-Referring to Figure \ref{fig:expGeometry}, the coarsest spacings in the spatial frequency occur at small scattering angles and is inversely proportional to the field of view $L$, or $\Delta \widehat{q}_{\text{min}} \sim 1/L$. 
+Referring to Figure \ref{fig:expGeometry}, the coarsest spacings \corr{between the spatial frequency samples} occur at small scattering angles and is inversely proportional to the field of view $L$, or $\Delta \widehat{q}_{\text{min}} \sim 1/L$. 
 
 The sampling ratio of the diffraction speckle is defined as:
 \begin{equation}
@@ -380,10 +380,15 @@ Combining the two and simplifying, we get the solid angle subtended by the squar
 \Delta \Omega = \cos(\theta) \Delta \phi \Delta \theta = \frac{l_D^2\, z_D}{R^3} =  \frac{l_D^2\, z_D}{\left( x^2 + y^2 + z_D^2\right)^{3/2}} \; .
 \end{equation}
 
-Consider the case when the incident beam is polarized along the $\hat{x}$ direction in Figure \ref{fig:solidAngle}. This polarization reduces the scattered intensity by a factor $P$ which depends on the scattering angle $\theta$. The scattered intensity is reduced by $P = \cos^2 \theta$ as the plane of scattering is parallel to the polarization, while it is unchanged as the plane of scattering is perpendicular to the polarization. Suppose the plane of scattering has angle $\gamma$ to the polarization. The polarization factor P is thus given by
+Consider the case when the incident beam is polarized along the $\hat{x}$ direction in Figure \ref{fig:solidAngle}. This polarization reduces the scattered intensity by a factor $P$ that depends on the scattering angle $\theta$. The scattered intensity is reduced by $P = \cos^2 \theta$ as the plane of scattering is parallel to the polarization, while it is unchanged as the plane of scattering is perpendicular to the polarization. When the beam is x-polarized, the polarization factor P at the pixel with coordinate (x, y, z) is given by
 \begin{equation}
-	P = \cos^2 \gamma  \cos^2 \theta + \sin^2 \gamma\;.
-\end{equation} 
+	P = \cos^2 \theta \frac{x^2}{x^2+y^2}+ \frac{y^2}{x^2+y^2}.
+\end{equation}
+Similarly,
+\begin{equation}
+	P = \cos^2 \theta \frac{y^2}{x^2+y^2}+ \frac{x^2}{x^2+y^2}
+\end{equation}
+as the beam is y-polarized. The polarization factor becomes isotropic when the beam is unpolarized, which is given by the familiar expression in crystallography: $P = (1+\cos^2\theta)/2$.
 
  %-------------------------------------------------------------------------
 \section{Pattern-wise intensity scale factor updates}\label{sec:rescaling}
@@ -618,7 +623,7 @@ max. quaternion sampling\footnote{Sampling and criterion defined in Appendix C a
 
  %-------------------------------------------------------------------------
 \begin{figure}
-\caption{Rotation group refinement for a simulated reconstruction of TMV at the CXI endstation (see Table \ref{table:simParams}). Shown here are the central sections of the reconstructed 3D diffraction volume of TMV after 55 iterations. With 90 Intel Xeon X7542 (2.67 GHz) cores this full reconstruction took less than 6 hours, spending 15 minutes for each of the slowest refinement iterations using 204,960 rotation group samples. Red dashed lines in the r.m.s. model change mark when the refinement level of the rotation group was increased by one. ({\bf Bottom right plot}) Rows are colored by each photon pattern's most likely orientation number, which stabilizes after twenty iterations and thereafter quickly re-stabilizes when we increase the rotation group refinement. Since the number of quaternions increase with rotation refinement, blocks of higher refinement show a wider color spectrum. See Section ~\ref{subsec:quatRefine} for details.}
+\caption{Rotation group refinement for a simulated reconstruction of TMV at the CXI endstation (see Table \ref{table:simParams}). Shown here are the central sections of the reconstructed 3D diffraction volume of TMV after 55 iterations. With 90 Intel Xeon X7542 (2.67 GHz) cores this full reconstruction took less than 6 hours, spending 15 minutes for each of the slowest refinement iterations using 204,960 rotation group samples. Red dashed lines in the r.m.s. model change mark when the refinement level of the rotation group was increased by one. ({\bf Bottom right plot}) Rows are colored by each photon pattern's most likely orientation number, which stabilizes after twenty iterations and thereafter quickly re-stabilizes when we increase the rotation group refinement. \corr{The rows (pattern indices) are sorted according the most-likely orientation indices of the last iteration in each rotation-sampling block, which produces a smooth color spectrum along a column.} Since the number of quaternions increase with rotation refinement, blocks of higher refinement show a wider color spectrum. See Section ~\ref{subsec:quatRefine} for details.}
 \includegraphics[width=\textwidth]{figures/cxi_intens_055.png} \label{fig:cxi_intens}
 \includegraphics[width=\textwidth]{figures/cxi_log_fig.png} \label{fig:cxi_log}
 \end{figure}
