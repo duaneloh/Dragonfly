@@ -121,9 +121,9 @@ Single Particle Imaging (SPI) with X-ray Free-Electron Lasers (XFELs) has the po
 
 By now the defining characteristics of an SPI experiment are well known \cite{Neutze2000}: collect individual noisy diffraction patterns from very many reasonably identical copies of a particle, injected with unknown orientations into a pulsed x-ray beam. The Expand-Maximize-Compress (EMC) algorithm \cite{loh2009} was developed specifically for processing SPI data sets. It was designed to take advantage of all the available information in these experiments while also scaling well computationally. To get a better sense of the information processing advantages of EMC, we briefly contrast it with two alternative methods that have been proposed.
 
-Manifold embedding methods \cite{Schwander2012} try to find a consistent set of particle orientations by identifying similar pairs of diffraction patterns that establish an adjacency network for embedding into the space of orientations. Nowhere does this method impose consistency between the many more pairs of diffraction patterns that are not similar. By contrast, EMC imposes consistency between each diffraction pattern and a 3D intensity model built from a tentative orientation reconstruction of \textit{all} the patterns.
+Manifold embedding methods \cite{Fung:2008jq, Schwander2012} try to find a consistent set of particle orientations by identifying pairs of similar diffraction patterns that establish an adjacency network for embedding into the space of orientations. Nowhere does this method impose consistency between the many more pairs of diffraction patterns that are not similar. By contrast, EMC imposes consistency between each diffraction pattern and a 3D intensity model built from a tentative orientation reconstruction of \textit{all} the patterns.
 
-Intensity cross-correlation methods offer another approach for deriving structure from un-oriented particle ensembles \cite{Kam1977, Saldin2010}. These methods work best when the x-ray flux passes through the fewest number of particles. However, in the single particle limit these methods work at an enormous information deficit relative to EMC. That is because EMC uses the correlated arrangement of \textit{all} 100-1000 photons in a typical diffraction pattern rather than just the correlations among pairs.
+Intensity cross-correlation methods offer another approach for deriving structure from un-oriented particle ensembles \cite{Kam1977, Saldin2010, Donatelli:2015hm}. These methods work best when the x-ray flux passes through the fewest number of particles. However, in the single particle limit these methods work at an enormous information deficit relative to EMC. That is because EMC uses the correlated arrangement of \textit{all} 100-1000 photons in a typical diffraction pattern rather than just the correlations among pairs.
 
 While EMC is just beginning to be used for SPI of bio-particles, it has been field-tested in a number of proof-of-principle experiments \cite{philipp2012,ayyer2014,ayyer2015a,wierman2016}. \corr{The most significant feature of these experiments is the demonstration that EMC's probabilistic modeling of the detector photon counts continues to be valid even when the counts per scattering pattern are extremely sparse.} Recording highly sparse data, with the hope that it reveals structure, will require a leap of faith on the part of structural biologists. Our EMC software package comes with tools to make that leap less blind for new users.
 
@@ -137,7 +137,7 @@ This software package uses the EMC algorithm to reconstruct a 3D diffraction vol
 
 \subsection{Key parameters in single particle imaging}\label{sec:expParams}
 
-The key parameters of an SPI experiment are illustrated in Figure \ref{fig:expGeometry}, which include the photon wavelength $\lambda$ and the maximum scattering angle $\phi_{\text{max}}$. These parameters determine the half period resolution $a$ of the reconstructed electron density map. Together with the beam fluence, these parameters can help one decide if a candidate scatterer can yield enough diffraction signal to the desired resolution. These parameters are revisited in Section \ref{subsubsec:config}.
+The key parameters of an SPI experiment are illustrated in Figure \ref{fig:expGeometry}, which include the photon wavelength $\lambda$ and the maximum scattering angle $\phi_{\text{max}}$. These parameters determine the \corr{half-period} resolution $a$ of the reconstructed electron density map. Together with the beam fluence, these parameters can help one decide if a candidate scatterer can yield enough diffraction signal to the desired resolution. These parameters are revisited in Section \ref{subsubsec:config}.
 
 Throughout this document, we adopt the crystallographers' convention for the spatial frequency 
 \begin{equation}
@@ -186,15 +186,15 @@ The most time-consuming step of each iteration is the calculation of Eq. \eqref{
 
 In many experimental situations, the incident fluence varies between x-ray pulses. Thus, the tomograms would be scaled differently for each pattern \cite{loh2010,ekeberg2015}. One can enable the recovery of these scale factors using the update rule described in Appendix~\ref{sec:rescaling}. 
 
-We also find that if the signal is too strong, and when rotation group sampling is too fine or data is too few, reconstructions get stuck in local maxima in which all frames are assigned the same orientation and overlap with each other in reciprocal space. This effect is similar to what is observed if the background is too high~\cite{ayyer2015}. Such reconstructions, however, are empirically stable around the true solution, $W^{\text{true}}$, and only gets trapped when one starts from random initial guesses. This problem can be avoided by using the deterministic annealing variant of expectation maximization ~\cite{ueda1998}. In the EMC case, this is implemented by raising $R_{dr}$ calculated in Eq. \eqref{eqn:probnumr} to a small power $\beta$, and then normalizing similar to Eq. \eqref{eqn:prob}:
-$ P_{dr} = R_{dr}^\beta / \sum\limits_r R_{dr}^\beta}$.
+We also find that if the signal is too strong, and when rotation group sampling is too fine or data is too few, reconstructions get stuck in local maxima in which all frames are assigned the same orientation and overlap with each other in reciprocal space. This effect is similar to what is observed if the background is too high~\cite{ayyer2015}. Such reconstructions, however, are empirically stable around the true solution, $W^{\text{true}}$, and only \corr{get} trapped when one starts from random initial guesses. This problem can be avoided by using the deterministic annealing variant of expectation maximization ~\cite{ueda1998}. In the EMC case, this is implemented by raising $R_{dr}$ calculated in Eq. \eqref{eqn:probnumr} to a small power $\beta$, and then normalizing similar to Eq. \eqref{eqn:prob}:
+\corr{$ P_{dr} = R_{dr}^\beta / \sum\limits_r R_{dr}^\beta}$.}
 This has a regularizing effect of broadening the orientation distribution and results in a rotationally blurred, but stable reconstruction. Once a metastable model intensities is resolved, the power $\beta$ can then be raised gradually in a manner similar to simulated annealing to slowly guide the reconstruction to the true global maxima around $W^{\text{true}}$. An example of this is shown in Section~\ref{subsec:regularization}, and \corr{elaborated in a plausibility argument in appendix \ref{sec:stability}}. 
 
 \subsection{Modules and convenience utilities}\label{subsec:mod+utils}
 
 The modules and utilities here are either written in C or Python (files with $*.py$ extensions). For system requirements to run the code, see Section~\ref{sec:access}.
 
-\subsubsection{Modules}\label{subsubsec:mods}
+\subsubsection{Simulation modules.}\label{subsubsec:mods}
 Here are the essential modules for simulating a data stream from a single-particle imaging experiment. By default, these modules use parameters listed in a single \texttt{config.ini} configuration file, although different modules can use different configuration files as well.
 
 \begin{enumerate}
@@ -205,13 +205,17 @@ Here are the essential modules for simulating a data stream from a single-partic
 \item{\bf make\_quaternion}. Creates a list of quasi-uniform rotation group samples based on a refinement scheme of the 600-cell, as described in \citeasnoun{loh2009}. These samples are used by the {\bf emc} reconstruction algorithm, as instructed by the \texttt{config.ini} configuration file.
 \end{enumerate}
 
-\subsubsection{Convenience utilities}\label{subsubsec:utils}
+\subsubsection{The {\bf emc} executable.}\label{subsubsec:emc_mod}
+This executable is the heart of this software package, which reconstructs a 3D diffraction volume from data. From Figure \ref{fig:simFlowchart} and \ref{fig:expFlowchart}, we see that data from either simulation or experiment workflows all converge into the {\bf emc} executable. This executable is implemented in the programming language \texttt{C}, using both the MPI and OpenMP parallelization frameworks. This hybrid implementation means that the user could choose to activate either or both types of parallelization. For example, one could run 5 iterations of a single-threaded single-process reconstruction using the command \texttt{./emc -t 1 5}; omitting the \texttt{-t 1} option above uses the maximum available number of threads under OpenMP typically specified by the shell variable \texttt{OMP\_NUM\_THREADS}. For a purely MPI version with 16 processes on the same node:  \texttt{mpirun -np 16 ./emc -t 1 5}. And finally, to run a hybrid version with the maximum available number of threads on 6 nodes: \texttt{mpirun -np 6 -H <hostnames> ./emc 5} where \texttt{<hostnames>} is a comma-separated list of names of the nodes to be run on. Note that with OpenMPI 1.7+, one should use the \texttt{--bind-to none} option to make sure all cores in a thread are used. Other bindings can be used depending on the architecture of the machines. 
+
+
+\subsubsection{Convenience utilities.}\label{subsubsec:utils}
 Several convenience utilities are included to help prepare the data for or view the results from the EMC reconstruction algorithm. The functions of these utilities, which are non-essential for the reconstruction be easily substituted, are briefly described here. 
 \begin{enumerate}
 \item{\bf init\_new\_recon.py.} This Python utility compiles the C executables in the package, and makes them and the rest of the utilities available in a newly initialized reconstruction sub-directory. Alternatively, a Makefile is also included for users who would like to customize this compilation.
 \item{\bf sim\_setup.py.} This Python utility simulates an SPI data stream using the parameters listed in the configuration file. This utility, in turn, calls the following modules listed above: {\bf make\_densities.py}, {\bf make\_intensities.py}, {\bf make\_data.py}, and {\bf make\_quaternion}.
 \item{\bf make\_powder.py}. Makes a virtual powder pattern from a large stack of diffraction patterns stored in the sparse photon format adopted in this package.
-\item{\bf run\_emc.py}. Starts the EMC reconstruction by calling its MPI+OpenMP implementation in C. Includes a few convenience operations like calling the {\bf make\_quaternion} module to increase the sampling of the rotation group and registering this increase in the configuration file before starting a reconstruction.
+\item{\bf run\_emc.py}. Starts the EMC reconstruction by calling the MPI+OpenMP executable, {\bf emc}, listed in Section \ref{subsubsec:emc_mod}. Includes a few convenience operations like calling the {\bf make\_quaternion} module to increase the sampling of the rotation group and registering this increase in the configuration file before starting a reconstruction.
 \item{\bf autoplot.py}. Renders the results of the EMC reconstruction, including the diagnostics it generates, with the option of automatically updating the plots when newer intensities become available.
 \end{enumerate}
 
@@ -295,10 +299,12 @@ This is also useful for cases when the rotation group sampling is steadily incre
 \subsection{Strategies for reconstruction.} \label{subsec:strategy}
 
 \subsubsection{Gradually increasing rotation group sampling.} \label{subsec:quatRefine}
-For the CXI reconstruction (Figure ~\ref{fig:cxi_log}), due to the size of the problem, the quaternion sampling number was increased in steps. If one chooses too coarse a rotation group sampling, low resolution speckles get reconstructed but higher resolution features remain blurry. These higher resolution speckles quickly sharpen when we increase the rotation group sampling for reconstructions starting from this blurry model. Since the computation time scales as the number of rotation group samples, it is faster to slowly increase rotation group sampling such that only a few iterations are performed with the most time-consuming but finest sampling. Red dashed lines in the bottom plots of Figure ~\ref{fig:cxi_log} indicate iterations where the rotation group refinement level was gradually increased from 10 to 16 (details in Table \ref{table:simParams}). Note that the mutual information does not increase much in the last rotation group refinement, indicating that further refinement would not substantially improve model likelihood.
+For the CXI reconstruction (Figure ~\ref{fig:cxi_log}), due to the size of the problem, the quaternion sampling number was increased in steps. If one chooses too coarse a rotation group sampling, low resolution speckles get reconstructed but higher resolution features remain blurry. These higher resolution speckles quickly sharpen when we increase the rotation group sampling for reconstructions starting from this blurry model. Since the computation time scales as the number of rotation group samples, it is faster to slowly increase rotation group sampling such that only a few iterations are performed with the most time-consuming but finest sampling. Red dashed lines in the bottom plots of Figure ~\ref{fig:cxi_log} indicate iterations where the rotation group refinement level was gradually increased from 10 to 16 (details in Table \ref{table:simParams}). Note that the mutual information does not increase much in the last rotation group refinement, indicating that further refinement would not substantially improve model likelihood. \corr{The Python utility {\bf run\_emc.py} listed in Section \ref{subsubsec:utils} has a {\it`-R'} option for progressively increasing the rotation group sampling of a reconstruction.}
 
 \subsubsection{Regularization via deterministic annealing.} \label{subsec:regularization}
 For the high fluence AMO reconstruction (Figure ~\ref{fig:amo_high_log}), the situation is slightly different. As mentioned before when the patterns have very high signal to noise ratio, starting the algorithm from random initial models can cause the reconstruction to be trapped in local maxima.This can be avoided by starting with a low $\beta$ as described in Section~\ref{subsec:EMC}, which reduces the propensity for over-fitting at the start of the reconstruction. In this particular case $\beta$ was 0.001 for the first 10 iterations. Once this intermediate reconstruction converges, we gradually doubled $\beta$ every 10 iterations to restore the speckles to the highest contrast allowable by the data and likelihood model. The black dashed lines in Figure ~\ref{fig:amo_high_log} represent the iterations when $\beta$ was doubled. After 80 iterations, the rotation group refinement level was increased from 6 to 9, and continued for another 10 iterations (see Section \ref{subsec:quatRefine} for rotation group refinement). Evident in Figure ~\ref{fig:amo_high_log}, the speckle features in the reconstructed intensities sharpen when $\beta$ rises back near unity.
+
+In the software package, one can either increase $\beta$ manually after a few iterations and restart the reconstruction, or one can use the option \texttt{beta\_schedule}. This option takes two whitespace-separated number, \texttt{beta\_jump} and \texttt{beta\_period}. $\beta$ is multiplied by a factor of \texttt{beta\_jump} every \texttt{beta\_period} iterations.
 
      %-------------------------------------------------------------------------
      % Conclusions
@@ -347,7 +353,7 @@ The sampling ratio of the diffraction speckle is defined as:
 where $l_D$ is the width of the detector pixel, and $z_D$ is the separation between the detector and interaction region (see Figures \ref{fig:expGeometry} or \ref{fig:solidAngle}). While the ideal sampling ratio of the diffraction speckles should exceed two, the time and memory required for intensity reconstruction rises rapidly when this ratio becomes excessively large (e.g. $ \Delta \widehat{q} \,/\, \Delta \widehat{q}_{\text{min}} \gg 5$). 
 
  %-------------------------------------------------------------------------
-\section{Solid angle correction for square pixels on planar detectors}\label{sec:solidAngle}
+\section{Solid angle and polarization correction for square pixels on planar detectors}\label{sec:solidAngle}
 
 In this section we compute the solid angle $\Delta \Omega$ subtended by a square pixel of area $l_D \times l_D$ about the point where a scatterer sits (see Figure \ref{fig:solidAngle}). To first approximation, the solid angle $\Delta \Omega \sim \cos(\theta) \Delta \phi \cdot \Delta \theta$. We use the following relations to estimate  $\Delta \phi$ and $\Delta \theta$. On a detector $z_D$ from the interaction point, we consider a pixel at position $\{x,y,z_D\}$ in its spherical coordinate representation:
 \begin{equation}
@@ -371,6 +377,11 @@ Combining the two and simplifying, we get the solid angle subtended by the squar
 \Delta \Omega = \cos(\theta) \Delta \phi \Delta \theta = \frac{l_D^2\, z_D}{R^3} =  \frac{l_D^2\, z_D}{\left( x^2 + y^2 + z_D^2\right)^{3/2}} \; .
 \end{equation}
 
+Consider the case when the incident beam is polarized along the $\hat{x}$ direction in Figure \ref{fig:solidAngle}. This polarization reduces the scattered intensity by a factor $P$ which depends on the scattering angle $\theta$. The scattered intensity is reduced by $P = \cos^2 \theta$ as the plane of scattering is parallel to the polarization, while it is unchanged as the plane of scattering is perpendicular to the polarization. Suppose the plane of scattering has angle $\gamma$ to the polarization. The polarization factor P is thus given by
+\begin{equation}
+	P = \cos^2 \gamma  \cos^2 \theta + \sin^2 \gamma\;.
+\end{equation} 
+
  %-------------------------------------------------------------------------
 \section{Pattern-wise intensity scale factor updates}\label{sec:rescaling}
 In many real world applications, the incident fluence on each particle will be different. The original implementation of EMC in \citeasnoun{loh2009} assumes uniform incident fluence. Here we derive the likelihood maximizing update rule employed in this package when the \texttt{need\_scaling} option is turned on. The approach used is similar to that employed in \citeasnoun{loh2010}, except here we use a Poisson rather than Gaussian probability model. Let $\phi_d$ be a scale factor which is proportional to the fluence incident on the particle in pattern $d$. Thus, Eq.~\eqref{eqn:prob} and Eq.~\eqref{eqn:probnumr} become,
@@ -379,7 +390,7 @@ P_{dr} &= \frac{R_{dr}}{\sum\limits_r R_{dr}} \\
 \mathrm{and }\;R_{dr} &= \prod_t \frac{(W_{rt}\phi_d)^{K_{dt}} e^{-W_{rt}\phi_d}}{K_{dt}!}.
 \end{align}
 In expectation maximization, one updates the intensity tomograms, $W'$, and fluence, $\phi'$, by maximizing the model log-likelihood
-\[Q(W', \phi') = \sum_d \sum_r \sum_t P_{dr} \left[K_{dt}\log(W'_{rt} \phi'_d) - W'_{rt} \phi'_d\right].\]
+\[Q(W', \phi'; W, \phi) = \sum_d \sum_r \sum_t P_{dr} \left[K_{dt}\log(W'_{rt} \phi'_d) - W'_{rt} \phi'_d\right].\]
 Here, $P_{dr}$ are the probabilities calculated using the current models $W$ and $\phi$. Unfortunately, an analytical update rule that simultaneously updates both these quantities is not available. Instead, we use the strategy of updating one while keeping the other constant. Setting partial derivatives with respect to $W'$ and $\phi'$ equal to zero, we obtain
 \begin{align}
 W'_{rt} &= \frac{\sum\limits_d P_{dr} K_{dt}}{\sum\limits_d P_{dr} \phi_d} \\
@@ -389,7 +400,26 @@ This modification to the update rule in Eq.~\eqref{eqn:wupdate} is used when the
 
  %-------------------------------------------------------------------------
 \section{Mapping the detector onto the Ewald sphere}\label{sec:detector}
-Insert text.
+We outline how pixels depicted in Figure \ref{fig:solidAngle} is mapped onto the Ewald sphere during elastic scattering. Suppose the incident x-ray beam travels along the $\{0,0,\hat{z}\}$ direction, comprising photons of wavelength $\lambda$. This direct, unscattered beam has spatial frequency (crystallographer's convention)
+\begin{equation}
+\mathbf{q}_0 = \{0,0,\frac{1}{\lambda}}\} \;.
+\label{eqn:q0}
+\end{equation}
+Now consider a single pixel on the detector placed $\{x,y,z_D\}$ away from a scatterer in a Cartesian coordinate system in a laboratory. An elastically scattered photon recorded on this pixel has spatial frequency 
+\begin{equation}
+\mathbf{q}_{\text{pix}} = \frac{1}{\lambda} \frac{\{x,y,z_D\}}{\sqrt{x^2 + y^2 + z_D^2}} \;.
+\label{eqn:q1}
+\end{equation}
+Hence this pixel measures the diffraction intensities of the scatterer at spatial frequency
+\begin{equation}
+\mathbf{\widehat{q}}_{\text{pix}} = \mathbf{q}_{\text{pix}} - \mathbf{q}_0 = \frac{1}{\lambda} \left( \frac{\{x,y,z_D\}}{\sqrt{x^2 + y^2 + z_D^2}} - \{0,0,1\} \right) \;.
+\label{eqn:qdiff}
+\end{equation}
+Pixels on a planar detector will be mapped onto a curved surface that intersects the zero spatial frequency of this set of diffraction intensities. 
+
+The mapping in Eq. \eqref{eqn:qdiff} applies to any arbitrary set of pixels, each with their own $\{x,y,z_D\}$ values even if they span several non-contiguous, detector tiles with custom gaps or missing regions. In general, the EMC algorithm permits such arbitrary collection of pixels as long as they are properly specified in the \texttt{detector.dat} file. However, iterative phase retrieval for single-particle imaging may suffer if a collection of such pixels do not sufficiently span the desired spatial frequency range.
+ 
+Finally, the pixel in Figure \ref{fig:solidAngle} may actually be a collection of pixels binned as an effective `super-pixel'. This provision is useful when working with experimental data collected with overly redundant speckle oversampling. Here down-sampling or binning pixels to create larger `super-pixels' can be more compute- and memory-efficient. 
 
  %-------------------------------------------------------------------------
 \section{\corr{Instability due to overfitting}}\label{sec:stability}
