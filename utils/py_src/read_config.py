@@ -88,7 +88,7 @@ def compute_polarization(polarization, qx, qy, norm):
     elif polarization.lower() == 'y':
         return 1. - (qy*qy)/(norm*norm)
     elif polarization.lower() == 'none':
-        return 1.
+        return 1. - (qx*qx + qy*qy)/(2*norm*norm)
     else:
         #print 'Please set the polarization direction as x, y or none!'
         logging.info('Please set the polarization direction as x, y or none!')

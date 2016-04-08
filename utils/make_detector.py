@@ -31,12 +31,12 @@ if __name__ == "__main__":
         (x, y)      = (x.flatten()-det_cen_x, y.flatten()-det_cen_y)
         (qx, qy)    = (pm['pixsize']*x, pm['pixsize']*y)
         norm        = np.sqrt(qx*qx + qy*qy + pm['detd']*pm['detd'])
-        polar       = read_config.compute_polarization(pm['polarization'], qx, qy, norm)
         (qx, qy)    = (qx*qscaling/norm, qy*qscaling/norm)
         qz          = qscaling*(pm['detd']/norm - 1.)
         qx         *= pm['qscale'] * pm['pixsize'] / pm['detd']
         qy         *= pm['qscale'] * pm['pixsize'] / pm['detd']
         qz         *= pm['qscale'] * pm['pixsize'] / pm['detd']
+        polar       = read_config.compute_polarization(pm['polarization'], qx, qy, norm)
         logging.info('{:<15}:{:10.4f}'.format('qmax', np.sqrt(qx*qx + qy*qy + qz*qz).max()))
         solid_angle = pm['detd']*(pm['pixsize']*pm['pixsize']) / np.power(norm, 3.0)
         solid_angle = polar*solid_angle
