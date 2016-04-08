@@ -10,16 +10,20 @@ from py_src import read_config
 import matplotlib.pyplot as plt
 import Tkinter as Tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import matplotlib.gridspec as gridspec
-import matplotlib.patches as patches
 
 class Frameviewer():
-    def __init__(self, master, photons_list, frame_shape, cmap='jet'):
+    def __init__(self, master, photons_list, frame_shape, cmap='jet', mask=None):
         self.master = master
         self.photons_list = photons_list
         self.num_files = len(photons_list)
         self.frame_shape = frame_shape
         self.cmap = cmap
+        if mask == None:
+            self.mask = np.ones(self.frame_shape)
+        else:
+            self.mask = np.fromfile(mask, '=u1').reshape(self.frame_shape)
+            self.mask[self.mask==0] = 1
+            self.mask[self.mask==2] = 0
         
         self.numstr = Tk.StringVar(); self.numstr.set(str(0))
         self.rangestr = Tk.StringVar(); self.rangestr.set(str(10))
@@ -59,13 +63,15 @@ class Frameviewer():
         Tk.Button(line, text='Plot', command=self.plot_frame).pack(side=Tk.LEFT)
         Tk.Button(line, text='Prev', command=self.prev_frame).pack(side=Tk.LEFT)
         Tk.Button(line, text='Next', command=self.next_frame).pack(side=Tk.LEFT)
-        Tk.Button(line, text='Rand', command=self.rand_frame).pack(side=Tk.LEFT)
+        Tk.Button(line, text='Random', command=self.rand_frame).pack(side=Tk.LEFT)
+        Tk.Button(line, text='Quit', command=self.quit).pack(side=Tk.RIGHT)
         
         self.master.bind('<Return>', self.plot_frame)
         self.master.bind('<KP_Enter>', self.plot_frame)
         self.master.bind('<Control-n>', self.next_frame)
         self.master.bind('<Control-p>', self.prev_frame)
         self.master.bind('<Control-r>', self.rand_frame)
+        self.master.bind('<Control-q>', self.quit)
         self.master.bind('<Up>', self.next_frame)
         self.master.bind('<Down>', self.prev_frame)
         
@@ -125,7 +131,7 @@ class Frameviewer():
         np.add.at(frame, (self.x[place_ones], self.y[place_ones]), 1)
         np.add.at(frame, (self.x[place_multi], self.y[place_multi]), count_multi)
         
-        return frame
+        return frame * self.mask
 
     def plot_frame(self, event=None):
         num = int(self.numstr.get())
@@ -161,10 +167,14 @@ class Frameviewer():
         num = np.random.randint(0, self.num_frames)
         self.numstr.set(str(num))
         self.plot_frame()
+    
+    def quit(self, event=None):
+        self.master.quit()
 
 if __name__ == '__main__':
-    parser = py_utils.my_argparser(description='make detector')
+    parser = py_utils.my_argparser(description='Utility for viewing frames of the emc file (list)')
     parser.add_argument('--cmap', help='Matplotlib color map (default: jet)')
+    parser.add_argument('--mask', help='Name of mask file of type uint8 (default: None)')
     args = parser.special_parse_args()
     
     try:
@@ -172,7 +182,7 @@ if __name__ == '__main__':
         print 'Using in_photons_file: %s' % pfile
         photons_list = [pfile]
     except ConfigParser.NoOptionError:
-        plist = read_config.get_filename(args.config_file, 'emc', 'in_photon_list')
+        plist = read_config.get_filename(args.config_file, 'emc', 'in_photons_list')
         print 'Using in_photons_list: %s' % plist
         with open(plist, 'r') as f:
             photons_list = map(lambda x: x.rstrip(), f.readlines())
@@ -180,5 +190,5 @@ if __name__ == '__main__':
     pm = read_config.get_detector_config(args.config_file, show=args.vb)
     
     root = Tk.Tk()
-    Frameviewer(root, photons_list, (pm['dets_x'], pm['dets_y']), cmap=args.cmap)
+    Frameviewer(root, photons_list, (pm['dets_x'], pm['dets_y']), cmap=args.cmap, mask=args.mask)
     root.mainloop()

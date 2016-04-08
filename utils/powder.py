@@ -9,7 +9,7 @@ from py_src import read_config
 
 if __name__ == "__main__":
     # Read detector and photons file from config
-    parser = py_utils.my_argparser(description="make detector")
+    parser = py_utils.my_argparser(description="Generate virtual powder pattern")
     args = parser.special_parse_args()
 
     try:
