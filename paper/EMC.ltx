@@ -235,7 +235,7 @@ The basic parameters of the experiment are:
 \item \texttt{detsize}: Detector size (assuming square detector) in pixels.
 \item \texttt{pixsize}: Pixel size in mm.
 \item \texttt{stoprad}: Radius of beamstop in pixels.
-\item \texttt{polarization}: Polarization direction of the x-ray pulses (can be x, y, or none).
+\item \texttt{polarization}: Polarization direction of the x-ray pulses (can be x, y, or none). 
 \end{itemize}
 
 
@@ -358,7 +358,7 @@ where $l_D$ is the width of the detector pixel, and $z_D$ is the separation betw
  %-------------------------------------------------------------------------
 \section{Solid angle and polarization correction for square pixels on planar detectors}\label{sec:solidAngle}
 
-In this section we compute the solid angle $\Delta \Omega$ subtended by a square pixel of area $l_D \times l_D$ about the point where a scatterer sits (see Figure \ref{fig:solidAngle}). To first approximation, the solid angle $\Delta \Omega \sim \cos(\theta) \Delta \phi \cdot \Delta \theta$. We use the following relations to estimate  $\Delta \phi$ and $\Delta \theta$. On a detector $z_D$ from the interaction point, we consider a pixel at position $\{x,y,z_D\}$ in its spherical coordinate representation:
+\subsection{Solid angle correction.} In this section we compute the solid angle $\Delta \Omega$ subtended by a square pixel of area $l_D \times l_D$ about the point where a scatterer sits (see Figure \ref{fig:solidAngle}). To first approximation, the solid angle $\Delta \Omega \sim \cos(\theta) \Delta \phi \cdot \Delta \theta$. We use the following relations to estimate  $\Delta \phi$ and $\Delta \theta$. On a detector $z_D$ from the interaction point, we consider a pixel at position $\{x,y,z_D\}$ in its spherical coordinate representation:
 \begin{equation}
 \sin (\phi) = y /\rho , \qquad \cos(\phi) = z_D / \rho \;,  
 \end{equation}
@@ -380,15 +380,15 @@ Combining the two and simplifying, we get the solid angle subtended by the squar
 \Delta \Omega = \cos(\theta) \Delta \phi \Delta \theta = \frac{l_D^2\, z_D}{R^3} =  \frac{l_D^2\, z_D}{\left( x^2 + y^2 + z_D^2\right)^{3/2}} \; .
 \end{equation}
 
-Consider the case when the incident beam is polarized along the $\hat{x}$ direction in Figure \ref{fig:solidAngle}. This polarization reduces the scattered intensity by a factor $P$ that depends on the scattering angle $\theta$. The scattered intensity is reduced by $P = \cos^2 \theta$ as the plane of scattering is parallel to the polarization, while it is unchanged as the plane of scattering is perpendicular to the polarization. When the beam is x-polarized, the polarization factor P at the pixel with coordinate (x, y, z) is given by
+\subsection{Polarization correction.}  \corr{Consider the case when the incident beam is polarized along the $\hat{x} = \{1,0,0\}$ direction in Figure \ref{fig:solidAngle}. This polarization reduces the scattered intensity by a factor $P = 1 - \left| \hat{x} \cdot \hat{v}(x,y,z_D) \right|^2$, where $\hat{v}(x,y,z_D)$ is the unit-norm vector from the scatterer (at $\{0,0,0\}$) to the pixel located at $\{x,y,z_D\}$. Notice, that we can also write $P = \cos{\theta}^2$, or if entirely in the terms of $x,y,z_D$: 
 \begin{equation}
-	P = \cos^2 \theta \frac{x^2}{x^2+y^2}+ \frac{y^2}{x^2+y^2}.
+	P_x = 1 - \frac{x^2}{x^2+y^2+z_D^2}\;.
 \end{equation}
-Similarly,
+Similarly, when the beam is polarized along the $\hat{y}$ direction, 
 \begin{equation}
-	P = \cos^2 \theta \frac{y^2}{x^2+y^2}+ \frac{x^2}{x^2+y^2}
+	P_y = 1 - \frac{y^2}{x^2+y^2+z_D^2}\;.
 \end{equation}
-as the beam is y-polarized. The polarization factor becomes isotropic when the beam is unpolarized, which is given by the familiar expression in crystallography: $P = (1+\cos^2\theta)/2$.
+We can add these two polarization factors together when the beam is unpolarized, where one recovers the familiar polarization correction in crystallography: $P_{\text{unpolarized}} = (1+\cos^2\theta)/2 = \left(1+z_D^2/(x^2 + y^2 + z_D^2)\right)/2$.}
 
  %-------------------------------------------------------------------------
 \section{Pattern-wise intensity scale factor updates}\label{sec:rescaling}
