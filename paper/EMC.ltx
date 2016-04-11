@@ -53,7 +53,7 @@
      % The title of the paper. Use \shorttitle to indicate an abbreviated title
      % for use in running heads (you will need to uncomment it).
 
-\title{The Expand-Maximize-Compress Single Particle Imaging Algorithm}
+\title{Dragonfly: the Expand-Maximize-Compress Single Particle Imaging Algorithm}
 %\shorttitle{Short Title}
 
      % Authors' names and addresses. Use \cauthor for the main (contact) author.
@@ -105,7 +105,7 @@ Description of a single-particle X-ray imaging reconstruction and simulation pac
 \end{synopsis}
 
 \begin{abstract}
-Single Particle Imaging (SPI) with X-ray Free-Electron Lasers (XFELs) has the potential of  fundamentally changing how bio-macromolecules are imaged. Structure would be derived from millions of diffraction patterns, each from a different copy of the macromolecule before it is torn apart by radiation damage. The challenges posed by the resultant data stream is staggering: millions of incomplete, noisy and un-oriented patterns have to be computationally assembled into a 3D intensity map and then phase reconstructed. In this paper, we describe a software package based on a parallel implementation of the Expand-Maximize-Compress reconstruction algorithm that is well suited for this task. An auxiliary package to simulate SPI data streams is also included for assessing the feasibility of proposed SPI experiments at the Linac Coherent Light Source.
+Single Particle Imaging (SPI) with X-ray Free-Electron Lasers (XFELs) has the potential of  fundamentally changing how bio-macromolecules are imaged. Structure would be derived from millions of diffraction patterns, each from a different copy of the macromolecule before it is torn apart by radiation damage. The challenges posed by the resultant data stream is staggering: millions of incomplete, noisy and un-oriented patterns have to be computationally assembled into a 3D intensity map and then phase reconstructed. In this paper, we describe the {\it Dragonfly} software package based on a parallel implementation of the Expand-Maximize-Compress reconstruction algorithm that is well suited for this task. Auxiliary modules to simulate SPI data streams is also included for assessing the feasibility of proposed SPI experiments at the Linac Coherent Light Source.
 \end{abstract}
 
 
@@ -125,15 +125,15 @@ Manifold embedding methods \cite{Fung:2008jq, Schwander2012} try to find a consi
 
 Intensity cross-correlation methods offer another approach for deriving structure from un-oriented particle ensembles \cite{Kam1977, Saldin2010, Donatelli:2015hm}. These methods work best when the x-ray flux passes through the fewest number of particles. However, in the single particle limit these methods work at an enormous information deficit relative to EMC. That is because EMC uses the correlated arrangement of \textit{all} 100-1000 photons in a typical diffraction pattern rather than just the correlations among pairs.
 
-While EMC is just beginning to be used for SPI of bio-particles, it has been field-tested in a number of proof-of-principle experiments \cite{philipp2012,ayyer2014,ayyer2015a,wierman2016}. \corr{The most significant feature of these experiments is the demonstration that EMC's probabilistic modeling of the detector photon counts continues to be valid even when the counts per scattering pattern are extremely sparse.} Recording highly sparse data, with the hope that it reveals structure, will require a leap of faith on the part of structural biologists. Our EMC software package comes with tools to make that leap less blind for new users.
+While EMC is just beginning to be used for SPI of bio-particles, it has been field-tested in a number of proof-of-principle experiments \cite{philipp2012,ayyer2014,ayyer2015a,wierman2016}. \corr{The most significant feature of these experiments is the demonstration that EMC's probabilistic modeling of the detector photon counts continues to be valid even when the counts per scattering pattern are extremely sparse.} Recording highly sparse data, with the hope that it reveals structure, will require a leap of faith on the part of structural biologists. Our EMC-based software package comes with tools to make that leap less blind for new users.
 
      %-------------------------------------------------------------------------
      % Purpose and structure of this package
      %-------------------------------------------------------------------------
 
-\section{Purpose and structure of this package}\label{sec:package}
+\section{Purpose and structure of {\it Dragonfly}}\label{sec:package}
 
-This software package uses the EMC algorithm to reconstruct a 3D diffraction volume from noisy, randomly-oriented single particle diffraction (SPI) patterns. These patterns could be from simulations or actual single-particle experiments. Although this package includes a data stream generator that feeds data into the EMC reconstruction algorithm, the algorithm can also take data from physical experiments as long as the input/output formats specified here are used.
+This software package, \corr{named {\it Dragonfly}}\footnote{The compound eyes of the dragonfly allows it to see nearly $4\pi$ in solid angle, and has reputably good vision for catching prey.}, uses the EMC algorithm to reconstruct a 3D diffraction volume from noisy, randomly-oriented single particle diffraction (SPI) patterns. These patterns could be from simulations or actual single-particle experiments. Although this package includes a data stream generator that feeds data into the EMC reconstruction algorithm, the algorithm can also take data from physical experiments as long as the input/output formats specified here are used.
 
 \subsection{Key parameters in single particle imaging}\label{sec:expParams}
 
@@ -145,13 +145,13 @@ Throughout this document, we adopt the crystallographers' convention for the spa
 \end{equation}
 A corrective factor is applied to compensate for different solid angles subtended by different pixels on the detector (Appendix \ref{sec:solidAngle}). 
 
-\subsection{Reconstruction workflows}\label{sec:dataStreamSim}
+\subsection{Reconstruction workflows in {\it Dragonfly}.}\label{sec:dataStreamSim}
 
-Whether the diffraction patterns are derived from simulations (Figure \ref{fig:simFlowchart}) or experiments (Figure \ref{fig:expFlowchart}), the minimum input to this reconstruction package are: a configuration file, a file containing detector coordinates plus pixel status, and a sparse representation of the photon data from diffraction patterns. 
+Whether the diffraction patterns are derived from simulations (Figure \ref{fig:simFlowchart}) or experiments (Figure \ref{fig:expFlowchart}), the minimum input \corr{to {\it Dragonfly}} are: a configuration file, a file containing detector coordinates plus pixel status, and a sparse representation of the photon data from diffraction patterns. 
 
-Modules in this package can be replaced by alternatives with compatible input and output data formats with other modules. In this package, binary files have extensions \texttt{*.bin} or \texttt{*.emc}; plain text files terminate with \texttt{*.log}, \texttt{*.dat}, or \texttt{*.ini}.
+Modules \corr{within the {\it Dragonfly}} package can be replaced by alternatives with compatible input and output data formats with other modules. In this package, binary files have extensions \texttt{*.bin} or \texttt{*.emc}; plain text files terminate with \texttt{*.log}, \texttt{*.dat}, or \texttt{*.ini}.
 
-\subsection{Implementing the EMC algorithm}\label{subsec:EMC}
+\subsection{Implementing the EMC algorithm.}\label{subsec:EMC}
 The EMC algorithm \cite{loh2009} \corr{is an iterative reconstruction algorithm} implemented here with hybrid MPI+OpenMP, and hence suitable for both shared and distributed memory systems. In this section, we describe this implementation and an extension to deal with high signal data. 
 
 In the current version, the code assumes a Poisson probability model for the number of photons in a pixel. 
@@ -188,14 +188,14 @@ In many experimental situations, the incident fluence varies between x-ray pulse
 
 We also find that if the signal is too strong, and when rotation group sampling is too fine or data is too few, reconstructions get stuck in local maxima in which all frames are assigned the same orientation and overlap with each other in reciprocal space. This effect is similar to what is observed if the background is too high~\cite{ayyer2015}. Such reconstructions, however, are empirically stable around the true solution, $W^{\text{true}}$, and only \corr{get} trapped when one starts from random initial guesses. This problem can be avoided by using the deterministic annealing variant of expectation maximization ~\cite{ueda1998}. In the EMC case, this is implemented by raising $R_{dr}$ calculated in Eq. \eqref{eqn:probnumr} to a small power $\beta$, and then normalizing similar to Eq. \eqref{eqn:prob}:
 \corr{$ P_{dr} = R_{dr}^\beta / \sum\limits_r R_{dr}^\beta}$.}
-This has a regularizing effect of broadening the orientation distribution and results in a rotationally blurred, but stable reconstruction. Once a metastable model intensities is resolved, the power $\beta$ can then be raised gradually in a manner similar to simulated annealing to slowly guide the reconstruction to the true global maxima around $W^{\text{true}}$. An example of this is shown in Section~\ref{subsec:regularization}, and \corr{elaborated in a plausibility argument in appendix \ref{sec:stability}}. 
+This has a regularizing effect of broadening the orientation distribution and results in a rotationally blurred, but stable reconstruction. Once a metastable model intensities is resolved, the power $\beta$ can then be raised gradually in a manner similar to simulated annealing to slowly guide the reconstruction to the true global maxima around $W^{\text{true}}$. An example of this is shown in Section~\ref{subsec:regularization}.
 
-\subsection{Modules and convenience utilities}\label{subsec:mod+utils}
+\subsection{Modules and convenience utilities.}\label{subsec:mod+utils}
 
 The modules and utilities here are either written in C or Python (files with $*.py$ extensions). For system requirements to run the code, see Section~\ref{sec:access}.
 
 \subsubsection{Simulation modules.}\label{subsubsec:mods}
-Here are the essential modules for simulating a data stream from a single-particle imaging experiment. By default, these modules use parameters listed in a single \texttt{config.ini} configuration file, although different modules can use different configuration files as well.
+Here are the essential modules for simulating a data stream from a single-particle imaging experiment. By default, these modules use parameters listed in a single \texttt{config.ini} configuration file, although different modules can use different configuration files as well. \corr{These modules can be either executed by the user or invoked by convenience utilities described in Section \ref{subsubsec:utils}. Users attempting the former are encouraged to study these convenience utilities.}
 
 \begin{enumerate}
 \item{\bf make\_detector.py.} Creates a detector file using the experimental parameters specified in the configuration file. The format of this file is specified in Section~\ref{subsubsec:detector}.
@@ -206,7 +206,7 @@ Here are the essential modules for simulating a data stream from a single-partic
 \end{enumerate}
 
 \subsubsection{The {\bf emc} executable.}\label{subsubsec:emc_mod}
-This executable is the heart of this software package, which reconstructs a 3D diffraction volume from data. From Figure \ref{fig:simFlowchart} and \ref{fig:expFlowchart}, we see that data from either simulation or experiment workflows all converge into the {\bf emc} executable. This executable is implemented in the programming language \texttt{C}, using both the MPI and OpenMP parallelization frameworks. This hybrid implementation means that the user could choose to activate either or both types of parallelization. For example, one could run 5 iterations of a single-threaded single-process reconstruction using the command \texttt{./emc -t 1 5}; omitting the \texttt{-t 1} option above uses the maximum available number of threads under OpenMP typically specified by the shell variable \texttt{OMP\_NUM\_THREADS}. For a purely MPI version with 16 processes on the same node:  \texttt{mpirun -np 16 ./emc -t 1 5}. And finally, to run a hybrid version with the maximum available number of threads on 6 nodes: \texttt{mpirun -np 6 -H <hostnames> ./emc 5} where \texttt{<hostnames>} is a comma-separated list of names of the nodes to be run on. Note that with OpenMPI 1.7+, one should use the \texttt{--bind-to none} option to make sure all cores in a thread are used. Other bindings can be used depending on the architecture of the machines. 
+\corr{This executable is the heart of the {\it Dragonfly} package, which reconstructs a 3D diffraction volume from data. From Figure \ref{fig:simFlowchart} and \ref{fig:expFlowchart}, we see that data from either simulation or experiment workflows all converge into the {\bf emc} executable. This executable is implemented in the programming language \texttt{C}, using both the MPI and OpenMP parallelization frameworks. This hybrid implementation means that the user could choose to activate either or both types of parallelization. For example, one could run 5 iterations of a single-threaded single-process reconstruction using the command \texttt{./emc -t 1 5}; omitting the \texttt{-t 1} option above uses the maximum available number of threads under OpenMP typically specified by the shell variable \texttt{OMP\_NUM\_THREADS}. For a purely MPI version with 16 processes on the same node:  \texttt{mpirun -np 16 ./emc -t 1 5}. And finally, to run a hybrid version with the maximum available number of threads on 6 nodes: \texttt{mpirun -np 6 -H <hostnames> ./emc 5} where \texttt{<hostnames>} is a comma-separated list of names of the nodes to be run on. Note that with OpenMPI 1.7+, one should use the \texttt{--bind-to none} option to make sure all cores in a thread are used. Other bindings can be used depending on the architecture of the machines. }
 
 
 \subsubsection{Convenience utilities.}\label{subsubsec:utils}
@@ -220,11 +220,11 @@ Several convenience utilities are included to help prepare the data for or view 
 \end{enumerate}
 
 
-\subsection{Configuration and data formats}\label{subsec:formats}
+\subsection{Configuration and data formats.}\label{subsec:formats}
 
 We outline only the data formats for the input and output in Figure \ref{fig:expFlowchart}. The formats for the data stream generator, which are auxiliary to the reconstruction algorithm, are detailed in the distributed software package. 
 
-\subsubsection{Configuration file}\label{subsubsec:config}
+\subsubsection{Configuration file.}\label{subsubsec:config}
 
 The plain-text configuration file contains parameters and file names to be used by the EMC reconstruction as well as the various modules/utilities. The file has the standard \texttt{key = value} format with the parameters for different modules grouped by module names in square brackets. There is a global \texttt{[parameters]} section containing information about the experimental setup. A typical configuration file is shown in Figure ~\ref{fig:config}, which corresponds to the first simulation case in Table \ref{table:simParams}. This default file also shows the use of special keywords used to point to other configuration file parameters (eg. \texttt{in\_photons\_file}). The \texttt{[parameters]} section is described below. For other sections, refer to the appropriate module in Section~\ref{subsec:mod+utils}.
 
@@ -250,7 +250,7 @@ The detector file is an ASCII (human readable) file which describes various prop
 
 \corr{The mapping of detector pixels to spatial frequencies is described in Appendix \ref{sec:detector}}. Although the pixels from the data stream simulation included here correspond to a dense planar detector (Figure \ref{fig:expGeometry}), these pixel locations can be arbitrary. However, a rule of thumb for SPI is that these pixels' locations, though arbitrary, should evenly populate a contiguous range of scalar spatial frequencies up to the desired resolution. This way, sufficiently many patterns that are oriented uniformly in orientation space and measured on these pixels should densely fill the desired 3D diffraction volume. \corr{Finally, we emphasize that the `spatial frequency lookup table' format of this detector file is convenient for compound detectors with gaps, missing tiles or comprising tiles placed at different distances from the sample. In these cases, special geometry consideration becomes unnecessary once the pixels on these non-contiguous detectors have been mapped onto the Ewald sphere in the detector file. Mapping to spatial frequencies in \texttt{detector.dat} is straightforward if a pixel location lookup table similar to that used in \citeasnoun{Barty:2014bi} were available.}
 
-\subsubsection{Photon file (emc format)}\label{subsubsec:emcformat}
+\subsubsection{Photon file (emc format).}\label{subsubsec:emcformat}
 Since the photon data in many high-resolution SPI experiments expect few photons per pattern, a sparse binary format is used to store the data. Hence, for each pattern we only store information about pixels that receive photons. Additionally, since most of the non-zero counts are ones, only their pixel locations are stored. For pixels receiving two or more photons, we store both their pixel location and photon count. 
 
 The data in the photon file are arranged in six blocks (Figure \ref{fig:dataFormat}). The file's header resides in the first block, which is 1024 bytes long. This begins with two 4-byte chunks: a 32-bit integer describing the number of patterns (\texttt{num\_data}) contained in the file, followed by another 32-bit integer for the number of pixels in each pattern. \corr{These pixels include all three pixel categories stated in Section \ref{subsubsec:detector}.} The next 1016 bytes are currently empty (filled with zeros).
@@ -267,7 +267,7 @@ The second block contains \texttt{num\_data} 32-bit integers giving the number o
      
 \section{Example reconstructions of simulated experiments}\label{sec:simulations}
 
-The use of our package is exemplified in three simulated single-particle imaging (SPI) reconstructions using the specifications of Atomic Molecular and Optical Science (AMO)~\cite{ferguson2015} and Coherent X-ray Imaging (CXI) ~\cite{liang2015} endstations at Linac Coherent Light Source (LCLS) \cite{Emma2010}. We chose to simulate SPI of keyhole limpet hemocyanin 1 (KLH1) didecamer~\cite{gatsogiannis2009} and four-layer Tobacco Mosaic Virus (TMV)~\cite{bhyravbhatla1998} at AMO and CXI respectively. Notably, the choices in Table \ref{table:simParams} yield an average of $\sim 100$ photons per single-particle diffraction pattern \corr{(pixel categories 0 and 1)}.
+The use of \corr{the Dragonfly} package is exemplified in three simulated single-particle imaging (SPI) reconstructions using the specifications of Atomic Molecular and Optical Science (AMO)~\cite{ferguson2015} and Coherent X-ray Imaging (CXI) ~\cite{liang2015} endstations at Linac Coherent Light Source (LCLS) \cite{Emma2010}. We chose to simulate SPI of keyhole limpet hemocyanin 1 (KLH1) didecamer~\cite{gatsogiannis2009} and four-layer Tobacco Mosaic Virus (TMV)~\cite{bhyravbhatla1998} at AMO and CXI respectively. Notably, the choices in Table \ref{table:simParams} yield an average of $\sim 100$ photons per single-particle diffraction pattern \corr{(pixel categories 0 and 1)}. \corr{Pattern-to-pattern intensity-scaling was turned off in both data simulations and reconstructions.}
 
 
 
@@ -437,59 +437,7 @@ Finally, the pixel in Figure \ref{fig:solidAngle} could be a collection of pixel
 
 \corr{From Table \ref{table:memScaling}, we see that important sizes in a reconstruction can be expressed in powers of $\widetilde{R}$, the dimensionless resolution of the recovered particle (defined in Appendix \ref{sec:speckle}). Naturally, more memory is needed when reconstructing to higher dimensionless resolutions. Equivalently, the `speckle complexity' of such reconstructions in reciprocal space also increase with resolution (compare Fig. \ref{fig:amo_low_log} to Fig. \ref{fig:cxi_log}).}
 
-\corr{From Table \ref{table:memScaling}, notice that the number of conditional probabilities computed by EMC scales like $M_{\text{prob}} \sim \widetilde{R}^5$, which grows the fastest amongst the other size factors. In the examples listed in Tables \ref{table:memSmallS} and \ref{table:memLargeS} that the memory needed to store the sparse frames and 3D model $W$ range in the many megabytes (MB) per MPI process. However, many gigabytes (GB) to terabytes (TB) of memory are needed to store the conditional probabilities computed in EMC. Currently, this package stores these  probabilities in RAM but future versions may write them to disk when attempting sufficiently large and complex reconstructions.}
-
-\begin{table}
-\caption{How sizes in reconstructions scale with particle's dimensionless resolution $\widetilde{R}$.} \label{table:memScaling}
-\begin{tabular}{p{4.5cm} p{4.5cm}}
-sizes & scales as \\
-\hline
-num. of detector pixels\footnote{The speckle sampling, $\sigma$, is defined in appendix \ref{sec:speckle}.}, $M_\text{tomo}$ & $ > (2 \sigma \widetilde{R})^2$ \\
-
-num. of rotation group samples\footnote{Sampling and criterion defined in Appendix C and Section VII of \citeasnoun{loh2009} respectively.} , $M_\text{rot}$ & $ 10 ( 5 \widetilde{R}^3 + \widetilde{R})$\\
-
-num. of data frames\footnote{Signal-to-noise ratio, $S$, defined in Eq. \eqref{eqn:signalToNoiseRatio}.} , $M_\text{data}$ & $ S^2 M_{\text{rot}} \,/\, N = 10\, S^2 ( 5 \widetilde{R}^3 + \widetilde{R})\,/\,N$\\
-
-num. of conditional probabilities, $M_{\text{prob}}$ &  $M_\text{data}M_{\text{rot}} = 100\, S^2 ( 5 \widetilde{R}^3 + \widetilde{R})^2\,/\,N$ \\
-num. of model voxels / MPI process\footnote{Model represented as dense cubic array.}, $M_\text{W}$ & $ > (2 \sigma \widetilde{R})^3$ \\
-num. of sparse data entries / MPI process\footnote{See sparse data format in section \ref{subsubsec:emcformat}.}, $M_\text{sp}$ & $\leq N M_{\text{data}}$
-\end{tabular}
-\end{table}
-
-
-\begin{table}
-\caption{Memory requirements for modest-fidelity reconstruction: $S=10$, $N=100$, $\sigma=5$. Variables explained in Table \ref{table:memScaling}.} \label{table:memSmallS}
-\begin{tabular}{llllll}
-$\widetilde{R}$ & $M_{\text{data}} & $M_{\text{rot}} & $M_{\text{sp}}$ (MB) & $M_{\text{W}}$ (MB) & $M_{\text{prob}}$(GB)\\
-\hline
- 5 & 6,300 & 6,300 & 4.81 & 0.953 & 0.296 \\
- 10 & 50,100. & 50,100 & 38.2 & 7.63 & 18.7 \\
- 15 & 168,900 & 168,900 & 129 & 25.7 & 213 \\
- 20 & 400,200 & 400,200 & 305 & 61.0 & 1193 \\
- 25 & 781,500 & 781,500 & 596 & 119 & 4,550 \\
- 30 & 1.35\times 10^6 & 1.35\times 10^6 & 1,030 & 206 & 13,584 \\
- 35 & 2.14\times 10^6 & 2.14\times 10^6 & 1,635 & 327 & 34,251 \\
- 40 & 3.20\times 10^6 & 3.20\times 10^6 & 2,441 & 488 & 76,313 \\
- 45 & 4.56\times 10^6 & 4.56\times 10^6 & 3,476 & 695 & 154,700 \\
-\end{tabular}
-\end{table}
-
-\begin{table}
-\caption{Memory requirements for high-fidelity reconstruction: $S=50$, $N=100$, $\sigma=5$. Variables explained in Table \ref{table:memScaling}.} \label{table:memLargeS}
-\begin{tabular}{llllll}
-$\widetilde{R}$ & $M_{\text{data}} & $M_{\text{rot}} & $M_{\text{sp}}$ (MB) & $M_{\text{W}}$ (MB) & $M_{\text{prob}}$(GB)\\
-\hline
- 5 & 157,500 & 6300 & 120 & 0.953 & 7.39 \\
- 10 & 1.25\times 10^6 & 50,100 & 956 & 7.63 & 468 \\
- 15 & 4.22\times 10^6 & 168,900 & 3,220 & 25.7 & 5,310 \\
- 20 & 1.00\times 10^7 & 400,200 & 7,630 & 61.0 & 29,800 \\
- 25 & 1.95\times 10^7 & 781,500 & 14,900 & 119 & 114,000 \\
- 30 & 3.38\times 10^7 & 1.35\times 10^6 & 25,800 & 205 & 340,000 \\
- 35 & 5.36\times 10^7 & 2.14\times 10^6 & 40,900 & 327 & 856,000 \\
- 40 & 8.00\times 10^7 & 3.20\times 10^6 & 61,000 & 488 & 1.91\times 10^6 \\
- 45 & 1.14\times 10^8 & 4.56\times 10^6 & 86,900 & 695 & 3.87\times 10^6 \\
-\end{tabular}
-\end{table}
+\corr{From Table \ref{table:memScaling}, notice that the number of conditional probabilities computed by EMC scales like $M_{\text{prob}} \sim \widetilde{R}^5$, which grows the fastest amongst the other size factors. In the examples listed in Tables \ref{table:memSmallS} and \ref{table:memLargeS} that the memory needed to store the sparse frames and 3D model $W$ range in the many megabytes (MB) per MPI process. However, many gigabytes (GB) to terabytes (TB) of memory are needed to store the conditional probabilities computed in EMC. Currently, this package stores these probabilities in RAM but future versions may write them to disk if necessary.}
 
  %-------------------------------------------------------------------------
 \section{\corr{Instability due to overfitting}}\label{sec:stability}
@@ -574,13 +522,13 @@ The artificial overfitting described in this section is inconsequential when we 
 
  %-------------------------------------------------------------------------
 \begin{figure}
-\caption{Flowchart to simulate a data set and perform a reconstruction starting from a sample PDB file and a configuration file, \texttt{config.ini}, with information about the experimental setup. Input and output are written in text and modules in blue boxes. The large white rectangle defines the data stream simulator. }\label{fig:simFlowchart}
+\caption{Dragonfly flowchart to simulate a data set and perform a reconstruction starting from a sample PDB file and a configuration file, \texttt{config.ini}, with information about the experimental setup. Input and output are written in text and modules in blue boxes. The large white rectangle defines the data stream simulator. }\label{fig:simFlowchart}
 \includegraphics[width=\textwidth]{figures/emc_sim.pdf}
 \end{figure}
 
  %-------------------------------------------------------------------------
 \begin{figure}
-\caption{Flowchart to process experimental data in sparse format. Information about the experimental parameters is placed in the configuration file \texttt{config.ini} and the detector geometry is in \texttt{detector.dat}. The formats of all three input files is described in Section~\ref{subsec:formats}. Notice the difference between this workflow and that in Figure \ref{fig:simFlowchart} is how data in generated.}\label{fig:expFlowchart}
+\caption{Dragonfly flowchart to process experimental data in sparse format. Information about the experimental parameters is placed in the configuration file \texttt{config.ini} and the detector geometry is in \texttt{detector.dat}. The formats of all three input files is described in Section~\ref{subsec:formats}. Notice the difference between this workflow and that in Figure \ref{fig:simFlowchart} is how data in generated.}\label{fig:expFlowchart}
 \includegraphics[width=\textwidth]{figures/emc_exp.pdf}
 \end{figure}
 
@@ -647,7 +595,6 @@ beta = 1.
  %-------------------------------------------------------------------------
 \begin{table}
 \caption{Parameters for EMC reconstructions of simulated single-particle imaging.} \label{table:simParams}
-\label{parameters}
 \begin{tabular}{p{3.5cm} p{1.4cm} p{1.4cm} p{1.4cm}}
                         			& AMO (low)          & CXI              & AMO (high)\\
 \hline
@@ -673,6 +620,58 @@ max. quaternion sampling\footnote{Sampling and criterion defined in Appendix C a
 \end{tabular}
 \end{table}
 
+
+\begin{table}
+\caption{How sizes in reconstructions scale with particle's dimensionless resolution $\widetilde{R}$.} \label{table:memScaling}
+\begin{tabular}{p{4.5cm} p{4.5cm}}
+sizes & scales as \\
+\hline
+num. of detector pixels\footnote{The speckle sampling, $\sigma$, is defined in appendix \ref{sec:speckle}.}, $M_\text{tomo}$ & $ > (2 \sigma \widetilde{R})^2$ \\
+
+num. of rotation group samples\footnote{Sampling and criterion defined in Appendix C and Section VII of \citeasnoun{loh2009} respectively.} , $M_\text{rot}$ & $ 10 ( 5 \widetilde{R}^3 + \widetilde{R})$\\
+
+num. of data frames\footnote{Signal-to-noise ratio, $S$, defined in Eq. \eqref{eqn:signalToNoiseRatio}.} , $M_\text{data}$ & $ S^2 M_{\text{rot}} \,/\, N = 10\, S^2 ( 5 \widetilde{R}^3 + \widetilde{R})\,/\,N$\\
+
+num. of conditional probabilities, $M_{\text{prob}}$ &  $M_\text{data}M_{\text{rot}} = 100\, S^2 ( 5 \widetilde{R}^3 + \widetilde{R})^2\,/\,N$ \\
+num. of model voxels / MPI process\footnote{Model represented as dense cubic array.}, $M_\text{W}$ & $ > (2 \sigma \widetilde{R})^3$ \\
+num. of sparse data entries / MPI process\footnote{See sparse data format in section \ref{subsubsec:emcformat}.}, $M_\text{sp}$ & $\leq N M_{\text{data}}$
+\end{tabular}
+\end{table}
+
+
+\begin{table}
+\caption{Memory requirements for modest-fidelity reconstruction: $S=10$, $N=100$, $\sigma=5$. Variables explained in Table \ref{table:memScaling}.} \label{table:memSmallS}
+\begin{tabular}{llllll}
+$\widetilde{R}$ & $M_{\text{data}} & $M_{\text{rot}} & $M_{\text{sp}}$ (MB) & $M_{\text{W}}$ (MB) & $M_{\text{prob}}$(GB)\\
+\hline
+ 5 & 6,300 & 6,300 & 4.81 & 0.953 & 0.296 \\
+ 10 & 50,100. & 50,100 & 38.2 & 7.63 & 18.7 \\
+ 15 & 168,900 & 168,900 & 129 & 25.7 & 213 \\
+ 20 & 400,200 & 400,200 & 305 & 61.0 & 1193 \\
+ 25 & 781,500 & 781,500 & 596 & 119 & 4,550 \\
+ 30 & 1.35\times 10^6 & 1.35\times 10^6 & 1,030 & 206 & 13,584 \\
+ 35 & 2.14\times 10^6 & 2.14\times 10^6 & 1,635 & 327 & 34,251 \\
+ 40 & 3.20\times 10^6 & 3.20\times 10^6 & 2,441 & 488 & 76,313 \\
+ 45 & 4.56\times 10^6 & 4.56\times 10^6 & 3,476 & 695 & 154,700 \\
+\end{tabular}
+\end{table}
+
+\begin{table}
+\caption{Memory requirements for high-fidelity reconstruction: $S=50$, $N=100$, $\sigma=5$. Variables explained in Table \ref{table:memScaling}.} \label{table:memLargeS}
+\begin{tabular}{llllll}
+$\widetilde{R}$ & $M_{\text{data}} & $M_{\text{rot}} & $M_{\text{sp}}$ (MB) & $M_{\text{W}}$ (MB) & $M_{\text{prob}}$(GB)\\
+\hline
+ 5 & 157,500 & 6300 & 120 & 0.953 & 7.39 \\
+ 10 & 1.25\times 10^6 & 50,100 & 956 & 7.63 & 468 \\
+ 15 & 4.22\times 10^6 & 168,900 & 3,220 & 25.7 & 5,310 \\
+ 20 & 1.00\times 10^7 & 400,200 & 7,630 & 61.0 & 29,800 \\
+ 25 & 1.95\times 10^7 & 781,500 & 14,900 & 119 & 114,000 \\
+ 30 & 3.38\times 10^7 & 1.35\times 10^6 & 25,800 & 205 & 340,000 \\
+ 35 & 5.36\times 10^7 & 2.14\times 10^6 & 40,900 & 327 & 856,000 \\
+ 40 & 8.00\times 10^7 & 3.20\times 10^6 & 61,000 & 488 & 1.91\times 10^6 \\
+ 45 & 1.14\times 10^8 & 4.56\times 10^6 & 86,900 & 695 & 3.87\times 10^6 \\
+\end{tabular}
+\end{table}
  %-------------------------------------------------------------------------
 \begin{figure}
 \caption{Convergence of diffraction speckle features in a simulated AMO single-particle experiment (parameters listed in Table \ref{table:simParams}). In each row we render central slices of the 3D diffraction intensities recovered from KLH1 during an EMC reconstruction, after iterations 1,10,20 and 50 in ascending row order. {\bf Bottom row:} additional diagnostics on the reconstructed 3D diffraction model. (Left column) the root mean squared change in the 3D model; (middle column) mutual information and log-likelihood of the model; (right column) the most likely orientations of all the patterns.}
@@ -685,7 +684,7 @@ max. quaternion sampling\footnote{Sampling and criterion defined in Appendix C a
 
  %-------------------------------------------------------------------------
 \begin{figure}
-\caption{Rotation group refinement for a simulated reconstruction of TMV at the CXI endstation (see Table \ref{table:simParams}). Shown here are the central sections of the reconstructed 3D diffraction volume of TMV after 55 iterations. With 90 Intel Xeon X7542 (2.67 GHz) cores this full reconstruction took less than 6 hours, spending 15 minutes for each of the slowest refinement iterations using 204,960 rotation group samples. Red dashed lines in the r.m.s. model change mark when the refinement level of the rotation group was increased by one. ({\bf Bottom right plot}) Rows are colored by each photon pattern's most likely orientation number, which stabilizes after twenty iterations and thereafter quickly re-stabilizes when we increase the rotation group refinement. \corr{The rows (pattern indices) are sorted according the most-likely orientation indices of the last iteration in each rotation-sampling block, which produces a smooth color spectrum along a column.} Since the number of quaternions increase with rotation refinement, blocks of higher refinement show a wider color spectrum. See Section ~\ref{subsec:quatRefine} for details.}
+\caption{Rotation group refinement for a simulated reconstruction of TMV at the CXI endstation (see Table \ref{table:simParams}). Shown here are the central sections of the reconstructed 3D diffraction volume of TMV after 55 iterations. With 90 Intel Xeon X7542 (2.67 GHz) cores this full reconstruction took less than 6 hours, spending 15 minutes for each of the slowest refinement iterations using 204,960 rotation group samples. Red dashed lines in the r.m.s. model change mark when the refinement level of the rotation group was increased by one. ({\bf Bottom right plot}) Rows are colored by each photon pattern's most likely orientation number, which stabilizes after twenty iterations and thereafter quickly re-stabilizes when we increase the rotation group refinement. \corr{The rows (pattern indices) are sorted according the most-likely orientation indices of the last iteration in each rotation-sampling block, which produces a smooth color spectrum along this final column.} Since the number of quaternions increase with rotation refinement, blocks of higher refinement show a wider color spectrum. See Section ~\ref{subsec:quatRefine} for details.}
 \includegraphics[width=\textwidth]{figures/cxi_intens_055.png} \label{fig:cxi_intens}
 \includegraphics[width=\textwidth]{figures/cxi_log_fig.png} \label{fig:cxi_log}
 \end{figure}
