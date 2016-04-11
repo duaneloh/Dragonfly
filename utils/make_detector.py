@@ -29,10 +29,10 @@ if __name__ == "__main__":
         qscaling    = 1. / pm['wavelength'] / q_pm['q_sep']
         (x, y)      = np.mgrid[0:pm['dets_x'], 0:pm['dets_y']]
         (x, y)      = (x.flatten()-det_cen_x, y.flatten()-det_cen_y)
-        (qx, qy)    = (pm['pixsize']*x, pm['pixsize']*y)
-        norm        = np.sqrt(qx*qx + qy*qy + pm['detd']*pm['detd'])
-        polar       = read_config.compute_polarization(pm['polarization'], qx, qy, norm)
-        (qx, qy)    = (qx*qscaling/norm, qy*qscaling/norm)
+        (px, py)    = (pm['pixsize']*x, pm['pixsize']*y)
+        norm        = np.sqrt(px*px + py*py + pm['detd']*pm['detd'])
+        polar       = read_config.compute_polarization(pm['polarization'], px, py, norm)
+        (qx, qy)    = (px*qscaling/norm, py*qscaling/norm)
         qz          = qscaling*(pm['detd']/norm - 1.)
         qx         *= pm['qscale'] * pm['pixsize'] / pm['detd']
         qy         *= pm['qscale'] * pm['pixsize'] / pm['detd']

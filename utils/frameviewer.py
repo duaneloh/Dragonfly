@@ -7,61 +7,107 @@ import ConfigParser
 from py_src import py_utils
 from py_src import read_config
 
-if __name__ == "__main__":
-    # Read detector and photons file from config
-    parser = py_utils.my_argparser(description="make detector")
-    parser.add_argument('num', help='frame number or filename containing list of frame numbers')
-    args = parser.special_parse_args()
+import matplotlib.pyplot as plt
+import Tkinter as Tk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-    if os.path.isfile(args.num):
-        num_list = np.loadtxt(args.num, dtype='i4')
-    else:
-        num_list = np.array([int(args.num)])
- 
-    try:
-        photons_list = [read_config.get_param(args.config_file, 'emc', "in_photons_file")]
-    except ConfigParser.NoOptionError:
-        with open(read_config.get_param(args.config_file, 'emc', "in_photons_list"), 'r') as f:
-            photons_list = map(lambda x: x.rstrip(), f.readlines())
-
-    pm = read_config.get_detector_config(args.config_file, show=args.vb)
-
-    x, y = np.indices((pm['dets_x'], pm['dets_y']))
-    x = x.flatten()
-    y = y.flatten()
-
-    num_data_list = []
-    ones_accum_list = []
-    multi_accum_list = []
-
-    # For each emc file, read num_data and generate ones_accum and multi_accum
-    for photons_file in photons_list:
-        # Read photon data
-        with open(photons_file, 'rb') as f:
-            num_data = np.fromfile(f, dtype='i4', count=1)[0]
-            f.seek(1024, 0)
-            ones = np.fromfile(f, dtype='i4', count=num_data)
-            multi = np.fromfile(f, dtype='i4', count=num_data)
-        num_data_list.append(num_data)
-        ones_accum_list.append(np.add.accumulate(ones))
-        multi_accum_list.append(np.add.accumulate(multi))
-
-    num_data_list = np.add.accumulate(num_data_list)
-    file_num_list = [np.where(num < num_data_list)[0][0] for num in num_list]
-    frame_num_list = []
-    for file_num, num in zip(file_num_list, num_list):
-        if file_num == 0:
-            frame_num_list.append(num)
+class Frameviewer():
+    def __init__(self, master, photons_list, frame_shape, cmap='jet', mask=None):
+        self.master = master
+        self.photons_list = photons_list
+        self.num_files = len(photons_list)
+        self.frame_shape = frame_shape
+        self.cmap = cmap
+        if mask == None:
+            self.mask = np.ones(self.frame_shape)
         else:
-            frame_num_list.append(num - num_data_list[file_num-1])
-    frames = np.zeros((len(num_list), x.max()+1, y.max()+1), dtype='i4')
+            self.mask = np.fromfile(mask, '=u1').reshape(self.frame_shape)
+            self.mask[self.mask==0] = 1
+            self.mask[self.mask==2] = 0
+        
+        self.numstr = Tk.StringVar(); self.numstr.set(str(0))
+        self.rangestr = Tk.StringVar(); self.rangestr.set(str(10))
+        
+        self.parse_headers()
+        self.init_geom()
+        self.init_UI()
 
-    for i, file_num, frame_num in zip(range(len(num_list)), file_num_list, frame_num_list):
-        with open(photons_list[file_num], 'rb') as f:
+    def init_UI(self):
+        self.master.rowconfigure(0, weight=1)
+        self.master.columnconfigure(0, weight=1)
+        
+        fig_frame = Tk.Frame(self.master)
+        fig_frame.grid(row=0, column=0, sticky='nsew')
+        fig_frame.columnconfigure(0, weight=1)
+        fig_frame.rowconfigure(0, weight=1)
+        
+        self.fig = plt.figure(figsize=(6, 6))
+        #self.fig.subplots_adjust(left=0.0, bottom=0.00, right=0.99, wspace=0.0)
+        self.canvas = FigureCanvasTkAgg(self.fig, fig_frame)
+        self.canvas.show()
+        self.canvas.get_tk_widget().pack(fill='both', expand=1)
+        
+        self.options = Tk.Frame(self.master, relief=Tk.GROOVE, borderwidth=5, width=400, height=200)
+        self.options.grid(row=1, column=0, sticky='nsew')
+        
+        line = Tk.Frame(self.options)
+        line.pack(fill=Tk.X)
+        Tk.Label(line, text='Frame number: ').pack(side=Tk.LEFT)
+        Tk.Entry(line, textvariable=self.numstr, width=10).pack(side=Tk.LEFT, fill=Tk.X, expand=1)
+        Tk.Label(line, text='/%d'%self.num_frames).pack(side=Tk.LEFT)
+        Tk.Label(line, text='PlotMax: ').pack(side=Tk.LEFT, fill=Tk.X)
+        Tk.Entry(line, textvariable=self.rangestr, width=6).pack(side=Tk.LEFT)
+        
+        line = Tk.Frame(self.options)
+        line.pack(fill=Tk.X)
+        Tk.Button(line, text='Plot', command=self.plot_frame).pack(side=Tk.LEFT)
+        Tk.Button(line, text='Prev', command=self.prev_frame).pack(side=Tk.LEFT)
+        Tk.Button(line, text='Next', command=self.next_frame).pack(side=Tk.LEFT)
+        Tk.Button(line, text='Random', command=self.rand_frame).pack(side=Tk.LEFT)
+        Tk.Button(line, text='Quit', command=self.quit).pack(side=Tk.RIGHT)
+        
+        self.master.bind('<Return>', self.plot_frame)
+        self.master.bind('<KP_Enter>', self.plot_frame)
+        self.master.bind('<Control-n>', self.next_frame)
+        self.master.bind('<Control-p>', self.prev_frame)
+        self.master.bind('<Control-r>', self.rand_frame)
+        self.master.bind('<Control-q>', self.quit)
+        self.master.bind('<Up>', self.next_frame)
+        self.master.bind('<Down>', self.prev_frame)
+        
+        self.plot_frame()
+
+    def init_geom(self):
+        self.x, self.y = np.indices(self.frame_shape)
+        self.x = self.x.flatten()
+        self.y = self.y.flatten()
+
+    def parse_headers(self):
+        self.num_data_list = []
+        self.ones_accum_list = []
+        self.multi_accum_list = []
+        
+        # For each emc file, read num_data and generate ones_accum and multi_accum
+        for photons_file in self.photons_list:
+            # Read photon data
+            with open(photons_file, 'rb') as f:
+                num_data = np.fromfile(f, dtype='i4', count=1)[0]
+                f.seek(1024, 0)
+                ones = np.fromfile(f, dtype='i4', count=num_data)
+                multi = np.fromfile(f, dtype='i4', count=num_data)
+            self.num_data_list.append(num_data)
+            self.ones_accum_list.append(np.cumsum(ones))
+            self.multi_accum_list.append(np.cumsum(multi))
+        
+        self.num_data_list = np.cumsum(self.num_data_list)
+        self.num_frames = self.num_data_list[-1]
+
+    def read_frame(self, file_num, frame_num):
+        with open(self.photons_list[file_num], 'rb') as f:
             num_data = np.fromfile(f, dtype='i4', count=1)[0]
-
-            ones_accum = ones_accum_list[file_num]
-            multi_accum = multi_accum_list[file_num]
+            
+            ones_accum = self.ones_accum_list[file_num]
+            multi_accum = self.multi_accum_list[file_num]
             
             if frame_num == 0:
                 ones_offset = 0
@@ -73,36 +119,76 @@ if __name__ == "__main__":
                 multi_offset = multi_accum[frame_num - 1]
                 ones_size = ones_accum[frame_num] - ones_accum[frame_num - 1]
                 multi_size = multi_accum[frame_num] - multi_accum[frame_num - 1]
-
+            
             f.seek(1024 + num_data*8 + ones_offset*4, 0)
             place_ones = np.fromfile(f, dtype='i4', count=ones_size)
-
             f.seek(1024 + num_data*8 + ones_accum[-1]*4 + multi_offset*4, 0)
             place_multi = np.fromfile(f, dtype='i4', count=multi_size)
-
             f.seek(1024 + num_data*8 + ones_accum[-1]*4 + multi_accum[-1]*4 + multi_offset*4, 0)
             count_multi = np.fromfile(f, dtype='i4', count=multi_size)
+        
+        frame = np.zeros(self.frame_shape, dtype='i4')
+        np.add.at(frame, (self.x[place_ones], self.y[place_ones]), 1)
+        np.add.at(frame, (self.x[place_multi], self.y[place_multi]), count_multi)
+        
+        return frame * self.mask
 
-        np.add.at(frames[i], (x[place_ones], y[place_ones]), 1)
-        np.add.at(frames[i], (x[place_multi], y[place_multi]), count_multi)
-        sys.stderr.write('\rWritten frame %d/%d' % (i+1, len(num_list)))
-    sys.stderr.write('\n')
+    def plot_frame(self, event=None):
+        num = int(self.numstr.get())
+        if num < 0 or num >= self.num_frames:
+            sys.stderr.write('Frame number %d out of range!\n')
+            return
+        
+        file_num = np.where(num < self.num_data_list)[0][0]
+        if file_num == 0:
+            frame_num = num
+        else:
+            frame_num = num - self.num_data_list[file_num-1]
+        frame = self.read_frame(file_num, frame_num)
+        
+        s = plt.subplot(111)
+        s.imshow(frame, vmin=0, vmax=float(self.rangestr.get()), interpolation='none', cmap=self.cmap)
+        self.fig.add_subplot(s)
+        self.canvas.show()
 
-    if len(num_list) > 1:
-        prefix = os.path.splitext(os.path.basename(sys.argv[1]))[0]
-    else:
-        prefix = 'frames'
-    print 'Prefix =', prefix
+    def next_frame(self, event=None):
+        num = int(self.numstr.get()) + 1
+        if num < self.num_frames:
+            self.numstr.set(str(num))
+            self.plot_frame()
+
+    def prev_frame(self, event=None):
+        num = int(self.numstr.get()) - 1
+        if num > -1:
+            self.numstr.set(str(num))
+            self.plot_frame()
+
+    def rand_frame(self, event=None):
+        num = np.random.randint(0, self.num_frames)
+        self.numstr.set(str(num))
+        self.plot_frame()
     
-    frames.tofile('data/%s_%d_%d.int' % (prefix, frames.shape[1], frames.shape[2]))
-    import h5py
-    f = h5py.File('data/%s.h5' % prefix, 'w')
-    f['data/frames'] = frames
-    f['data/file_name'] = [photons_list[i][5:-3]+'h5' for i in file_num_list]
-    f['data/frame_num'] = frame_num_list
-    f.close()
+    def quit(self, event=None):
+        self.master.quit()
 
-    if len(num_list) == 1:
-        import pylab as P
-        P.matshow(frames[0], vmax=25)
-        P.show()
+if __name__ == '__main__':
+    parser = py_utils.my_argparser(description='Utility for viewing frames of the emc file (list)')
+    parser.add_argument('--cmap', help='Matplotlib color map (default: jet)')
+    parser.add_argument('--mask', help='Name of mask file of type uint8 (default: None)')
+    args = parser.special_parse_args()
+    
+    try:
+        pfile = read_config.get_filename(args.config_file, 'emc', 'in_photons_file')
+        print 'Using in_photons_file: %s' % pfile
+        photons_list = [pfile]
+    except ConfigParser.NoOptionError:
+        plist = read_config.get_filename(args.config_file, 'emc', 'in_photons_list')
+        print 'Using in_photons_list: %s' % plist
+        with open(plist, 'r') as f:
+            photons_list = map(lambda x: x.rstrip(), f.readlines())
+    
+    pm = read_config.get_detector_config(args.config_file, show=args.vb)
+    
+    root = Tk.Tk()
+    Frameviewer(root, photons_list, (pm['dets_x'], pm['dets_y']), cmap=args.cmap, mask=args.mask)
+    root.mainloop()

@@ -82,13 +82,13 @@ def compute_q_params(det_dist, dets_x, dets_y, pix_size, in_wavelength, show=Fal
         logging.info('{:<15}:{:10.4f}'.format("voxel-length of reciprocal volume", fov_in_A/half_p_res))
     return params
 
-def compute_polarization(polarization, qx, qy, norm):
+def compute_polarization(polarization, px, py, norm):
     if polarization.lower() == 'x':
-        return 1. - (qx*qx)/(norm*norm)
+        return 1. - (px*px)/(norm*norm)
     elif polarization.lower() == 'y':
-        return 1. - (qy*qy)/(norm*norm)
+        return 1. - (py*py)/(norm*norm)
     elif polarization.lower() == 'none':
-        return 1.
+        return 1. - (px*px + py*py)/(2*norm*norm)
     else:
         #print 'Please set the polarization direction as x, y or none!'
         logging.info('Please set the polarization direction as x, y or none!')

@@ -48,6 +48,7 @@ if __name__ == "__main__":
                                                              "run_emc.py",
                                                              "sim_setup.py"
                                                              "autoplot.py",
+                                                             "frameviewer.py",
                                                              "powder.py", 
                                                              "convert"])
 
