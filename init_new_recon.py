@@ -46,7 +46,7 @@ if __name__ == "__main__":
                                                              "make_intensities.py",
                                                              "make_data",
                                                              "run_emc.py",
-                                                             "sim_setup.py"
+                                                             "sim_setup.py",
                                                              "autoplot.py",
                                                              "frameviewer.py",
                                                              "powder.py", 
