@@ -35,6 +35,7 @@ class Frameviewer():
     def init_UI(self):
         self.master.rowconfigure(0, weight=1)
         self.master.columnconfigure(0, weight=1)
+        self.master.protocol('WM_DELETE_WINDOW', root.quit)
         
         fig_frame = Tk.Frame(self.master)
         fig_frame.grid(row=0, column=0, sticky='nsew')
