@@ -423,7 +423,9 @@ int setup(char *config_fname, int continue_flag) {
 	}
 	
 	if (size == -1) {
-		qmax = 2. * sin(0.5 * atan(sqrt(dets_x*dets_x + dets_y*dets_y)/2.*pixsize/detd)) ;
+        double hx = (dets_x - 1) / 2 * pixsize ;
+        double hy = (dets_y - 1) / 2 * pixsize ;
+		qmax = 2. * sin(0.5 * atan(sqrt(hx*hx + hy*hy)/detd)) ;
 		qmin = 2. * sin(0.5 * atan(pixsize/detd)) ;
 		size = ceil(2. * qmax / qmin) + 1 ;
 	}
