@@ -522,7 +522,7 @@ void print_quat(int num, char *fname) {
 			q_v[i] /= q_norm ;
 		
 //		fprintf(fp, "%.12lf %.12lf %.12lf %.12lf %.12lf\n", q_v[0], q_v[1], q_v[2], q_v[3], vertice_points[r].weight) ;
-		rf = r ;
+		rf = ct ;
 		quat[rf*5 + 0] = q_v[0] ;
 		quat[rf*5 + 1] = q_v[1] ;
 		quat[rf*5 + 2] = q_v[2] ;
@@ -573,7 +573,7 @@ void print_quat(int num, char *fname) {
 			q_v[i] /= q_norm ;
 		
 //		fprintf(fp, "%.12lf %.12lf %.12lf %.12lf %.12lf\n", q_v[0], q_v[1], q_v[2], q_v[3], edge_points[r].weight) ;
-		rf = r + num_vert ;
+		rf = ct + num_vert/2 ;
 		quat[rf*5 + 0] = q_v[0] ;
 		quat[rf*5 + 1] = q_v[1] ;
 		quat[rf*5 + 2] = q_v[2] ;
@@ -624,7 +624,7 @@ void print_quat(int num, char *fname) {
 			q_v[i] /= q_norm ;
 		
 //		fprintf(fp, "%.12lf %.12lf %.12lf %.12lf %.12lf\n", q_v[0], q_v[1], q_v[2], q_v[3], face_points[r].weight) ;
-		rf = r + num_vert + num_edge_point ;
+		rf = ct + num_vert/2 + num_edge_point/2 ;
 		quat[rf*5 + 0] = q_v[0] ;
 		quat[rf*5 + 1] = q_v[1] ;
 		quat[rf*5 + 2] = q_v[2] ;
@@ -675,7 +675,7 @@ void print_quat(int num, char *fname) {
 			q_v[i] /= q_norm ;
 		
 //		fprintf(fp, "%.12lf %.12lf %.12lf %.12lf %.12lf\n", q_v[0], q_v[1], q_v[2], q_v[3], cell_points[r].weight) ;
-		rf = r + num_vert + num_edge_point + num_face_point ;
+		rf = ct + num_vert/2 + num_edge_point/2 + num_face_point/2 ;
 		quat[rf*5 + 0] = q_v[0] ;
 		quat[rf*5 + 1] = q_v[1] ;
 		quat[rf*5 + 2] = q_v[2] ;
@@ -694,7 +694,6 @@ void print_quat(int num, char *fname) {
 }
 
 void quat_free_mem(int num) {
-	// free(quat) ;
 	free(vertice_points) ;
 	
 	if (num > 1)
