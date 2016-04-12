@@ -420,7 +420,7 @@ int setup(char *config_fname, int continue_flag) {
 	
 	if (parse_det(det_fname))
 		return 1 ;
-	
+
 	if (num_div > 0 && quat_fname[0] != '\0') {
 		fprintf(stderr, "Config file contains both num_div as well as in_quat_file. Pick one.\n") ;
 		return 1 ;

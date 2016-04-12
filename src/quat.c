@@ -694,7 +694,7 @@ void print_quat(int num, char *fname) {
 }
 
 void quat_free_mem(int num) {
-	free(quat) ;
+	// free(quat) ;
 	free(vertice_points) ;
 	
 	if (num > 1)
@@ -708,7 +708,7 @@ void quat_free_mem(int num) {
 void quat_gen(int num_div) {
 	int r ;
 	double total_weight = 0. ;
-	
+
 	make_vertex(num_div) ; 
 	make_edge(num_div) ;
 	make_face(num_div) ; 
