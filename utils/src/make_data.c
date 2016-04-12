@@ -198,7 +198,7 @@ int setup(char *config_fname) {
 	char det_fname[999], model_fname[999] ;
 	char out_det_fname[999], out_model_fname[999] ;
 	double detd, pixsize, qmax, qmin ;
-	int detsize ;
+	int detsize, dets_x, dets_y ;
 	
 	size = 0 ;
 	center = 0 ;
@@ -209,6 +209,8 @@ int setup(char *config_fname) {
 	back = 0. ;
 	output_fname[0] = ' ' ;
 	detsize = 0 ;
+	dets_x = 0 ;
+	dets_y = 0 ;
 	detd = 0. ;
 	pixsize = 0. ;
 	
@@ -226,8 +228,17 @@ int setup(char *config_fname) {
 			num_data = atoi(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "detd") == 0)
 			detd = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "detsize") == 0)
-			detsize = atoi(strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "detsize") == 0) {
+			dets_x = atoi(strtok(NULL, " =\n")) ;
+			dets_y = dets_x ;
+			token = strtok(NULL, " =\n") ;
+			if (token == NULL)
+				detsize = dets_x ;
+			else {
+				dets_y = atoi(token) ;
+				detsize = dets_x > dets_y ? dets_x : dets_y ;
+			}
+		}
 		else if (strcmp(token, "pixsize") == 0)
 			pixsize = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "mean_count") == 0)
@@ -261,7 +272,7 @@ int setup(char *config_fname) {
 		return 1 ;
 	}
 	
-	qmax = 2. * sin(0.5 * atan(sqrt(2.)*((detsize-1)/2)*pixsize/detd)) ;
+	qmax = 2. * sin(0.5 * atan(sqrt(dets_x*dets_x + dets_y*dets_y)/2.*pixsize/detd)) ;
 	qmin = 2. * sin(0.5 * atan(pixsize/detd)) ;
 	size = ceil(2. * qmax / qmin) + 1 ;
 	center = size / 2 ;
