@@ -62,7 +62,9 @@ def compute_q_params(det_dist, dets_x, dets_y, pix_size, in_wavelength, show=Fal
 
     """
     params      = OrderedDict()
-    max_angle   = np.arctan(np.sqrt(dets_x**2 + dets_y**2) / 2. / det_dist)
+    half_x      = pix_size * int((dets_x-1)/2)
+    half_y      = pix_size * int((dets_y-1)/2)
+    max_angle   = np.arctan(np.sqrt(half_x**2 + half_y**2) / det_dist)
     min_angle   = np.arctan(pix_size / det_dist)
     q_max       = 2. * np.sin(0.5 * max_angle) / in_wavelength
     q_sep       = 2. * np.sin(0.5 * min_angle) / in_wavelength
