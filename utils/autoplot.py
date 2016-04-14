@@ -291,7 +291,7 @@ class Plotter:
         s2 = plt.Subplot(self.log_fig, grid[0,1])
         s2.plot(iter, info, 'o-')
         s2.set_xlabel('Iteration')
-        s2.set_ylabel(r'Mutual info. $I(K,\Omega)$')
+        s2.set_ylabel(r'Mutual info. $I(K,\Omega | W)$')
         s2_lim = s2.get_ylim()
         s2.set_ylim(s2_lim)
         for i in beta_change:

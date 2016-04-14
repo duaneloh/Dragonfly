@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
     # Here are some custom hybrid configurations
     if args.kane:
-        args.num_mpi = 8 
+        args.num_mpi = 9 
         args.num_threads = 8
     if args.kahuna:
         args.num_mpi = 15
