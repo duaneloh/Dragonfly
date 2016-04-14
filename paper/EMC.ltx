@@ -71,9 +71,9 @@
 
 \aff[a]{Center for Free-Electron Laser Science, Deutsches Elektronen-Synchrotron DESY, Notkestra{\ss}e 85, 22607 Hamburg, \country{Germany}}
 \aff[b]{Laboratory of Atomic and Solid State Physics, Cornell University, Ithaca, NY 14853 \country{USA}}
-\aff[c]{Centre for Bio-imaging Sciences, National University of Singapore, 14 Science Drive 4, 117543, \country{Singapore}}
+\aff[c]{Centre for Bio-imaging Sciences, National University of Singapore, 14 Science Drive 4, 117557, \country{Singapore}}
 \aff[d]{Department of Physics, National University of Singapore, 2 Science Drive 3, 117551, \country{Singapore}}
-\aff[e]{Department of Biological Sciences, National University of Singapore, 14 Science Drive 4, 117543, \country{Singapore}}
+\aff[e]{Department of Biological Sciences, National University of Singapore, 14 Science Drive 4, 117557, \country{Singapore}}
 
      % Use \shortauthor to indicate an abbreviated author list for use in     % running heads (you will need to uncomment it).
 
@@ -187,9 +187,9 @@ The most time-consuming step of each iteration is the calculation of Eq. \eqref{
 
 In many experimental situations, the incident fluence varies between x-ray pulses. Thus, the tomograms would be scaled differently for each pattern \cite{loh2010,ekeberg2015}. One can enable the recovery of these scale factors using the update rule described in Appendix~\ref{sec:rescaling}. 
 
-We also find that if the signal is too strong, and when rotation group sampling is too fine or data is too few, reconstructions get stuck in local maxima in which all frames are assigned the same orientation and overlap with each other in reciprocal space. This effect is similar to what is observed if the background is too high~\cite{ayyer2015}. Such reconstructions, however, are empirically stable around the true solution, $W^{\text{true}}$, and only \corr{get} trapped when one starts from random initial guesses. This problem can be avoided by using the deterministic annealing variant of expectation maximization ~\cite{ueda1998}. In the EMC case, this is implemented by raising $R_{dr}$ calculated in Eq. \eqref{eqn:probnumr} to a small power $\beta$, and then normalizing as in Eq. \eqref{eqn:prob}:
+We also find that if the signal is too strong, and when rotation group sampling is too fine or data is too few, reconstructions get stuck in local maxima in which all frames are assigned \corr{to far too few orientations} in reciprocal space. This effect is similar to what is observed if the background is too high~\cite{ayyer2015}. Such reconstructions, however, are empirically stable around the true solution, $W^{\text{true}}$, and only \corr{get} trapped when one starts from random initial guesses. This problem can be avoided by using the deterministic annealing variant of expectation maximization ~\cite{ueda1998}. In the EMC case, this is implemented by raising $R_{dr}$ calculated in Eq. \eqref{eqn:probnumr} to a small power $\beta$, and then normalizing as in Eq. \eqref{eqn:prob}:
 \corr{$ P_{dr} = R_{dr}^\beta / \sum\limits_r R_{dr}^\beta}$.}
-This has a regularizing effect of broadening the orientation distribution and results in a rotationally blurred, but stable reconstruction. Once a metastable model intensities is resolved, the power $\beta$ can then be raised gradually in a manner similar to simulated annealing to slowly guide the reconstruction to the true global maxima around $W^{\text{true}}$. An example of this is shown in Section~\ref{subsec:regularization}.
+This has a regularizing effect of broadening the orientation distribution and results in a rotationally blurred, but stable reconstruction. Once a metastable model intensities is resolved, the power $\beta$ can then be raised gradually in a manner similar to simulated annealing to slowly guide the reconstruction to the true global maxima around $W^{\text{true}}$. An example of this is shown in Section~\ref{subsec:regularization} \corr{and elaborated in Appendix \ref{sec:stability}}.
 
 \subsection{Modules and convenience utilities.}\label{subsec:mod+utils}
 
@@ -501,13 +501,13 @@ This log-likelihood is never greater than zero. This is because $1-x +\log{x} \l
 
 From Eq. \eqref{eqn:stability5} the log-likelihood of $K$ against a well-matched orientation tomogram in the model, ${W(\Omega)$, will yield modestly negative values for $\Sigma_0$ and $\Sigma_1$. This is because their photon and intensity values, $\{K_t\}$ and $\{W(\Omega)_t\}$ respectively, are also closely matched. However, when the signal levels on the data frames are high, a mismatched high-signal $K$ and $W(\Omega)$ pair will give very negative log-likelihoods. As a result, the most likely $K+W(\Omega^{\text{best}})$ pair will be deemed very much more likely than pairings of $K$ with any other $W(\Omega)$. Put differently, the conditional probability of a high-signal pattern's orientation within the model is very narrowly peaked around the most likely orientation $\Omega^{\text{best}}$.
 
-Whereas a narrow orientation distribution for data frames is generally desired, the difficulty starts when the entire 3D model $W$ is far away from the true 3D model. This scenario usually occurs during the first few iterations of an EMC reconstruction starting from random initial $W$. Despite the erroneousness of $W$, the conditional probability of each data frame over the orientations will still be narrowly peaked for reasons similar to those presented above. Hence, the re-orientation of data frames within $W$ by an EMC iteration happens resolutely and in their wake cause low-intensity wedge-like volumes to appear in the updated $W^\prime$.
+Whereas a narrow orientation distribution for data frames is generally desired, the difficulty starts when the entire 3D model $W$ is far away from the true 3D model. This scenario usually occurs during the first few iterations of an EMC reconstruction starting from random initial $W$. Despite the erroneousness of $W$, the conditional probability of each data frame over the orientations will still be narrowly peaked for reasons similar to those presented above. Hence, the re-orientation of data frames within $W$ by an EMC iteration happens resolutely and in their wake cause low-intensity wedge-like volumes to appear in the updated $W^\prime$ (see Fig. \ref{fig:breakdown}).
 
 These low-intensity wedges are troublesome. When $W$ is far from the solution, its tomograms $W(\Omega)$ will be composed of randomly rotated and averaged subsets of the data frames. This results in very negative values of $\Sigma_0$ in $\mathcal{L}(K|W(\Omega))$ for many frames $K$. Comparatively, any low-intensity wedges in the 3D model contains sets of $W(\Omega^{\text{dark}})$ that yield much more positive $\Sigma_0$, and will cause the $K$ frames to be resolutely re-assigned to these $\Omega^{\text{dark}}$ orientations the end of the EMC iteration. This resolute movement may in turn open up new low-intensity wedges in $W$. Further, low-intensity wedges that do not resemble any $K$ will `attract' and result in yet another set of randomly rotated and averaged subsets data frames, paving the way for the next orientation re-assignment. This behavior results in erratic updates between EMC iterations, where low-intensity wedges will suddenly appear then disappear within few iterations.
 
 Incidentally, this erratic behavior should not occur when $W$ is near the true solution hence data frames $K$ have no incentive to move away from their correctly determined orientations or create low-intensity wedges in $W$.
 
-While enough random erratic updates may eventually yield the solution intensities, this iterative search can be relaxed using the regularization $\beta$ parameter in Section \ref{subsec:regularization}, which `spreads out' these narrowly peaked likelihood distributions. This way, low-intensity wedge-like volumes are less likely to appear in $W^\prime$. Empirically, we notice that this regularization can greatly improve the iterations' stability towards the true intensities even when the data frames have very high signal levels. Once $W$ iteratively converges to the neighborhood of the true solution, then $\beta$ can be re-inflated back to the regular EMC algorithm.
+While enough random erratic updates may eventually yield the solution intensities, this iterative search can be relaxed using the $\beta$ parameter in Section \ref{subsec:regularization}, which `spreads out' these narrowly peaked likelihood distributions. This way, low-intensity wedge-like volumes are less likely to appear in $W^\prime$. Empirically, we notice that this regularization can greatly improve the iterations' stability towards the true intensities even when the data frames have very high signal levels. Once $W$ iteratively converges to the neighborhood of the true solution, then $\beta$ can be re-inflated back to the regular EMC algorithm.
 
      %-------------------------------------------------------------------------
      % The back matter of the paper - acknowledgements and references
@@ -611,7 +611,7 @@ beta = 1.
 
  %-------------------------------------------------------------------------
 \begin{figure}
-\caption{Six blocks in the sparse data format for 50 patterns. The data is stored contiguously but shown here in row-major format (i.e. to be read from left to right, then down the rows). Each square represents a 32-bit integer. The two integers in the header block are the number of patterns, followed by the number of pixels in the detector. The colors in blocks three to six connect listings of the same pattern. Details found in Section \ref{subsubsec:emcformat}.}\label{fig:dataFormat}
+\caption{Six blocks in the sparse \corr{binary} data format for 50 patterns. The data is stored contiguously but shown here in row-major format (i.e. to be read from left to right, then down the rows). Each square represents a 32-bit integer. The two integers in the header block are the number of patterns, followed by the number of pixels in the detector. The colors in blocks three to six connect listings of the same pattern. Details found in Section \ref{subsubsec:emcformat}.}\label{fig:dataFormat}
 \includegraphics[height=0.8\textheight]{figures/dataFormat.pdf}
 \end{figure}
 
@@ -723,6 +723,16 @@ $\widetilde{R}$ & $M_{\text{data}} & $M_{\text{rot}} & $M_{\text{sp}}$ (MB) & $M
 \begin{figure}
 \caption{Setup for solid angle correction. In this section we compute the solid angle subtended by the square pixel (red) on the detector plane (gray). The scatterer (blue sphere) is set at the origin of this figure.}
 \includegraphics[width=0.8\textwidth]{figures/solidAngle.pdf} \label{fig:solidAngle}
+\end{figure}
+
+
+\begin{figure}
+\caption{Low-intensity wedge-like volumes appear in the EMC-reconstructed volume with very high signal data frames (most frames contain more than $10^4$ photons). The simulation parameters are listed in Table \ref{table:simParams} as AMO(high). We reconstructed with rotation group refinement $n=5$, and $\beta=1$ (regularization turned off). In descending order down the rows, the panels show the central sections of the updated model after iterations 1, 5, 10, 100, and ends with their diagnostics for 100 iterations (plots described in caption of Fig. \ref{fig:amo_low_log}).}
+\includegraphics[width=\textwidth]{figures/breakdown_intens_001.png} \label{fig:breakdown}
+\includegraphics[width=\textwidth]{figures/breakdown_intens_005.png} 
+\includegraphics[width=\textwidth]{figures/breakdown_intens_010.png} 
+\includegraphics[width=\textwidth]{figures/breakdown_intens_100.png} 
+\includegraphics[width=\textwidth]{figures/breakdown_intens_log.png} 
 \end{figure}
 
 
