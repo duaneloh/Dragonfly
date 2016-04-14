@@ -317,7 +317,7 @@ int setup(char *config_fname, int continue_flag) {
 	char merge_flist[999], merge_fname[999] ;
 	char out_det_fname[999], out_quat_fname[999] ;
 	double qmax, qmin, detd, pixsize ;
-	int detsize, num_div ;
+	int dets_x, dets_y, detsize, num_div ;
 	
 	known_scale = 0 ;
 	start_iter = 1 ;
@@ -332,6 +332,8 @@ int setup(char *config_fname, int continue_flag) {
 	detd = 0. ;
 	pixsize = 0. ;
 	detsize = 0 ;
+	dets_x = 0 ;
+	dets_y = 0 ;
 	size = -1 ;
 	beta_period = 100 ;
 	beta_jump = 1. ;
@@ -350,8 +352,17 @@ int setup(char *config_fname, int continue_flag) {
 		
 		if (strcmp(token, "detd") == 0)
 			detd = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "detsize") == 0)
-			detsize = atoi(strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "detsize") == 0) {
+			dets_x = atoi(strtok(NULL, " =\n")) ;
+			dets_y = dets_x ;
+			token = strtok(NULL, " =\n") ;
+			if (token == NULL)
+				detsize = dets_x ;
+			else {
+				dets_y = atoi(token) ;
+				detsize = dets_x > dets_y ? dets_x : dets_y ;
+			}
+		}
 		else if (strcmp(token, "pixsize") == 0)
 			pixsize = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "need_scaling") == 0)
@@ -412,7 +423,9 @@ int setup(char *config_fname, int continue_flag) {
 	}
 	
 	if (size == -1) {
-		qmax = 2. * sin(0.5 * atan(sqrt(2.)*((detsize-1)/2)*pixsize/detd)) ;
+        double hx = (dets_x - 1) / 2 * pixsize ;
+        double hy = (dets_y - 1) / 2 * pixsize ;
+		qmax = 2. * sin(0.5 * atan(sqrt(hx*hx + hy*hy)/detd)) ;
 		qmin = 2. * sin(0.5 * atan(pixsize/detd)) ;
 		size = ceil(2. * qmax / qmin) + 1 ;
 	}
