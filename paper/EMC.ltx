@@ -361,7 +361,7 @@ where $l_D$ is the width of the detector pixel, and $z_D$ is the separation betw
  %-------------------------------------------------------------------------
 \section{Solid angle and polarization correction for square pixels on planar detectors}\label{sec:solidAngle}
 
-\subsection{Solid angle correction.} In this section we compute the solid angle $\Delta \Omega$ subtended by a square pixel of area $l_D \times l_D$ about the point where a scatterer sits (see Figure \ref{fig:solidAngle}). To first approximation, the solid angle $\Delta \Omega \sim \cos(\theta) \Delta \phi \cdot \Delta \theta$. We use the following relations to estimate  $\Delta \phi$ and $\Delta \theta$. On a detector $z_D$ from the interaction point, we consider a pixel at position $\{x,y,z_D\}$ in its spherical coordinate representation:
+\subsection{Solid angle correction.} In this section we compute the solid angle $\Delta \Omega$ subtended by a square pixel of area $l_D \times l_D$ about the point where a scatterer sits (see Figure \ref{fig:solidAngle}). To first approximation, the solid angle $\Delta \Omega \sim \cos(\theta) \Delta \phi \cdot \Delta \theta$. We use the following relations to estimate  $\Delta \phi$ and $\Delta \theta$. On a detector $z_D$ from the interaction point, the spherical coordinate representation of a pixel at Cartesian coodinate $\{x,y,z_D\}$ is
 \begin{equation}
 \sin (\phi) = y /\rho , \qquad \cos(\phi) = z_D / \rho \;,  
 \end{equation}
@@ -391,7 +391,8 @@ Similarly, when this polarization is along the $\hat{y}$ direction, the intensit
 \begin{equation}
 	P_y = 1 - \frac{y^2}{x^2+y^2+z_D^2}\;.
 \end{equation}
-For an unpolarized beam, adding these two independent polarization factors recovers the familiar polarization correction in crystallography: $P_{\text{unpolarized}} = (1+\cos^2{\theta})/2 = \left(1+z_D^2/(x^2 + y^2 + z_D^2)\right)/2$.}
+}
+%For an unpolarized beam, adding these two independent polarization factors recovers the familiar polarization correction in crystallography: $P_{\text{unpolarized}} = (1+\cos^2{\theta})/2 = \left(1+z_D^2/(x^2 + y^2 + z_D^2)\right)/2$.
 
  %-------------------------------------------------------------------------
 \section{Pattern-wise intensity scale factor updates}\label{sec:rescaling}
@@ -446,7 +447,7 @@ Finally, the highlighted pixel in Figure \ref{fig:solidAngle} could be a collect
 
 The EMC algorithm is capable of searching for 3D diffraction volumes that maximize the likelihood of measuring a set of data frames. The performance of this algorithm is influenced by two considerations. First, is the `likelihood landscape' of this problem: whether there are locally maximal false solutions that can trap EMC's search, and if the family of true solutions are also global maxima. The second consideration is search dynamics: how long will it take to reach these likelihood maxima, and the meta-stability of local maxima. Although we cannot anticipate how these two considerations will affect all EMC reconstructions, this section gives a flavor of their importance.
 
-\subsection{Overfitting from having too few high-signal patterns}
+\subsection{Overfitting from having too few high-signal patterns}\label{sec:overfitting}
 
 Here we consider a case when global maxima is not the true solution. Suppose we are given only two high-signal 2D patterns are measured, $\left\{A_i\right\}$ and $\left\{B_i\right\}$, where index $i$ labels the $M_{\text{pix}}$ detector pixels of each pattern. We further assume that each pattern is diffracted from separate copies of the 3D object at exactly the same orientation in the laboratory frame. However, despite their identical orientations, these two patterns will be quantifiably different because they are different noisy realizations of the same 2D pattern. Two types of converged outcomes are possible: 
 \begin{enumerate}
@@ -454,27 +455,27 @@ Here we consider a case when global maxima is not the true solution. Suppose we 
 \item at two distinct orientations such that the patterns only intersect along a one-dimensional `common arc' in the 3D volume. 
 \end{enumerate}
 
-To simplify case 1, we assume that both patterns adopt the same orientation. Hence, the log-likelihood of measuring $\left\{B_i\right\}$ given the underlying pattern with $M_{\text{pix}}$ pixels  averages over $\left\{A_i\right\}$ and $\left\{B_i\right\}$ under a Poissonian noise model is, 
+To simplify case 1, we assume that both patterns adopt the same orientation. Hence, the log-likelihood of measuring $\left\{B_t\right\}$ given the underlying pattern with $M_{\text{pix}}$ pixels  averages over $\left\{A_t\right\}$ and $\left\{B_t\right\}$ under a Poissonian noise model is, 
 \begin{equation}
-\mathcal{L}\left( B \left| \frac{A+B}{2} \right. \right) \leq \sum_{i}^{M_{\text{pix}}} \left[\frac{B_i - A_i}{2} - B_i \log{\left(\frac{B_i}{(A_i+B_i)/2}}\right) \right]\;,
+\mathcal{L}\left( B \left| \frac{A+B}{2} \right. \right) \leq \sum_{t}^{M_{\text{pix}}} \left[\frac{B_t - A_t}{2} - B_t\log{\left(\frac{B_t}{(A_t+B_t)/2}}\right) \right]\;,
 \label{eqn:stability1}
 \end{equation}
-where the inequality arises because of Stirling's approximation\footnote{$\log{n!} \approx n \log{n} - n$, if $n \gg 1$. And also, $\log{n!} \geq n \log{n} -n$.} and approaches equality when $A_i\gg 1$ and $B_i\gg1$ at high fluence. The complementary likelihood of $\mathcal{L}\left(A |(A+B) / 2 \right)$ simply switches the $A$ and $B$ labels in the Eq. \eqref{eqn:stability1}, giving the combined log-likelihood of both patterns sharing the same orientation as
+where the inequality arises because of Stirling's approximation\footnote{$\log{n!} \approx n \log{n} - n$, if $n \gg 1$. And also, $\log{n!} \geq n \log{n} -n$.} and approaches equality when $A_t\gg 1$ and $B_t\gg1$ at high fluence. The complementary likelihood of $\mathcal{L}\left(A |(A+B) / 2 \right)$ simply switches the $A$ and $B$ labels in the Eq. \eqref{eqn:stability1}, giving the combined log-likelihood of both patterns sharing the same orientation as
 \begin{align}
 \mathcal{L}_{\text{together}} &=\mathcal{L}\left( A \left| \frac{A+B}{2} \right. \right) + \mathcal{L}\left( B \left| \frac{A+B}{2} \right. \right)   \nonumber\\
-&\leq \sum_{i}^{M_{\text{pix}}} \left[- B_i \log{\left(\frac{B_i}{(A_i+B_i)/2}}\right) - A_i \log{\left(\frac{A_i}{(A_i+B_i)/2}}\right)\right]\nonumber \\
-&\leq \sum_{i}^{M_{\text{pix}}} \; \alpha(A_i,B_i) \;,
+&\leq \sum_{t}^{M_{\text{pix}}} \left[- B_t \log{\left(\frac{B_t}{(A_t+B_t)/2}}\right) - A_t \log{\left(\frac{A_t}{(A_t+B_t)/2}}\right)\right]\nonumber \\
+&\leq \sum_{t}^{M_{\text{pix}}} \; \alpha(A_t,B_t) \;,
 \label{eqn:stability2}
 \end{align}
-where $\alpha(A_i,B_i)$ denotes the expression between the square brackets a line above. Using Gibbs' inequality\footnote{$\sum_i p_i \log{p_i/q_i} \geq 0$ where equality occurs when $p_i = q_i$.} when averaging over all possible values of $A$ and $B$, we expect 
+where $\alpha(A_t,B_t)$ denotes the expression between the square brackets a line above. Using Gibbs' inequality\footnote{$\sum_t p_t \log{p_t/q_t} \geq 0$ where equality occurs when $p_t = q_t$.} when averaging over all possible values of $A$ and $B$, we expect 
 \begin{equation}
-\langle \alpha(A_i,B_i) \rangle_{A/B} \leq 0\;.\label{eqn:stability2.5}
+\langle \alpha(A_t,B_t) \rangle_{A/B} \leq 0\;.\label{eqn:stability2.5}
 \end{equation}
 Hence, the combined likelihood $\mathcal{L}_{\text{shared}}$ in Eq. \eqref{eqn:stability2} must be negative and scales with the number of pixels $M_{\text{pix}}$.
 
-Case 2 has a similar calculation except the pixels are separated into two categories: those that lie on the common line between the two oriented patterns $M_{\text{com}}$ and those that do not, which number $M_{\text{sep}} = M_{\text{pix}} - M_{\text{com}}$. Ignoring corrections due to interpolating these patterns into the 3D volume, it is straightforward to show that log-likelihood of measuring patterns $\left\{A_i\right\}$ and $\left\{B_i\right\}$ when they are placed in different orientations is
+Case 2 has a similar calculation except the pixels are separated into two categories: those that lie on the common line between the two oriented patterns $M_{\text{com}}$ and those that do not, which number $M_{\text{sep}} = M_{\text{pix}} - M_{\text{com}}$. Ignoring corrections due to interpolating these patterns into the 3D volume, it is straightforward to show that log-likelihood of measuring patterns $\left\{A_t\right\}$ and $\left\{B_t\right\}$ when they are placed in different orientations is
 \begin{equation}
-\mathcal{L}_{\text{apart}} \approx \sum_{i}^{M_{\text{com}}} \alpha(A_i,B_i)\;,
+\mathcal{L}_{\text{apart}} \approx \sum_{i}^{M_{\text{com}}} \alpha(A_t,B_t)\;,
 \label{eqn:stability3}
 \end{equation}
 From Equations \eqref{eqn:stability2}, \eqref{eqn:stability2.5} and \eqref{eqn:stability3} it is clear that on average 
@@ -483,27 +484,30 @@ From Equations \eqref{eqn:stability2}, \eqref{eqn:stability2.5} and \eqref{eqn:s
 \langle \mathcal{L}_{\text{apart}} \rangle - \langle \mathcal{L}_{\text{together}} \rangle  & \propto M_{\text{sep}} \left(|A| + |B|\right) \;,
 \label{eqn:stability4}
 \end{align}
-where the moduli denote the average photon count on the pixels. Evidently the maximum likelihood solution here is incorrect and corresponds to 3D models that over-fit limited measured data. 
+where the moduli denote the average photon count on the pixels. Evidently the maximum likelihood solution here is incorrect and belongs to the family of 3D models\footnote{Any well-separated pair of orientations could be a maximum likelihood result as are, trivially, global rotations of these.} that over-fit limited measured data. 
 
-\subsection{Erratic orientation assignment with many high-signal patterns}
+\subsection{Erratic EMC updates with many high-signal patterns}\label{sec:erraticUpdates}
+In this section, we describe why the iterative orientation discovery in EMC can be erratic when the signal levels from patterns are very high. This erratic behavior, in part, explains why the regularization routine in Section \ref{subsec:regularization} was invoked.
 
-The log-likelihood that a set of pixels on pattern $\{K_i\}$ was measured given a tomogram intensity $\{W(\Omega)_i\}$ can be decomposed into two sums:
+The log-likelihood that a set of pixels on pattern $K$ was measured given a tomogram intensity $W(\Omega)$ can be decomposed into two sums:
 \begin{align}
 & \mathcal{L}(K|W(\Omega)) \nonumber \\
- & \leq \sum_i^{\text{s.t. } K_i =0} -W(\Omega)_i + \sum_i^{\text{s.t. } K_i > 0} K_i \left(1 - \frac{W(\Omega)_i}{K_i} + \log{\frac{W(\Omega)_i}{K_i}}\right)\nonumber \\
+ & \leq \sum_t^{\text{s.t. } K_t=0} -W(\Omega)_i + \sum_t^{\text{s.t. } K_t > 0} K_t \left(1 - \frac{W(\Omega)_t}{K_t} + \log{\frac{W(\Omega)_t}{K_t}}\right)\nonumber \\
 &= \Sigma_0 + \Sigma_1 \;.
 \label{eqn:stability5}
 \end{align}
 
-This log-likelihood is never greater than zero. This is because $1-x +\log{x} \leq 0$, $W(\Omega)_i\geq 0$, and $K_i \geq 0$ since photon counts and the update rule in Eq. \eqref{eqn:wupdate} are always positive. The log-likelihood of $\{K_i\}$ to an approximately correct $\{W(\Omega)_i\}$ will yield modestly negative values for $\Sigma_0$ and $\Sigma_1$. However, when the signal levels on the data frames are high, a mismatched $\{K_i\}$ and $\{W(\Omega)_i\}$ pair will give very negative log-likelihoods. As a result, the most likely $\{K_i\}+\{W(\Omega^{\text{best}})_i\}$ pair will be deemed very much more likely than pairings of $\{K_i\}$ with any other $\{W(\Omega)_i\}$. In other words, the conditional probability of a high-signal pattern's orientation within the model is very sharply peaked around the most likely orientation.
+This log-likelihood is never greater than zero. This is because $1-x +\log{x} \leq 0$; $K_t \geq 0$, and $W(\Omega)_t\geq 0$ since photon counts and the update rule in Eq. \eqref{eqn:wupdate} are always positive respectively. 
 
-The difficulty starts when $\{W(\Omega)_i\}$ is far away from any set of intensities of the true 3D model $W^{\text{true}}$. This scenario usually occurs during the first few iterations of an EMC reconstruction starting from random initial intensities. Despite the erroneousness of all $\{W(\Omega)_i\}$, the conditional probability of each data frame over the orientations will still be sharply peaked for reasons similar to those presented above. In fact, because $\{W(\Omega)_i\}$ will be composed of randomly rotated and averaged sums of subsets of the data frames, the $\Sigma_0$ sum in $\mathcal{L}(K|W(\Omega))$ will be very negative for certain patterns $\{K_i\}$. Any low-intensity wedges in the 3D model will produce sets of $\{W(\Omega^{\text{low}})_i\}$ with much more positive $\Sigma_0$, and will cause the $\{K_i\}$ frames to be resolutely re-assigned to these $\Omega^{\text{low}}$ orientations the end of the EMC iteration. Again, because of the sharpness of the likelihood over orientations, this re-assignment will happen abruptly. This behavior results erratic updates between EMC iterations, where low-intensity wedges will suddenly appear then disappear within few iterations.
+From Eq. \eqref{eqn:stability5} the log-likelihood of $K$ against a well-matched orientation tomogram in the model, ${W(\Omega)$, will yield modestly negative values for $\Sigma_0$ and $\Sigma_1$. This is because their photon and intensity values, $\{K_t\}$ and $\{W(\Omega)_t\}$ respectively, are also closely matched. However, when the signal levels on the data frames are high, a mismatched high-signal $K$ and $W(\Omega)$ pair will give very negative log-likelihoods. As a result, the most likely $K+W(\Omega^{\text{best}})$ pair will be deemed very much more likely than pairings of $K$ with any other $W(\Omega)$. Put differently, the conditional probability of a high-signal pattern's orientation within the model is very narrowly peaked around the most likely orientation $\Omega^{\text{best}}$.
 
-While such erratic updates may eventually yield the correct solution, we use the $\beta$ parameter in Section \ref{subsec:regularization} to regularize what would otherwise be sharply peaked likelihood distributions. Empirically, we notice that this regularization can greatly improve the stability towards the solution intensities even when the data frames have very high signal levels.
+Whereas a narrow orientation distribution for data frames is generally desired, the difficulty starts when the entire 3D model $W$ is far away from the true 3D model. This scenario usually occurs during the first few iterations of an EMC reconstruction starting from random initial $W$. Despite the erroneousness of $W$, the conditional probability of each data frame over the orientations will still be narrowly peaked for reasons similar to those presented above. Hence, the re-orientation of data frames within $W$ by an EMC iteration happens resolutely and in their wake cause low-intensity wedge-like volumes to appear in the updated $W^\prime$.
 
-%When overfitting occurs, EMC tends to re-orient one pattern away from the other so that each pattern matches best to itself (except along their common line). This tendency can be intuitively extended beyond two patterns, where local clusters of like-patterns are `repelled' from each other when the signal level is high.
+These low-intensity wedges are troublesome. When $W$ is far from the solution, its tomograms $W(\Omega)$ will be composed of randomly rotated and averaged subsets of the data frames. This results in very negative values of $\Sigma_0$ in $\mathcal{L}(K|W(\Omega))$ for many frames $K$. Comparatively, any low-intensity wedges in the 3D model contains sets of $W(\Omega^{\text{dark}})$ that yield much more positive $\Sigma_0$, and will cause the $K$ frames to be resolutely re-assigned to these $\Omega^{\text{dark}}$ orientations the end of the EMC iteration. This resolute movement may in turn open up new low-intensity wedges in $W$. Further, low-intensity wedges that do not resemble any $K$ will `attract' and result in yet another set of randomly rotated and averaged subsets data frames, paving the way for the next orientation re-assignment. This behavior results in erratic updates between EMC iterations, where low-intensity wedges will suddenly appear then disappear within few iterations.
 
-%The artificial overfitting described in this section is inconsequential when we have many patterns of moderate signal levels. Overfitting aside we expect the log-likelihood of the data given the 3D model to be high when like-patterns cluster into the same orientation. When the 3D model is densely populated with diffraction patterns EMC cannot locally re-orient patterns into neighboring orientation tomograms without causing the log-likelihood of data occupying these neighbors to decline.  Furthermore, the difference in the log-likelihood of Eq. \eqref{eqn:stability4} driving this instability is small with moderate rather than high signal levels. This reduction can also be effected by the parameter $\beta \leq 1$ described in Section \ref{subsec:EMC}, which multiplies into and hence reduces the instability metric in  Eq. \eqref{eqn:stability4}. A slightly rotationally-blurred 3D volume recovered at small $\beta$ can be stabilizing enough against overfitting when we eventually increase $\beta$ back to the default value of unity.
+Incidentally, this erratic behavior should not occur when $W$ is near the true solution hence data frames $K$ have no incentive to move away from their correctly determined orientations or create low-intensity wedges in $W$.
+
+While enough random erratic updates may eventually yield the solution intensities, this iterative search can be relaxed using the regularization $\beta$ parameter in Section \ref{subsec:regularization}, which `spreads out' these narrowly peaked likelihood distributions. This way, low-intensity wedge-like volumes are less likely to appear in $W^\prime$. Empirically, we notice that this regularization can greatly improve the iterations' stability towards the true intensities even when the data frames have very high signal levels. Once $W$ iteratively converges to the neighborhood of the true solution, then $\beta$ can be re-inflated back to the regular EMC algorithm.
 
      %-------------------------------------------------------------------------
      % The back matter of the paper - acknowledgements and references
