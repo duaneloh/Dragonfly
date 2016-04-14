@@ -338,12 +338,9 @@ int setup(char *config_fname, int continue_flag) {
 	beta_period = 100 ;
 	beta_jump = 1. ;
 	num_div = -1 ;
-<<<<<<< HEAD
-=======
 	need_scaling = 0 ;
 	alpha = 0. ;
 	beta = 1. ;
->>>>>>> master
 	
 	char line[999], *token ;
 	fp = fopen(config_fname, "r") ;
