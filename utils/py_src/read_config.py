@@ -3,8 +3,20 @@ import logging
 import ConfigParser
 from collections import OrderedDict
 
+class MultiOrderedDict(OrderedDict):
+    def __setitem__(self, key, value):
+        if isinstance(value, list) and key in self:
+            self[key].extend(value)
+        else:
+            super(OrderedDict, self).__setitem__(key, value)
+
 def get_param(config_file, section, tag):
     config      = ConfigParser.ConfigParser()
+    config.read(config_file)
+    return config.get(section, tag)
+
+def get_multi_params(config_file, section, tag):
+    config      = ConfigParser.RawConfigParser(dict_type=MultiOrderedDict)
     config.read(config_file)
     return config.get(section, tag)
 
@@ -12,7 +24,7 @@ def get_filename(config_file, section, tag):
     param   = get_param(config_file, section, tag)
     if ":::" in param:
         [s, t] = param.split(":::")
-        param = get_param(config_file, s, t)
+        param = get_filename(config_file, s, t)
     return param
 
 def get_detector_config(config_file, show=False):

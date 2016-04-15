@@ -12,7 +12,7 @@ if __name__ == "__main__":
     parser      = py_utils.my_argparser(description="make detector")
     args        = parser.special_parse_args()
 
-    det_file    = os.path.join(args.main_dir, read_config.get_param(args.config_file, 'make_detector', "out_detector_file"))
+    det_file    = os.path.join(args.main_dir, read_config.get_filename(args.config_file, 'make_detector', "out_detector_file"))
     to_write    = py_utils.check_to_overwrite(det_file)
     logging.info("Starting make_detector....")
     logging.info(' '.join(sys.argv))
