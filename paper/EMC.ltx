@@ -5,7 +5,8 @@
 % Version 1.6 (28 March 2013)
 %------------------------------------------------------------------------------
 
-\documentclass[]{iucr}              % DO NOT DELETE THIS LINE
+%\documentclass[]{iucr}              % DO NOT DELETE THIS LINE
+\documentclass[preprint]{iucr}              % DO NOT DELETE THIS LINE
      %-------------------------------------------------------------------------
      % Information about journal to which submitted
      %-------------------------------------------------------------------------
@@ -101,7 +102,7 @@
 \maketitle                        % DO NOT DELETE THIS LINE
 
 \begin{synopsis}
-Description of a single-particle X-ray imaging reconstruction and simulation package named EMC.
+Description of a single-particle X-ray imaging reconstruction and simulation package using the EMC algorithm named Dragonfly. 
 \end{synopsis}
 
 \begin{abstract}
@@ -453,7 +454,7 @@ Finally, the highlighted pixel in Figure \ref{fig:solidAngle} could be a collect
 
 \subsection{Overfitting from having too few high-signal patterns}\label{sec:overfitting}
 
-\corr{Here we consider a case when global maxima is not the true solution. Suppose we are given only two high-signal 2D patterns are measured, $\left\{A_i\right\}$ and $\left\{B_i\right\}$, where index $i$ labels the $M_{\text{pix}}$ detector pixels of each pattern. We further assume that each pattern is diffracted from separate copies of the 3D object at exactly the same orientation in the laboratory frame. However, despite their identical orientations, these two patterns will be quantifiably different because they are different noisy realizations of the same 2D pattern. Two types of converged outcomes are possible:
+\corr{Here we consider a case when global maxima is not the true solution. Suppose we are given only two high-signal 2D patterns are measured, $\left\{A_i\right\}$ and $\left\{B_i\right\}$, where index $i$ labels the $M_{\text{pix}}$ detector pixels of each pattern. We further assume that each pattern is diffracted from separate copies of the 3D object at exactly the same orientation in the laboratory frame. However, despite their identical orientations, these two patterns will be quantitatively different because they are different noisy realizations of the same 2D pattern. Two types of converged outcomes are possible:
 \begin{enumerate}
 \item place the two 2D patterns at the same orientation and average over them or, 
 \item at two distinct orientations such that the patterns only intersect along a one-dimensional `common arc' in the 3D volume. 
@@ -493,7 +494,7 @@ where the moduli denote the average photon count on the pixels. Evidently the ma
 
 \subsection{Erratic EMC updates with many high-signal patterns}\label{sec:erraticUpdates}
 
-\corr{In this section, we describe why the iterative orientation discovery in EMC can be erratic when the signal levels from patterns are very high. This erratic behavior, in part, explains why the regularization routine in Section \ref{subsec:regularization} was invoked.}
+\corr{In this section, we describe why the iterative orientation discovery in EMC can be erratic when the signal levels from patterns are very high. This erratic behavior, in part, explains why the regularization routine in Section \ref{subsec:regularization} was invoked.} 
 
 \corr{
 The log-likelihood that a set of pixels on pattern $K$ was measured given a tomogram intensity $W(\Omega)$ can be decomposed into two sums:
@@ -505,17 +506,17 @@ The log-likelihood that a set of pixels on pattern $K$ was measured given a tomo
 \end{align}
 }
 
-\corr{This log-likelihood is never greater than zero. This is because $1-x +\log{x} \leq 0$; $K_t \geq 0$, and $W(\Omega)_t\geq 0$ since photon counts and the update rule in Eq. \eqref{eqn:wupdate} are always positive respectively.}
+\corr{This log-likelihood is never greater than zero. This is because $1-x +\log{x} \leq 0$; $K_t \geq 0$, and $W(\Omega)_t\geq 0$ since photon counts and the tomograms updated by Eq. \eqref{eqn:wupdate} are always positive respectively.}
 
-\corr{From Eq. \eqref{eqn:stability5} the log-likelihood of $K$ against a well-matched orientation tomogram in the model, $W(\Omega)$, will yield modestly negative values for $\Sigma_0$ and $\Sigma_1$. This is because their photon and intensity values, $\{K_t\}$ and $\{W(\Omega)_t\}$ respectively, are also closely matched. However, when the signal levels on the data frames are high, a mismatched high-signal $K$ and $W(\Omega)$ pair will give very negative log-likelihoods. As a result, the most likely $K+W(\Omega^{\text{best}})$ pair will be deemed very much more likely than pairings of $K$ with any other $W(\Omega)$. Put differently, the conditional probability of a high-signal pattern's orientation within the model is very narrowly peaked around the most likely orientation $\Omega^{\text{best}}$.}
+\corr{For a pattern with very high signal, the conditional probability distribution is very narrowly peaked around the most likely orientation $\Omega^{\text{best}}$. From Eq.~\eqref{eqn:stability5} the log-likelihood of $K$ against a well-matched orientation tomogram in the model, $W(\Omega)$, will yield modestly negative values for $\Sigma_0$ and $\Sigma_1$. This is because their photon and intensity values, $\{K_t\}$ and $\{W(\Omega)_t\}$ respectively, are also closely matched. However, when the signal levels on the data frames are high, a mismatched high-signal $K$ and $W(\Omega)$ pair will give very negative log-likelihoods. As a result, the most likely $K+W(\Omega^{\text{best}})$ pair will be deemed very much more likely than pairings of $K$ with any other $W(\Omega)$.}
 
-\corr{Whereas a narrow orientation distribution for data frames is generally desired, the difficulty starts when the entire 3D model $W$ is far away from the true 3D model. This scenario usually occurs during the first few iterations of an EMC reconstruction starting from random initial $W$. Despite the erroneousness of $W$, the conditional probability of each data frame over the orientations will still be narrowly peaked for reasons similar to those presented above. Hence, the re-orientation of data frames within $W$ by an EMC iteration happens resolutely and in their wake cause low-intensity wedge-like volumes to appear in the updated $W^\prime$ (see Fig. \ref{fig:breakdown}).}
+\corr{While a narrow orientation distribution for data frames is generally desired, the difficulty starts when the entire 3D model $W$ is far away from the true 3D model. This scenario usually occurs during the first few iterations of an EMC reconstruction starting from random initial $W$. Despite the erroneousness of $W$, the conditional probability of each data frame over the orientations will still be narrowly peaked for reasons similar to those presented above. Hence, the re-orientation of data frames within $W$ by an EMC iteration happens resolutely and, in their wake, cause low-intensity wedge-like volumes to appear in the updated $W^\prime$ (see Fig.~\ref{fig:breakdown}), purely due to random fluctuations.}
 
-\corr{These low-intensity wedges are troublesome. When $W$ is far from the solution, its tomograms $W(\Omega)$ will be composed of randomly rotated and averaged subsets of the data frames. This results in very negative values of $\Sigma_0$ in $\mathcal{L}(K|W(\Omega))$ for many frames $K$. Comparatively, any low-intensity wedges in the 3D model contains sets of $W(\Omega^{\text{dark}})$ that yield much more positive $\Sigma_0$, and will cause the $K$ frames to be resolutely re-assigned to these $\Omega^{\text{dark}}$ orientations the end of the EMC iteration. This resolute movement may in turn open up new low-intensity wedges in $W$. Further, low-intensity wedges that do not resemble any $K$ will `attract' and result in yet another set of randomly rotated and averaged subsets data frames, paving the way for the next round of orientation re-assignment. This behavior results in erratic updates between EMC iterations, where low-intensity wedges will suddenly appear then disappear within few iterations.}
+\corr{These low-intensity wedges form convergence traps for the algorithm. When $W$ is far from the solution, its tomograms $W(\Omega)$ will be composed of randomly rotated and averaged subsets of the data frames. This results in very negative values of $\Sigma_0$ in $\mathcal{L}(K|W(\Omega))$ for many frames $K$. Comparatively, any low-intensity wedges in the 3D model contains sets of $W(\Omega^{\text{dark}})$ that yield much more positive $\Sigma_0$, and will cause the $K$ frames to be resolutely re-assigned to these $\Omega^{\text{dark}}$ orientations the end of the EMC iteration. This resolute movement may in turn open up new low-intensity wedges in $W$. Further, low-intensity wedges that do not resemble any $K$ will `attract' and result in yet another set of randomly rotated and averaged subsets data frames, paving the way for the next round of orientation re-assignment. This behavior results in erratic updates between EMC iterations, where low-intensity wedges will suddenly appear then disappear within few iterations.}
 
-\corr{Incidentally, this erratic behavior should not occur when $W$ is near the true solution hence data frames $K$ have no incentive to move away from their correctly determined orientations or create low-intensity wedges in $W$.}
+\corr{Incidentally, this erratic behavior should not occur when $W$ is near the true solution hence data frames $K$ have no incentive to move away from their correctly determined orientations or create low-intensity wedges in $W$. Also, when the signal is lower, the orientation distributions are broader in the first few iterations, avoiding these wedges.}
 
-\corr{While enough random erratic updates may eventually yield the solution intensities, this iterative search can be relaxed using the $\beta$ parameter in Section \ref{subsec:regularization}, which `spreads out' these narrowly peaked likelihood distributions. This way, low-intensity wedge-like volumes are less likely to appear in $W^\prime$. Empirically, we notice that this regularization can greatly improve the iterations' stability towards the true intensities even when the data frames have very high signal levels. Once $W$ iteratively converges to the neighborhood of the true solution, then $\beta$ can be re-inflated back to the regular EMC algorithm.}
+\corr{While enough random erratic updates may eventually yield the solution intensities, this iterative search can be relaxed using the $\beta$ parameter in Section \ref{subsec:regularization}, which `spreads out' these narrowly peaked likelihood distributions. This way, low-intensity wedge-like volumes are less likely to appear in $W^\prime$. Empirically, we notice that this regularization can greatly improve the iterations' stability towards the true intensities even when the data frames have very high signal levels. Once $W$ iteratively converges to the neighborhood of the true solution, then $\beta$ can be raised back to 1.}
 
      %-------------------------------------------------------------------------
      % The back matter of the paper - acknowledgements and references
@@ -732,11 +733,16 @@ $\widetilde{R}$ & $M_{\text{data}} & $M_{\text{rot}} & $M_{\text{sp}}$ (MB) & $M
 
 \begin{figure}
 \caption{Low-intensity wedge-like volumes appear in the EMC-reconstructed volume with very high signal data frames (most frames contain more than $10^4$ photons). The simulation parameters are listed in Table \ref{table:simParams} as AMO(high). We reconstructed with rotation group refinement $n=5$, and $\beta=1$ (regularization turned off). In descending order down the rows, the panels show the central sections of the updated model after iterations 1, 5, 10, 100, and ends with their diagnostics for 100 iterations (plots described in caption of Fig. \ref{fig:amo_low_log}).}
-\includegraphics[width=\textwidth]{figures/breakdown_intens_001.png} \label{fig:breakdown}
-\includegraphics[width=\textwidth]{figures/breakdown_intens_005.png} 
-\includegraphics[width=\textwidth]{figures/breakdown_intens_010.png} 
-\includegraphics[width=\textwidth]{figures/breakdown_intens_100.png} 
-\includegraphics[width=\textwidth]{figures/breakdown_intens_log.png} 
+%\includegraphics[width=\textwidth]{figures/breakdown_intens_001.png} \label{fig:breakdown}
+%\includegraphics[width=\textwidth]{figures/breakdown_intens_005.png} 
+%\includegraphics[width=\textwidth]{figures/breakdown_intens_010.png} 
+%\includegraphics[width=\textwidth]{figures/breakdown_intens_100.png} 
+%\includegraphics[width=\textwidth]{figures/breakdown_intens_log.png} 
+\includegraphics[height=0.13\textheight]{figures/breakdown_intens_001.png} \label{fig:breakdown}
+\includegraphics[height=0.13\textheight]{figures/breakdown_intens_005.png} 
+\includegraphics[height=0.13\textheight]{figures/breakdown_intens_010.png} 
+\includegraphics[height=0.13\textheight]{figures/breakdown_intens_100.png} 
+\includegraphics[height=0.13\textheight]{figures/breakdown_intens_log.png} 
 \end{figure}
 
 

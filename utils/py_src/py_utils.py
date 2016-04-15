@@ -134,30 +134,15 @@ def use_last_recon_as_starting_model(config_fname, output_subdir="output"):
     with open("config.ini", "w") as fp:
         config.write(fp)
 
-def name_quat_file_sensibly(config_fname):
-    config = ConfigParser.ConfigParser()
-    config.read(config_fname)
-
-    quat_num_div = int(config.get("make_quaternion", "num_div"))
-    quat_fname  = os.path.join("aux", "quat_%02d.dat"%quat_num_div)
-    config.set("make_quaternion", "out_quat_file", quat_fname)
-    logging.info("Setting quaternion file to " + quat_fname)
-
-    with open("config.ini", "w") as fp:
-        config.write(fp)
-
 def increment_quat_file_sensibly(config_fname, incr):
     config = ConfigParser.ConfigParser()
     config.read(config_fname)
 
-    quat_num_div = int(config.get("make_quaternion", "num_div"))
+    quat_num_div = int(config.get("emc", "num_div"))
     msg = ["Setting quaternion from", str(quat_num_div), "to", str(quat_num_div+incr)]
     logging.info(' '.join(msg))
     quat_num_div += incr
-    config.set("make_quaternion", "num_div", quat_num_div)
-    quat_fname  = os.path.join("aux", "quat_%02d.dat"%quat_num_div)
-    config.set("make_quaternion", "out_quat_file", quat_fname)
-    logging.info("Setting quaternion file to " + quat_fname)
+    config.set("emc", "num_div", quat_num_div)
 
     with open("config.ini", "w") as fp:
         config.write(fp)

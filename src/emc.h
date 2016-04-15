@@ -59,4 +59,7 @@ double maximize() ;
 void slice_gen(double*, double, double*, double*, double*) ;
 void slice_merge(double*, double*, double*, double*, double*) ;
 
+// quat.c
+void quat_gen(int) ;
+
 #endif

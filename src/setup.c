@@ -53,11 +53,6 @@ int parse_quat(char *fname) {
 		quat[r*5 + 4] *= total_weight ;
 	fclose(fp) ;
 	
-	num_rot_p = num_rot / num_proc ;
-	if (rank < (num_rot % num_proc))
-		num_rot_p++ ;
-	fprintf(stderr, "%d: num_rot_p = %d\n", rank, num_rot_p) ;
-	
 	return 0 ;
 }
 
@@ -322,7 +317,7 @@ int setup(char *config_fname, int continue_flag) {
 	char merge_flist[999], merge_fname[999] ;
 	char out_det_fname[999], out_quat_fname[999] ;
 	double qmax, qmin, detd, pixsize ;
-	int detsize ;
+	int dets_x, dets_y, detsize, num_div ;
 	
 	known_scale = 0 ;
 	start_iter = 1 ;
@@ -332,10 +327,13 @@ int setup(char *config_fname, int continue_flag) {
 	data_fname[0] = '\0' ;
 	merge_flist[0] = '\0' ;
 	merge_fname[0] = '\0' ;
+	quat_fname[0] = '\0' ;
 	merge_frames = NULL ;
 	detd = 0. ;
 	pixsize = 0. ;
 	detsize = 0 ;
+	dets_x = 0 ;
+	dets_y = 0 ;
 	size = -1 ;
 	beta_period = 100 ;
 	beta_jump = 1. ;
@@ -357,8 +355,17 @@ int setup(char *config_fname, int continue_flag) {
 		
 		if (strcmp(token, "detd") == 0)
 			detd = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "detsize") == 0)
-			detsize = atoi(strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "detsize") == 0) {
+			dets_x = atoi(strtok(NULL, " =\n")) ;
+			dets_y = dets_x ;
+			token = strtok(NULL, " =\n") ;
+			if (token == NULL)
+				detsize = dets_x ;
+			else {
+				dets_y = atoi(token) ;
+				detsize = dets_x > dets_y ? dets_x : dets_y ;
+			}
+		}
 		else if (strcmp(token, "pixsize") == 0)
 			pixsize = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "need_scaling") == 0)
@@ -389,6 +396,8 @@ int setup(char *config_fname, int continue_flag) {
 			strcpy(input_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "in_detector_file") == 0)
 			strcpy(det_fname, strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "num_div") == 0)
+			num_div = atoi(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "in_quat_file") == 0)
 			strcpy(quat_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "out_detector_file") == 0)
@@ -405,9 +414,7 @@ int setup(char *config_fname, int continue_flag) {
 		}
 	}
 	fclose(fp) ;
-	
-	if (strcmp(quat_fname, "make_quaternion:::out_quat_file") == 0)
-		strcpy(quat_fname, out_quat_fname) ;
+
 	if (strcmp(det_fname, "make_detector:::out_detector_file") == 0)
 		strcpy(det_fname, out_det_fname) ;
 	if (strcmp(data_fname, "make_data:::out_photons_file") == 0)
@@ -419,7 +426,9 @@ int setup(char *config_fname, int continue_flag) {
 	}
 	
 	if (size == -1) {
-		qmax = 2. * sin(0.5 * atan(sqrt(2.)*((detsize-1)/2)*pixsize/detd)) ;
+        double hx = (dets_x - 1) / 2 * pixsize ;
+        double hy = (dets_y - 1) / 2 * pixsize ;
+		qmax = 2. * sin(0.5 * atan(sqrt(hx*hx + hy*hy)/detd)) ;
 		qmin = 2. * sin(0.5 * atan(pixsize/detd)) ;
 		size = ceil(2. * qmax / qmin) + 1 ;
 	}
@@ -427,9 +436,21 @@ int setup(char *config_fname, int continue_flag) {
 	
 	if (parse_det(det_fname))
 		return 1 ;
-	
-	if (parse_quat(quat_fname))
+
+	if (num_div > 0 && quat_fname[0] != '\0') {
+		fprintf(stderr, "Config file contains both num_div as well as in_quat_file. Pick one.\n") ;
 		return 1 ;
+	}
+	else if (num_div > 0)
+		quat_gen(num_div) ;
+	else if (parse_quat(quat_fname))
+			return 1 ;
+	
+	num_rot_p = num_rot / num_proc ;
+	if (rank < (num_rot % num_proc))
+		num_rot_p++ ;
+	fprintf(stderr, "%d: num_rot_p = %d\n", rank, num_rot_p) ;
+	
 	
 	if (data_flist[0] != '\0' && data_fname[0] != '\0') {
 		fprintf(stderr, "Config file contains both in_photons_file and in_photons_list. Pick one.\n") ;

@@ -24,7 +24,7 @@ if __name__ == "__main__":
     if to_write:
         timer       = py_utils.my_timer()
         pm          = read_config.get_detector_config(args.config_file, show=args.vb)
-        q_pm        = read_config.compute_q_params(pm['detd'], pm['detsize'], pm['pixsize'], pm['wavelength'], show=args.vb)
+        q_pm        = read_config.compute_q_params(pm['detd'], pm['dets_x'], pm['dets_y'], pm['pixsize'], pm['wavelength'], show=args.vb)
         timer.reset_and_report("Reading experiment parameters") if args.vb else timer.reset()
 
         fov_len     = int(np.ceil(q_pm['fov_in_A']/q_pm['half_p_res']) + 1)

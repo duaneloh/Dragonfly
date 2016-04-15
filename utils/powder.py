@@ -13,7 +13,7 @@ if __name__ == "__main__":
     args = parser.special_parse_args()
 
     try:
-        photons_list = [read_config.get_param(args.config_file, 'emc', "in_photons_file")]
+        photons_list = [read_config.get_filename(args.config_file, 'emc', "in_photons_file")]
     except ConfigParser.NoOptionError:
         with open(read_config.get_param(args.config_file, 'emc', "in_photons_list"), 'r') as f:
             photons_list = map(lambda x: x.rstrip(), f.readlines())

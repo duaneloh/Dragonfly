@@ -24,6 +24,7 @@ if __name__ == "__main__":
                         help="number of iterations (default=10)")
     parser.add_argument("-t", dest="num_threads", type=int, default=-1,
                         help="number of openMP thread(defaults to $OMP_NUM_THREADS on machine")
+    parser.add_argument("--kane", action='store_true', default=False)
     parser.add_argument("--kahuna", action='store_true', default=False)
     parser.add_argument("--bayes", action='store_true', default=False)
     parser.add_argument("--tukey", action='store_true', default=False)
@@ -35,6 +36,9 @@ if __name__ == "__main__":
     logging.info(sys.argv)
 
     # Here are some custom hybrid configurations
+    if args.kane:
+        args.num_mpi = 9 
+        args.num_threads = 8
     if args.kahuna:
         args.num_mpi = 15
         args.num_threads = 6
