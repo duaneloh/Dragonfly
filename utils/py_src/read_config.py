@@ -55,7 +55,7 @@ def get_detector_config(config_file, show=False):
 
     try:
         params['mask_fname'] = config.get('make_detector', 'in_mask_file')
-    except ConfigParser.NoOptionError:
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError):
         params['mask_fname'] = None
 
     if show:

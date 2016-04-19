@@ -115,6 +115,8 @@ def create_new_recon_dir(tag="recon", num=1, prefix="./"):
         if len(v) > 0:
             for vv in v:
                 os.mkdir(os.path.join(recon_dir, k, vv))
+    if prefix != "./":
+        os.symlink(recon_dir, name_recon_dir(tag, num))
     return recon_dir
 
 def use_last_recon_as_starting_model(config_fname, output_subdir="output"):
