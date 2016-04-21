@@ -27,6 +27,7 @@ class Frameviewer():
         
         self.numstr = Tk.StringVar(); self.numstr.set(str(0))
         self.rangestr = Tk.StringVar(); self.rangestr.set(str(10))
+        self.master.title('EMC Frame Viewer')
         
         self.parse_headers()
         self.init_geom()

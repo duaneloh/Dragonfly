@@ -43,6 +43,7 @@ class Plotter:
         self.ifcheck.set(0)
         self.iter.set(0)
 
+        master.title('Dragonfly Progress Monitor')
         master.rowconfigure(0, weight=1)
         master.columnconfigure(0, weight=1)
         master.protocol('WM_DELETE_WINDOW', self.quit_)
