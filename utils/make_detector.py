@@ -24,8 +24,8 @@ if __name__ == "__main__":
         timer.reset_and_report("Reading experiment parameters") if args.vb else timer.reset()
 
         fov_len     = int(np.ceil(q_pm['fov_in_A']/q_pm['half_p_res']) + 1)
-        det_cen_x   = (pm['dets_x']-1)/2.
-        det_cen_y   = (pm['dets_y']-1)/2.
+        det_cen_x   = pm['detc_x']
+        det_cen_y   = pm['detc_y']
         qscaling    = 1. / pm['wavelength'] / q_pm['q_sep']
         (x, y)      = np.mgrid[0:pm['dets_x'], 0:pm['dets_y']]
         (x, y)      = (x.flatten()-det_cen_x, y.flatten()-det_cen_y)

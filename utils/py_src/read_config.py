@@ -58,6 +58,18 @@ def get_detector_config(config_file, show=False):
     except (ConfigParser.NoOptionError, ConfigParser.NoSectionError):
         params['mask_fname'] = None
 
+    try:
+        detcstr = config.get('make_detector', 'center').split(' ')
+        if len(detstr) == 1:
+            params['detc_x'] = int(detcstr[0])
+            params['detc_y'] = int(detcstr[0])
+        else:
+            params['detc_x'] = int(detcstr[0])
+            params['detc_y'] = int(detcstr[1])
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError):
+        params['detc_x']   = (params['dets_x']-1)/2.
+        params['detc_y']   = (params['dets_y']-1)/2.
+    
     if show:
         for k,v in params.items():
             #print '{:<15}:{:10.4f}'.format(k, v)
