@@ -105,7 +105,7 @@ def create_new_recon_dir(tag="recon", num=1, prefix="./"):
     recon_dir = os.path.join(prefix, name_recon_dir(tag, num))
     while(os.path.exists(recon_dir)):
         num += 1
-        recon_dir = os.path.join(name_recon_dir(tag, num))
+        recon_dir = os.path.join(prefix, os.path.join(name_recon_dir(tag, num)))
     msg = 'New recon directory created with name: ' + recon_dir
     logging.info(msg)
     os.mkdir(recon_dir)
