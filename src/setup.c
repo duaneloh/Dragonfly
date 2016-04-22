@@ -449,8 +449,11 @@ int setup(char *config_fname, int continue_flag) {
 	num_rot_p = num_rot / num_proc ;
 	if (rank < (num_rot % num_proc))
 		num_rot_p++ ;
-	fprintf(stderr, "%d: num_rot_p = %d\n", rank, num_rot_p) ;
-	
+	if (num_proc > 1) {
+		char hname[99] ;
+		gethostname(hname, 99) ;
+		fprintf(stderr, "%d: %s: num_rot_p = %d\n", rank, hname, num_rot_p) ;
+	}
 	
 	if (data_flist[0] != '\0' && data_fname[0] != '\0') {
 		fprintf(stderr, "Config file contains both in_photons_file and in_photons_list. Pick one.\n") ;

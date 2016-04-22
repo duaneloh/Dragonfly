@@ -19,9 +19,6 @@ int main(int argc, char *argv[]) {
 	omp_set_num_threads(omp_get_max_threads()) ;
 	num_iter = 0 ;
 	strcpy(config_fname, "config.ini") ;
-	char hname[99] ;
-	gethostname(hname, 99) ;
-	fprintf(stderr, "%d: %s\n", rank, hname) ;
 
 	int num_threads = omp_get_max_threads() ;
 	
