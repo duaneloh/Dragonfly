@@ -16,7 +16,8 @@ import os
 import numpy as np
 import h5py
 import sys
-sys.path.append('../utils')
+#Add utils directory to pythonpath
+sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 from py_src import writeemc
 
 if len(sys.argv) < 2:
