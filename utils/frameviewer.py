@@ -74,6 +74,8 @@ class Frameviewer():
         self.master.bind('<Control-p>', self.prev_frame)
         self.master.bind('<Control-r>', self.rand_frame)
         self.master.bind('<Control-q>', self.quit)
+        self.master.bind('<Right>', self.next_frame)
+        self.master.bind('<Left>', self.prev_frame)
         self.master.bind('<Up>', self.next_frame)
         self.master.bind('<Down>', self.prev_frame)
         
