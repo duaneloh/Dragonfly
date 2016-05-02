@@ -68,6 +68,7 @@ int main(int argc, char* argv[]) {
 		strcpy(config_fname, "config.ini") ;
 	
 	num_div = 0 ;
+	quat_fname[0] = '\0' ;
 	
 	fp = fopen(config_fname, "r") ;
 	if (fp == NULL) {
@@ -89,6 +90,10 @@ int main(int argc, char* argv[]) {
 	if (num_div == 0) {
 		fprintf(stderr, "Need num_div (number of divisions of 600-cell)\n") ;
 		return 1 ;
+	}
+	if (quat_fname[0] == '\0') {
+		fprintf(stderr, "Writing to data/quat.dat") ;
+		strcpy(quat_fname, "data/quat.dat") ;
 	}
 	
 	strcpy(line, dirname(config_fname)) ;
