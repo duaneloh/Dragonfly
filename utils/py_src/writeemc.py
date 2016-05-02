@@ -3,8 +3,11 @@ import struct
 import os
 
 class EMC_writer():
-    def __init__(self, flist, out_fname, num_pix):
-        self.f = [open(fname, 'wb') for fname in flist]
+    def __init__(self, out_fname, num_pix):
+        out_folder = os.path.dirname(out_fname)
+        temp_fnames = [os.path.join(out_folder, fname) for fname in ['temp.po', 'temp.pm', 'temp.cm']]
+        self.f = [open(fname, 'wb') for fname in temp_fnames]
+        
         self.out_fname = out_fname
         print 'Writing emc file to', out_fname
         self.num_data = 0
@@ -12,11 +15,11 @@ class EMC_writer():
         self.mean_count = 0.
         self.ones = []
         self.multi = []
-    
+
     def finish_write(self):
         for fp in self.f:
             fp.close()
-
+        
         if self.num_data == 0:
             for fp in self.f:
                 os.system('rm ' + fp.name)
@@ -38,7 +41,7 @@ class EMC_writer():
         for fp in self.f:
             os.system('cat ' + fp.name + ' >> ' + self.out_fname)
             os.system('rm ' + fp.name)
-    
+
     def write_frame(self, frame):
         place_ones = np.where(frame == 1)[0]
         place_multi = np.where(frame > 1)[0]
@@ -49,6 +52,10 @@ class EMC_writer():
         self.ones.append(len(place_ones))
         self.multi.append(len(place_multi))
         
-        self.f[0].write(place_ones.astype(np.int32).tostring())
-        self.f[1].write(place_multi.astype(np.int32).tostring())
-        self.f[2].write(count_multi.astype(np.int32).tostring())
+        #self.f[0].write(place_ones.astype(np.int32).tostring())
+        #self.f[1].write(place_multi.astype(np.int32).tostring())
+        #self.f[2].write(count_multi.astype(np.int32).tostring())
+        place_ones.astype(np.int32).tofile(self.f[0])
+        place_multi.astype(np.int32).tofile(self.f[1])
+        count_multi.astype(np.int32).tofile(self.f[2])
+
