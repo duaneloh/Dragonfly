@@ -152,7 +152,7 @@ class Frameviewer():
         
         s = plt.subplot(111)
         s.imshow(frame, vmin=0, vmax=float(self.rangestr.get()), interpolation='none', cmap=self.cmap)
-        s.set_title(str(frame.sum()) + " photons")
+        s.set_title("%d photons" % frame.sum())
         self.fig.add_subplot(s)
         self.canvas.show()
 
