@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href='https://fonts.googleapis.com/css?family=Architects+Daughter' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print">
+
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <title>Dragonfly by duaneloh</title>
+  </head>
+
+  <body>
+    <header>
+      <div class="inner">
+        <h1>Dragonfly</h1>
+        <h2></h2>
+        <a href="https://github.com/duaneloh/Dragonfly" class="button"><small>View project on</small> GitHub</a>
+      </div>
+    </header>
+
+    <div id="content-wrapper">
+      <div class="inner clearfix">
+        <section id="main-content">
+          <h2>
+<a id="quick-start" class="anchor" href="#quick-start" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Quick start</h2>
+
+<h3>
+<a id="spawn-a-reconstruction-directory" class="anchor" href="#spawn-a-reconstruction-directory" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Spawn a reconstruction directory</h3>
+
+<p>Type in the topmost directory:
+    <code>
+    ./init_new_recon.py
+</code>.
+This makes the binaries needed for the package and links them into a new reconstruction directory named "recon_nnnn". For help on customizing this setup script (e.g. custom folder name or counter):
+    <code>
+    ./init_new_recon.py -h
+</code>.</p>
+
+<h3>
+<a id="configure-experiment" class="anchor" href="#configure-experiment" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Configure experiment</h3>
+
+<p>Go to your newly created recon directory
+    <code>
+    cd recon_nnnn
+</code>.
+Change the experiment parameters in config.ini to your liking. 
+Here are some things that you might like to change:</p>
+
+<ul>
+<li>
+<strong><em>in_pdb_file</em></strong>: relative path to your own PDB file</li>
+<li>scattering setup (detector distance, photon wavelength, etc)
+
+<ul>
+<li>parameter unit:
+
+<ul>
+<li>
+<strong><em>detd</em></strong> (detector distance): millimeter</li>
+<li>
+<strong><em>lambda</em></strong> (photon wavelength): Angstrom</li>
+<li>
+<strong><em>detsize</em></strong> (linear size of detector): pixels in integer</li>
+<li>
+<strong><em>pixsize</em></strong>: millimeter</li>
+<li>
+<strong><em>stoprad</em></strong> (radius of beamstop): pixels in float</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+<strong><em>num_data</em></strong>: the number of diffraction patterns</li>
+<li>
+<strong><em>fluence</em></strong>: the incident beam intensity in photons per micron squared</li>
+<li>
+<strong><em>log_file</em></strong>: name of log file</li>
+</ul>
+
+<p>When ready to start creating synthetic data, type:
+    <code>
+    ./sim_setup.py
+</code>.
+Again, you can get help to customize this using the command:
+    <code>
+    ./sim_setup.py -h
+</code>.</p>
+
+<h3>
+<a id="start-your-emc-reconstruction" class="anchor" href="#start-your-emc-reconstruction" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Start your EMC reconstruction</h3>
+
+<p><strong><em>You can use the convenience script <code>run_emc.py</code> that we provided to start the reconstruction:</em></strong>
+Typing 
+    <code>
+    ./run_emc.py
+</code>,
+will start the reconstruction with the default of 10 iterations.
+You can continue to refine the last reconstruction by typing 
+    <code>
+    ./run_emc.py -r
+</code>,
+or if you wanted to increase the quaternion sampling by one, 
+    <code>
+    ./run_emc.py -R
+</code>.</p>
+
+<p>If you have enough processors to do an MPI reconstruction:
+    <code>
+    ./run_emc.py -m &lt;number of MPI processes&gt;
+</code>.
+For more information, type:
+    <code>
+    ./run_emc.py -h
+</code>.</p>
+
+<p><strong><em>Or you can start a single process reconstruction in the recon directory with more control way:</em></strong>
+    <code>
+    ./emc &lt;num_iterations&gt; &lt;path to config file&gt; [threads per process]
+</code>,
+where <code>&lt;necessary arguments&gt;</code> and <code>[optional arguments]</code>. The default number of threads per process is defined by the system parameter OMP_NUM_THREADS.
+By default, the intermediate output of the reconstruction is stored in the recon directory's data subdirectory.</p>
+
+<p>To spawn multiple MPI reconstructions from your recon directory:
+    <code>
+    mpirun -n &lt;num_mpi_processes&gt; ./emc &lt;num_iterations&gt; &lt;path to config file&gt; [threads per process]
+</code>.
+By default, images from the reconstruction that are generated by this script are saved to the data/images subdirectory.</p>
+
+<h3>
+<a id="monitor-the-progress-of-your-reconstruction" class="anchor" href="#monitor-the-progress-of-your-reconstruction" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Monitor the progress of your reconstruction</h3>
+
+<p>In the recon directory type:
+    <code>
+    ./autoplot.py
+</code>.
+Checking the "keep checking" box will automagically look for new reconstructed 3D volumes in the default data directories.</p>
+
+<h3>
+<a id="additional-information" class="anchor" href="#additional-information" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Additional information</h3>
+
+<p>For a more verbose, and maybe informative, view of the underlying setup and reconstruction processes, look at the log files <code>recon.log</code> and <code>EMC.log</code> files respectively.</p>
+        </section>
+
+        <aside id="sidebar">
+          <a href="https://github.com/duaneloh/Dragonfly/zipball/master" class="button">
+            <small>Download</small>
+            .zip file
+          </a>
+          <a href="https://github.com/duaneloh/Dragonfly/tarball/master" class="button">
+            <small>Download</small>
+            .tar.gz file
+          </a>
+
+          <p class="repo-owner"><a href="https://github.com/duaneloh/Dragonfly"></a> is maintained by <a href="https://github.com/duaneloh">duaneloh</a>.</p>
+
+          <p>This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the Architect theme by <a href="https://twitter.com/jasonlong">Jason Long</a>.</p>
+        </aside>
+      </div>
+    </div>
+
+  
+  </body>
+</html>
