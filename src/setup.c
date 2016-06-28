@@ -264,22 +264,28 @@ void calc_sum_fact() {
 	}
 }
 
-void gen_blacklist(char *fname) {
+void gen_blacklist(char *fname, int flag) {
 	int d ;
 	num_blacklist = 0 ;
 	blacklist = calloc(tot_num_data, sizeof(uint8_t)) ;
 	
 	FILE *fp = fopen(fname, "r") ;
 	if (fp == NULL) {
-/*		if (rank == 0)
-			fprintf(stderr, "No blacklist file found. All frames whitelisted\n") ;
-			fprintf(stderr, "No blacklist file found. Using even orig. frames\n") ;
-		for (d = 0 ; d < tot_num_data ; ++d)
-		if ((d/16) % 2 == 0) {
-			blacklist[d] = 1 ;
-			num_blacklist++ ;
+		if (flag == 1) {
+			for (d = 0 ; d < tot_num_data ; ++d)
+			if (d % 2 == 0) {
+				blacklist[d] = 1 ;
+				num_blacklist++ ;
+			}
 		}
-*/	}
+		else if (flag == 2) {
+			for (d = 0 ; d < tot_num_data ; ++d)
+			if (d % 2 == 1) {
+				blacklist[d] = 1 ;
+				num_blacklist++ ;
+			}
+		}
+	}
 	else {
 		for (d = 0 ; d < tot_num_data ; ++d) {
 			fscanf(fp, "%" SCNu8 "\n", &blacklist[d]) ;
@@ -316,6 +322,7 @@ int setup(char *config_fname, int continue_flag) {
 	char data_fname[999], out_data_fname[999] ;
 	char merge_flist[999], merge_fname[999] ;
 	char out_det_fname[999], out_quat_fname[999] ;
+	char sel_string[999] ;
 	double qmax, qmin, detd, pixsize ;
 	int dets_x, dets_y, detsize, num_div ;
 	
@@ -328,6 +335,7 @@ int setup(char *config_fname, int continue_flag) {
 	merge_flist[0] = '\0' ;
 	merge_fname[0] = '\0' ;
 	quat_fname[0] = '\0' ;
+	sel_string[0] = '\0' ;
 	merge_frames = NULL ;
 	detd = 0. ;
 	pixsize = 0. ;
@@ -412,6 +420,8 @@ int setup(char *config_fname, int continue_flag) {
 			beta_jump = atof(strtok(NULL, " =\n")) ;
 			beta_period = atoi(strtok(NULL, " =\n")) ;
 		}
+		else if (strcmp(token, "selection") == 0)
+			strcpy(sel_string, strtok(NULL, " =\n")) ;
 	}
 	fclose(fp) ;
 
@@ -488,7 +498,20 @@ int setup(char *config_fname, int continue_flag) {
 	}
 	
 	calc_sum_fact() ;
-	gen_blacklist(blacklist_fname) ;
+	if (sel_string[0] == '\0')
+		gen_blacklist(blacklist_fname, 0) ;
+	else if (strcmp(sel_string, "odd_only") == 0) {
+		fprintf(stderr, "Only processing 'odd' frames\n") ;
+		gen_blacklist(blacklist_fname, 1) ;
+	}
+	else if (strcmp(sel_string, "even_only") == 0) {
+		fprintf(stderr, "Only processing 'even' frames\n") ;
+		gen_blacklist(blacklist_fname, 2) ;
+	}
+	else {
+		fprintf(stderr, "Did not understand selection keyword: %s. Will process all frames\n", sel_string) ;
+		gen_blacklist(blacklist_fname, 0) ;
+	}
 	
 	if (continue_flag) {
 		fp = fopen(log_fname, "r") ;
