@@ -13,7 +13,7 @@ from glob import glob
 import re
 
 class Plotter:
-    def __init__(self, master, size=200):
+    def __init__(self, master, config='config.ini', size=200):
         self.master = master
         self.size = size
         self.center = self.size/2
@@ -32,8 +32,20 @@ class Plotter:
         self.orient = []
         self.log_txt = ""
 
-        self.fname.set('data/output/intens_001.bin')
-        self.logfname.set('EMC.log')
+        with open(config, 'r') as f:
+            filestring = f.read()
+            words = filter(None, re.split('[ =\n]', filestring))
+            try:
+                ind = words.index('output_folder')
+                self.folder = words[ind+1]
+            except ValueError:
+                self.folder = 'data/'
+            try:
+                ind = words.index('log_file')
+                self.logfname.set(words[ind+1])
+            except ValueError:
+                self.logfname.set('EMC.log')
+        self.fname.set(self.folder+'/output/intens_001.bin')
         self.imagename.set('images/' + os.path.splitext(os.path.basename(self.fname.get()))[0] + '.png')
         self.log_imagename.set('images/log_fig.png')
         self.image_exists = False
@@ -242,10 +254,10 @@ class Plotter:
             return
 
         # Read orientation files for the first n iterations
-        o_files = sorted(glob("data/orientations/*.bin"))
+        o_files = sorted(glob(self.folder+"/orientations/*.bin"))
         self.orient = []
         for i in range(len(loglines)):
-            p = 'data/orientations/orientations_%.3d.bin' % (i+1)
+            p = self.folder+'/orientations/orientations_%.3d.bin' % (i+1)
             fn = os.path.split(p)[-1]
             with open(p, 'r') as f:
                 self.orient.append(np.fromfile(f, '=i4'))
@@ -348,7 +360,7 @@ class Plotter:
             iter = 0
 
         if iter > 0 and self.max_iter != iter:
-            self.fname.set('data/output/intens_%.3d.bin' % iter)
+            self.fname.set(self.folder+'/output/intens_%.3d.bin' % iter)
             self.max_iter = iter
             self.slider.configure(to=self.max_iter)
             self.iter.set(iter)
@@ -375,18 +387,18 @@ class Plotter:
     def increment_iter(self, event=None):
         self.iter.set(min(self.iter.get()+1, self.max_iter))
         if self.iter.get() >= 0:
-            self.fname.set('data/output/intens_%.3d.bin' % self.iter.get())
+            self.fname.set(self.folder+'/output/intens_%.3d.bin' % self.iter.get())
             self.parse_and_plot()
 
     def decrement_iter(self, event=None):
         self.iter.set(max(self.iter.get()-1, 0))
         if self.iter.get() >= 0:
-            self.fname.set('data/output/intens_%.3d.bin' % self.iter.get())
+            self.fname.set(self.folder+'/output/intens_%.3d.bin' % self.iter.get())
             self.parse_and_plot()
 
     def change_iter(self, event=None):
         if self.iter.get() >= 0:
-            self.fname.set('data/output/intens_%.3d.bin' % self.iter.get())
+            self.fname.set(self.folder+'/output/intens_%.3d.bin' % self.iter.get())
 
     def save_plot(self, event=None):
         self.fig.savefig(self.imagename.get(), bbox_inches='tight')
@@ -399,6 +411,10 @@ class Plotter:
     def quit_(self, event=None):
         self.master.quit()
 
-root = Tk.Tk()
-plotter = Plotter(root)
-root.mainloop()
+if __name__ == '__main__':
+    root = Tk.Tk()
+    if len(sys.argv) > 1:
+        plotter = Plotter(root, config=sys.argv[1])
+    else:
+        plotter = Plotter(root)
+    root.mainloop()
