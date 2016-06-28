@@ -77,8 +77,7 @@ count = f['dataPhotons/back/photonCount']
 ix = f['dataPhotons/back/iX'][:].flatten()
 iy = f['dataPhotons/back/iY'][:].flatten()
 
-emcwriter = writeemc.EMC_writer(['data/temp.po', 'data/temp.pm', 'data/temp.cm'], 
-                                'data/%s_%s.emc' % (os.path.splitext(os.path.basename(sys.argv[1]))[0], tag),
+emcwriter = writeemc.EMC_writer('data/%s_%s.emc' % (os.path.splitext(os.path.basename(sys.argv[1]))[0], tag),
                                 1028*1040/binsize/binsize)
 
 j = 0
