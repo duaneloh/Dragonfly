@@ -24,5 +24,7 @@ $(obj): bin/%.o: src/%.c src/emc.h
 $(utils): utils/%: utils/src/%.c
 	gcc -o $@ $< $(CFLAGS) $(LIBS)
 
+utils/compare: src/quat.c
+
 clean:
 	rm -f recon $(utils) $(obj)
