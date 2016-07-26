@@ -452,7 +452,7 @@ int setup(char *config_fname, int continue_flag) {
 		return 1 ;
 	}
 	else if (num_div > 0)
-		quat_gen(num_div) ;
+		num_rot = quat_gen(num_div, &quat) ;
 	else if (parse_quat(quat_fname))
 			return 1 ;
 	
