@@ -157,7 +157,7 @@ class Frameviewer():
     def plot_frame(self, event=None):
         num = int(self.numstr.get())
         if num < 0 or num >= self.num_frames:
-            sys.stderr.write('Frame number %d out of range!\n')
+            sys.stderr.write('Frame number %d out of range!\n' % num)
             return
         
         file_num = np.where(num < self.num_data_list)[0][0]
