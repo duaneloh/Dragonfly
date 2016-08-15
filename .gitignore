@@ -1,0 +1,38 @@
+# Executable
+emc
+bin/
+
+# Data files
+*.dat
+*.bin
+*.log
+*.txt
+*.out
+.*.out
+*.lst
+*.png
+*.raw
+*.byt
+data
+
+# Utilities
+/utils/*
+!/utils/src
+!/utils/*.py
+!/utils/convert
+
+# Config file
+config.ini
+
+# Reconstruction directories
+/recon_*
+
+# Latex files
+*.gz
+*.aux
+*.out
+*.pdf
+*.log
+*.blg
+*.bbl
+*.DS_Store
