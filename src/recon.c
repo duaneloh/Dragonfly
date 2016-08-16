@@ -19,6 +19,8 @@ int main(int argc, char *argv[]) {
 	omp_set_num_threads(omp_get_max_threads()) ;
 	num_iter = 0 ;
 	strcpy(config_fname, "config.ini") ;
+	system("ls > /dev/null") ;
+	system("ls .. > /dev/null") ;
 
 	int num_threads = omp_get_max_threads() ;
 	

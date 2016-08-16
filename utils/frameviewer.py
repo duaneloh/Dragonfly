@@ -12,12 +12,15 @@ import Tkinter as Tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 class Frameviewer():
-    def __init__(self, master, photons_list, frame_shape, cmap='jet', mask=None):
+    def __init__(self, master, photons_list, frame_shape, det_scale, cmap='jet', mask=None, det_fname=None):
         self.master = master
         self.photons_list = photons_list
         self.num_files = len(photons_list)
         self.frame_shape = frame_shape
         self.cmap = cmap
+        self.qscale = det_scale[0]
+        self.detd = det_scale[1]
+        self.det_fname = det_fname
         if mask == None:
             self.mask = np.ones(self.frame_shape)
         else:
@@ -82,9 +85,23 @@ class Frameviewer():
         self.plot_frame()
 
     def init_geom(self):
-        self.x, self.y = np.indices(self.frame_shape)
-        self.x = self.x.flatten()
-        self.y = self.y.flatten()
+        if self.det_fname is None:
+            self.x, self.y = np.indices(self.frame_shape)
+            self.x = self.x.flatten()
+            self.y = self.y.flatten()
+        else:
+            sys.stderr.write('Reading detector file...')
+            cx, cy, cz = np.loadtxt(self.det_fname, usecols=(0,1,2), skiprows=1, unpack=True)
+            sys.stderr.write('done\n')
+            cx = cx*self.detd/(cz+self.qscale)
+            cy = cy*self.detd/(cz+self.qscale)
+            
+            self.x = np.round(cx - cx.min()).astype('i4')
+            self.y = np.round(cy - cy.min()).astype('i4')
+            self.frame_shape = (self.x.max()+1, self.y.max()+1)
+            mask = np.ones(self.frame_shape)
+            mask[self.x, self.y] = self.mask.flatten()
+            self.mask = mask
 
     def parse_headers(self):
         self.num_data_list = []
@@ -140,7 +157,7 @@ class Frameviewer():
     def plot_frame(self, event=None):
         num = int(self.numstr.get())
         if num < 0 or num >= self.num_frames:
-            sys.stderr.write('Frame number %d out of range!\n')
+            sys.stderr.write('Frame number %d out of range!\n' % num)
             return
         
         file_num = np.where(num < self.num_data_list)[0][0]
@@ -193,7 +210,8 @@ if __name__ == '__main__':
             photons_list = map(lambda x: x.rstrip(), f.readlines())
     
     pm = read_config.get_detector_config(args.config_file, show=args.vb)
+    det_fname = read_config.get_filename(args.config_file, 'emc', 'in_detector_file')
     
     root = Tk.Tk()
-    Frameviewer(root, photons_list, (pm['dets_x'], pm['dets_y']), cmap=args.cmap, mask=args.mask)
+    Frameviewer(root, photons_list, (pm['dets_x'], pm['dets_y']), (pm['qscale'], pm['detd']/pm['pixsize']), cmap=args.cmap, mask=args.mask, det_fname=det_fname)
     root.mainloop()

@@ -190,7 +190,7 @@ double maximize() {
 			
 			// Determine 'r' for which log-likelihood is maximum
 			for (d = 0 ; d < tot_num_data ; ++d)
-			if (max_exp[d] != max_exp_p[d])
+			if (max_exp[d] != max_exp_p[d] || max_exp_p[d] == -DBL_MAX)
 				rmax[d] = -1 ;
 			
 			MPI_Allreduce(MPI_IN_PLACE, rmax, tot_num_data, MPI_INT, MPI_MAX, MPI_COMM_WORLD) ;

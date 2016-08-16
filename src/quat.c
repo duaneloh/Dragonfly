@@ -1,4 +1,6 @@
-#include "emc.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
 
 #define num_vert 120 
 #define num_edge 720
@@ -319,15 +321,15 @@ double weight( double *v_q, double *v_c ) {
 	return w ;
 }
 
-void quat_setup(int num) {
+void quat_setup(int num, double **quat_ptr, int *num_rot_ptr) {
 	int i, j, k, m, visited_vert[num_vert] ;
 	double v_q[4], v_c[4], w ;
 	
 	f0 = 5./6 ;
 	f1 = 35./36 ;
 	
-	num_rot = 10*(5*num*num*num + num) ;
-	quat = malloc(num_rot * 5 * sizeof(double)) ;
+	*num_rot_ptr = 10*(5*num*num*num + num) ;
+	*quat_ptr = malloc((*num_rot_ptr) * 5 * sizeof(double)) ;
 	vertice_points = malloc(num_vert * sizeof(struct q_point)) ;
 	
 	for (i = 0 ; i < num_vert ; i++)
@@ -471,8 +473,7 @@ void refine_cell(int num) {
 	}
 }
 
-void print_quat(int num, char *fname) {
-//	FILE *fp ;
+void print_quat(int num, double *quat) {
 	int r, rf, i, j, num_rot_test, flag, ct ;
 	double q_v[4], q_norm ;
 	double tau = (sqrt(5.) + 1.) / 2. ;
@@ -482,9 +483,6 @@ void print_quat(int num, char *fname) {
 		fprintf(stderr, "Inconsistency in calculation of num_rot.\n") ;
 		return ;
 	}
-	
-//	fp = fopen(fname, "w") ;
-//	fprintf(fp, "%d\n", num_rot) ;
 	
 	// select half of the quaternions on vertices
 	ct = 0 ;
@@ -521,7 +519,6 @@ void print_quat(int num, char *fname) {
 		for (i = 0 ; i < 4 ; i++)
 			q_v[i] /= q_norm ;
 		
-//		fprintf(fp, "%.12lf %.12lf %.12lf %.12lf %.12lf\n", q_v[0], q_v[1], q_v[2], q_v[3], vertice_points[r].weight) ;
 		rf = ct ;
 		quat[rf*5 + 0] = q_v[0] ;
 		quat[rf*5 + 1] = q_v[1] ;
@@ -572,7 +569,6 @@ void print_quat(int num, char *fname) {
 		for (i = 0 ; i < 4 ; i++)
 			q_v[i] /= q_norm ;
 		
-//		fprintf(fp, "%.12lf %.12lf %.12lf %.12lf %.12lf\n", q_v[0], q_v[1], q_v[2], q_v[3], edge_points[r].weight) ;
 		rf = ct + num_vert/2 ;
 		quat[rf*5 + 0] = q_v[0] ;
 		quat[rf*5 + 1] = q_v[1] ;
@@ -623,7 +619,6 @@ void print_quat(int num, char *fname) {
 		for (i = 0 ; i < 4 ; i++)
 			q_v[i] /= q_norm ;
 		
-//		fprintf(fp, "%.12lf %.12lf %.12lf %.12lf %.12lf\n", q_v[0], q_v[1], q_v[2], q_v[3], face_points[r].weight) ;
 		rf = ct + num_vert/2 + num_edge_point/2 ;
 		quat[rf*5 + 0] = q_v[0] ;
 		quat[rf*5 + 1] = q_v[1] ;
@@ -674,7 +669,6 @@ void print_quat(int num, char *fname) {
 		for (i = 0 ; i < 4 ; i++)
 			q_v[i] /= q_norm ;
 		
-//		fprintf(fp, "%.12lf %.12lf %.12lf %.12lf %.12lf\n", q_v[0], q_v[1], q_v[2], q_v[3], cell_points[r].weight) ;
 		rf = ct + num_vert/2 + num_edge_point/2 + num_face_point/2 ;
 		quat[rf*5 + 0] = q_v[0] ;
 		quat[rf*5 + 1] = q_v[1] ;
@@ -689,8 +683,6 @@ void print_quat(int num, char *fname) {
 		fprintf(stderr, "Inconsistent number of quaternions on cells!!\n") ;
 		return ;
 	}
-	
-//	fclose(fp) ;
 }
 
 void quat_free_mem(int num) {
@@ -704,8 +696,8 @@ void quat_free_mem(int num) {
 		free(cell_points) ;
 }
 
-void quat_gen(int num_div) {
-	int r ;
+int quat_gen(int num_div, double **quat_ptr) {
+	int r, num_rot ;
 	double total_weight = 0. ;
 
 	make_vertex(num_div) ; 
@@ -714,7 +706,7 @@ void quat_gen(int num_div) {
 	make_cell(num_div) ;
 	make_map() ;
 	
-	quat_setup(num_div) ;
+	quat_setup(num_div, quat_ptr, &num_rot) ;
 	
 	if (num_div > 1)
 		refine_edge(num_div) ;
@@ -723,14 +715,16 @@ void quat_gen(int num_div) {
 	if (num_div > 3)
 		refine_cell(num_div) ;
 	
-	print_quat(num_div, "quat.dat") ;
+	print_quat(num_div, *quat_ptr) ;
 	
 	quat_free_mem(num_div) ;
 	
 	for (r = 0 ; r < num_rot ; ++r)
-		total_weight += quat[r*5 + 4] ;
+		total_weight += (*quat_ptr)[r*5 + 4] ;
 	total_weight = 1. / total_weight ;
 	for (r = 0 ; r < num_rot ; ++r)
-		quat[r*5 + 4] *= total_weight ;
+		(*quat_ptr)[r*5 + 4] *= total_weight ;
+	
+	return num_rot ;
 }
 
