@@ -1,30 +1,37 @@
-.PHONY: mkdir
+.PHONY: mkdir env
+
+MPICC = mpicc
+CC = gcc
+
 CFLAGS = -Wno-unused-result -O3 -Wall -fopenmp
 LIBS = -lm -lgsl -lgslcblas -fopenmp
 
-src = $(wildcard src/*.c)
-obj = $(patsubst src/%.c, bin/%.o, $(src))
-utilssrc = $(wildcard utils/src/*.c)
-utils = $(patsubst utils/src/%.c, utils/%, $(utilssrc))
-directories = data bin images data/output data/orientations data/mutualInfo data/weights data/scale
+EMC_SRC = $(wildcard src/*.c)
+EMC_OBJ = $(patsubst src/%.c, bin/%.o, $(src))
+UTILS_SRC = $(wildcard utils/src/*.c)
+UTILS = $(patsubst utils/src/%.c, utils/%, $(utilssrc))
+DIRECTORIES = data bin images data/output data/orientations data/mutualInfo data/weights data/scale
 
-all: mkdir emc $(utils)
+all: env mkdir emc $(UTILS)
 
-mkdir: $(directories)
+mkdir: $(DIRECTORIES)
 
-$(directories):
-	mkdir -p $(directories)
+env:
+	export OMPI_CC=$(CC)
 
-emc: $(obj)
-	mpicc -o $@ $^ $(LIBS)
+$(DIRECTORIES):
+	mkdir -p $(DIRECTORIES)
 
-$(obj): bin/%.o: src/%.c src/emc.h
-	mpicc -c $< -o $@ $(CFLAGS)
+emc: $(EMC_OBJ)
+	$(MPICC) -o $@ $^ $(LIBS)
 
-$(utils): utils/%: utils/src/%.c
-	gcc -o $@ $< $(CFLAGS) $(LIBS)
+$(EMC_OBJ): bin/%.o: src/%.c src/emc.h
+	$(MPICC) -c $< -o $@ $(CFLAGS)
+
+$(UTILS): utils/%: utils/src/%.c
+	$(CC) -o $@ $< $(CFLAGS) $(LIBS)
 
 utils/compare: src/quat.c
 
 clean:
-	rm -f recon $(utils) $(obj)
+	rm -f emc $(UTILS) $(EMC_OBJ)
