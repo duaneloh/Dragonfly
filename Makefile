@@ -7,9 +7,9 @@ CFLAGS = -Wno-unused-result -O3 -Wall -fopenmp
 LIBS = -lm -lgsl -lgslcblas -fopenmp
 
 EMC_SRC = $(wildcard src/*.c)
-EMC_OBJ = $(patsubst src/%.c, bin/%.o, $(src))
+EMC_OBJ = $(patsubst src/%.c, bin/%.o, $(EMC_SRC))
 UTILS_SRC = $(wildcard utils/src/*.c)
-UTILS = $(patsubst utils/src/%.c, utils/%, $(utilssrc))
+UTILS = $(patsubst utils/src/%.c, utils/%, $(UTILS_SRC))
 DIRECTORIES = data bin images data/output data/orientations data/mutualInfo data/weights data/scale
 
 all: env mkdir emc $(UTILS)
