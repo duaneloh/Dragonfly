@@ -27,6 +27,14 @@ if __name__ == "__main__":
     parent_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
     new_recon_dir = py_utils.create_new_recon_dir(tag=args.recon_tag, num=args.run_tag, prefix=args.recon_prefix)
 
+    print 80*"="
+    print "Initializing new directory and creating soft links to useful utilities."
+    print "Type './init_new_recon.py -h' for options"
+    print "See http://github.com/duaneloh/Dragonfly/wiki/FAQ for troubleshooting tips."
+    print "Feel free to email Kartik Ayyer <kartik.ayyer@desy.de>"
+    print "or Duane Loh <duaneloh@nus.edu.sg> if the FAQ does not help."
+    print 80*"="
+
     if args.recon_prefix != './':
         print "Created new directory:", new_recon_dir
 
