@@ -18,7 +18,7 @@ class Frameviewer():
         self.num_files = len(photons_list)
         self.frame_shape = frame_shape
         self.cmap = cmap
-        self.qscale = det_scale[0]
+        self.ewald_rad = det_scale[0]
         self.detd = det_scale[1]
         self.det_fname = det_fname
         self.blist_fname = blacklist
@@ -96,8 +96,8 @@ class Frameviewer():
             sys.stderr.write('Reading detector file...')
             cx, cy, cz = np.loadtxt(self.det_fname, usecols=(0,1,2), skiprows=1, unpack=True)
             sys.stderr.write('done\n')
-            cx = cx*self.detd/(cz+self.qscale)
-            cy = cy*self.detd/(cz+self.qscale)
+            cx = cx*self.detd/(cz+self.ewald_rad)
+            cy = cy*self.detd/(cz+self.ewald_rad)
             
             self.x = np.round(cx - cx.min()).astype('i4')
             self.y = np.round(cy - cy.min()).astype('i4')
@@ -237,6 +237,6 @@ if __name__ == '__main__':
         blist_fname = None
     
     root = Tk.Tk()
-    Frameviewer(root, photons_list, (pm['dets_x'], pm['dets_y']), (pm['qscale'], pm['detd']/pm['pixsize']), 
+    Frameviewer(root, photons_list, (pm['dets_x'], pm['dets_y']), (pm['ewald_rad'], pm['detd']/pm['pixsize']), 
                 cmap=args.cmap, mask=args.mask, det_fname=det_fname, blacklist=blist_fname)
     root.mainloop()

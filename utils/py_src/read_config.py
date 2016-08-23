@@ -48,9 +48,9 @@ def get_detector_config(config_file, show=False):
 
     # Optional arguments
     try:
-        params['qscale'] = config.getfloat('parameters', 'qscale')
+        params['ewald_rad'] = config.getfloat('parameters', 'ewald_rad')
     except ConfigParser.NoOptionError:
-        params['qscale'] = params['detd'] / params['pixsize']
+        params['ewald_rad'] = params['detd'] / params['pixsize']
 
     try:
         params['mask_fname'] = config.get('make_detector', 'in_mask_file')

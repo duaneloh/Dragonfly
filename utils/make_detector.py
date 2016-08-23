@@ -34,9 +34,9 @@ if __name__ == "__main__":
         polar       = read_config.compute_polarization(pm['polarization'], px, py, norm)
         (qx, qy)    = (px*qscaling/norm, py*qscaling/norm)
         qz          = qscaling*(pm['detd']/norm - 1.)
-        qx         *= pm['qscale'] * pm['pixsize'] / pm['detd']
-        qy         *= pm['qscale'] * pm['pixsize'] / pm['detd']
-        qz         *= pm['qscale'] * pm['pixsize'] / pm['detd']
+        qx         *= pm['ewald_rad'] * pm['pixsize'] / pm['detd']
+        qy         *= pm['ewald_rad'] * pm['pixsize'] / pm['detd']
+        qz         *= pm['ewald_rad'] * pm['pixsize'] / pm['detd']
         logging.info('{:<15}:{:10.4f}'.format('qmax', np.sqrt(qx*qx + qy*qy + qz*qz).max()))
         solid_angle = pm['detd']*(pm['pixsize']*pm['pixsize']) / np.power(norm, 3.0)
         solid_angle = polar*solid_angle
