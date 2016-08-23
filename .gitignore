@@ -36,3 +36,6 @@ config.ini
 *.blg
 *.bbl
 *.DS_Store
+
+# Reconstruction folders (ending with four digits)
+/*[0-9][0-9][0-9][0-9]

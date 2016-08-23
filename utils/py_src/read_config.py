@@ -51,7 +51,6 @@ def get_detector_config(config_file, show=False):
         params['qscale'] = config.getfloat('parameters', 'qscale')
     except ConfigParser.NoOptionError:
         params['qscale'] = params['detd'] / params['pixsize']
-        #qscale = params['detd'] / params['pixsize']
 
     try:
         params['mask_fname'] = config.get('make_detector', 'in_mask_file')
