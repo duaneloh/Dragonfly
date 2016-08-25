@@ -246,8 +246,9 @@ class Plotter:
                     continue
                 if flag is True:
                     loglines.append(l)
-                elif l[0] == 'Iter':
+                elif l[0].isdigit():
                     flag = True
+                    loglines.append(l)
 
         loglines = np.array(loglines)
         if len(loglines) == 0:
