@@ -8,7 +8,7 @@ from py_src import read_config
 from py_src import py_utils
 
 if __name__ == "__main__":
-    logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s -%(message)s')
+    logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     parser      = py_utils.my_argparser(description="make intensities")
     args        = parser.special_parse_args()
 
@@ -25,7 +25,13 @@ if __name__ == "__main__":
         timer.reset_and_report("Reading experiment parameters") if args.vb else timer.reset()
 
         fov_len     = 2 * int(np.ceil(q_pm['fov_in_A']/q_pm['half_p_res']/2.)) + 3
+        logging.info('Volume size: %d' % fov_len) 
         den         = py_utils.read_density(den_file, binary=True)
+        min_over    = float(fov_len)/den.shape[0]
+        if min_over > 12:
+            if py_utils.confirm_oversampling(min_over) is False:
+                sys.exit(0)
+            
         timer.reset_and_report("Reading densities") if args.vb else timer.reset()
 
         pad_den     = np.zeros(3*(fov_len,))

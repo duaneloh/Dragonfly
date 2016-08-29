@@ -83,7 +83,7 @@ def check_to_overwrite(fn):
     yes = set(['yes', 'y', '', 'yup', 'ya'])
     no  = set(['no', 'n', 'nope', 'nay', 'not'])
     if os.path.isfile(fn):
-        print fn + " is present. Overwrite? [Y or Return/N]"
+        sys.stdout.write("%s is present. Overwrite? [Y or Return/N]: " % fn)
         choice = raw_input().lower()
         if choice in yes:
             overwrite = True
@@ -97,6 +97,29 @@ def check_to_overwrite(fn):
             sys.stdout.write("Please respond with 'yes' or 'no'")
             overwrite = False
     return overwrite
+
+def confirm_oversampling(ratio):
+    proceed = True
+    done = False
+    yes = set(['yes', 'y', '', 'yup', 'ya'])
+    no  = set(['no', 'n', 'nope', 'nay', 'not'])
+    print 'Oversampling ratio = %.2f is a little high. This is inefficient.' % ratio
+    print 'Please see http://www.github.com/duaneloh/Dragonfly/wiki/Oversampling for tips'
+    sys.stdout.write('Continue anyway? [Y or Return/N]: ')
+    while not done:
+        choice = raw_input().lower()
+        if choice in yes:
+            proceed = True
+            done = True
+            logging.info("Continuing with minimum oversampling ratio = %.2f" % ratio)
+        elif choice in no:
+            proceed = False
+            done = True
+            logging.info("Minimum oversampling ratio of %.2f too high. Quitting" % ratio)
+        else:
+            sys.stdout.write("Please respond with 'yes' or 'no': ")
+            proceed = False
+    return proceed 
 
 def name_recon_dir(tag, num):
     return "%s_%04d"%(tag, num)
