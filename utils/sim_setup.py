@@ -8,7 +8,7 @@ import sys
 from py_src import py_utils
 
 if __name__ == "__main__":
-    logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s -%(message)s')
+    logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     parser = argparse.ArgumentParser("Creates new reconstruction instance based on template in this folder")
     parser.add_argument("-Q", "--make_quat_only", dest="make_quat_only", action="store_true", default=False)
     parser.add_argument("-D", "--make_data_only", dest="make_data_only", action="store_true", default=False)

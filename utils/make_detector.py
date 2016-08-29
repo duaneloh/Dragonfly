@@ -8,7 +8,7 @@ from py_src import read_config
 from py_src import py_utils
 
 if __name__ == "__main__":
-    logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s -%(message)s')
+    logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     parser      = py_utils.my_argparser(description="make detector")
     args        = parser.special_parse_args()
 

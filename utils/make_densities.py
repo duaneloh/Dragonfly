@@ -10,7 +10,7 @@ from py_src import py_utils
 
 if __name__ == "__main__":
     # logging config must occur before my_argparser, because latter already starts logging
-    logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s -%(message)s')
+    logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     parser      = py_utils.my_argparser(description="make electron density")
     args        = parser.special_parse_args()
     logging.info("Starting.... make_densities")
