@@ -10,13 +10,18 @@ from py_src import py_utils
 
 if __name__ == "__main__":
     # logging config must occur before my_argparser, because latter already starts logging
-    logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s -%(message)s')
+    logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     parser      = py_utils.my_argparser(description="make electron density")
     args        = parser.special_parse_args()
-    logging.info("Starting.... make_densities")
+    logging.info("\n\nStarting.... make_densities")
     logging.info(' '.join(sys.argv))
 
-    pdb_file    = os.path.join(args.main_dir, read_config.get_filename(args.config_file, 'make_densities', "in_pdb_file"))
+    try:
+        pdb_file    = os.path.join(args.main_dir, read_config.get_filename(args.config_file, 'make_densities', "in_pdb_file"))
+        pdb_code    = None
+    except read_config.ConfigParser.NoOptionError:
+        pdb_code    = read_config.get_filename(args.config_file, 'make_densities', 'pdb_code')
+        pdb_file    = 'aux/%s.pdb' % pdb_code.upper()
     aux_dir     = os.path.join(args.main_dir, read_config.get_filename(args.config_file, 'make_densities', "scatt_dir"))
     den_file    = os.path.join(args.main_dir, read_config.get_filename(args.config_file, 'make_densities', "out_density_file"))
     to_write    = py_utils.check_to_overwrite(den_file)
@@ -30,6 +35,8 @@ if __name__ == "__main__":
         fov_len     = int(np.ceil(q_pm['fov_in_A']/q_pm['half_p_res']) + 1)
         eV          = process_pdb.wavelength_in_A_to_eV(pm['wavelength'])
 
+        if pdb_code is not None:
+            process_pdb.fetch_pdb(pdb_code)
         atom_types  = process_pdb.find_atom_types(pdb_file)
         scatt_list  = process_pdb.make_scatt_list(atom_types, aux_dir, eV)
         atoms       = process_pdb.get_atom_coords(pdb_file, scatt_list)

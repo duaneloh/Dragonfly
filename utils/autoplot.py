@@ -129,7 +129,7 @@ class Plotter:
         line.pack(fill=Tk.BOTH, expand=1)
         Tk.Label(line,text='Layer no. ').pack(side=Tk.LEFT)
         Tk.Button(line,text="-",command=self.decrement_layer).pack(side=Tk.LEFT,fill=Tk.Y)
-        self.layerSlider = Tk.Scale(line,from_=0,to=int(self.size),orient=Tk.HORIZONTAL,length=250,width=20,
+        self.layerSlider = Tk.Scale(line,from_=0,to=int(self.size-1),orient=Tk.HORIZONTAL,length=250,width=20,
                                     variable=self.layernum,command=None)
         self.layerSlider.pack(side=Tk.LEFT, expand=1, fill=Tk.BOTH)
         Tk.Button(line,text="+",command=self.increment_layer).pack(side=Tk.LEFT,fill=Tk.Y)
@@ -246,8 +246,9 @@ class Plotter:
                     continue
                 if flag is True:
                     loglines.append(l)
-                elif l[0] == 'Iter':
+                elif l[0].isdigit():
                     flag = True
+                    loglines.append(l)
 
         loglines = np.array(loglines)
         if len(loglines) == 0:

@@ -24,7 +24,7 @@ from py_src import writeemc
 from py_src import read_config
 
 if __name__ == '__main__':
-    logging.basicConfig(filename='recon.log', level=logging.INFO, format='%(asctime)s - %(levelname)s -%(message)s')
+    logging.basicConfig(filename='recon.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     parser      = py_utils.my_argparser(description='h5toemc')
     parser.add_argument('h5_name', help='HDF5 file to convert to emc format')
     parser.add_argument('-d', '--dset_name', help='Name of HDF5 dataset containing photon data', default=None)

@@ -9,7 +9,7 @@ from py_src import py_utils
 
 if __name__ == "__main__":
     # logging config must occur before my_argparser, because latter already starts logging
-    logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s -%(message)s')
+    logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     parser = argparse.ArgumentParser("Starts EMC reconstruction")
     parser.add_argument("-c", "--config_file", dest="config_file", default="config.ini")
     parser.add_argument("-r", dest="resume_recon", action='store_true', default=False,
@@ -32,7 +32,7 @@ if __name__ == "__main__":
     parser.add_argument("--dry_run", action='store_true', default=False,
                         help="print commands to screen but we won't actually run them")
     args = parser.parse_args()
-    logging.info("Starting run_emc....")
+    logging.info("\n\nStarting run_emc....")
     logging.info(sys.argv)
 
     # Here are some custom hybrid configurations
