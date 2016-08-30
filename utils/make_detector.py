@@ -14,7 +14,7 @@ if __name__ == "__main__":
 
     det_file    = os.path.join(args.main_dir, read_config.get_filename(args.config_file, 'make_detector', "out_detector_file"))
     to_write    = py_utils.check_to_overwrite(det_file)
-    logging.info("Starting make_detector....")
+    logging.info("\n\nStarting make_detector....")
     logging.info(' '.join(sys.argv))
 
     if to_write:

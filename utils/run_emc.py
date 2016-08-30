@@ -32,7 +32,7 @@ if __name__ == "__main__":
     parser.add_argument("--dry_run", action='store_true', default=False,
                         help="print commands to screen but we won't actually run them")
     args = parser.parse_args()
-    logging.info("Starting run_emc....")
+    logging.info("\n\nStarting run_emc....")
     logging.info(sys.argv)
 
     # Here are some custom hybrid configurations

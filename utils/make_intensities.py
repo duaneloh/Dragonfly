@@ -15,7 +15,7 @@ if __name__ == "__main__":
     den_file    = os.path.join(args.main_dir, read_config.get_filename(args.config_file, 'make_intensities', "in_density_file"))
     intens_file = os.path.join(args.main_dir, read_config.get_filename(args.config_file, 'make_intensities', "out_intensity_file"))
     to_write    = py_utils.check_to_overwrite(intens_file)
-    logging.info("Starting.... make_intensities")
+    logging.info("\n\nStarting.... make_intensities")
     logging.info(' '.join(sys.argv))
 
     if to_write:

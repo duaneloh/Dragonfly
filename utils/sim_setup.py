@@ -18,7 +18,7 @@ if __name__ == "__main__":
     parser.add_argument("--skip_detector", dest="skip_detector", action="store_true", default=False)
     parser.add_argument("--skip_data", dest="skip_data", action="store_true", default=False)
     args = parser.parse_args()
-    logging.info("Starting.... setup")
+    logging.info("\n\nStarting.... setup")
     logging.info(' '.join(sys.argv))
 
     if args.make_quat_only:
