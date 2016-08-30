@@ -12,15 +12,16 @@ import Tkinter as Tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 class Frameviewer():
-    def __init__(self, master, photons_list, frame_shape, det_scale, cmap='jet', mask=None, det_fname=None):
+    def __init__(self, master, photons_list, frame_shape, det_scale, cmap='jet', mask=None, det_fname=None, blacklist=None):
         self.master = master
         self.photons_list = photons_list
         self.num_files = len(photons_list)
         self.frame_shape = frame_shape
         self.cmap = cmap
-        self.qscale = det_scale[0]
+        self.ewald_rad = det_scale[0]
         self.detd = det_scale[1]
         self.det_fname = det_fname
+        self.blist_fname = blacklist
         if mask == None:
             self.mask = np.ones(self.frame_shape)
         else:
@@ -69,6 +70,8 @@ class Frameviewer():
         Tk.Button(line, text='Prev', command=self.prev_frame).pack(side=Tk.LEFT)
         Tk.Button(line, text='Next', command=self.next_frame).pack(side=Tk.LEFT)
         Tk.Button(line, text='Random', command=self.rand_frame).pack(side=Tk.LEFT)
+        if self.blacklist is not None:
+            Tk.Button(line, text='Next bad', command=self.next_bad_frame).pack(side=Tk.LEFT)
         Tk.Button(line, text='Quit', command=self.quit).pack(side=Tk.RIGHT)
         
         self.master.bind('<Return>', self.plot_frame)
@@ -93,8 +96,8 @@ class Frameviewer():
             sys.stderr.write('Reading detector file...')
             cx, cy, cz = np.loadtxt(self.det_fname, usecols=(0,1,2), skiprows=1, unpack=True)
             sys.stderr.write('done\n')
-            cx = cx*self.detd/(cz+self.qscale)
-            cy = cy*self.detd/(cz+self.qscale)
+            cx = cx*self.detd/(cz+self.ewald_rad)
+            cy = cy*self.detd/(cz+self.ewald_rad)
             
             self.x = np.round(cx - cx.min()).astype('i4')
             self.y = np.round(cy - cy.min()).astype('i4')
@@ -122,6 +125,11 @@ class Frameviewer():
         
         self.num_data_list = np.cumsum(self.num_data_list)
         self.num_frames = self.num_data_list[-1]
+        
+        if self.blist_fname is not None:
+            self.blacklist = np.loadtxt(self.blist_fname, dtype='u1').flatten()
+        else:
+            self.blacklist = None
 
     def read_frame(self, file_num, frame_num):
         with open(self.photons_list[file_num], 'rb') as f:
@@ -169,9 +177,20 @@ class Frameviewer():
         
         s = plt.subplot(111)
         s.imshow(frame, vmin=0, vmax=float(self.rangestr.get()), interpolation='none', cmap=self.cmap)
-        s.set_title("%d photons" % frame.sum())
+        if self.blacklist is None or self.blacklist[num] == 0:
+            s.set_title("%d photons" % frame.sum())
+        else:
+            s.set_title("%d photons (bad frame)" % frame.sum())
         self.fig.add_subplot(s)
         self.canvas.show()
+
+    def next_bad_frame(self, event=None):
+        cur_num = int(self.numstr.get())
+        ind = np.where(self.blacklist==1)[0]
+        num = ind[ind>cur_num][0]
+        #num = np.where(np.where(self.blacklist==1)[0]>cur_num)[0][0]
+        self.numstr.set(str(num))
+        self.plot_frame()
 
     def next_frame(self, event=None):
         num = int(self.numstr.get()) + 1
@@ -212,6 +231,12 @@ if __name__ == '__main__':
     pm = read_config.get_detector_config(args.config_file, show=args.vb)
     det_fname = read_config.get_filename(args.config_file, 'emc', 'in_detector_file')
     
+    try:
+        blist_fname = read_config.get_filename(args.config_file, 'emc', 'blacklist_file')
+    except ConfigParser.NoOptionError:
+        blist_fname = None
+    
     root = Tk.Tk()
-    Frameviewer(root, photons_list, (pm['dets_x'], pm['dets_y']), (pm['qscale'], pm['detd']/pm['pixsize']), cmap=args.cmap, mask=args.mask, det_fname=det_fname)
+    Frameviewer(root, photons_list, (pm['dets_x'], pm['dets_y']), (pm['ewald_rad'], pm['detd']/pm['pixsize']), 
+                cmap=args.cmap, mask=args.mask, det_fname=det_fname, blacklist=blist_fname)
     root.mainloop()

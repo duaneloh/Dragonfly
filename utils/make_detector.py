@@ -8,13 +8,13 @@ from py_src import read_config
 from py_src import py_utils
 
 if __name__ == "__main__":
-    logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s -%(message)s')
+    logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     parser      = py_utils.my_argparser(description="make detector")
     args        = parser.special_parse_args()
 
     det_file    = os.path.join(args.main_dir, read_config.get_filename(args.config_file, 'make_detector', "out_detector_file"))
     to_write    = py_utils.check_to_overwrite(det_file)
-    logging.info("Starting make_detector....")
+    logging.info("\n\nStarting make_detector....")
     logging.info(' '.join(sys.argv))
 
     if to_write:
@@ -34,9 +34,9 @@ if __name__ == "__main__":
         polar       = read_config.compute_polarization(pm['polarization'], px, py, norm)
         (qx, qy)    = (px*qscaling/norm, py*qscaling/norm)
         qz          = qscaling*(pm['detd']/norm - 1.)
-        qx         *= pm['qscale'] * pm['pixsize'] / pm['detd']
-        qy         *= pm['qscale'] * pm['pixsize'] / pm['detd']
-        qz         *= pm['qscale'] * pm['pixsize'] / pm['detd']
+        qx         *= pm['ewald_rad'] * pm['pixsize'] / pm['detd']
+        qy         *= pm['ewald_rad'] * pm['pixsize'] / pm['detd']
+        qz         *= pm['ewald_rad'] * pm['pixsize'] / pm['detd']
         logging.info('{:<15}:{:10.4f}'.format('qmax', np.sqrt(qx*qx + qy*qy + qz*qz).max()))
         solid_angle = pm['detd']*(pm['pixsize']*pm['pixsize']) / np.power(norm, 3.0)
         solid_angle = polar*solid_angle

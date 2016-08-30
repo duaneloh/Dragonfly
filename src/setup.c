@@ -323,7 +323,7 @@ int setup(char *config_fname, int continue_flag) {
 	char merge_flist[999], merge_fname[999] ;
 	char out_det_fname[999], out_quat_fname[999] ;
 	char sel_string[999] ;
-	double qmax, qmin, detd, pixsize ;
+	double qmax, qmin, detd, pixsize, ewald_rad ;
 	int dets_x, dets_y, detsize, num_div ;
 	
 	known_scale = 0 ;
@@ -349,6 +349,7 @@ int setup(char *config_fname, int continue_flag) {
 	need_scaling = 0 ;
 	alpha = 0. ;
 	beta = 1. ;
+	ewald_rad = -1. ;
 	
 	char line[999], *token ;
 	fp = fopen(config_fname, "r") ;
@@ -361,6 +362,7 @@ int setup(char *config_fname, int continue_flag) {
 		if (token[0] == '#' || token[0] == '\n' || token[0] == '[')
 			continue ;
 		
+		// [parameters]
 		if (strcmp(token, "detd") == 0)
 			detd = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "detsize") == 0) {
@@ -382,8 +384,9 @@ int setup(char *config_fname, int continue_flag) {
 			alpha = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "beta") == 0)
 			beta = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "size") == 0)
-			size = atoi(strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "ewald_rad") == 0)
+			ewald_rad = atof(strtok(NULL, " =\n")) ;
+		// [emc]
 		else if (strcmp(token, "in_photons_file") == 0)
 			strcpy(data_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "in_photons_file") == 0)
@@ -435,14 +438,16 @@ int setup(char *config_fname, int continue_flag) {
 		return 1 ;
 	}
 	
-	if (size == -1) {
-        double hx = (dets_x - 1) / 2 * pixsize ;
-        double hy = (dets_y - 1) / 2 * pixsize ;
-		qmax = 2. * sin(0.5 * atan(sqrt(hx*hx + hy*hy)/detd)) ;
-		qmin = 2. * sin(0.5 * atan(pixsize/detd)) ;
-		size = ceil(2. * qmax / qmin) + 1 ;
-	}
+	double hx = (dets_x - 1) / 2 * pixsize ;
+	double hy = (dets_y - 1) / 2 * pixsize ;
+	qmax = 2. * sin(0.5 * atan(sqrt(hx*hx + hy*hy)/detd)) ;
+	qmin = 2. * sin(0.5 * atan(pixsize/detd)) ;
+	if (ewald_rad == -1.)
+		size = 2 * ceil(qmax / qmin) + 3 ;
+	else
+		size = 2 * ceil(qmax / qmin * ewald_rad * pixsize / detd) + 3 ;
 	center = size / 2 ;
+	fprintf(stderr, "Generating 3D volume of size %d\n", size) ;
 	
 	if (parse_det(det_fname))
 		return 1 ;
