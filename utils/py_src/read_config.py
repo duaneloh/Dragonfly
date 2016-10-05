@@ -76,7 +76,7 @@ def get_detector_config(config_file, show=False):
             logging.info('{:<15}:{:>10}'.format(k, v))
     return params
 
-def compute_q_params(det_dist, dets_x, dets_y, pix_size, in_wavelength, show=False):
+def compute_q_params(det_dist, dets_x, dets_y, pix_size, in_wavelength, ewald_rad, show=False):
     """
     Resolution computed in inverse Angstroms, crystallographer's convention
     In millimeters: det_dist, pix_size
@@ -90,7 +90,7 @@ def compute_q_params(det_dist, dets_x, dets_y, pix_size, in_wavelength, show=Fal
     max_angle   = np.arctan(np.sqrt(half_x**2 + half_y**2) / det_dist)
     min_angle   = np.arctan(pix_size / det_dist)
     q_max       = 2. * np.sin(0.5 * max_angle) / in_wavelength
-    q_sep       = 2. * np.sin(0.5 * min_angle) / in_wavelength
+    q_sep       = 2. * np.sin(0.5 * min_angle) / in_wavelength * (det_dist / ewald_rad / pix_size)
     fov_in_A    = 1. / q_sep
     half_p_res  = 0.5 / q_max
     params['max_angle'] = max_angle
