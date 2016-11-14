@@ -28,6 +28,8 @@ if __name__ == '__main__':
     parser      = py_utils.my_argparser(description='h5toemc')
     parser.add_argument('h5_name', help='HDF5 file to convert to emc format')
     parser.add_argument('-d', '--dset_name', help='Name of HDF5 dataset containing photon data', default=None)
+    parser.add_argument('-s', '--sel_file', help='Path to text file containing indices of frames or a set of 0 or 1 values. Default: Do all', default=None)
+    parser.add_argument('-S', '--sel_dset', help='Same as --sel_file, but pointing to the name of an HDF5 dataset', default=None)
     args        = parser.special_parse_args()
 
     logging.info('Starting h5toemc_spi2....')
@@ -52,16 +54,31 @@ if __name__ == '__main__':
     else:
         dset = f[args.dset_name]
         logging.info('Converting data in '+ args.dset_name)
-    frames = dset[:]
-    ind = range(len(frames))
-    num_frames = len(ind)
-    logging.info('%d frames in %s' % (num_frames, args.h5_name))
 
-    emcwriter = writeemc.EMC_writer('data/%s.emc' % os.path.splitext(os.path.basename(sys.argv[1]))[0],
+    if args.sel_file is not None and args.sel_dset is not None:
+        logging.info('Both sel_file and sel_dset specified. Pick one.')
+    elif args.sel_file is None and args.sel_dset is None:
+        ind = range(dset.shape[0])
+    elif args.sel_file is not None:
+        ind = np.loadtxt(args.sel_file, dtype='i4')
+    else:
+        ind = f[args.sel_dset][:]
+
+    if ind.shape[0] == dset.shape[0] and ind.max() < 2:
+        ind = np.where(ind==1)[0]
+    print ind.shape
+    print ind.max()
+
+    num_frames = ind.shape[0]
+    logging.info('Converting %d/%d frames in %s' % (num_frames, dset.shape[0], args.h5_name))
+
+    emcwriter = writeemc.EMC_writer('data/%s.emc' % os.path.splitext(os.path.basename(args.h5_name))[0],
                                     pm['dets_x']*pm['dets_y'])
 
     for i in range(num_frames):
-        emcwriter.write_frame(frames[i].flatten().astype('i4'))
+        photons = (dset[ind[i]].astype('f8')/40. + 0.5).astype('i4')
+        photons[photons<0] = 0
+        emcwriter.write_frame(photons.flatten())
         sys.stderr.write('\rFinished %d/%d' % (i+1, num_frames))
 
     f.close()
