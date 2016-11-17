@@ -29,10 +29,10 @@ if __name__ == "__main__":
     if to_write:
         timer       = py_utils.my_timer()
         pm          = read_config.get_detector_config(args.config_file, show=args.vb)
-        q_pm        = read_config.compute_q_params(pm['detd'], pm['dets_x'], pm['dets_y'], pm['pixsize'], pm['wavelength'], show=args.vb)
+        q_pm        = read_config.compute_q_params(pm['detd'], pm['dets_x'], pm['dets_y'], pm['pixsize'], pm['wavelength'], pm['ewald_rad'], show=args.vb)
         timer.reset_and_report("Reading experiment parameters") if args.vb else timer.reset()
 
-        fov_len     = int(np.ceil(q_pm['fov_in_A']/q_pm['half_p_res']) + 1)
+        fov_len     = 2 * int(np.ceil(q_pm['fov_in_A']/q_pm['half_p_res']/2.)) + 3
         eV          = process_pdb.wavelength_in_A_to_eV(pm['wavelength'])
 
         if pdb_code is not None:

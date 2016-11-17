@@ -197,7 +197,7 @@ int setup(char *config_fname) {
 	char line[999], *token ;
 	char det_fname[999], model_fname[999] ;
 	char out_det_fname[999], out_model_fname[999] ;
-	double detd, pixsize, qmax, qmin ;
+	double detd, pixsize, qmax, qmin, ewald_rad ;
 	int detsize, dets_x, dets_y ;
 	
 	size = 0 ;
@@ -213,6 +213,7 @@ int setup(char *config_fname) {
 	dets_y = 0 ;
 	detd = 0. ;
 	pixsize = 0. ;
+	ewald_rad = -1. ;
 	
 	fp = fopen(config_fname, "r") ;
 	if (fp == NULL) {
@@ -241,6 +242,8 @@ int setup(char *config_fname) {
 		}
 		else if (strcmp(token, "pixsize") == 0)
 			pixsize = atof(strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "ewald_rad") == 0)
+			ewald_rad = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "mean_count") == 0)
 			mean_count = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "fluence") == 0)
@@ -272,11 +275,14 @@ int setup(char *config_fname) {
 		return 1 ;
 	}
 	
-    double hx = ((dets_x - 1) / 2) * pixsize ;
-    double hy = ((dets_y - 1) / 2) * pixsize ;
-    qmax = 2. * sin(0.5 * atan(sqrt(hx*hx + hy*hy)/detd)) ;
+	double hx = (dets_x - 1) / 2 * pixsize ;
+	double hy = (dets_y - 1) / 2 * pixsize ;
+	qmax = 2. * sin(0.5 * atan(sqrt(hx*hx + hy*hy)/detd)) ;
 	qmin = 2. * sin(0.5 * atan(pixsize/detd)) ;
-	size = ceil(2. * qmax / qmin) + 1 ;
+	if (ewald_rad == -1.)
+		size = 2 * ceil(qmax / qmin) + 3 ;
+	else
+		size = 2 * ceil(qmax / qmin * ewald_rad * pixsize / detd) + 3 ;
 	center = size / 2 ;
 	
 	if (num_data == 0) {
