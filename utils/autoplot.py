@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
@@ -13,7 +14,7 @@ from glob import glob
 import re
 
 class Plotter:
-    def __init__(self, master, config='config.ini', size=200):
+    def __init__(self, master, config='config.ini', size=200, model=None):
         self.master = master
         self.size = size
         self.center = self.size/2
@@ -45,7 +46,10 @@ class Plotter:
                 self.logfname.set(words[ind+1])
             except ValueError:
                 self.logfname.set('EMC.log')
-        self.fname.set(self.folder+'/output/intens_001.bin')
+        if model is None:
+            self.fname.set(self.folder+'/output/intens_001.bin')
+        else:
+            self.fname.set(model)
         self.imagename.set('images/' + os.path.splitext(os.path.basename(self.fname.get()))[0] + '.png')
         self.log_imagename.set('images/log_fig.png')
         self.image_exists = False
@@ -55,10 +59,15 @@ class Plotter:
         self.ifcheck.set(0)
         self.iter.set(0)
 
-        master.title('Dragonfly Progress Monitor')
-        master.rowconfigure(0, weight=1)
-        master.columnconfigure(0, weight=1)
-        master.protocol('WM_DELETE_WINDOW', self.quit_)
+        self.init_UI()
+        if model is not None:
+            self.parse_and_plot()
+
+    def init_UI(self):
+        self.master.title('Dragonfly Progress Monitor')
+        self.master.rowconfigure(0, weight=1)
+        self.master.columnconfigure(0, weight=1)
+        self.master.protocol('WM_DELETE_WINDOW', self.quit_)
 
         fig_frame = Tk.Frame(self.master)
         fig_frame.grid(row=0, column=0, sticky='nsew')
@@ -96,9 +105,6 @@ class Plotter:
         self.master.bind('<Up>', self.increment_layer)
         self.master.bind('<Down>', self.decrement_layer)
 
-        self.init_UI()
-
-    def init_UI(self):
         line = Tk.Frame(self.options)
         line.pack(fill=Tk.X)
         Tk.Label(line,text="Log Filename: ").pack(side=Tk.LEFT)
@@ -413,9 +419,11 @@ class Plotter:
         self.master.quit()
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Dragonfly Progress Monitor')
+    parser.add_argument('-c', '--config_file', help='Path to config file. Default=config.ini', default='config.ini')
+    parser.add_argument('-f', '--volume_file', help='Show slices of particular file instead of output', default=None)
+    args = parser.parse_args()
+    
     root = Tk.Tk()
-    if len(sys.argv) > 1:
-        plotter = Plotter(root, config=sys.argv[1])
-    else:
-        plotter = Plotter(root)
+    plotter = Plotter(root, config=args.config_file, model=args.volume_file)
     root.mainloop()
