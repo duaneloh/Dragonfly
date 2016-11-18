@@ -321,8 +321,7 @@ int setup(char *config_fname, int continue_flag) {
 	char scale_fname[999], blacklist_fname[999] ;
 	char data_fname[999], out_data_fname[999] ;
 	char merge_flist[999], merge_fname[999] ;
-	char out_det_fname[999], out_quat_fname[999] ;
-	char sel_string[999] ;
+	char out_det_fname[999], sel_string[999] ;
 	double qmax, qmin, detd, pixsize, ewald_rad ;
 	int dets_x, dets_y, detsize, num_div ;
 	
@@ -413,8 +412,6 @@ int setup(char *config_fname, int continue_flag) {
 			strcpy(quat_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "out_detector_file") == 0)
 			strcpy(out_det_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "out_quat_file") == 0)
-			strcpy(out_quat_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "blacklist_file") == 0)
 			strcpy(blacklist_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "scale_file") == 0)
