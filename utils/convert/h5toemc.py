@@ -30,6 +30,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--dset_name', help='Name of HDF5 dataset containing photon data', default=None)
     parser.add_argument('-s', '--sel_file', help='Path to text file containing indices of frames or a set of 0 or 1 values. Default: Do all', default=None)
     parser.add_argument('-S', '--sel_dset', help='Same as --sel_file, but pointing to the name of an HDF5 dataset', default=None)
+    parser.add_argument('-l', '--list', help='h5_name is list of h5 files rather than a single one', action='store_true', default=False)
     args        = parser.special_parse_args()
 
     logging.info('Starting h5toemc_spi2....')
@@ -41,46 +42,58 @@ if __name__ == '__main__':
         logging.error('Data file %s not found. Exiting.' % args.h5_name)
         sys.exit()
 
-    f = h5py.File(args.h5_name, 'r')
-    if args.dset_name is None:
-        for name, obj in f['photonConverter'].items():
-            try:
-                temp = obj.keys()
-                dset = obj['photonCount']
-                break
-            except AttributeError:
-                pass
-        logging.info('Converting data in '+ dset.name)
+    if args.list:
+        logging.info('Reading file names in list %s' % args.h5_name)
+        with open(args.h5_name, 'r') as f:
+            flist = [fname.rstrip() for fname in f.readlines()]
+        logging.info
     else:
-        dset = f[args.dset_name]
-        logging.info('Converting data in '+ args.dset_name)
-
-    if args.sel_file is not None and args.sel_dset is not None:
-        logging.info('Both sel_file and sel_dset specified. Pick one.')
-    elif args.sel_file is None and args.sel_dset is None:
-        ind = range(dset.shape[0])
-    elif args.sel_file is not None:
-        ind = np.loadtxt(args.sel_file, dtype='i4')
-    else:
-        ind = f[args.sel_dset][:]
-
-    if ind.shape[0] == dset.shape[0] and ind.max() < 2:
-        ind = np.where(ind==1)[0]
-    print ind.shape
-    print ind.max()
-
-    num_frames = ind.shape[0]
-    logging.info('Converting %d/%d frames in %s' % (num_frames, dset.shape[0], args.h5_name))
+        flist = [args.h5_name]
 
     emcwriter = writeemc.EMC_writer('data/%s.emc' % os.path.splitext(os.path.basename(args.h5_name))[0],
                                     pm['dets_x']*pm['dets_y'])
 
-    for i in range(num_frames):
-        photons = (dset[ind[i]].astype('f8')/40. + 0.5).astype('i4')
-        photons[photons<0] = 0
-        emcwriter.write_frame(photons.flatten())
-        sys.stderr.write('\rFinished %d/%d' % (i+1, num_frames))
+    for fname in flist:
+        f = h5py.File(fname, 'r')
+        if args.dset_name is None:
+            for name, obj in f['photonConverter'].items():
+                try:
+                    temp = obj.keys()
+                    dset = obj['photonCount']
+                    break
+                except AttributeError:
+                    pass
+            logging.info('Converting data in '+ dset.name)
+        else:
+            dset = f[args.dset_name]
+            logging.info('Converting data in '+ args.dset_name)
 
-    f.close()
-    sys.stderr.write('\n')
+        if args.sel_file is not None and args.sel_dset is not None:
+            logging.info('Both sel_file and sel_dset specified. Pick one.')
+            sys.exit(1)
+        elif args.sel_file is None and args.sel_dset is None:
+            ind = range(dset.shape[0])
+        elif args.sel_file is not None:
+            ind = np.loadtxt(args.sel_file, dtype='i4')
+        else:
+            ind = f[args.sel_dset][:]
+
+        if ind.shape[0] == dset.shape[0] and ind.max() < 2:
+            ind = np.where(ind==1)[0]
+
+        num_frames = ind.shape[0]
+        if not args.list:
+            logging.info('Converting %d/%d frames in %s' % (num_frames, dset.shape[0], args.h5_name))
+
+        for i in range(num_frames):
+            photons = (dset[ind[i]].astype('f8')/40. + 0.5).astype('i4')
+            photons[photons<0] = 0
+            emcwriter.write_frame(photons.flatten())
+            if not args.list:
+                sys.stderr.write('\rFinished %d/%d' % (i+1, num_frames))
+
+        f.close()
+
+    if not args.list:
+        sys.stderr.write('\n')
     emcwriter.finish_write()
