@@ -3,24 +3,23 @@
 import numpy as np
 import sys
 import os
-import ConfigParser
-from py_src import py_utils
-from py_src import read_config
-
 import matplotlib.pyplot as plt
 import Tkinter as Tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 class Frameviewer():
-    def __init__(self, master, photons_list, frame_shape, det_scale, cmap='jet', mask=None, det_fname=None, blacklist=None):
+    def __init__(self, master, photons_list, frame_shape, det_scale=(0,0), cmap='jet', mask=None, det_fname=None, blacklist=None):
         self.master = master
         self.photons_list = photons_list
         self.num_files = len(photons_list)
         self.frame_shape = frame_shape
         self.cmap = cmap
+        self.det_fname = det_fname
+        if det_fname is not None and (det_scale[0] == 0 or det_scale[1] == 0):
+            sys.stderr.write('Need det_scale parameters if det_fname is specified')
+            sys.exit(1)
         self.ewald_rad = det_scale[0]
         self.detd = det_scale[1]
-        self.det_fname = det_fname
         self.blist_fname = blacklist
         if mask == None:
             self.mask = np.ones(self.frame_shape)
@@ -40,7 +39,7 @@ class Frameviewer():
     def init_UI(self):
         self.master.rowconfigure(0, weight=1)
         self.master.columnconfigure(0, weight=1)
-        self.master.protocol('WM_DELETE_WINDOW', root.quit)
+        self.master.protocol('WM_DELETE_WINDOW', self.master.quit)
         
         fig_frame = Tk.Frame(self.master)
         fig_frame.grid(row=0, column=0, sticky='nsew')
@@ -213,6 +212,10 @@ class Frameviewer():
         self.master.quit()
 
 if __name__ == '__main__':
+    import ConfigParser
+    from py_src import py_utils
+    from py_src import read_config
+
     parser = py_utils.my_argparser(description='Utility for viewing frames of the emc file (list)')
     parser.add_argument('--cmap', help='Matplotlib color map (default: jet)')
     parser.add_argument('--mask', help='Name of mask file of type uint8 (default: None)')
@@ -237,6 +240,7 @@ if __name__ == '__main__':
         blist_fname = None
     
     root = Tk.Tk()
-    Frameviewer(root, photons_list, (pm['dets_x'], pm['dets_y']), (pm['ewald_rad'], pm['detd']/pm['pixsize']), 
+    Frameviewer(root, photons_list, (pm['dets_x'], pm['dets_y']), 
+                det_scale=(pm['ewald_rad'], pm['detd']/pm['pixsize']), 
                 cmap=args.cmap, mask=args.mask, det_fname=det_fname, blacklist=blist_fname)
     root.mainloop()
