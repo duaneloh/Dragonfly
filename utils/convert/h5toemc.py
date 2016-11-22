@@ -36,6 +36,7 @@ if __name__ == '__main__':
     logging.info('Starting h5toemc_spi2....')
     logging.info(' '.join(sys.argv))
     pm          = read_config.get_detector_config(args.config_file, show=args.vb)
+    output_folder = read_config.get_filename(args.config_file, 'emc', 'output_folder')
 
     if not os.path.isfile(args.h5_name):
         print 'Data file %s not found. Exiting.' % args.h5_name
@@ -50,7 +51,7 @@ if __name__ == '__main__':
     else:
         flist = [args.h5_name]
 
-    emcwriter = writeemc.EMC_writer('data/%s.emc' % os.path.splitext(os.path.basename(args.h5_name))[0],
+    emcwriter = writeemc.EMC_writer('%s/%s.emc' % (output_folder, os.path.splitext(os.path.basename(args.h5_name))[0]),
                                     pm['dets_x']*pm['dets_y'])
 
     for fname in flist:
@@ -72,7 +73,7 @@ if __name__ == '__main__':
             logging.info('Both sel_file and sel_dset specified. Pick one.')
             sys.exit(1)
         elif args.sel_file is None and args.sel_dset is None:
-            ind = range(dset.shape[0])
+            ind = np.arange(dset.shape[0], dtype='i4')
         elif args.sel_file is not None:
             ind = np.loadtxt(args.sel_file, dtype='i4')
         else:
@@ -86,7 +87,7 @@ if __name__ == '__main__':
             logging.info('Converting %d/%d frames in %s' % (num_frames, dset.shape[0], args.h5_name))
 
         for i in range(num_frames):
-            photons = (dset[ind[i]].astype('f8')/40. + 0.5).astype('i4')
+            photons = dset[ind[i]]
             photons[photons<0] = 0
             emcwriter.write_frame(photons.flatten())
             if not args.list:
