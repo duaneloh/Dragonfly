@@ -276,7 +276,7 @@ int setup(char *config_fname) {
     double hy = ((dets_y - 1) / 2) * pixsize ;
     qmax = 2. * sin(0.5 * atan(sqrt(hx*hx + hy*hy)/detd)) ;
 	qmin = 2. * sin(0.5 * atan(pixsize/detd)) ;
-	size = ceil(2. * qmax / qmin) + 1 ;
+	size = 2. * ceil(qmax / qmin) + 3 ;
 	center = size / 2 ;
 	
 	if (num_data == 0) {
