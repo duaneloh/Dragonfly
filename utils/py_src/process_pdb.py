@@ -6,6 +6,7 @@ import time
 from collections import OrderedDict
 from scipy.interpolate import interp1d
 import urllib
+import pyfftw
 
 def fetch_pdb(pdb_code):
     print pdb_code
@@ -126,9 +127,12 @@ def atoms_to_density_map(atoms, voxelSZ):
     logging.info(msg)
     elec_den = atoms[:,0].copy()
 
-    x = (x-x_min)/voxelSZ
-    y = (y-y_min)/voxelSZ
-    z = (z-z_min)/voxelSZ
+    #x = (x-x_min)/voxelSZ
+    #y = (y-y_min)/voxelSZ
+    #z = (z-z_min)/voxelSZ
+    x = (x-0.5*(x_max+x_min-grid_len))/voxelSZ
+    y = (y-0.5*(y_max+y_min-grid_len))/voxelSZ
+    z = (z-0.5*(z_max+z_min-grid_len))/voxelSZ
 
     bins = np.arange(R+1)
     all_bins = np.vstack((bins,bins,bins))
@@ -142,7 +146,9 @@ def low_pass_filter_density_map(in_arr, damping=-1., thr=1.E-3, num_cycles=2):
     fil = np.fft.ifftshift(np.exp(damping*(xx*xx + yy*yy + zz*zz)))
     out_arr = in_arr.copy()
     for i in range(num_cycles):
-        ft = fil*np.fft.fftn(out_arr)
-        out_arr = np.real(np.fft.ifftn(ft))
+        #ft = fil*np.fft.fftn(out_arr)
+        ft = fil*pyfftw.interfaces.numpy_fft.fftn(out_arr, planner_effort='FFTW_ESTIMATE', threads=4)
+        #out_arr = np.real(np.fft.ifftn(ft))
+        out_arr = np.real(pyfftw.interfaces.numpy_fft.ifftn(ft, planner_effort='FFTW_ESTIMATE', threads=4))
         out_arr *= (out_arr > thr)
     return out_arr.copy()
