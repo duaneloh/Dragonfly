@@ -8,7 +8,7 @@ import Tkinter as Tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 class Frameviewer():
-    def __init__(self, master, photons_list, frame_shape, det_scale=(0,0), cmap='jet', mask=None, det_fname=None, blacklist=None):
+    def __init__(self, master, photons_list, frame_shape, det_scale=(0,0), cmap='jet', mask=False, det_fname=None, blacklist=None):
         self.master = master
         self.photons_list = photons_list
         self.num_files = len(photons_list)
@@ -21,19 +21,13 @@ class Frameviewer():
         self.ewald_rad = det_scale[0]
         self.detd = det_scale[1]
         self.blist_fname = blacklist
-        if mask == None:
-            self.mask = np.ones(self.frame_shape)
-        else:
-            self.mask = np.fromfile(mask, '=u1').reshape(self.frame_shape)
-            self.mask[self.mask==0] = 1
-            self.mask[self.mask==2] = 0
         
         self.numstr = Tk.StringVar(); self.numstr.set(str(0))
         self.rangestr = Tk.StringVar(); self.rangestr.set(str(10))
         self.master.title('EMC Frame Viewer')
         
         self.parse_headers()
-        self.init_geom()
+        self.init_geom(mask)
         self.init_UI()
 
     def init_UI(self):
@@ -58,10 +52,10 @@ class Frameviewer():
         line = Tk.Frame(self.options)
         line.pack(fill=Tk.X)
         Tk.Label(line, text='Frame number: ').pack(side=Tk.LEFT)
-        Tk.Entry(line, textvariable=self.numstr, width=10).pack(side=Tk.LEFT, fill=Tk.X, expand=1)
+        Tk.Entry(line, textvariable=self.numstr, width=10).pack(side=Tk.LEFT)
         Tk.Label(line, text='/%d'%self.num_frames).pack(side=Tk.LEFT)
-        Tk.Label(line, text='PlotMax: ').pack(side=Tk.LEFT, fill=Tk.X)
-        Tk.Entry(line, textvariable=self.rangestr, width=6).pack(side=Tk.LEFT)
+        Tk.Entry(line, textvariable=self.rangestr, width=6).pack(side=Tk.RIGHT)
+        Tk.Label(line, text='PlotMax: ').pack(side=Tk.RIGHT)
         
         line = Tk.Frame(self.options)
         line.pack(fill=Tk.X)
@@ -86,24 +80,32 @@ class Frameviewer():
         
         self.plot_frame()
 
-    def init_geom(self):
+    def init_geom(self, mask_flag):
         if self.det_fname is None:
             self.x, self.y = np.indices(self.frame_shape)
             self.x = self.x.flatten()
             self.y = self.y.flatten()
+            self.mask = np.ones(self.frame_shape)
         else:
             sys.stderr.write('Reading detector file...')
-            cx, cy, cz = np.loadtxt(self.det_fname, usecols=(0,1,2), skiprows=1, unpack=True)
+            if mask_flag:
+                sys.stderr.write('with mask...')
+                cx, cy, cz, mask = np.loadtxt(self.det_fname, usecols=(0,1,2,4), skiprows=1, unpack=True)
+                mask[mask==2] = 1
+                mask = 1 - mask
+            else:
+                cx, cy, cz = np.loadtxt(self.det_fname, usecols=(0,1,2), skiprows=1, unpack=True)
+                mask = np.ones(cx.shape)
             sys.stderr.write('done\n')
+            
             cx = cx*self.detd/(cz+self.ewald_rad)
             cy = cy*self.detd/(cz+self.ewald_rad)
-            
             self.x = np.round(cx - cx.min()).astype('i4')
             self.y = np.round(cy - cy.min()).astype('i4')
+            
             self.frame_shape = (self.x.max()+1, self.y.max()+1)
-            mask = np.ones(self.frame_shape)
-            mask[self.x, self.y] = self.mask.flatten()
-            self.mask = mask
+            self.mask = np.ones(self.frame_shape)
+            self.mask[self.x, self.y] = mask.flatten()
 
     def parse_headers(self):
         self.num_data_list = []
@@ -215,10 +217,10 @@ if __name__ == '__main__':
     import ConfigParser
     from py_src import py_utils
     from py_src import read_config
-
+    
     parser = py_utils.my_argparser(description='Utility for viewing frames of the emc file (list)')
     parser.add_argument('--cmap', help='Matplotlib color map (default: jet)')
-    parser.add_argument('--mask', help='Name of mask file of type uint8 (default: None)')
+    parser.add_argument('--mask', help='Whether to zero out masked pixels (default False)', action='store_true', default=False)
     args = parser.special_parse_args()
     
     try:
