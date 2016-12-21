@@ -32,14 +32,13 @@ if __name__ == "__main__":
         if min_over > 12:
             if py_utils.confirm_oversampling(min_over) is False:
                 sys.exit(0)
-            
         timer.reset_and_report("Reading densities") if args.vb else timer.reset()
 
         pad_den     = np.zeros(3*(fov_len,))
         den_sh      = den.shape
         pad_den[:den_sh[0],:den_sh[1],:den_sh[2]] = den.copy()
         #ft          = np.abs(np.fft.fftshift(np.fft.fftn(pad_den)))
-        ft          = np.abs(np.fft.fftshift(pyfftw.interfaces.numpy_fft.fftn(pad_den, threads=4, planner_effort='FFTW_ESTIMATE')))
+        ft          = np.abs(np.fft.fftshift(pyfftw.interfaces.numpy_fft.fftn(pad_den, threads=32, planner_effort='FFTW_ESTIMATE')))
         intens      = ft*ft
         timer.reset_and_report("Computing intensities") if args.vb else timer.reset()
 
