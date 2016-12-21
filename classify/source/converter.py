@@ -11,7 +11,6 @@ class Polar_converter():
         self.delta_ang = delta_ang
         self.r_min = int(r_min/delta_r)
         self.r_max = int(np.ceil(r_max/delta_r))
-        print self.r_min, self.r_max
 
     def convert(self, input_frame):
         """
