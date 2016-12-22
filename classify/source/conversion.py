@@ -10,8 +10,8 @@ class Conversion_panel(Tk.Frame):
         Tk.Frame.__init__(self, parent.master, *args, **kwargs)
         
         self.parent = parent
-        self.r_min = Tk.StringVar(); self.r_min.set('5')
-        self.r_max = Tk.StringVar(); self.r_max.set('60')
+        self.r_min = Tk.StringVar(); self.r_min.set('10')
+        self.r_max = Tk.StringVar(); self.r_max.set('70')
         self.delta_r = Tk.StringVar(); self.delta_r.set('2')
         self.delta_ang = Tk.StringVar(); self.delta_ang.set('10')
         self.first_frame = Tk.StringVar(); self.first_frame.set('0')
