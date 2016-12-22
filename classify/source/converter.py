@@ -1,5 +1,4 @@
 import numpy as np
-import sys
 
 class Polar_converter():
     def __init__(self, x, y, mask, r_min=5, r_max=60, delta_r=2., delta_ang=10.):
@@ -30,7 +29,9 @@ class Polar_converter():
         
         self.polar_arr = np.zeros(self.rad_max*self.ang_max)
         np.add.at(self.polar_arr, self.polar_indices, input_frame.flatten()*self.mask)
-        self.polar_arr = (self.polar_arr/(1.*(self.polar_count + (self.polar_count==0)))).reshape(self.rad_max, -1)
+        self.polar_arr[self.polar_count>0] /= self.polar_count[self.polar_count>0]
+        self.polar_arr = self.polar_arr.reshape(self.rad_max, -1)[self.r_min:self.r_max]
+        #self.polar_arr = (self.polar_arr/(1.*(self.polar_count + (self.polar_count==0)))).reshape(self.rad_max, -1)
         
         return self.polar_arr
 
@@ -38,7 +39,8 @@ class Polar_converter():
         """
         Compute the angular correlation from the polar representation of each pattern
         """
-        self.ang_corr = np.array([a - a.mean() for a in self.polar_arr[self.r_min:self.r_max]])
+        #self.ang_corr = np.array([a - a.mean() for a in self.polar_arr[self.r_min:self.r_max]])
+        self.ang_corr = np.array([a - a.mean() for a in self.polar_arr])
         temp = []
         for a in self.ang_corr:
             la = np.linalg.norm(a)
