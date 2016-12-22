@@ -3,7 +3,7 @@ import sys
 import os
 import string
 import Tkinter as Tk
-import converter
+import polar
 
 class Conversion_panel(Tk.Frame):
     def __init__(self, parent, *args, **kwargs):
@@ -44,7 +44,7 @@ class Conversion_panel(Tk.Frame):
         Tk.Button(line, text='Update', command=self.remake_converter).pack(side=Tk.LEFT)
 
     def remake_converter(self, replot=True, event=None):
-        self.polar = converter.Polar_converter(self.parent.cx, 
+        self.polar = polar.Polar_converter(self.parent.cx, 
                                                self.parent.cy, 
                                                self.parent.raw_mask,
                                                r_min = float(self.r_min.get()),
