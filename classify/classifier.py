@@ -7,7 +7,8 @@ import string
 import matplotlib.pyplot as plt
 import Tkinter as Tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from source import converter
+from source import manual
+from source import conversion
 
 class Classifier():
     def __init__(self, master, photons_list, frame_shape, det_scale=(0,0), cmap='jet', mask=False, det_fname=None):
@@ -22,13 +23,9 @@ class Classifier():
             sys.exit(1)
         self.ewald_rad = det_scale[0]
         self.detd = det_scale[1]
+        self.class_list = None
         self.mode_val = Tk.IntVar()
         self.mode_val.set(0)
-        self.manual_classify_flag = Tk.IntVar()
-        self.manual_classify_flag.set(0)
-        self.class_list_fname = Tk.StringVar()
-        self.class_list_fname.set('my_classes.dat')
-        self.class_list_summary = Tk.StringVar()
         
         self.numstr = Tk.StringVar(); self.numstr.set(str(0))
         self.rangestr = Tk.StringVar(); self.rangestr.set(str(10))
@@ -49,11 +46,10 @@ class Classifier():
         fig_frame.rowconfigure(0, weight=1)
         
         self.fig = plt.figure(figsize=(6, 6))
-        self.fig.subplots_adjust(left=0.05, bottom=0.05, right=0.99, wspace=0.0)
+        #self.fig.subplots_adjust(left=0.05, bottom=0.05, right=0.95, wspace=0.0)
         self.canvas = FigureCanvasTkAgg(self.fig, fig_frame)
         self.canvas.show()
         self.canvas.get_tk_widget().pack(fill='both', expand=1)
-        #self.canvas.get_tk_widget().config(highlightcolor='cyan', highlightbackground='magenta')
         
         self.options = Tk.Frame(self.master, relief=Tk.GROOVE, borderwidth=5, width=400, height=200)
         self.options.grid(row=1, column=0, sticky='nsew')
@@ -196,7 +192,7 @@ class Classifier():
             s = plt.subplot(111)
             s.imshow(frame, vmin=0, vmax=float(self.rangestr.get()), interpolation='none', cmap=self.cmap)
             if mode == 1:
-                s.set_title("%d photons (%s)" % (frame.sum(), self.class_list[num]))
+                s.set_title("%d photons (%s)" % (frame.sum(), self.manual_panel.class_list[num]))
             else:
                 s.set_title("%d photons" % frame.sum())
             self.fig.add_subplot(s)
@@ -207,7 +203,7 @@ class Classifier():
             self.fig.add_subplot(s)
             
             s = plt.subplot(122)
-            pframe = self.polar.convert(frame)
+            pframe = self.conversion_panel.polar.convert(frame)
             s.imshow(pframe, vmin=0, vmax=float(self.rangestr.get()), interpolation='none', cmap=self.cmap, aspect=float(pframe.shape[1])/pframe.shape[0])
             s.set_title('Polar representation')
             self.fig.add_subplot(s)
@@ -236,85 +232,27 @@ class Classifier():
     def switch_mode(self, event=None):
         mode = self.mode_val.get()
         
-        if mode != 1:
-            if self.manual_panel is not None:
-                self.manual_panel.grid_forget()
-                self.manual_panel.destroy()
-            for c in string.ascii_lowercase:
-                self.master.unbind(c)
+        if mode != 1 and self.manual_panel is not None:
+            self.manual_panel.classify_flag.set(0)
+            self.manual_panel.classify_flag_changed()
+            self.class_list = self.manual_panel.class_list
+            self.manual_panel.grid_forget()
+            self.manual_panel.destroy()
+        if mode != 2 and self.conversion_panel is not None:
+            self.conversion_panel.grid_forget()
+            self.conversion_panel.destroy()
+        
         if mode == 0:
             print 'Switching to display mode'
         elif mode == 1:
             print 'Switching to manual classification mode'
-            self.classify_manual()
+            self.manual_panel = manual.Manual_panel(self, width=50)
+            self.manual_panel.grid(row=0, column=1, sticky='news')
         elif mode == 2:
             print 'Switching to conversion mode'
-            self.polar = converter.Polar_converter(self.cx, self.cy, self.raw_mask)
+            self.conversion_panel = conversion.Conversion_panel(self, width=30)
+            self.conversion_panel.grid(row=0, column=1, sticky='news')
         self.plot_frame()
-
-    def classify_manual(self, event=None):
-        self.manual_panel = Tk.Frame(self.master, width=50)
-        self.manual_panel.grid(row=0, column=1, sticky='news')
-        
-        line = Tk.Frame(self.manual_panel); line.pack(fill=Tk.X)
-        Tk.Label(line, text='Press any [a-z] key to assign label to frame').pack(side=Tk.LEFT, fill=Tk.X)
-        
-        line = Tk.Frame(self.manual_panel); line.pack(fill=Tk.X)
-        Tk.Checkbutton(line, text='Classify', variable=self.manual_classify_flag, command=self.manual_classify_flag_changed).pack(side=Tk.LEFT)
-        Tk.Button(line, text='Unassign Class', command=self.unassign_class).pack(side=Tk.LEFT)
-        
-        line = Tk.Frame(self.manual_panel); line.pack(fill=Tk.X)
-        Tk.Entry(line, textvariable=self.class_list_fname).pack(side=Tk.LEFT)
-        Tk.Button(line, text='Save Class List', command=self.save_class_list).pack(side=Tk.TOP, anchor=Tk.W)
-        
-        line = Tk.Frame(self.manual_panel); line.pack(fill=Tk.X)
-        Tk.Label(line, text='Classification Summary:', font=('Helvetica', 14)).pack(side=Tk.TOP, anchor=Tk.W)
-        Tk.Label(line, textvariable=self.class_list_summary, font=('Courier', 14)).pack(side=Tk.TOP, anchor=Tk.W)
-        
-        for c in string.ascii_lowercase:
-            self.master.bind(c, self.assign_class)
-        self.class_list = np.zeros((self.num_frames,), dtype=np.str_)
-
-    def assign_class(self, event=None):
-        num = int(self.numstr.get())
-        self.class_list[num] = event.char
-        self.gen_class_summary()
-        self.next_frame()
-
-    def unassign_class(self, event=None):
-        num = int(self.numstr.get())
-        self.class_list[num] = ''
-        self.gen_class_summary()
-        self.plot_frame()
-
-    def manual_classify_flag_changed(self, event=None):
-        if self.manual_classify_flag.get() == 0:
-            for c in string.ascii_lowercase:
-                self.master.unbind(c)
-        else:
-            for c in string.ascii_lowercase:
-                self.master.bind(c, self.assign_class)
-            self.master.focus()
-
-    def gen_class_summary(self):
-        u = np.unique(self.class_list, return_counts=True)
-        cmin = 0
-        summary = ''
-        if u[0][0] == '':
-            summary += '|    |%7d|\n' % u[1][0]
-            cmin = 1
-        for i in range(cmin, len(u[0])):
-            summary += '|%-4s|%7d|\n' % (u[0][i], u[1][i])
-        self.class_list_summary.set(summary)
-
-    def save_class_list(self, event=None):
-        print 'Saving manually classified list to', self.class_list_fname.get()
-        np.savetxt(self.class_list_fname.get(), self.class_list, fmt='%s')
-
-    def read_class_list(self, event=None):
-        with open(self.class_list_fname.get(), 'r') as f:
-            c = np.array([l.rstrip() for l in f.readlines()])
-        self.class_key, self.class_key_pos = np.unique(c, return_inverse=True)
 
     def quit(self, event=None):
         self.master.quit()
