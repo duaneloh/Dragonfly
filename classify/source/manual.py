@@ -14,10 +14,7 @@ class Manual_panel(Tk.Frame):
         self.class_list_fname = Tk.StringVar()
         self.class_list_fname.set('my_classes.dat')
         self.class_list_summary = Tk.StringVar()
-        if self.parent.class_list is None:
-            self.class_list = np.zeros((self.parent.num_frames,), dtype=np.str_)
-        else:
-            self.class_list = self.parent.class_list
+        self.class_list = np.zeros((self.parent.num_frames,), dtype=np.str_)
         
         self.init_UI()
         self.gen_class_summary()
