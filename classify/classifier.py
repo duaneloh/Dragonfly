@@ -9,6 +9,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import ConfigParser
 from source import manual
 from source import conversion
+from source import embedding
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))+'/utils/py_src')
 import py_utils
 import read_config
@@ -20,7 +21,6 @@ class Classifier():
         self.cmap = cmap
         self.config_file = config_file
         
-        self.class_list = None
         self.mode_val = Tk.IntVar(); self.mode_val.set(0)
         self.numstr = Tk.StringVar(); self.numstr.set(str(0))
         self.rangestr = Tk.StringVar(); self.rangestr.set(str(10))
@@ -31,7 +31,7 @@ class Classifier():
         self.init_UI()
 
     def init_UI(self):
-        self.master.title('Dragonfly Frame Classifier')
+        self.master.title('Dragonfly Diffraction Pattern Classifier')
         self.master.rowconfigure(0, weight=1)
         self.master.columnconfigure(0, weight=1)
         self.master.protocol('WM_DELETE_WINDOW', self.master.quit)
@@ -71,10 +71,12 @@ class Classifier():
         modemenu.add_radiobutton(label='Display', underline=0, variable=self.mode_val, value=0, command=self.switch_mode)
         modemenu.add_radiobutton(label='Manual', underline=0, variable=self.mode_val, value=1, command=self.switch_mode)
         modemenu.add_radiobutton(label='Convert', underline=0, variable=self.mode_val, value=2, command=self.switch_mode)
+        modemenu.add_radiobutton(label='Embedding', underline=0, variable=self.mode_val, value=3, command=self.switch_mode)
         menubar.add_cascade(label='Mode', menu=modemenu, underline=0)
         self.master.config(menu=menubar)
-        self.manual_panel = None
-        self.conversion_panel = None
+        self.manual_panel = manual.Manual_panel(self, width=50)
+        self.conversion_panel = conversion.Conversion_panel(self, width=30)
+        self.embedding_panel = embedding.Embedding_panel(self, width=30)
         
         self.master.bind('<Return>', self.plot_frame)
         self.master.bind('<KP_Enter>', self.plot_frame)
@@ -249,28 +251,26 @@ class Classifier():
     def switch_mode(self, event=None):
         mode = self.mode_val.get()
         
-        if mode != 1 and self.manual_panel is not None:
+        if mode != 1 and len(self.manual_panel.grid_info()) > 0:
             self.manual_panel.classify_flag.set(0)
             self.manual_panel.classify_flag_changed()
-            self.class_list = self.manual_panel.class_list
             self.manual_panel.grid_forget()
-            self.manual_panel.destroy()
-            self.manual_panel = None
-        if mode != 2 and self.conversion_panel is not None:
+        if mode != 2 and len(self.conversion_panel.grid_info()) > 0:
             self.conversion_panel.grid_forget()
-            self.conversion_panel.destroy()
-            self.conversion_panel = None
+        if mode != 3 and len(self.embedding_panel.grid_info()) > 0:
+            self.embedding_panel.grid_forget()
         
         if mode == 0:
             print 'Switching to display mode'
         elif mode == 1:
             print 'Switching to manual classification mode'
-            self.manual_panel = manual.Manual_panel(self, width=50)
             self.manual_panel.grid(row=0, column=1, sticky='news')
         elif mode == 2:
             print 'Switching to conversion mode'
-            self.conversion_panel = conversion.Conversion_panel(self, width=30)
             self.conversion_panel.grid(row=0, column=1, sticky='news')
+        elif mode == 3:
+            print 'Switching to embedding mode'
+            self.embedding_panel.grid(row=0, column=1, sticky='news')
         self.plot_frame()
 
     def quit(self, event=None):
