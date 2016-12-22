@@ -1,41 +1,37 @@
 #!/usr/bin/env python
 
-import numpy as np
 import sys
 import os
-import string
+import numpy as np
 import matplotlib.pyplot as plt
 import Tkinter as Tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import ConfigParser
 from source import manual
 from source import conversion
+sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))+'/utils/')
+from py_src import py_utils
+from py_src import read_config
 
 class Classifier():
-    def __init__(self, master, photons_list, frame_shape, det_scale=(0,0), cmap='jet', mask=False, det_fname=None):
+    #def __init__(self, master, photons_list, frame_shape, det_scale=(0,0), cmap='jet', mask=False, det_fname=None):
+    def __init__(self, master, config_file, cmap='jet', mask=False):
         self.master = master
-        self.photons_list = photons_list
-        self.num_files = len(photons_list)
-        self.frame_shape = frame_shape
         self.cmap = cmap
-        self.det_fname = det_fname
-        if det_fname is not None and (det_scale[0] == 0 or det_scale[1] == 0):
-            sys.stderr.write('Need det_scale parameters if det_fname is specified')
-            sys.exit(1)
-        self.ewald_rad = det_scale[0]
-        self.detd = det_scale[1]
-        self.class_list = None
-        self.mode_val = Tk.IntVar()
-        self.mode_val.set(0)
+        self.config_file = config_file
         
+        self.class_list = None
+        self.mode_val = Tk.IntVar(); self.mode_val.set(0)
         self.numstr = Tk.StringVar(); self.numstr.set(str(0))
         self.rangestr = Tk.StringVar(); self.rangestr.set(str(10))
-        self.master.title('Dragonfly Frame Classifier')
         
+        self.get_config_params()
         self.parse_headers()
         self.init_geom(mask)
         self.init_UI()
 
     def init_UI(self):
+        self.master.title('Dragonfly Frame Classifier')
         self.master.rowconfigure(0, weight=1)
         self.master.columnconfigure(0, weight=1)
         self.master.protocol('WM_DELETE_WINDOW', self.master.quit)
@@ -93,6 +89,25 @@ class Classifier():
         self.canvas.get_tk_widget().bind('<Down>', self.prev_frame)
         
         self.plot_frame()
+
+    def get_config_params(self):
+        try:
+            pfile = read_config.get_filename(self.config_file, 'emc', 'in_photons_file')
+            print 'Using in_photons_file: %s' % pfile
+            self.photons_list = [pfile]
+        except ConfigParser.NoOptionError:
+            plist = read_config.get_filename(self.config_file, 'emc', 'in_photons_list')
+            print 'Using in_photons_list: %s' % plist
+            with open(plist, 'r') as f:
+                self.photons_list = map(lambda x: x.rstrip(), f.readlines())
+        
+        pm = read_config.get_detector_config(self.config_file)
+        
+        self.num_files = len(self.photons_list)
+        self.frame_shape = (pm['dets_x'], pm['dets_y'])
+        self.det_fname = read_config.get_filename(self.config_file, 'emc', 'in_detector_file')
+        self.ewald_rad = pm['ewald_rad']
+        self.detd = pm['detd']/pm['pixsize']
 
     def init_geom(self, mask_flag):
         if self.det_fname is None:
@@ -261,31 +276,11 @@ class Classifier():
         self.master.quit()
 
 if __name__ == '__main__':
-    import ConfigParser
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))+'/utils/')
-    from py_src import py_utils
-    from py_src import read_config
-    
     parser = py_utils.my_argparser(description='Utility for viewing frames of the emc file (list)')
     parser.add_argument('--cmap', help='Matplotlib color map (default: jet)')
     parser.add_argument('-M', '--mask', help='Whether to zero out masked pixels (default False)', action='store_true', default=False)
     args = parser.special_parse_args()
     
-    try:
-        pfile = read_config.get_filename(args.config_file, 'emc', 'in_photons_file')
-        print 'Using in_photons_file: %s' % pfile
-        photons_list = [pfile]
-    except ConfigParser.NoOptionError:
-        plist = read_config.get_filename(args.config_file, 'emc', 'in_photons_list')
-        print 'Using in_photons_list: %s' % plist
-        with open(plist, 'r') as f:
-            photons_list = map(lambda x: x.rstrip(), f.readlines())
-    
-    pm = read_config.get_detector_config(args.config_file, show=args.vb)
-    det_fname = read_config.get_filename(args.config_file, 'emc', 'in_detector_file')
-    
     root = Tk.Tk()
-    Classifier(root, photons_list, (pm['dets_x'], pm['dets_y']), 
-                det_scale=(pm['ewald_rad'], pm['detd']/pm['pixsize']), 
-                cmap=args.cmap, mask=args.mask, det_fname=det_fname)
+    Classifier(root, args.config_file, cmap=args.cmap, mask=args.mask)
     root.mainloop()
