@@ -10,14 +10,13 @@ class Conversion_panel(Tk.Frame):
         Tk.Frame.__init__(self, parent.master, *args, **kwargs)
         
         self.parent = parent
-        self.r_min = Tk.StringVar()
-        self.r_min.set('5')
-        self.r_max = Tk.StringVar()
-        self.r_max.set('60')
-        self.delta_r = Tk.StringVar()
-        self.delta_r.set('2')
-        self.delta_ang = Tk.StringVar()
-        self.delta_ang.set('10')
+        self.r_min = Tk.StringVar(); self.r_min.set('5')
+        self.r_max = Tk.StringVar(); self.r_max.set('60')
+        self.delta_r = Tk.StringVar(); self.delta_r.set('2')
+        self.delta_ang = Tk.StringVar(); self.delta_ang.set('10')
+        self.first_frame = Tk.StringVar(); self.first_frame.set('0')
+        self.last_frame = Tk.StringVar(); self.last_frame.set('100')
+        self.save_flag = Tk.IntVar(); self.save_flag.set(1)
         
         self.polar = None
         self.init_UI()
@@ -29,19 +28,32 @@ class Conversion_panel(Tk.Frame):
         
         line = Tk.Frame(self); line.pack(fill=Tk.X)
         Tk.Label(line, text='R_min:').pack(side=Tk.LEFT)
-        Tk.Entry(line, textvariable=self.r_min).pack(side=Tk.LEFT)
+        Tk.Entry(line, textvariable=self.r_min, width=5).pack(side=Tk.LEFT)
         Tk.Label(line, text='R_max:').pack(side=Tk.LEFT)
-        Tk.Entry(line, textvariable=self.r_max).pack(side=Tk.LEFT)
+        Tk.Entry(line, textvariable=self.r_max, width=5).pack(side=Tk.LEFT)
         
         line = Tk.Frame(self); line.pack(fill=Tk.X)
         Tk.Label(line, text='dR:').pack(side=Tk.LEFT)
-        Tk.Entry(line, textvariable=self.delta_r).pack(side=Tk.LEFT)
+        Tk.Entry(line, textvariable=self.delta_r, width=5).pack(side=Tk.LEFT)
         Tk.Label(line, text='dtheta:').pack(side=Tk.LEFT)
-        Tk.Entry(line, textvariable=self.delta_ang).pack(side=Tk.LEFT)
+        Tk.Entry(line, textvariable=self.delta_ang, width=5).pack(side=Tk.LEFT)
         Tk.Label(line, text='deg').pack(side=Tk.LEFT)
         
         line = Tk.Frame(self); line.pack(fill=Tk.X)
         Tk.Button(line, text='Update', command=self.remake_converter).pack(side=Tk.LEFT)
+        
+        line = Tk.Frame(self); line.pack(fill=Tk.X)
+        Tk.Label(line, text='Batch processing').pack(side=Tk.LEFT)
+        
+        line = Tk.Frame(self); line.pack(fill=Tk.X)
+        Tk.Label(line, text='Frame range:').pack(side=Tk.LEFT)
+        Tk.Entry(line, textvariable=self.first_frame, width=8).pack(side=Tk.LEFT)
+        Tk.Label(line, text='-').pack(side=Tk.LEFT)
+        Tk.Entry(line, textvariable=self.last_frame, width=8).pack(side=Tk.LEFT)
+        
+        line = Tk.Frame(self); line.pack(fill=Tk.X)
+        Tk.Button(line, text='Process', command=self.convert_frames).pack(side=Tk.LEFT)
+        Tk.Checkbutton(line, text='Save to file', variable=self.save_flag).pack(side=Tk.RIGHT)
 
     def remake_converter(self, replot=True, event=None):
         self.polar = polar.Polar_converter(self.parent.cx, 
@@ -53,3 +65,27 @@ class Conversion_panel(Tk.Frame):
                                                delta_ang = float(self.delta_ang.get()))
         if replot:
             self.parent.plot_frame()
+
+    def convert_frames(self, event=None):
+        self.ang_corr = []
+        try:
+            start = int(self.first_frame.get())
+            end = int(self.last_frame.get())
+        except ValueError:
+            print 'Frame range must be integers'
+            return
+        
+        for i in range(start, end):
+            file_num = np.where(i < self.parent.num_data_list)[0][0]
+            if file_num == 0:
+                frame_num = i
+            else:
+                frame_num = i - self.parent.num_data_list[file_num-1]
+            frame = self.parent.read_frame(file_num, frame_num)
+            self.polar.convert(frame)
+            self.ang_corr.append(self.polar.compute_ang_corr())
+            sys.stderr.write('\r%d/%d' % (i+1, end-start))
+        sys.stderr.write('\n')
+        
+        self.ang_corr = np.array(self.ang_corr)
+        np.save(self.parent.output_folder+'ang_corr.npy', self.ang_corr)
