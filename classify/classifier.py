@@ -72,12 +72,13 @@ class Classifier():
         
         menubar = Tk.Menu(self.master)
         modemenu = Tk.Menu(menubar, tearoff=0)
-        modemenu.add_radiobutton(label='Display', variable=self.mode_val, value=0, command=self.switch_mode)
-        modemenu.add_radiobutton(label='Manual', variable=self.mode_val, value=1, command=self.switch_mode)
-        modemenu.add_radiobutton(label='Convert', variable=self.mode_val, value=2, command=self.switch_mode)
-        menubar.add_cascade(label='Mode', menu=modemenu)
+        modemenu.add_radiobutton(label='Display', underline=0, variable=self.mode_val, value=0, command=self.switch_mode)
+        modemenu.add_radiobutton(label='Manual', underline=0, variable=self.mode_val, value=1, command=self.switch_mode)
+        modemenu.add_radiobutton(label='Convert', underline=0, variable=self.mode_val, value=2, command=self.switch_mode)
+        menubar.add_cascade(label='Mode', menu=modemenu, underline=0)
         self.master.config(menu=menubar)
         self.manual_panel = None
+        self.conversion_panel = None
         
         self.master.bind('<Return>', self.plot_frame)
         self.master.bind('<KP_Enter>', self.plot_frame)
@@ -188,15 +189,7 @@ class Classifier():
             frame_num = num - self.num_data_list[file_num-1]
         frame = self.read_frame(file_num, frame_num)
         
-        if mode != 2:
-            s = plt.subplot(111)
-            s.imshow(frame, vmin=0, vmax=float(self.rangestr.get()), interpolation='none', cmap=self.cmap)
-            if mode == 1:
-                s.set_title("%d photons (%s)" % (frame.sum(), self.manual_panel.class_list[num]))
-            else:
-                s.set_title("%d photons" % frame.sum())
-            self.fig.add_subplot(s)
-        else:
+        if mode == 2:
             s = plt.subplot(121)
             s.imshow(frame, vmin=0, vmax=float(self.rangestr.get()), interpolation='none', cmap=self.cmap)
             s.set_title("%d photons" % frame.sum())
@@ -206,6 +199,14 @@ class Classifier():
             pframe = self.conversion_panel.polar.convert(frame)
             s.imshow(pframe, vmin=0, vmax=float(self.rangestr.get()), interpolation='none', cmap=self.cmap, aspect=float(pframe.shape[1])/pframe.shape[0])
             s.set_title('Polar representation')
+            self.fig.add_subplot(s)
+        else:
+            s = plt.subplot(111)
+            s.imshow(frame, vmin=0, vmax=float(self.rangestr.get()), interpolation='none', cmap=self.cmap)
+            if mode == 1:
+                s.set_title("%d photons (%s)" % (frame.sum(), self.manual_panel.class_list[num]))
+            else:
+                s.set_title("%d photons" % frame.sum())
             self.fig.add_subplot(s)
         self.canvas.show()
 
@@ -238,9 +239,11 @@ class Classifier():
             self.class_list = self.manual_panel.class_list
             self.manual_panel.grid_forget()
             self.manual_panel.destroy()
+            self.manual_panel = None
         if mode != 2 and self.conversion_panel is not None:
             self.conversion_panel.grid_forget()
             self.conversion_panel.destroy()
+            self.conversion_panel = None
         
         if mode == 0:
             print 'Switching to display mode'
