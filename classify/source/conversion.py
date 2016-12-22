@@ -19,6 +19,7 @@ class Conversion_panel(Tk.Frame):
         self.save_flag = Tk.IntVar(); self.save_flag.set(1)
         
         self.polar = None
+        self.ang_corr = None
         self.init_UI()
         self.remake_converter(replot=False)
 
@@ -66,7 +67,7 @@ class Conversion_panel(Tk.Frame):
         if replot:
             self.parent.plot_frame()
 
-    def convert_frames(self, event=None):
+    def convert_frames(self, save=True, event=None):
         self.ang_corr = []
         try:
             start = int(self.first_frame.get())
@@ -88,4 +89,5 @@ class Conversion_panel(Tk.Frame):
         sys.stderr.write('\n')
         
         self.ang_corr = np.array(self.ang_corr)
-        np.save(self.parent.output_folder+'ang_corr.npy', self.ang_corr)
+        if save:
+            np.save(self.parent.output_folder+'ang_corr.npy', self.ang_corr)
