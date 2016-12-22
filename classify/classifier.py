@@ -9,9 +9,9 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import ConfigParser
 from source import manual
 from source import conversion
-sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))+'/utils/')
-from py_src import py_utils
-from py_src import read_config
+sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))+'/utils/py_src')
+import py_utils
+import read_config
 
 class Classifier():
     #def __init__(self, master, photons_list, frame_shape, det_scale=(0,0), cmap='jet', mask=False, det_fname=None):
@@ -106,6 +106,7 @@ class Classifier():
         self.num_files = len(self.photons_list)
         self.frame_shape = (pm['dets_x'], pm['dets_y'])
         self.det_fname = read_config.get_filename(self.config_file, 'emc', 'in_detector_file')
+        self.output_folder = read_config.get_filename(self.config_file, 'emc', 'output_folder')
         self.ewald_rad = pm['ewald_rad']
         self.detd = pm['detd']/pm['pixsize']
 
