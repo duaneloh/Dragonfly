@@ -193,19 +193,22 @@ class Classifier():
         
         return frame * self.mask
 
-    def plot_frame(self, event=None):
-        num = int(self.numstr.get())
+    def plot_frame(self, event=None, frame=None):
         mode = self.mode_val.get()
-        if num < 0 or num >= self.num_frames:
-            sys.stderr.write('Frame number %d out of range!\n' % num)
-            return
-        
-        file_num = np.where(num < self.num_data_list)[0][0]
-        if file_num == 0:
-            frame_num = num
+        if frame is None:
+            num = int(self.numstr.get())
+            if num < 0 or num >= self.num_frames:
+                sys.stderr.write('Frame number %d out of range!\n' % num)
+                return
+            
+            file_num = np.where(num < self.num_data_list)[0][0]
+            if file_num == 0:
+                frame_num = num
+            else:
+                frame_num = num - self.num_data_list[file_num-1]
+            frame = self.read_frame(file_num, frame_num)
         else:
-            frame_num = num - self.num_data_list[file_num-1]
-        frame = self.read_frame(file_num, frame_num)
+            frame = frame
         
         if mode == 2:
             s = plt.subplot(121)
