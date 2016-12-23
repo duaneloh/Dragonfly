@@ -235,7 +235,7 @@ class Classifier():
             
             s = plt.subplot(111)
             e = self.embedding_panel.embed
-            s.hist2d(e[:,1], e[:,2], bins=100)
+            s.hist2d(e[:,0], e[:,1], bins=100)
             s.set_title('Spectral embedding')
             self.fig.add_subplot(s)
         else:
