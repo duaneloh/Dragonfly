@@ -5,17 +5,17 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import Tkinter as Tk
+import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import ConfigParser
 from source import manual
 from source import conversion
 from source import embedding
-sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))+'/utils/py_src')
+sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))+'/utils/py_src/')
 import py_utils
 import read_config
 
 class Classifier():
-    #def __init__(self, master, photons_list, frame_shape, det_scale=(0,0), cmap='jet', mask=False, det_fname=None):
     def __init__(self, master, config_file, cmap='jet', mask=False):
         self.master = master
         self.cmap = cmap
@@ -35,8 +35,15 @@ class Classifier():
         self.master.rowconfigure(0, weight=1)
         self.master.columnconfigure(0, weight=1)
         self.master.protocol('WM_DELETE_WINDOW', self.master.quit)
+        if sys.platform != 'darwin':
+            path_string = " ".join(os.path.realpath(__file__).split('/')[:-1])
+            self.master.tk.eval('source [file join / ' + path_string + ' themes plastik plastik.tcl]')
+            self.master.tk.eval('source [file join / ' + path_string + ' themes clearlooks clearlooks8.5.tcl]')
+            fstyle = ttk.Style()
+            fstyle.theme_use('clearlooks')
+            #fstyle.theme_use('plastik')
         
-        fig_frame = Tk.Frame(self.master)
+        fig_frame = ttk.Frame(self.master)
         fig_frame.grid(row=0, column=0, sticky='nsew')
         fig_frame.columnconfigure(0, weight=1)
         fig_frame.rowconfigure(0, weight=1)
@@ -44,27 +51,28 @@ class Classifier():
         self.fig = plt.figure(figsize=(6, 6))
         #self.fig.subplots_adjust(left=0.05, bottom=0.05, right=0.95, wspace=0.0)
         self.canvas = FigureCanvasTkAgg(self.fig, fig_frame)
+        self.canvas_widget = self.canvas.get_tk_widget()
         self.canvas.show()
-        self.canvas.get_tk_widget().pack(fill='both', expand=1)
+        self.canvas_widget.pack(fill='both', expand=1)
         
-        self.options = Tk.Frame(self.master, relief=Tk.GROOVE, borderwidth=5, width=400, height=200)
+        self.options = ttk.Frame(self.master, relief=Tk.GROOVE, borderwidth=5, width=400, height=200)
         self.options.grid(row=1, column=0, sticky='nsew')
         
-        line = Tk.Frame(self.options)
+        line = ttk.Frame(self.options)
         line.pack(fill=Tk.X)
-        Tk.Label(line, text='Frame number: ').pack(side=Tk.LEFT)
-        Tk.Entry(line, textvariable=self.numstr, width=10).pack(side=Tk.LEFT)
-        Tk.Label(line, text='/%d'%self.num_frames).pack(side=Tk.LEFT)
-        Tk.Entry(line, textvariable=self.rangestr, width=6).pack(side=Tk.RIGHT)
-        Tk.Label(line, text='PlotMax: ').pack(side=Tk.RIGHT)
+        ttk.Label(line, text='Frame number: ').pack(side=Tk.LEFT)
+        ttk.Entry(line, textvariable=self.numstr, width=8).pack(side=Tk.LEFT)
+        ttk.Label(line, text='/%d'%self.num_frames).pack(side=Tk.LEFT)
+        ttk.Entry(line, textvariable=self.rangestr, width=6).pack(side=Tk.RIGHT)
+        ttk.Label(line, text='PlotMax: ').pack(side=Tk.RIGHT)
         
-        line = Tk.Frame(self.options)
+        line = ttk.Frame(self.options)
         line.pack(fill=Tk.X)
-        Tk.Button(line, text='Plot', command=self.plot_frame).pack(side=Tk.LEFT)
-        Tk.Button(line, text='Prev', command=self.prev_frame).pack(side=Tk.LEFT)
-        Tk.Button(line, text='Next', command=self.next_frame).pack(side=Tk.LEFT)
-        Tk.Button(line, text='Random', command=self.rand_frame).pack(side=Tk.LEFT)
-        Tk.Button(line, text='Quit', command=self.quit).pack(side=Tk.RIGHT)
+        ttk.Button(line, text='Plot', command=self.plot_frame).pack(side=Tk.LEFT)
+        ttk.Button(line, text='Prev', command=self.prev_frame).pack(side=Tk.LEFT)
+        ttk.Button(line, text='Next', command=self.next_frame).pack(side=Tk.LEFT)
+        ttk.Button(line, text='Random', command=self.rand_frame).pack(side=Tk.LEFT)
+        ttk.Button(line, text='Quit', command=self.quit).pack(side=Tk.RIGHT)
         
         menubar = Tk.Menu(self.master)
         modemenu = Tk.Menu(menubar, tearoff=0)
@@ -84,11 +92,11 @@ class Classifier():
         self.master.bind('<Control-p>', self.prev_frame)
         self.master.bind('<Control-r>', self.rand_frame)
         self.master.bind('<Control-q>', self.quit)
-        self.canvas.get_tk_widget().bind('<Button-1>', self.frame_focus)
-        self.canvas.get_tk_widget().bind('<Right>', self.next_frame)
-        self.canvas.get_tk_widget().bind('<Left>', self.prev_frame)
-        self.canvas.get_tk_widget().bind('<Up>', self.next_frame)
-        self.canvas.get_tk_widget().bind('<Down>', self.prev_frame)
+        self.canvas_widget.bind('<Button-1>', self.frame_focus)
+        self.canvas_widget.bind('<Right>', self.next_frame)
+        self.canvas_widget.bind('<Left>', self.prev_frame)
+        self.canvas_widget.bind('<Up>', self.next_frame)
+        self.canvas_widget.bind('<Down>', self.prev_frame)
         
         self.plot_frame()
 
@@ -193,22 +201,19 @@ class Classifier():
         
         return frame * self.mask
 
-    def plot_frame(self, event=None, frame=None):
+    def plot_frame(self, event=None, force_frame=False):
         mode = self.mode_val.get()
-        if frame is None:
-            num = int(self.numstr.get())
-            if num < 0 or num >= self.num_frames:
-                sys.stderr.write('Frame number %d out of range!\n' % num)
-                return
-            
-            file_num = np.where(num < self.num_data_list)[0][0]
-            if file_num == 0:
-                frame_num = num
-            else:
-                frame_num = num - self.num_data_list[file_num-1]
-            frame = self.read_frame(file_num, frame_num)
+        num = int(self.numstr.get())
+        if num < 0 or num >= self.num_frames:
+            sys.stderr.write('Frame number %d out of range!\n' % num)
+            return
+        
+        file_num = np.where(num < self.num_data_list)[0][0]
+        if file_num == 0:
+            frame_num = num
         else:
-            frame = frame
+            frame_num = num - self.num_data_list[file_num-1]
+        frame = self.read_frame(file_num, frame_num)
         
         if mode == 2:
             s = plt.subplot(121)
@@ -221,7 +226,15 @@ class Classifier():
             s.imshow(pframe, vmin=0, vmax=float(self.rangestr.get()), interpolation='none', cmap=self.cmap, aspect=float(pframe.shape[1])/pframe.shape[0])
             s.set_title('Polar representation')
             self.fig.add_subplot(s)
+        elif (not force_frame) and mode == 3 and self.embedding_panel.embed is not None:
+            plt.gcf().clear()
+            s = plt.subplot(111)
+            e = self.embedding_panel.embed
+            s.hist2d(e[:,0], e[:,1], bins=100)
+            s.set_title('Spectral embedding')
+            self.fig.add_subplot(s)
         else:
+            plt.gcf().clear()
             s = plt.subplot(111)
             s.imshow(frame, vmin=0, vmax=float(self.rangestr.get()), interpolation='none', cmap=self.cmap)
             if mode == 1:
@@ -249,7 +262,7 @@ class Classifier():
         self.plot_frame()
 
     def frame_focus(self, event=None):
-        self.canvas.get_tk_widget().focus_set()
+        self.canvas_widget.focus_set()
 
     def switch_mode(self, event=None):
         mode = self.mode_val.get()
