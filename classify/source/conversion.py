@@ -3,11 +3,12 @@ import sys
 import os
 import string
 import Tkinter as Tk
+import ttk
 import polar
 
-class Conversion_panel(Tk.Frame):
+class Conversion_panel(ttk.Frame):
     def __init__(self, parent, *args, **kwargs):
-        Tk.Frame.__init__(self, parent.master, *args, **kwargs)
+        ttk.Frame.__init__(self, parent.master, *args, **kwargs)
         
         self.parent = parent
         self.r_min = Tk.StringVar(); self.r_min.set('10')
@@ -24,37 +25,37 @@ class Conversion_panel(Tk.Frame):
         self.remake_converter(replot=False)
 
     def init_UI(self):
-        line = Tk.Frame(self); line.pack(fill=Tk.X)
-        Tk.Label(line, text='Convert to angular correlations').pack(side=Tk.LEFT)
+        line = ttk.Frame(self); line.pack(fill=Tk.X)
+        ttk.Label(line, text='Convert to angular correlations').pack(side=Tk.LEFT)
         
-        line = Tk.Frame(self); line.pack(fill=Tk.X)
-        Tk.Label(line, text='R_min:').pack(side=Tk.LEFT)
-        Tk.Entry(line, textvariable=self.r_min, width=5).pack(side=Tk.LEFT)
-        Tk.Label(line, text='R_max:').pack(side=Tk.LEFT)
-        Tk.Entry(line, textvariable=self.r_max, width=5).pack(side=Tk.LEFT)
+        line = ttk.Frame(self); line.pack(fill=Tk.X)
+        ttk.Label(line, text='R_min:').pack(side=Tk.LEFT)
+        ttk.Entry(line, textvariable=self.r_min, width=5).pack(side=Tk.LEFT)
+        ttk.Label(line, text='R_max:').pack(side=Tk.LEFT)
+        ttk.Entry(line, textvariable=self.r_max, width=5).pack(side=Tk.LEFT)
         
-        line = Tk.Frame(self); line.pack(fill=Tk.X)
-        Tk.Label(line, text='dR:').pack(side=Tk.LEFT)
-        Tk.Entry(line, textvariable=self.delta_r, width=5).pack(side=Tk.LEFT)
-        Tk.Label(line, text='dtheta:').pack(side=Tk.LEFT)
-        Tk.Entry(line, textvariable=self.delta_ang, width=5).pack(side=Tk.LEFT)
-        Tk.Label(line, text='deg').pack(side=Tk.LEFT)
+        line = ttk.Frame(self); line.pack(fill=Tk.X)
+        ttk.Label(line, text='dR:').pack(side=Tk.LEFT)
+        ttk.Entry(line, textvariable=self.delta_r, width=5).pack(side=Tk.LEFT)
+        ttk.Label(line, text='dtheta:').pack(side=Tk.LEFT)
+        ttk.Entry(line, textvariable=self.delta_ang, width=5).pack(side=Tk.LEFT)
+        ttk.Label(line, text='deg').pack(side=Tk.LEFT)
         
-        line = Tk.Frame(self); line.pack(fill=Tk.X)
-        Tk.Button(line, text='Update', command=self.remake_converter).pack(side=Tk.LEFT)
+        line = ttk.Frame(self); line.pack(fill=Tk.X)
+        ttk.Button(line, text='Update', command=self.remake_converter).pack(side=Tk.LEFT)
         
-        line = Tk.Frame(self); line.pack(fill=Tk.X)
-        Tk.Label(line, text='Batch processing').pack(side=Tk.LEFT)
+        line = ttk.Frame(self); line.pack(fill=Tk.X)
+        ttk.Label(line, text='Batch processing').pack(side=Tk.LEFT)
         
-        line = Tk.Frame(self); line.pack(fill=Tk.X)
-        Tk.Label(line, text='Frame range:').pack(side=Tk.LEFT)
-        Tk.Entry(line, textvariable=self.first_frame, width=8).pack(side=Tk.LEFT)
-        Tk.Label(line, text='-').pack(side=Tk.LEFT)
-        Tk.Entry(line, textvariable=self.last_frame, width=8).pack(side=Tk.LEFT)
+        line = ttk.Frame(self); line.pack(fill=Tk.X)
+        ttk.Label(line, text='Frame range:').pack(side=Tk.LEFT)
+        ttk.Entry(line, textvariable=self.first_frame, width=8).pack(side=Tk.LEFT)
+        ttk.Label(line, text='-').pack(side=Tk.LEFT)
+        ttk.Entry(line, textvariable=self.last_frame, width=8).pack(side=Tk.LEFT)
         
-        line = Tk.Frame(self); line.pack(fill=Tk.X)
-        Tk.Button(line, text='Process', command=self.convert_frames).pack(side=Tk.LEFT)
-        Tk.Checkbutton(line, text='Save to file', variable=self.save_flag).pack(side=Tk.RIGHT)
+        line = ttk.Frame(self); line.pack(fill=Tk.X)
+        ttk.Button(line, text='Process', command=self.convert_frames).pack(side=Tk.LEFT)
+        ttk.Checkbutton(line, text='Save to file', variable=self.save_flag).pack(side=Tk.RIGHT)
 
     def remake_converter(self, replot=True, event=None):
         self.polar = polar.Polar_converter(self.parent.cx, 

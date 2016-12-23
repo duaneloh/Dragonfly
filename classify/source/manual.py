@@ -3,10 +3,11 @@ import sys
 import os
 import string
 import Tkinter as Tk
+import ttk
 
-class Manual_panel(Tk.Frame):
+class Manual_panel(ttk.Frame):
     def __init__(self, parent, *args, **kwargs):
-        Tk.Frame.__init__(self, parent.master, *args, **kwargs)
+        ttk.Frame.__init__(self, parent.master, *args, **kwargs)
         
         self.parent = parent
         self.classify_flag = Tk.IntVar()
@@ -20,20 +21,22 @@ class Manual_panel(Tk.Frame):
         self.gen_class_summary()
 
     def init_UI(self):
-        line = Tk.Frame(self); line.pack(fill=Tk.X)
-        Tk.Label(line, text='Press any [a-z] key to assign label to frame').pack(side=Tk.LEFT, fill=Tk.X)
+        line = ttk.Frame(self); line.pack(fill=Tk.X)
+        ttk.Label(line, text='Press any [a-z] key to assign label to frame').pack(side=Tk.LEFT, fill=Tk.X)
         
-        line = Tk.Frame(self); line.pack(fill=Tk.X)
-        Tk.Checkbutton(line, text='Classify', variable=self.classify_flag, command=self.classify_flag_changed).pack(side=Tk.LEFT)
-        Tk.Button(line, text='Unassign Class', command=self.unassign_class).pack(side=Tk.LEFT)
+        line = ttk.Frame(self); line.pack(fill=Tk.X)
+        ttk.Checkbutton(line, text='Classify', variable=self.classify_flag, command=self.classify_flag_changed).pack(side=Tk.LEFT)
+        ttk.Button(line, text='Unassign Class', command=self.unassign_class).pack(side=Tk.LEFT)
         
-        line = Tk.Frame(self); line.pack(fill=Tk.X)
-        Tk.Entry(line, textvariable=self.class_list_fname).pack(side=Tk.LEFT)
-        Tk.Button(line, text='Save Class List', command=self.save_class_list).pack(side=Tk.TOP, anchor=Tk.W)
+        line = ttk.Frame(self); line.pack(fill=Tk.X)
+        ttk.Entry(line, textvariable=self.class_list_fname).pack(side=Tk.LEFT)
+        ttk.Button(line, text='Save Class List', command=self.save_class_list).pack(side=Tk.TOP, anchor=Tk.W)
         
-        line = Tk.Frame(self); line.pack(fill=Tk.X)
-        Tk.Label(line, text='Classification Summary:', font=('Helvetica', 14)).pack(side=Tk.TOP, anchor=Tk.W)
-        Tk.Label(line, textvariable=self.class_list_summary, font=('Courier', 14)).pack(side=Tk.TOP, anchor=Tk.W)
+        line = ttk.Frame(self); line.pack(fill=Tk.X)
+        #ttk.Label(line, text='Classification Summary:', font=('Helvetica', 14)).pack(side=Tk.TOP, anchor=Tk.W)
+        ttk.Label(line, text='Classification Summary:').pack(side=Tk.TOP, anchor=Tk.W)
+        #ttk.Label(line, textvariable=self.class_list_summary, font=('Courier', 14)).pack(side=Tk.TOP, anchor=Tk.W)
+        ttk.Label(line, textvariable=self.class_list_summary).pack(side=Tk.TOP, anchor=Tk.W)
 
     def assign_class(self, event=None):
         num = int(self.parent.numstr.get())
