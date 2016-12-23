@@ -71,7 +71,7 @@ class Embedding_panel(ttk.Frame):
         self.path_list.append(matplotlib.path.Path(pos, closed=True))
         points_inside = np.array([self.path_list[-1].contains_point((p[0], p[1])) for p in self.embed])
         print points_inside.sum(), 'frames inside ROI out of', len(points_inside)
-        self.points_inside_list.append(np.where(points_inside)[0])
+        self.points_inside_list.append(np.where(points_inside)[0] + int(self.parent.conversion_panel.first_frame.get()))
         
         self.roi_list.append(
             self.parent.canvas_widget.create_polygon(
