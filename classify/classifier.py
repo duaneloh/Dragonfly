@@ -228,12 +228,22 @@ class Classifier():
             self.fig.add_subplot(s)
         elif (not force_frame) and mode == 3 and self.embedding_panel.embed is not None:
             plt.gcf().clear()
+            for p in self.embedding_panel.roi_list:
+                self.canvas_widget.tag_raise(p)
+            for p in self.embedding_panel.click_points_list:
+                self.canvas_widget.tag_raise(p)
+            
             s = plt.subplot(111)
             e = self.embedding_panel.embed
-            s.hist2d(e[:,0], e[:,1], bins=100)
+            s.hist2d(e[:,1], e[:,2], bins=100)
             s.set_title('Spectral embedding')
             self.fig.add_subplot(s)
         else:
+            if mode == 3:
+                for p in self.embedding_panel.roi_list:
+                    self.canvas_widget.tag_lower(p)
+                for p in self.embedding_panel.click_points_list:
+                    self.canvas_widget.tag_lower(p)
             plt.gcf().clear()
             s = plt.subplot(111)
             s.imshow(frame, vmin=0, vmax=float(self.rangestr.get()), interpolation='none', cmap=self.cmap)
@@ -280,13 +290,13 @@ class Classifier():
             print 'Switching to display mode'
         elif mode == 1:
             print 'Switching to manual classification mode'
-            self.manual_panel.grid(row=0, column=1, sticky='news')
+            self.manual_panel.grid(row=0, column=1, rowspan=2, sticky='news')
         elif mode == 2:
             print 'Switching to conversion mode'
-            self.conversion_panel.grid(row=0, column=1, sticky='news')
+            self.conversion_panel.grid(row=0, column=1, rowspan=2, sticky='news')
         elif mode == 3:
             print 'Switching to embedding mode'
-            self.embedding_panel.grid(row=0, column=1, sticky='news')
+            self.embedding_panel.grid(row=0, column=1, rowspan=2, sticky='news')
         self.plot_frame()
 
     def quit(self, event=None):
