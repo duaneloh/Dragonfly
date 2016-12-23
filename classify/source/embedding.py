@@ -49,7 +49,6 @@ class Embedding_panel(ttk.Frame):
         self.spectral.fit(ang_corr.reshape(len(ang_corr), -1))
         self.embed = self.spectral.embedding_
         #self.hist2d, self.binx, self.biny = np.histogram2d(self.embed[:,0], self.embed[:,1], bins=100)
-        #self.parent.plot_frame(frame=self.hist2d)
         self.parent.plot_frame()
 
     def track_flag_changed(self, event=None):
@@ -147,7 +146,7 @@ class Embedding_panel(ttk.Frame):
         points = self.points_inside_list[self.current_roi.get()]
         index = np.searchsorted(points, num, side='left') + 1
         if index > len(points) - 1:
-            index -= 1
+            index = len(points) - 1
         self.parent.numstr.set(str(points[index]))
         self.parent.plot_frame(force_frame=True)
 
