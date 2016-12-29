@@ -8,6 +8,7 @@ import Tkinter as Tk
 import ttk
 import tkMessageBox
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from source import data
 from source import manual
 from source import conversion
 from source import embedding
@@ -28,9 +29,10 @@ class Classifier():
         self.rangestr = Tk.StringVar(); self.rangestr.set(str(10))
         
         self.get_config_params()
-        self.parse_headers()
         self.init_geom(mask)
         
+        self.emc_reader = data.EMC_reader(self)
+        self.num_frames = self.emc_reader.num_frames
         self.classes = classes.Frame_classes(self.num_frames)
         
         self.init_UI()
@@ -158,70 +160,19 @@ class Classifier():
             self.cx = cx
             self.cy = cy
 
-    def parse_headers(self):
-        self.num_data_list = []
-        self.ones_accum_list = []
-        self.multi_accum_list = []
-        
-        # For each emc file, read num_data and generate ones_accum and multi_accum
-        for photons_file in self.photons_list:
-            # Read photon data
-            with open(photons_file, 'rb') as f:
-                num_data = np.fromfile(f, dtype='i4', count=1)[0]
-                f.seek(1024, 0)
-                ones = np.fromfile(f, dtype='i4', count=num_data)
-                multi = np.fromfile(f, dtype='i4', count=num_data)
-            self.num_data_list.append(num_data)
-            self.ones_accum_list.append(np.cumsum(ones))
-            self.multi_accum_list.append(np.cumsum(multi))
-        
-        self.num_data_list = np.cumsum(self.num_data_list)
-        self.num_frames = self.num_data_list[-1]
-
-    def read_frame(self, file_num, frame_num):
-        with open(self.photons_list[file_num], 'rb') as f:
-            num_data = np.fromfile(f, dtype='i4', count=1)[0]
-            
-            ones_accum = self.ones_accum_list[file_num]
-            multi_accum = self.multi_accum_list[file_num]
-            
-            if frame_num == 0:
-                ones_offset = 0
-                multi_offset = 0
-                ones_size = ones_accum[frame_num]
-                multi_size = multi_accum[frame_num]
-            else:
-                ones_offset = ones_accum[frame_num - 1]
-                multi_offset = multi_accum[frame_num - 1]
-                ones_size = ones_accum[frame_num] - ones_accum[frame_num - 1]
-                multi_size = multi_accum[frame_num] - multi_accum[frame_num - 1]
-            
-            f.seek(1024 + num_data*8 + ones_offset*4, 0)
-            place_ones = np.fromfile(f, dtype='i4', count=ones_size)
-            f.seek(1024 + num_data*8 + ones_accum[-1]*4 + multi_offset*4, 0)
-            place_multi = np.fromfile(f, dtype='i4', count=multi_size)
-            f.seek(1024 + num_data*8 + ones_accum[-1]*4 + multi_accum[-1]*4 + multi_offset*4, 0)
-            count_multi = np.fromfile(f, dtype='i4', count=multi_size)
-        
-        frame = np.zeros(self.frame_shape, dtype='i4')
-        np.add.at(frame, (self.x[place_ones], self.y[place_ones]), 1)
-        np.add.at(frame, (self.x[place_multi], self.y[place_multi]), count_multi)
-        
-        return frame * self.mask
-
     def plot_frame(self, event=None, force_frame=False):
         mode = self.mode_val.get()
-        num = int(self.numstr.get())
+        try:
+            num = int(self.numstr.get())
+        except ValueError:
+            print 'Frame number must be integer'
+            return
+        
         if num < 0 or num >= self.num_frames:
             sys.stderr.write('Frame number %d out of range!\n' % num)
             return
         
-        file_num = np.where(num < self.num_data_list)[0][0]
-        if file_num == 0:
-            frame_num = num
-        else:
-            frame_num = num - self.num_data_list[file_num-1]
-        frame = self.read_frame(file_num, frame_num)
+        frame = self.emc_reader.get_frame(num)
         
         if mode == 2:
             s = plt.subplot(121)
