@@ -40,12 +40,14 @@ class Manual_panel(ttk.Frame):
     def assign_class(self, event=None):
         num = int(self.parent.numstr.get())
         self.classes.clist[num] = event.char
+        self.classes.unsaved = True
         self.class_list_summary.set(self.classes.gen_summary())
         self.parent.next_frame()
 
     def unassign_class(self, event=None):
         num = int(self.parent.numstr.get())
         self.classes.clist[num] = ''
+        self.classes.unsaved = True
         self.class_list_summary.set(self.classes.gen_summary())
         self.parent.plot_frame()
 
@@ -61,3 +63,4 @@ class Manual_panel(ttk.Frame):
     def save_class_list(self, event=None):
         print 'Saving manually classified list to', self.class_list_fname.get()
         np.savetxt(self.class_list_fname.get(), self.classes.clist, fmt='%s')
+        self.classes.unsaved = False

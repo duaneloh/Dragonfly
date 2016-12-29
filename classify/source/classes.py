@@ -4,12 +4,13 @@ import os
 import string
 
 class Frame_classes():
-    def __init__(self, parent):
-        self.parent = parent
+    def __init__(self, num_frames):
+        self.num_frames = num_frames
+        self.unsaved = False
 
     def init_list(self, fname=None):
         if fname is None:
-            self.clist = np.zeros((self.parent.num_frames,), dtype=np.str_)
+            self.clist = np.zeros((self.num_frames,), dtype=np.str_)
         else:
             print 'Reading class list from', fname
             self.clist = self.read_list(fname)

@@ -6,12 +6,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import Tkinter as Tk
 import ttk
+import tkMessageBox
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import ConfigParser
 from source import manual
 from source import conversion
 from source import embedding
 from source import classes
+from source import mlp
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))+'/utils/py_src/')
 import py_utils
 import read_config
@@ -29,6 +30,9 @@ class Classifier():
         self.get_config_params()
         self.parse_headers()
         self.init_geom(mask)
+        
+        self.classes = classes.Frame_classes(self.num_frames)
+        
         self.init_UI()
 
     def init_UI(self):
@@ -81,13 +85,14 @@ class Classifier():
         modemenu.add_radiobutton(label='Manual', underline=0, variable=self.mode_val, value=1, command=self.switch_mode)
         modemenu.add_radiobutton(label='Convert', underline=0, variable=self.mode_val, value=2, command=self.switch_mode)
         modemenu.add_radiobutton(label='Embedding', underline=0, variable=self.mode_val, value=3, command=self.switch_mode)
+        modemenu.add_radiobutton(label='MLP', underline=0, variable=self.mode_val, value=4, command=self.switch_mode)
         menubar.add_cascade(label='Mode', menu=modemenu, underline=0)
         self.master.config(menu=menubar)
         
-        self.classes = classes.Frame_classes(self)
         self.manual_panel = manual.Manual_panel(self, width=50)
         self.conversion_panel = conversion.Conversion_panel(self, width=30)
         self.embedding_panel = embedding.Embedding_panel(self, width=30)
+        self.mlp_panel = mlp.MLP_panel(self, width=30)
         
         self.master.bind('<Return>', self.plot_frame)
         self.master.bind('<KP_Enter>', self.plot_frame)
@@ -108,7 +113,7 @@ class Classifier():
             pfile = read_config.get_filename(self.config_file, 'emc', 'in_photons_file')
             print 'Using in_photons_file: %s' % pfile
             self.photons_list = [pfile]
-        except ConfigParser.NoOptionError:
+        except read_config.ConfigParser.NoOptionError:
             plist = read_config.get_filename(self.config_file, 'emc', 'in_photons_list')
             print 'Using in_photons_list: %s' % plist
             with open(plist, 'r') as f:
@@ -288,6 +293,8 @@ class Classifier():
             self.conversion_panel.grid_forget()
         if mode != 3 and len(self.embedding_panel.grid_info()) > 0:
             self.embedding_panel.grid_forget()
+        if mode != 4 and len(self.mlp_panel.grid_info()) > 0:
+            self.mlp_panel.grid_forget()
         
         if mode == 0:
             print 'Switching to display mode'
@@ -300,9 +307,21 @@ class Classifier():
         elif mode == 3:
             print 'Switching to embedding mode'
             self.embedding_panel.grid(row=0, column=1, rowspan=2, sticky='news')
+        elif mode == 4:
+            print 'Switching to MLP mode'
+            self.mlp_panel.grid(row=0, column=1, rowspan=2, sticky='news')
         self.plot_frame()
 
     def quit(self, event=None):
+        if self.classes.unsaved:
+            result = tkMessageBox.askquestion('Exit?', 'Unsaved changes to class list. Save?', parent=self.master, type=tkMessageBox.YESNOCANCEL)
+            if result == 'yes':
+                self.manual_panel.save_class_list()
+            elif result == 'no':
+                pass
+            else:
+                return
+        
         self.master.quit()
 
 if __name__ == '__main__':

@@ -165,4 +165,5 @@ class Embedding_panel(ttk.Frame):
         roi_num = self.current_roi.get()
         class_char = self.class_tag.get()
         self.classes.clist[self.points_inside_list[roi_num]] = class_char
+        self.classes.unsaved = True
 
