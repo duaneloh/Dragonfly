@@ -11,6 +11,7 @@ import ConfigParser
 from source import manual
 from source import conversion
 from source import embedding
+from source import classes
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))+'/utils/py_src/')
 import py_utils
 import read_config
@@ -82,6 +83,8 @@ class Classifier():
         modemenu.add_radiobutton(label='Embedding', underline=0, variable=self.mode_val, value=3, command=self.switch_mode)
         menubar.add_cascade(label='Mode', menu=modemenu, underline=0)
         self.master.config(menu=menubar)
+        
+        self.classes = classes.Frame_classes(self)
         self.manual_panel = manual.Manual_panel(self, width=50)
         self.conversion_panel = conversion.Conversion_panel(self, width=30)
         self.embedding_panel = embedding.Embedding_panel(self, width=30)
@@ -248,7 +251,7 @@ class Classifier():
             s = plt.subplot(111)
             s.imshow(frame, vmin=0, vmax=float(self.rangestr.get()), interpolation='none', cmap=self.cmap)
             if mode == 1:
-                s.set_title("%d photons (%s)" % (frame.sum(), self.manual_panel.class_list[num]))
+                s.set_title("%d photons (%s)" % (frame.sum(), self.classes.clist[num]))
             else:
                 s.set_title("%d photons" % frame.sum())
             self.fig.add_subplot(s)
