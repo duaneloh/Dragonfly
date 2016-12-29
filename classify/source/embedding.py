@@ -11,9 +11,11 @@ class Embedding_panel(ttk.Frame):
     def __init__(self, parent, *args, **kwargs):
         ttk.Frame.__init__(self, parent.master, *args, **kwargs)
         self.parent = parent
+        self.classes = self.parent.classes
         
         self.track_flag = Tk.IntVar(); self.track_flag.set(0)
         self.current_roi = Tk.IntVar(); self.current_roi.set(0)
+        self.class_tag = Tk.StringVar(); self.class_tag.set('')
         self.positions = []
         self.poly_positions = []
         self.roi_list = []
@@ -98,7 +100,6 @@ class Embedding_panel(ttk.Frame):
         
         line = ttk.Frame(self); line.pack(fill=Tk.X)
         ttk.Button(line, text='Clear ROIs', command=self.clear_roi).pack(side=Tk.LEFT)
-        ttk.Button(line, text='Generate class list', command=self.gen_class_list).pack(side=Tk.LEFT)
         
         self.roi_line = ttk.Frame(self); self.roi_line.pack(fill=Tk.X)
         
@@ -106,6 +107,14 @@ class Embedding_panel(ttk.Frame):
         ttk.Button(line, text='Prev', command=self.prev_frame).pack(side=Tk.LEFT)
         ttk.Button(line, text='Next', command=self.next_frame).pack(side=Tk.LEFT)
         ttk.Button(line, text='Random', command=self.random_frame).pack(side=Tk.LEFT)
+        
+        line = ttk.Frame(self); line.pack(fill=Tk.X)
+        ttk.Entry(line, textvariable=self.class_tag, width=2).pack(side=Tk.LEFT)
+        ttk.Button(line, text='Apply Class', command=self.apply_class).pack(side=Tk.LEFT)
+        
+        line = ttk.Frame(self); line.pack(fill=Tk.X)
+        ttk.Entry(line, textvariable=self.parent.manual_panel.class_list_fname).pack(side=Tk.LEFT)
+        ttk.Button(line, text='Save Classes', command=self.parent.manual_panel.save_class_list).pack(side=Tk.TOP, anchor=Tk.W)
 
     def add_roi_radiobutton(self, num):
         if num > 0 and num % 5 == 0:
@@ -129,9 +138,6 @@ class Embedding_panel(ttk.Frame):
         self.path_list = []
         self.points_inside_list = []
 
-    def gen_class_list(self, event=None):
-        pass
-
     def prev_frame(self, event=None):
         num = int(self.parent.numstr.get())
         points = self.points_inside_list[self.current_roi.get()]
@@ -154,3 +160,9 @@ class Embedding_panel(ttk.Frame):
         points = self.points_inside_list[self.current_roi.get()]
         self.parent.numstr.set(str(points[np.random.randint(len(points))]))
         self.parent.plot_frame(force_frame=True)
+
+    def apply_class(self, event=None):
+        roi_num = self.current_roi.get()
+        class_char = self.class_tag.get()
+        self.classes.clist[self.points_inside_list[roi_num]] = class_char
+
