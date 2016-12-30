@@ -14,21 +14,21 @@ class Frame_classes():
         else:
             print 'Reading class list from', fname
             self.clist = self.read_list(fname)
+        self.key, self.key_pos, self.key_counts = np.unique(self.clist, return_inverse=True, return_counts=True)
 
     def read_list(self, fname):
         with open(fname, 'r') as f:
             c = np.array([l.rstrip() for l in f.readlines()])
-        self.key, self.key_pos = np.unique(c, return_inverse=True)
         return c
 
     def gen_summary(self):
-        u = np.unique(self.clist, return_counts=True)
+        self.key, self.key_pos, self.key_counts = np.unique(self.clist, return_inverse=True, return_counts=True)
         cmin = 0
         summary = ''
-        if u[0][0] == '':
-            summary += '|    |%7d|\n' % u[1][0]
+        if self.key[0] == '':
+            summary += '|    |%7d|\n' % self.key_counts[0]
             cmin = 1
-        for i in range(cmin, len(u[0])):
-            summary += '|%-4s|%7d|\n' % (u[0][i], u[1][i])
+        for i in range(cmin, len(self.key)):
+            summary += '|%-4s|%7d|\n' % (self.key[i], self.key_counts[i])
         return summary
 
