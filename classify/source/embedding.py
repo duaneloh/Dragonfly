@@ -42,11 +42,11 @@ class Embedding_panel(ttk.Frame):
         ttk.Checkbutton(line, text='Draw ROI', variable=self.track_flag, command=self.track_flag_changed).pack(side=Tk.LEFT)
 
     def do_embedding(self, event=None):
-        ang_corr = self.parent.conversion_panel.ang_corr
+        ang_corr = self.parent.ang_corr
         if ang_corr is None:
             #self.parent.conversion_panel.convert_frames()
-            self.parent.conversion_panel.ang_corr = np.load('data/ang_corr.npy') # For debugging
-            ang_corr = self.parent.conversion_panel.ang_corr
+            self.parent.ang_corr = np.load('data/ang_corr.npy') #FIXME For debugging
+            ang_corr = self.parent.ang_corr
         self.spectral = manifold.SpectralEmbedding(n_components=4)
         self.spectral.fit(ang_corr.reshape(len(ang_corr), -1))
         self.embed = self.spectral.embedding_
@@ -88,31 +88,32 @@ class Embedding_panel(ttk.Frame):
         self.positions = []
         self.poly_positions = []
         if self.roi_summary is None:
-            self.add_to_frame_with_roi()
+            self.add_frame_with_roi()
         self.gen_roi_summary()
         self.add_roi_radiobutton(len(self.roi_list)-1)
 
-    def add_to_frame_with_roi(self):
+    def add_frame_with_roi(self):
         self.roi_summary = Tk.StringVar(); self.roi_summary.set('')
+        self.roi_frame = ttk.Frame(self); self.roi_frame.pack(fill=Tk.X)
         
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
+        line = ttk.Frame(self.roi_frame); line.pack(fill=Tk.X)
         ttk.Label(line, textvariable=self.roi_summary).pack(side=Tk.LEFT)
         
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
+        line = ttk.Frame(self.roi_frame); line.pack(fill=Tk.X)
         ttk.Button(line, text='Clear ROIs', command=self.clear_roi).pack(side=Tk.LEFT)
         
-        self.roi_line = ttk.Frame(self); self.roi_line.pack(fill=Tk.X)
+        self.roi_line = ttk.Frame(self.roi_frame); self.roi_line.pack(fill=Tk.X)
         
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
+        line = ttk.Frame(self.roi_frame); line.pack(fill=Tk.X)
         ttk.Button(line, text='Prev', command=self.prev_frame).pack(side=Tk.LEFT)
         ttk.Button(line, text='Next', command=self.next_frame).pack(side=Tk.LEFT)
         ttk.Button(line, text='Random', command=self.random_frame).pack(side=Tk.LEFT)
         
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
+        line = ttk.Frame(self.roi_frame); line.pack(fill=Tk.X)
         ttk.Entry(line, textvariable=self.class_tag, width=2).pack(side=Tk.LEFT)
         ttk.Button(line, text='Apply Class', command=self.apply_class).pack(side=Tk.LEFT)
         
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
+        line = ttk.Frame(self.roi_frame); line.pack(fill=Tk.X)
         ttk.Entry(line, textvariable=self.parent.manual_panel.class_list_fname).pack(side=Tk.LEFT)
         ttk.Button(line, text='Save Classes', command=self.parent.manual_panel.save_class_list).pack(side=Tk.TOP, anchor=Tk.W)
 
@@ -137,6 +138,9 @@ class Embedding_panel(ttk.Frame):
         self.click_points_list = []
         self.path_list = []
         self.points_inside_list = []
+        self.roi_frame.pack_forget()
+        self.roi_frame.destroy()
+        self.roi_summary = None
 
     def prev_frame(self, event=None):
         num = int(self.parent.numstr.get())
