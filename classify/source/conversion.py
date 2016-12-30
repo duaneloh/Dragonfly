@@ -11,16 +11,16 @@ class Conversion_panel(ttk.Frame):
         ttk.Frame.__init__(self, parent.master, *args, **kwargs)
         
         self.parent = parent
+        self.emc_reader = self.parent.emc_reader
         self.r_min = Tk.StringVar(); self.r_min.set('10')
         self.r_max = Tk.StringVar(); self.r_max.set('70')
         self.delta_r = Tk.StringVar(); self.delta_r.set('2')
         self.delta_ang = Tk.StringVar(); self.delta_ang.set('10')
         self.first_frame = Tk.StringVar(); self.first_frame.set('0')
-        self.last_frame = Tk.StringVar(); self.last_frame.set('100')
+        self.last_frame = Tk.StringVar(); self.last_frame.set('1000')
         self.save_flag = Tk.IntVar(); self.save_flag.set(1)
         
         self.polar = None
-        self.ang_corr = None
         self.init_UI()
         self.remake_converter(replot=False)
 
@@ -77,7 +77,7 @@ class Conversion_panel(ttk.Frame):
             self.parent.plot_frame()
 
     def convert_frames(self, save=True, event=None):
-        self.ang_corr = []
+        ang_corr = []
         try:
             start = int(self.first_frame.get())
             end = int(self.last_frame.get())
@@ -86,17 +86,12 @@ class Conversion_panel(ttk.Frame):
             return
         
         for i in range(start, end):
-            file_num = np.where(i < self.parent.num_data_list)[0][0]
-            if file_num == 0:
-                frame_num = i
-            else:
-                frame_num = i - self.parent.num_data_list[file_num-1]
-            frame = self.parent.read_frame(file_num, frame_num)
+            frame = self.emc_reader.get_frame(i)
             self.polar.convert(frame)
-            self.ang_corr.append(self.polar.compute_ang_corr())
+            ang_corr.append(self.polar.compute_ang_corr())
             sys.stderr.write('\r%d/%d' % (i+1, end-start))
         sys.stderr.write('\n')
         
-        self.ang_corr = np.array(self.ang_corr)
+        self.parent.ang_corr = np.array(ang_corr)
         if save:
-            np.save(self.parent.output_folder+'ang_corr.npy', self.ang_corr)
+            np.save(self.parent.output_folder+'ang_corr.npy', self.parent.ang_corr)
