@@ -27,6 +27,7 @@ class Classifier():
         self.mode_val = Tk.IntVar(); self.mode_val.set(0)
         self.numstr = Tk.StringVar(); self.numstr.set(str(0))
         self.rangestr = Tk.StringVar(); self.rangestr.set(str(10))
+        self.ang_corr = None
         
         self.get_config_params()
         self.init_geom(mask)
@@ -41,7 +42,7 @@ class Classifier():
         self.master.title('Dragonfly Diffraction Pattern Classifier')
         self.master.rowconfigure(0, weight=1)
         self.master.columnconfigure(0, weight=1)
-        self.master.protocol('WM_DELETE_WINDOW', self.master.quit)
+        self.master.protocol('WM_DELETE_WINDOW', self.quit)
         if sys.platform != 'darwin':
             path_string = " ".join(os.path.realpath(__file__).split('/')[:-1])
             self.master.tk.eval('source [file join / ' + path_string + ' themes plastik plastik.tcl]')
@@ -87,7 +88,7 @@ class Classifier():
         modemenu.add_radiobutton(label='Manual', underline=0, variable=self.mode_val, value=1, command=self.switch_mode)
         modemenu.add_radiobutton(label='Convert', underline=0, variable=self.mode_val, value=2, command=self.switch_mode)
         modemenu.add_radiobutton(label='Embedding', underline=0, variable=self.mode_val, value=3, command=self.switch_mode)
-        modemenu.add_radiobutton(label='MLP', underline=0, variable=self.mode_val, value=4, command=self.switch_mode)
+        modemenu.add_radiobutton(label='MLP', underline=1, variable=self.mode_val, value=4, command=self.switch_mode)
         menubar.add_cascade(label='Mode', menu=modemenu, underline=0)
         self.master.config(menu=menubar)
         
@@ -207,7 +208,9 @@ class Classifier():
             s = plt.subplot(111)
             s.imshow(frame, vmin=0, vmax=float(self.rangestr.get()), interpolation='none', cmap=self.cmap)
             if mode == 1:
-                s.set_title("%d photons (%s)" % (frame.sum(), self.classes.clist[num]))
+                s.set_title('%d photons (%s)' % (frame.sum(), self.classes.clist[num]))
+            elif mode == 4 and self.mlp_panel.predictions is not None:
+                s.set_title('%d photons [%s]' % (frame.sum(), self.mlp_panel.predictions[num]))
             else:
                 s.set_title("%d photons" % frame.sum())
             self.fig.add_subplot(s)
