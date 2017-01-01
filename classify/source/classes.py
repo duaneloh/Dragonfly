@@ -9,7 +9,7 @@ class Frame_classes():
         self.unsaved = False
 
     def init_list(self, fname=None):
-        if fname is None:
+        if fname is None or not os.path.isfile(fname):
             self.clist = np.zeros((self.num_frames,), dtype=np.str_)
         else:
             print 'Reading class list from', fname
