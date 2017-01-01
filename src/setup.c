@@ -192,7 +192,7 @@ void parse_input(char *fname) {
 		}
 	}
 	
-	if (start_iter == 1) {
+	if (!rank && start_iter == 1) {
 		char fname0[999] ;
 		sprintf(fname0, "%s/output/intens_000.bin", output_folder) ;
 		FILE *fp0 = fopen(fname0, "wb") ;
@@ -233,7 +233,7 @@ void calc_scale() {
 		curr = curr->next ;
 	}
 	
-	if (start_iter == 1) {
+	if (!rank && start_iter == 1) {
 		sprintf(fname, "%s/scale/scale_000.dat", output_folder) ;
 		fp = fopen(fname, "w") ;
 		for (d = 0 ; d < tot_num_data ; ++d)
