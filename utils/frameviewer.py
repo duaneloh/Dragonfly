@@ -91,7 +91,9 @@ class Frameviewer():
             if mask_flag:
                 sys.stderr.write('with mask...')
                 cx, cy, cz, mask = np.loadtxt(self.det_fname, usecols=(0,1,2,4), skiprows=1, unpack=True)
-                mask[mask==2] = 1
+                #mask[mask==2] = 1 # To keep only mask==0
+                mask[mask==1] = 0 # To keep both 0 and 1
+                mask = mask / 2 # To keep both 0 and 1
                 mask = 1 - mask
             else:
                 cx, cy, cz = np.loadtxt(self.det_fname, usecols=(0,1,2), skiprows=1, unpack=True)
