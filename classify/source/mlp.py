@@ -16,6 +16,7 @@ class MLP_panel(ttk.Frame):
         self.layer_sizes = Tk.StringVar(); self.layer_sizes.set('10, 10')
         self.alpha_var = Tk.StringVar(); self.alpha_var.set('1.e-3')
         self.predict_summary = Tk.StringVar(); self.predict_summary.set('')
+        self.predictions_fname = Tk.StringVar(); self.predictions_fname.set('predictions.dat')
         self.predictions = None
         
         self.init_UI()
@@ -72,9 +73,11 @@ class MLP_panel(ttk.Frame):
         
         line = ttk.Frame(self.predict_frame); line.pack(fill=Tk.X)
         ttk.Button(line, text='Predict', command=self.predict).pack(side=Tk.LEFT)
+        ttk.Label(line, textvariable=self.predict_summary).pack(side=Tk.LEFT)
         
         line = ttk.Frame(self.predict_frame); line.pack(fill=Tk.X)
-        ttk.Label(line, textvariable=self.predict_summary).pack(fill=Tk.X)
+        ttk.Entry(line, textvariable=self.predictions_fname).pack(side=Tk.LEFT)
+        ttk.Button(line, text='Save', command=self.save_predictions).pack(side=Tk.TOP, anchor=Tk.W)
 
     def predict(self, event=None):
         self.predictions = np.zeros((self.parent.num_frames,), dtype=np.str_)
@@ -91,3 +94,8 @@ class MLP_panel(ttk.Frame):
         for i, c in zip(key, counts):
             summary += '|%-4s|%7d|\n' % (i, c)
         self.predict_summary.set(summary)
+
+    def save_predictions(self, event=None):
+        print 'Saving predictions list to', self.predictions_fname.get()
+        np.savetxt(self.class_list_fname.get(), self.classes.clist, fmt='%s')
+        self.classes.unsaved = False
