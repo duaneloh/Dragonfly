@@ -127,7 +127,8 @@ class Classifier():
         self.num_files = len(self.photons_list)
         self.frame_shape = (pm['dets_x'], pm['dets_y'])
         self.det_fname = read_config.get_filename(self.config_file, 'emc', 'in_detector_file')
-        self.output_folder = read_config.get_filename(self.config_file, 'emc', 'output_folder')
+        output_folder = read_config.get_filename(self.config_file, 'emc', 'output_folder')
+        self.output_folder = os.path.realpath(output_folder)
         self.ewald_rad = pm['ewald_rad']
         self.detd = pm['detd']/pm['pixsize']
 
