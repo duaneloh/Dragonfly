@@ -18,6 +18,7 @@ class Embedding_panel(ttk.Frame):
         self.track_flag = Tk.IntVar(); self.track_flag.set(0)
         self.current_roi = Tk.IntVar(); self.current_roi.set(0)
         self.class_tag = Tk.StringVar(); self.class_tag.set('')
+        self.class_num = Tk.IntVar(); self.class_num.set(0)
         self.positions = []
         self.poly_positions = []
         self.roi_list = []
@@ -26,6 +27,7 @@ class Embedding_panel(ttk.Frame):
         self.click_points_list = []
         self.embed = None
         self.roi_summary = None
+        self.embedded = False
         
         self.init_UI()
 
@@ -52,8 +54,51 @@ class Embedding_panel(ttk.Frame):
         self.spectral = manifold.SpectralEmbedding(n_components=4)
         self.spectral.fit(ang_corr.reshape(len(ang_corr), -1))
         self.embed = self.spectral.embedding_
-        #self.hist2d, self.binx, self.biny = np.histogram2d(self.embed[:,0], self.embed[:,1], bins=100)
+        self.embed_plot = self.embed
+        self.hist2d, self.binx, self.biny = np.histogram2d(self.embed[:,0], self.embed[:,1], bins=100)
+        self.pad_bins()
         self.parent.plot_frame()
+        if not self.embedded:
+            self.add_classes_frame()
+        self.embedded = True
+
+    def pad_bins(self):
+        delx = self.binx[1] - self.binx[0]
+        dely = self.biny[1] - self.biny[0]
+        self.binx = np.insert(self.binx, 0, [self.binx[0]-6*delx, self.binx[0]-delx])
+        self.binx = np.insert(self.binx, len(self.binx), [self.binx[-1]+delx, self.binx[-1]+6*delx])
+        self.biny = np.insert(self.biny, 0, [self.biny[0]-6*dely, self.biny[0]-dely])
+        self.biny = np.insert(self.biny, len(self.biny), [self.biny[-1]+dely, self.biny[-1]+6*dely])
+
+    def add_classes_frame(self):
+        self.classes_frame = ttk.Frame(self, borderwidth=4, relief='groove'); self.classes_frame.pack(fill=Tk.X)
+        
+        self.classes_line = ttk.Frame(self.classes_frame); self.classes_line.pack(fill=Tk.X)
+        for i, k in enumerate(self.classes.key):
+            ttk.Radiobutton(self.classes_line, text=k, variable=self.class_num, value=i).grid(row=i/5,column=i%5)
+        
+        line = ttk.Frame(self.classes_frame); line.pack(fill=Tk.X)
+        ttk.Button(line, text='Show', command=self.show_selected_class).pack(side=Tk.LEFT)
+        ttk.Button(line, text='See all', command=self.show_all_classes).pack(side=Tk.LEFT)
+        ttk.Button(line, text='Refresh', command=self.refresh_classes).pack(side=Tk.LEFT)
+
+    def show_selected_class(self, event=None):
+        first = int(self.conversion.first_frame.get())
+        last = int(self.conversion.last_frame.get())
+        key_pos = np.where(self.classes.key_pos == self.class_num.get())[0]
+        key_pos = key_pos[(key_pos>=first) & (key_pos<last)] - first
+        self.embed_plot = self.embed[key_pos]
+        self.parent.plot_frame()
+
+    def show_all_classes(self, event=None):
+        self.embed_plot = self.embed
+        self.parent.plot_frame()
+
+    def refresh_classes(self,event=None):
+        for c in self.classes_line.winfo_children():
+            c.destroy()
+        for i, k in enumerate(self.classes.key):
+            ttk.Radiobutton(self.classes_line, text=k, variable=self.class_num, value=i).grid(row=i/5,column=i%5)
 
     def track_flag_changed(self, event=None):
         if self.track_flag.get() == 1:
@@ -63,9 +108,8 @@ class Embedding_panel(ttk.Frame):
             self.end_track_positions()
 
     def track_positions(self, event=None):
-        #print 'Coords:', event.xdata, event.ydata
         self.event = event
-        self.click_points_list.append(self.parent.canvas_widget.create_line([event.guiEvent.x, event.guiEvent.y, event.guiEvent.x+1, event.guiEvent.y+1], fill='yellow', width=4.0))
+        self.click_points_list.append(self.parent.canvas_widget.create_line([event.guiEvent.x, event.guiEvent.y, event.guiEvent.x+1, event.guiEvent.y+1], fill='white', width=4.0))
         self.positions.append([event.xdata, event.ydata])
         self.poly_positions.append([event.guiEvent.x, event.guiEvent.y])
 
@@ -76,14 +120,14 @@ class Embedding_panel(ttk.Frame):
         pos = np.append(pos, pos[-1]).reshape(-1,2)
         self.path_list.append(matplotlib.path.Path(pos, closed=True))
         points_inside = np.array([self.path_list[-1].contains_point((p[0], p[1])) for p in self.embed])
-        print '%d/%d frames inside ROI' % (points_inside.sum(), len(points_inside))
+        print '%d/%d frames inside ROI %d' % (points_inside.sum(), len(points_inside), len(self.points_inside_list))
         self.points_inside_list.append(np.where(points_inside)[0] + int(self.conversion.first_frame.get()))
         
         self.roi_list.append(
             self.parent.canvas_widget.create_polygon(
                 np.array(self.poly_positions).flatten().tolist(), 
                 fill='',
-                outline='yellow',
+                outline='white',
                 width=2
             )
         )
@@ -92,13 +136,13 @@ class Embedding_panel(ttk.Frame):
         self.positions = []
         self.poly_positions = []
         if self.roi_summary is None:
-            self.add_frame_with_roi()
+            self.add_roi_frame()
         self.gen_roi_summary()
         self.add_roi_radiobutton(len(self.roi_list)-1)
 
-    def add_frame_with_roi(self):
+    def add_roi_frame(self):
         self.roi_summary = Tk.StringVar(); self.roi_summary.set('')
-        self.roi_frame = ttk.Frame(self); self.roi_frame.pack(fill=Tk.X)
+        self.roi_frame = ttk.Frame(self, borderwidth=4, relief='groove'); self.roi_frame.pack(fill=Tk.X)
         
         line = ttk.Frame(self.roi_frame); line.pack(fill=Tk.X)
         ttk.Label(line, textvariable=self.roi_summary).pack(side=Tk.LEFT)
@@ -107,7 +151,6 @@ class Embedding_panel(ttk.Frame):
         ttk.Button(line, text='Clear ROIs', command=self.clear_roi).pack(side=Tk.LEFT)
         
         self.roi_choice = ttk.Frame(self.roi_frame); self.roi_choice.pack(fill=Tk.X)
-        self.roi_line = ttk.Frame(self.roi_choice); self.roi_line.pack(fill=Tk.X)
         
         line = ttk.Frame(self.roi_frame); line.pack(fill=Tk.X)
         ttk.Button(line, text='Prev', command=self.prev_frame).pack(side=Tk.LEFT)
@@ -120,12 +163,10 @@ class Embedding_panel(ttk.Frame):
         
         line = ttk.Frame(self.roi_frame); line.pack(fill=Tk.X)
         ttk.Entry(line, textvariable=self.manual.class_list_fname).pack(side=Tk.LEFT)
-        ttk.Button(line, text='Save Classes', command=self.manual.save_class_list).pack(side=Tk.TOP, anchor=Tk.W)
+        ttk.Button(line, text='Save Classes', command=self.manual.save_class_list).pack(side=Tk.LEFT)
 
     def add_roi_radiobutton(self, num):
-        if num > 0 and num % 5 == 0:
-            self.roi_line = ttk.Frame(self.roi_choice); self.roi_line.pack(fill=Tk.X)
-        ttk.Radiobutton(self.roi_line, text=str(num), variable=self.current_roi, value=num).pack(side=Tk.LEFT)
+        ttk.Radiobutton(self.roi_choice, text=str(num), variable=self.current_roi, value=num).grid(row=num/5, column=num%5)
 
     def gen_roi_summary(self):
         summary = 'Embedded frames = %d\n' % len(self.embed)

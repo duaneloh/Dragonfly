@@ -195,8 +195,8 @@ class Classifier():
                 self.canvas_widget.tag_raise(p)
             
             s = plt.subplot(111)
-            e = self.embedding_panel.embed
-            s.hist2d(e[:,0], e[:,1], bins=100)
+            e = self.embedding_panel.embed_plot
+            s.hist2d(e[:,0], e[:,1], bins=[self.embedding_panel.binx, self.embedding_panel.biny], vmax=float(self.rangestr.get()))
             s.set_title('Spectral embedding')
             self.fig.add_subplot(s)
         else:
