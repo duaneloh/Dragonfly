@@ -3,8 +3,12 @@ import os
 import numpy as np
 
 class EMC_reader():
-    def __init__(self, parent):
-        self.parent = parent
+    def __init__(self, photons_list, x, y, mask):
+        self.photons_list = photons_list
+        self.x = x
+        self.y = y
+        self.mask = mask
+        self.frame_shape = mask.shape
         self.parse_headers()
 
     def parse_headers(self):
@@ -13,7 +17,7 @@ class EMC_reader():
         self.multi_accum_list = []
         
         # For each emc file, read num_data and generate ones_accum and multi_accum
-        for photons_file in self.parent.photons_list:
+        for photons_file in self.photons_list:
             # Read photon data
             with open(photons_file, 'rb') as f:
                 num_data = np.fromfile(f, dtype='i4', count=1)[0]
@@ -37,7 +41,7 @@ class EMC_reader():
         return self.read_frame(file_num, frame_num)
 
     def read_frame(self, file_num, frame_num):
-        with open(self.parent.photons_list[file_num], 'rb') as f:
+        with open(self.photons_list[file_num], 'rb') as f:
             num_data = np.fromfile(f, dtype='i4', count=1)[0]
             
             ones_accum = self.ones_accum_list[file_num]
@@ -61,9 +65,9 @@ class EMC_reader():
             f.seek(1024 + num_data*8 + ones_accum[-1]*4 + multi_accum[-1]*4 + multi_offset*4, 0)
             count_multi = np.fromfile(f, dtype='i4', count=multi_size)
         
-        frame = np.zeros(self.parent.frame_shape, dtype='i4')
-        np.add.at(frame, (self.parent.x[place_ones], self.parent.y[place_ones]), 1)
-        np.add.at(frame, (self.parent.x[place_multi], self.parent.y[place_multi]), count_multi)
+        frame = np.zeros(self.frame_shape, dtype='i4')
+        np.add.at(frame, (self.x[place_ones], self.y[place_ones]), 1)
+        np.add.at(frame, (self.x[place_multi], self.y[place_multi]), count_multi)
         
-        return frame * self.parent.mask
+        return frame * self.mask
 

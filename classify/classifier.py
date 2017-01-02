@@ -32,7 +32,7 @@ class Classifier():
         self.get_config_params()
         self.init_geom(mask)
         
-        self.emc_reader = data.EMC_reader(self)
+        self.emc_reader = data.EMC_reader(self.photons_list, self.x, self.y, self.mask)
         self.num_frames = self.emc_reader.num_frames
         self.classes = classes.Frame_classes(self.num_frames)
         
