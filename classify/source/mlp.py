@@ -17,7 +17,10 @@ class MLP_panel(ttk.Frame):
         self.alpha_var = Tk.StringVar(); self.alpha_var.set('1.e-3')
         self.predict_summary = Tk.StringVar(); self.predict_summary.set('')
         self.predictions_fname = Tk.StringVar(); self.predictions_fname.set('predictions.dat')
+        self.predict_first = Tk.StringVar(); self.predict_first.set('0')
+        self.predict_last = Tk.StringVar(); self.predict_last.set('1000')
         self.predictions = None
+        self.trained = False
         
         self.init_UI()
         self.remake_mlp()
@@ -54,13 +57,15 @@ class MLP_panel(ttk.Frame):
         self.mlp.fit(self.train_data, self.train_labels)
         print 'Done training'
         #print 'Score on training set =', self.mlp.score(self.train_data, self.train_labels)
-        self.add_predict_frame()
+        if not self.trained:
+            self.add_predict_frame()
+        self.trained = True
 
     def get_training_data(self):
         ang_corr = self.parent.ang_corr
         if ang_corr is None:
             #self.parent.conversion_panel.convert_frames()
-            self.parent.ang_corr = np.load('data/ang_corr.npy') #FIXME For debugging
+            self.parent.ang_corr = np.load(self.parent.output_folder+'ang_corr.npy') #FIXME For debugging
             ang_corr = self.parent.ang_corr
         ang_corr = ang_corr.reshape(-1, ang_corr.shape[1]*ang_corr.shape[2])
         
@@ -72,6 +77,10 @@ class MLP_panel(ttk.Frame):
         self.predict_frame = ttk.Frame(self); self.predict_frame.pack(fill=Tk.X)
         
         line = ttk.Frame(self.predict_frame); line.pack(fill=Tk.X)
+        ttk.Entry(line, textvariable=self.predict_first, width=5).pack(side=Tk.LEFT)
+        ttk.Entry(line, textvariable=self.predict_last, width=5).pack(side=Tk.LEFT)
+        
+        line = ttk.Frame(self.predict_frame); line.pack(fill=Tk.X)
         ttk.Button(line, text='Predict', command=self.predict).pack(side=Tk.LEFT)
         ttk.Label(line, textvariable=self.predict_summary).pack(side=Tk.LEFT)
         
@@ -80,12 +89,23 @@ class MLP_panel(ttk.Frame):
         ttk.Button(line, text='Save', command=self.save_predictions).pack(side=Tk.TOP, anchor=Tk.W)
 
     def predict(self, event=None):
-        self.predictions = np.zeros((self.parent.num_frames,), dtype=np.str_)
-        for i in range(len(self.predictions)):
+        try:
+            first = int(self.predict_first.get())
+            last = int(self.predict_last.get())
+        except ValueError:
+            print 'Prediction range must be integers'
+            return
+        
+        if last < 0:
+            last = self.parent.num_frames
+        self.predictions = np.zeros((last-first,), dtype=np.str_)
+        
+        for i in range(first, last):
             self.parent.conversion_panel.polar.convert(self.emc_reader.get_frame(i))
             ang_corr = np.expand_dims(self.parent.conversion_panel.polar.compute_ang_corr().flatten(), axis=0)
             self.predictions[i] = self.classes.key[self.mlp.predict(ang_corr)[0]]
-            sys.stderr.write('\r%d/%d' % (i+1, self.parent.num_frames))
+            sys.stderr.write('\r%d/%d' % (i+1, last))
+        
         self.gen_predict_summary()
 
     def gen_predict_summary(self, event=None):
