@@ -11,11 +11,13 @@ class Manual_panel(ttk.Frame):
         
         self.parent = parent
         self.classes = self.parent.classes
+        self.numstr = self.parent.numstr
         self.classify_flag = Tk.IntVar(); self.classify_flag.set(0)
         self.class_list_fname = Tk.StringVar(); self.class_list_fname.set('my_classes.dat')
+        self.class_num = Tk.IntVar(); self.class_num.set(-1)
+        
         self.classes.init_list(fname=self.class_list_fname.get())
-        self.class_list_summary = Tk.StringVar()
-        self.class_list_summary.set(self.classes.gen_summary())
+        self.class_list_summary = Tk.StringVar(); self.class_list_summary.set(self.classes.gen_summary())
         
         self.init_UI()
 
@@ -32,17 +34,31 @@ class Manual_panel(ttk.Frame):
         ttk.Button(line, text='Save Classes', command=self.save_class_list).pack(side=Tk.TOP, anchor=Tk.W)
         
         line = ttk.Frame(self); line.pack(fill=Tk.X)
-        #ttk.Label(line, text='Classification Summary:', font=('Helvetica', 14)).pack(side=Tk.TOP, anchor=Tk.W)
         ttk.Label(line, text='Classification Summary:').pack(side=Tk.TOP, anchor=Tk.W)
-        #ttk.Label(line, textvariable=self.class_list_summary, font=('Courier', 14)).pack(side=Tk.TOP, anchor=Tk.W)
         ttk.Label(line, textvariable=self.class_list_summary).pack(side=Tk.TOP, anchor=Tk.W)
+        
+        self.class_line = ttk.Frame(self); self.class_line.pack(fill=Tk.X)
+        self.refresh_class_line()
+        
+        line = ttk.Frame(self); line.pack(fill=Tk.X)
+        ttk.Button(line, text='Prev', command=self.prev_frame).pack(side=Tk.LEFT)
+        ttk.Button(line, text='Next', command=self.next_frame).pack(side=Tk.LEFT)
+        ttk.Button(line, text='Random', command=self.rand_frame).pack(side=Tk.LEFT)
+        ttk.Button(line, text='Refresh', command=self.refresh_class_line).pack(side=Tk.LEFT)
+        
+    def refresh_class_line(self):
+        for c in self.class_line.winfo_children():
+            c.destroy()
+        ttk.Radiobutton(self.class_line, text='All', variable=self.class_num, value=-1).grid(row=0,column=0)
+        for i, k in enumerate(self.classes.key):
+            ttk.Radiobutton(self.class_line, text=k, variable=self.class_num, value=i).grid(row=(i+1)/5,column=(i+1)%5)
 
     def assign_class(self, event=None):
         num = int(self.parent.numstr.get())
         self.classes.clist[num] = event.char
         self.classes.unsaved = True
         self.class_list_summary.set(self.classes.gen_summary())
-        self.parent.next_frame()
+        self.next_frame()
 
     def unassign_class(self, event=None):
         num = int(self.parent.numstr.get())
@@ -64,3 +80,46 @@ class Manual_panel(ttk.Frame):
         print 'Saving manually classified list to', self.class_list_fname.get()
         np.savetxt(self.class_list_fname.get(), self.classes.clist, fmt='%s')
         self.classes.unsaved = False
+
+    def next_frame(self, event=None):
+        num = int(self.numstr.get())
+        cnum = self.class_num.get()
+        if cnum == -1:
+            num += 1
+        else:
+            points = np.where(self.classes.key_pos == cnum)[0]
+            index = np.searchsorted(points, num, side='left') + 1
+            if index > len(points) - 1:
+                index = len(points) - 1
+            num = points[index]
+        
+        if num < self.parent.num_frames:
+            self.numstr.set(str(num))
+            self.parent.plot_frame()
+
+    def prev_frame(self, event=None):
+        num = int(self.numstr.get())
+        cnum = self.class_num.get()
+        if cnum == -1:
+            num -= 1
+        else:
+            points = np.where(self.classes.key_pos == cnum)[0]
+            index = np.searchsorted(points, num, side='left') - 1
+            if index < 0:
+                index = 0
+            num = points[index]
+        
+        if num > -1:
+            self.numstr.set(str(num))
+            self.parent.plot_frame()
+
+    def rand_frame(self, event=None):
+        cnum = self.class_num.get()
+        if cnum == -1:
+            num = np.random.randint(self.parent.num_frames)
+        else:
+            points = np.where(self.classes.key_pos == cnum)[0]
+            num = points[np.random.randint(len(points))]
+        self.numstr.set(str(num))
+        self.parent.plot_frame()
+
