@@ -12,6 +12,7 @@ class MLP_panel(ttk.Frame):
         self.parent = parent
         self.classes = self.parent.classes
         self.emc_reader = self.parent.emc_reader
+        self.conversion = self.parent.conversion_panel
         
         self.layer_sizes = Tk.StringVar(); self.layer_sizes.set('10, 10')
         self.alpha_var = Tk.StringVar(); self.alpha_var.set('1.e-3')
@@ -64,12 +65,12 @@ class MLP_panel(ttk.Frame):
     def get_training_data(self):
         ang_corr = self.parent.ang_corr
         if ang_corr is None:
-            #self.parent.conversion_panel.convert_frames()
+            #self.conversion.convert_frames()
             self.parent.ang_corr = np.load(self.parent.output_folder+'ang_corr.npy') #FIXME For debugging
             ang_corr = self.parent.ang_corr
         ang_corr = ang_corr.reshape(-1, ang_corr.shape[1]*ang_corr.shape[2])
         
-        key_pos = self.classes.key_pos[int(self.parent.conversion_panel.first_frame.get()):int(self.parent.conversion_panel.last_frame.get())]
+        key_pos = self.classes.key_pos[int(self.conversion.first_frame.get()):int(self.conversion.last_frame.get())]
         self.train_data = ang_corr[key_pos>0]
         self.train_labels = key_pos[key_pos>0]
 
@@ -101,8 +102,8 @@ class MLP_panel(ttk.Frame):
         self.predictions = np.zeros((last-first,), dtype=np.str_)
         
         for i in range(first, last):
-            self.parent.conversion_panel.polar.convert(self.emc_reader.get_frame(i))
-            ang_corr = np.expand_dims(self.parent.conversion_panel.polar.compute_ang_corr().flatten(), axis=0)
+            self.conversion.polar.convert(self.emc_reader.get_frame(i))
+            ang_corr = np.expand_dims(self.conversion.polar.compute_ang_corr().flatten(), axis=0)
             self.predictions[i] = self.classes.key[self.mlp.predict(ang_corr)[0]]
             sys.stderr.write('\r%d/%d' % (i+1, last))
         

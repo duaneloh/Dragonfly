@@ -12,6 +12,8 @@ class Embedding_panel(ttk.Frame):
         ttk.Frame.__init__(self, parent.master, *args, **kwargs)
         self.parent = parent
         self.classes = self.parent.classes
+        self.conversion = self.parent.conversion_panel
+        self.manual = self.parent.manual_panel
         
         self.track_flag = Tk.IntVar(); self.track_flag.set(0)
         self.current_roi = Tk.IntVar(); self.current_roi.set(0)
@@ -33,9 +35,9 @@ class Embedding_panel(ttk.Frame):
         
         line = ttk.Frame(self); line.pack(fill=Tk.X)
         ttk.Label(line, text='Frame range:').pack(side=Tk.LEFT)
-        ttk.Entry(line, textvariable=self.parent.conversion_panel.first_frame, width=8).pack(side=Tk.LEFT)
+        ttk.Entry(line, textvariable=self.conversion.first_frame, width=8).pack(side=Tk.LEFT)
         ttk.Label(line, text='-').pack(side=Tk.LEFT)
-        ttk.Entry(line, textvariable=self.parent.conversion_panel.last_frame, width=8).pack(side=Tk.LEFT)
+        ttk.Entry(line, textvariable=self.conversion.last_frame, width=8).pack(side=Tk.LEFT)
         
         line = ttk.Frame(self); line.pack(fill=Tk.X)
         ttk.Button(line, text='Embed', command=self.do_embedding).pack(side=Tk.LEFT)
@@ -44,8 +46,8 @@ class Embedding_panel(ttk.Frame):
     def do_embedding(self, event=None):
         ang_corr = self.parent.ang_corr
         if ang_corr is None:
-            #self.parent.conversion_panel.convert_frames()
-            self.parent.ang_corr = np.load('data/ang_corr.npy') #FIXME For debugging
+            #self.conversion.convert_frames()
+            self.parent.ang_corr = np.load(self.parent.output_folder+'ang_corr.npy') #FIXME For debugging
             ang_corr = self.parent.ang_corr
         self.spectral = manifold.SpectralEmbedding(n_components=4)
         self.spectral.fit(ang_corr.reshape(len(ang_corr), -1))
@@ -73,7 +75,7 @@ class Embedding_panel(ttk.Frame):
         self.path_list.append(matplotlib.path.Path(pos, closed=True))
         points_inside = np.array([self.path_list[-1].contains_point((p[0], p[1])) for p in self.embed])
         print points_inside.sum(), 'frames inside ROI out of', len(points_inside)
-        self.points_inside_list.append(np.where(points_inside)[0] + int(self.parent.conversion_panel.first_frame.get()))
+        self.points_inside_list.append(np.where(points_inside)[0] + int(self.conversion.first_frame.get()))
         
         self.roi_list.append(
             self.parent.canvas_widget.create_polygon(
@@ -114,8 +116,8 @@ class Embedding_panel(ttk.Frame):
         ttk.Button(line, text='Apply Class', command=self.apply_class).pack(side=Tk.LEFT)
         
         line = ttk.Frame(self.roi_frame); line.pack(fill=Tk.X)
-        ttk.Entry(line, textvariable=self.parent.manual_panel.class_list_fname).pack(side=Tk.LEFT)
-        ttk.Button(line, text='Save Classes', command=self.parent.manual_panel.save_class_list).pack(side=Tk.TOP, anchor=Tk.W)
+        ttk.Entry(line, textvariable=self.manual.class_list_fname).pack(side=Tk.LEFT)
+        ttk.Button(line, text='Save Classes', command=self.manual.save_class_list).pack(side=Tk.TOP, anchor=Tk.W)
 
     def add_roi_radiobutton(self, num):
         if num > 0 and num % 5 == 0:
