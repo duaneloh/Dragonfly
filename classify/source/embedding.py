@@ -71,10 +71,12 @@ class Embedding_panel(ttk.Frame):
 
     def end_track_positions(self):
         pos = np.array(self.positions)
+        if pos.size == 0:
+            return
         pos = np.append(pos, pos[-1]).reshape(-1,2)
         self.path_list.append(matplotlib.path.Path(pos, closed=True))
         points_inside = np.array([self.path_list[-1].contains_point((p[0], p[1])) for p in self.embed])
-        print points_inside.sum(), 'frames inside ROI out of', len(points_inside)
+        print '%d/%d frames inside ROI' % (points_inside.sum(), len(points_inside))
         self.points_inside_list.append(np.where(points_inside)[0] + int(self.conversion.first_frame.get()))
         
         self.roi_list.append(
@@ -104,7 +106,8 @@ class Embedding_panel(ttk.Frame):
         line = ttk.Frame(self.roi_frame); line.pack(fill=Tk.X)
         ttk.Button(line, text='Clear ROIs', command=self.clear_roi).pack(side=Tk.LEFT)
         
-        self.roi_line = ttk.Frame(self.roi_frame); self.roi_line.pack(fill=Tk.X)
+        self.roi_choice = ttk.Frame(self.roi_frame); self.roi_choice.pack(fill=Tk.X)
+        self.roi_line = ttk.Frame(self.roi_choice); self.roi_line.pack(fill=Tk.X)
         
         line = ttk.Frame(self.roi_frame); line.pack(fill=Tk.X)
         ttk.Button(line, text='Prev', command=self.prev_frame).pack(side=Tk.LEFT)
@@ -121,13 +124,15 @@ class Embedding_panel(ttk.Frame):
 
     def add_roi_radiobutton(self, num):
         if num > 0 and num % 5 == 0:
-            self.roi_line = ttk.Frame(self); self.roi_line.pack(fill=Tk.X)
+            self.roi_line = ttk.Frame(self.roi_choice); self.roi_line.pack(fill=Tk.X)
         ttk.Radiobutton(self.roi_line, text=str(num), variable=self.current_roi, value=num).pack(side=Tk.LEFT)
 
     def gen_roi_summary(self):
         summary = 'Embedded frames = %d\n' % len(self.embed)
         for i, p in enumerate(self.points_inside_list):
-            summary += '|%3d|%6d|\n' % (i, len(p))
+            summary += '%3d:%-5d ' % (i, len(p))
+            if i%5 == 4:
+                summary += '\n'
         self.roi_summary.set(summary)
 
     def clear_roi(self):
