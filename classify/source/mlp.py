@@ -66,7 +66,7 @@ class MLP_panel(ttk.Frame):
         ang_corr = self.parent.ang_corr
         if ang_corr is None:
             #self.conversion.convert_frames()
-            self.parent.ang_corr = np.load(self.parent.output_folder+'ang_corr.npy') #FIXME For debugging
+            self.parent.ang_corr = np.load(self.parent.output_folder+'/ang_corr.npy') #FIXME For debugging
             ang_corr = self.parent.ang_corr
         ang_corr = ang_corr.reshape(-1, ang_corr.shape[1]*ang_corr.shape[2])
         

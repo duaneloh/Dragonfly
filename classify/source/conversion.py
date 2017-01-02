@@ -94,4 +94,6 @@ class Conversion_panel(ttk.Frame):
         
         self.parent.ang_corr = np.array(ang_corr)
         if save:
-            np.save(self.parent.output_folder+'ang_corr.npy', self.parent.ang_corr)
+            fname = self.parent.output_folder + '/ang_corr.npy'
+            print 'Saving angular correlations to', fname
+            np.save(fname, self.parent.ang_corr)

@@ -49,7 +49,7 @@ class Embedding_panel(ttk.Frame):
         ang_corr = self.parent.ang_corr
         if ang_corr is None:
             #self.conversion.convert_frames()
-            self.parent.ang_corr = np.load(self.parent.output_folder+'ang_corr.npy') #FIXME For debugging
+            self.parent.ang_corr = np.load(self.parent.output_folder+'/ang_corr.npy') #FIXME For debugging
             ang_corr = self.parent.ang_corr
         self.spectral = manifold.SpectralEmbedding(n_components=4)
         self.spectral.fit(ang_corr.reshape(len(ang_corr), -1))
