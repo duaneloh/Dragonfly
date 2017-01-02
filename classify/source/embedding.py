@@ -52,7 +52,7 @@ class Embedding_panel(ttk.Frame):
             self.parent.ang_corr = np.load(self.parent.output_folder+'/ang_corr.npy') #FIXME For debugging
             ang_corr = self.parent.ang_corr
         self.spectral = manifold.SpectralEmbedding(n_components=4)
-        self.spectral.fit(ang_corr.reshape(len(ang_corr), -1))
+        self.spectral.fit(ang_corr)
         self.embed = self.spectral.embedding_
         self.embed_plot = self.embed
         self.hist2d, self.binx, self.biny = np.histogram2d(self.embed[:,0], self.embed[:,1], bins=100)

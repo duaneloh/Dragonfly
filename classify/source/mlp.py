@@ -68,7 +68,6 @@ class MLP_panel(ttk.Frame):
             #self.conversion.convert_frames()
             self.parent.ang_corr = np.load(self.parent.output_folder+'/ang_corr.npy') #FIXME For debugging
             ang_corr = self.parent.ang_corr
-        ang_corr = ang_corr.reshape(-1, ang_corr.shape[1]*ang_corr.shape[2])
         
         key_pos = self.classes.key_pos[int(self.conversion.first_frame.get()):int(self.conversion.last_frame.get())]
         self.train_data = ang_corr[key_pos>0]
