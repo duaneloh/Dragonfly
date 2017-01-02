@@ -5,6 +5,8 @@ import string
 import Tkinter as Tk
 import ttk
 import polar
+import multiprocessing
+import ctypes
 
 class Conversion_panel(ttk.Frame):
     def __init__(self, parent, *args, **kwargs):
@@ -19,6 +21,7 @@ class Conversion_panel(ttk.Frame):
         self.first_frame = Tk.StringVar(); self.first_frame.set('0')
         self.last_frame = Tk.StringVar(); self.last_frame.set('1000')
         self.save_flag = Tk.IntVar(); self.save_flag.set(1)
+        self.num_proc = Tk.StringVar(); self.num_proc.set('1')
         
         self.polar = None
         self.init_UI()
@@ -63,6 +66,7 @@ class Conversion_panel(ttk.Frame):
         
         line = ttk.Frame(self); line.pack(fill=Tk.X)
         ttk.Button(line, text='Process', command=self.convert_frames).pack(side=Tk.LEFT)
+        ttk.Entry(line, textvariable=self.num_proc, width=2).pack(side=Tk.LEFT)
         ttk.Checkbutton(line, text='Save to file', variable=self.save_flag).pack(side=Tk.RIGHT)
 
     def remake_converter(self, replot=True, event=None):
@@ -85,15 +89,37 @@ class Conversion_panel(ttk.Frame):
             print 'Frame range must be integers'
             return
         
-        for i in range(start, end):
-            frame = self.emc_reader.get_frame(i)
-            self.polar.convert(frame)
-            ang_corr.append(self.polar.compute_ang_corr())
-            sys.stderr.write('\r%d/%d' % (i+1, end-start))
-        sys.stderr.write('\n')
+        try:
+            num_proc = int(self.num_proc.get())
+        except ValueError:
+            print 'num_proc (%s) must be an integer' % self.num_proc.get()
+            return
         
-        self.parent.ang_corr = np.array(ang_corr)
+        arr = self.get_and_convert(0)
+        ang_corr = multiprocessing.Array(ctypes.c_double, arr.size*(end-start))
+        jobs = []
+        for i in range(num_proc):
+            p = multiprocessing.Process(target=self.convert_worker, args=(i, num_proc, np.arange(start, end, dtype='i4'), arr.size, ang_corr))
+            jobs.append(p)
+            p.start()
+        for j in jobs:
+            j.join()
+        sys.stderr.write('\r%d/%d\n' % (end, end))
+
+        self.parent.ang_corr = np.frombuffer(ang_corr.get_obj()).reshape(end-start, -1)
         if save:
             fname = self.parent.output_folder + '/ang_corr.npy'
             print 'Saving angular correlations to', fname
             np.save(fname, self.parent.ang_corr)
+
+    def get_and_convert(self, num):
+        return self.polar.compute_ang_corr(self.polar.convert(self.emc_reader.get_frame(num)))
+
+    def convert_worker(self, rank, num_proc, indices, size, ang_corr):
+        my_ind = indices[rank::num_proc]
+        np_ang_corr = np.frombuffer(ang_corr.get_obj())
+        for i in my_ind:
+            np_ang_corr[size*i:size*(i+1)] = self.get_and_convert(i).flatten()
+            if rank == 0:
+                sys.stderr.write('\r%d/%d'%(i, indices[-1]))
+
