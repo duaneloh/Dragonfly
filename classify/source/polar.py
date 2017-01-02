@@ -13,7 +13,7 @@ class Polar_converter():
 
     def convert(self, input_frame):
         """
-        Converts each input diffraction pattern into a polar representation
+        Converts given input diffraction pattern into a polar representation
         """
         if self.first_pass:
             #Compute the angular and radial bins using the first encountered frame.
@@ -27,28 +27,22 @@ class Polar_converter():
             np.add.at(self.polar_count, self.polar_indices, self.mask)
             self.first_pass = False
         
-        self.polar_arr = np.zeros(self.rad_max*self.ang_max)
-        np.add.at(self.polar_arr, self.polar_indices, input_frame.flatten()*self.mask)
-        self.polar_arr[self.polar_count>0] /= self.polar_count[self.polar_count>0]
-        self.polar_arr = self.polar_arr.reshape(self.rad_max, -1)[self.r_min:self.r_max]
-        #self.polar_arr = (self.polar_arr/(1.*(self.polar_count + (self.polar_count==0)))).reshape(self.rad_max, -1)
-        
-        return self.polar_arr
+        polar_arr = np.zeros(self.rad_max*self.ang_max)
+        np.add.at(polar_arr, self.polar_indices, input_frame.flatten()*self.mask)
+        polar_arr[self.polar_count>0] /= self.polar_count[self.polar_count>0]
+        return polar_arr.reshape(self.rad_max, -1)[self.r_min:self.r_max]
 
-    def compute_ang_corr(self, ang_max=10):
+    def compute_ang_corr(self, polar_arr, ang_max=10):
         """
-        Compute the angular correlation from the polar representation of each pattern
+        Compute the angular correlation from the polar representation of given pattern
         """
-        #self.ang_corr = np.array([a - a.mean() for a in self.polar_arr[self.r_min:self.r_max]])
-        self.ang_corr = np.array([a - a.mean() for a in self.polar_arr])
+        ang_corr = np.array([a - a.mean() for a in polar_arr])
         temp = []
-        for a in self.ang_corr:
+        for a in ang_corr:
             la = np.linalg.norm(a)
             if la > 0.:
                 temp.append(np.absolute(np.fft.fft(a/la))[1:ang_max])
             else:
                 temp.append(np.zeros(ang_max-1))
-        self.ang_corr = np.array(temp)
-        
-        return self.ang_corr
+        return np.array(temp)
 
