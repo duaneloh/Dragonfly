@@ -36,6 +36,7 @@ if __name__ == '__main__':
     logging.info(' '.join(sys.argv))
     pm          = read_config.get_detector_config(args.config_file, show=args.vb)
     output_folder = read_config.get_filename(args.config_file, 'emc', 'output_folder')
+    curr_num_data = 0
 
     if not os.path.isfile(args.h5_name):
         print 'Data file %s not found. Exiting.' % args.h5_name
@@ -45,7 +46,7 @@ if __name__ == '__main__':
     if args.list:
         logging.info('Reading file names in list %s' % args.h5_name)
         with open(args.h5_name, 'r') as f:
-            flist = [fname.rstrip() for fname in f.readlines()]
+            flist = [os.path.realpath(fname.rstrip()) for fname in f.readlines()]
         logging.info
     else:
         flist = [args.h5_name]
@@ -65,7 +66,11 @@ if __name__ == '__main__':
                     pass
             logging.info('Converting data in '+ dset.name)
         else:
-            dset = f[args.dset_name]
+            try:
+                dset = f[args.dset_name]
+            except KeyError:
+                print 'Dataset not found. Moving on.'
+                continue
             logging.info('Converting data in '+ args.dset_name)
 
         if args.sel_file is not None and args.sel_dset is not None:
@@ -79,6 +84,7 @@ if __name__ == '__main__':
                 ind = 0
         elif args.sel_file is not None:
             ind = np.loadtxt(args.sel_file, dtype='i4')
+            ind -= curr_num_data
         else:
             ind = f[args.sel_dset][:]
 
