@@ -7,7 +7,7 @@ import ttk
 import matplotlib.path
 from sklearn import manifold
 
-class Embedding_panel(ttk.Frame):
+class Embedding_panel(ttk.Frame, object):
     def __init__(self, parent, *args, **kwargs):
         ttk.Frame.__init__(self, parent.master, *args, **kwargs)
         self.parent = parent
@@ -19,6 +19,8 @@ class Embedding_panel(ttk.Frame):
         self.current_roi = Tk.IntVar(); self.current_roi.set(0)
         self.class_tag = Tk.StringVar(); self.class_tag.set('')
         self.class_num = Tk.IntVar(); self.class_num.set(0)
+        self.x_axis_num = Tk.StringVar(); self.x_axis_num.set('0')
+        self.y_axis_num = Tk.StringVar(); self.y_axis_num.set('1')
         self.positions = []
         self.poly_positions = []
         self.roi_list = []
@@ -44,6 +46,16 @@ class Embedding_panel(ttk.Frame):
         line = ttk.Frame(self); line.pack(fill=Tk.X)
         ttk.Button(line, text='Embed', command=self.do_embedding).pack(side=Tk.LEFT)
         ttk.Checkbutton(line, text='Draw ROI', variable=self.track_flag, command=self.track_flag_changed).pack(side=Tk.LEFT)
+        
+        line = ttk.Frame(self); line.pack(fill=Tk.X)
+        ttk.Label(line, text='X-axis:').pack(side=Tk.LEFT)
+        entry = ttk.Entry(line, textvariable=self.x_axis_num, width=2)
+        entry.pack(side=Tk.LEFT)
+        entry.bind('<Return>', self.gen_hist)
+        ttk.Label(line, text='Y-axis:').pack(side=Tk.LEFT)
+        entry = ttk.Entry(line, textvariable=self.y_axis_num, width=2)
+        entry.pack(side=Tk.LEFT)
+        entry.bind('<Return>', self.gen_hist)
 
     def do_embedding(self, event=None):
         ang_corr = self.parent.ang_corr
@@ -51,18 +63,27 @@ class Embedding_panel(ttk.Frame):
             #self.conversion.convert_frames()
             self.parent.ang_corr = np.load(self.parent.output_folder+'/ang_corr.npy') #FIXME For debugging
             ang_corr = self.parent.ang_corr
-        self.spectral = manifold.SpectralEmbedding(n_components=4)
+        
+        self.spectral = manifold.SpectralEmbedding(n_components=4, n_jobs=-1)
         self.spectral.fit(ang_corr)
         self.embed = self.spectral.embedding_
         self.embed_plot = self.embed
-        self.hist2d, self.binx, self.biny = np.histogram2d(self.embed[:,0], self.embed[:,1], bins=100)
-        self.pad_bins()
+        
+        self.gen_hist()
         self.parent.plot_frame()
         if not self.embedded:
             self.add_classes_frame()
         self.embedded = True
 
-    def pad_bins(self):
+    def gen_hist(self, event=None):
+        try:
+            xnum = int(self.x_axis_num.get())
+            ynum = int(self.y_axis_num.get())
+        except ValueError:
+            print 'Need axes numbers to be integers'
+            return
+        self.hist2d, self.binx, self.biny = np.histogram2d(self.embed[:,xnum], self.embed[:,ynum], bins=100)
+        
         delx = self.binx[1] - self.binx[0]
         dely = self.biny[1] - self.biny[0]
         self.binx = np.insert(self.binx, 0, [self.binx[0]-6*delx, self.binx[0]-delx])
@@ -117,9 +138,15 @@ class Embedding_panel(ttk.Frame):
         pos = np.array(self.positions)
         if pos.size == 0:
             return
+        try:
+            xnum = int(self.x_axis_num.get())
+            ynum = int(self.y_axis_num.get())
+        except ValueError:
+            print 'Need axes numbers to be integers'
+            return
         pos = np.append(pos, pos[-1]).reshape(-1,2)
         self.path_list.append(matplotlib.path.Path(pos, closed=True))
-        points_inside = np.array([self.path_list[-1].contains_point((p[0], p[1])) for p in self.embed])
+        points_inside = np.array([self.path_list[-1].contains_point((p[xnum], p[ynum])) for p in self.embed])
         print '%d/%d frames inside ROI %d' % (points_inside.sum(), len(points_inside), len(self.points_inside_list))
         self.points_inside_list.append(np.where(points_inside)[0] + int(self.conversion.first_frame.get()))
         
@@ -217,6 +244,12 @@ class Embedding_panel(ttk.Frame):
         roi_num = self.current_roi.get()
         class_char = self.class_tag.get()
         self.classes.clist[self.points_inside_list[roi_num]] = class_char
-        self.classes.gen_summar()
+        self.classes.gen_summary()
         self.classes.unsaved = True
 
+    def grid_forget(self):
+        for p in self.roi_list:
+            self.parent.canvas_widget.tag_lower(p)
+        for p in self.click_points_list:
+            self.parent.canvas_widget.tag_lower(p)
+        super(Embedding_panel, self).grid_forget()
