@@ -12,6 +12,7 @@ import matplotlib.patches as patches
 import time
 from glob import glob
 import re
+from py_src import read_config
 
 class Plotter:
     def __init__(self, master, config='config.ini', size=200, model=None):
@@ -33,19 +34,15 @@ class Plotter:
         self.orient = []
         self.log_txt = ""
 
-        with open(config, 'r') as f:
-            filestring = f.read()
-            words = filter(None, re.split('[ =\n]', filestring))
-            try:
-                ind = words.index('output_folder')
-                self.folder = words[ind+1]
-            except ValueError:
-                self.folder = 'data/'
-            try:
-                ind = words.index('log_file')
-                self.logfname.set(words[ind+1])
-            except ValueError:
-                self.logfname.set('EMC.log')
+        try:
+            self.folder = read_config.get_filename(config, 'emc', 'output_folder')
+        except read_config.ConfigParser.NoOptionError:
+            self.folder = 'data/'
+        try:
+            log_file = read_config.get_filename(config, 'emc', 'log_file')
+        except read_config.ConfigParser.NoOptionError:
+            log_file = 'EMC.log'
+        self.logfname.set(log_file)
         if model is None:
             self.fname.set(self.folder+'/output/intens_001.bin')
         else:
@@ -241,6 +238,7 @@ class Plotter:
         with open(self.logfname.get(), 'r') as f:
             all_lines = f.readlines()
             self.log_txt = ''.join(all_lines)
+            self.log_txt.replace('\t', '    ')
             self.txt.delete('1.0', Tk.END)
             self.txt.insert(Tk.END, self.log_txt)
 
