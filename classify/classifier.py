@@ -113,11 +113,11 @@ class Classifier():
 
     def get_config_params(self):
         try:
-            pfile = read_config.get_filename(self.config_file, 'emc', 'in_photons_file')
+            pfile = read_config.get_filename(self.config_file, 'classifier', 'in_photons_file')
             print 'Using in_photons_file: %s' % pfile
             self.photons_list = [pfile]
         except read_config.ConfigParser.NoOptionError:
-            plist = read_config.get_filename(self.config_file, 'emc', 'in_photons_list')
+            plist = read_config.get_filename(self.config_file, 'classifier', 'in_photons_list')
             print 'Using in_photons_list: %s' % plist
             with open(plist, 'r') as f:
                 self.photons_list = map(lambda x: x.rstrip(), f.readlines())
@@ -126,8 +126,8 @@ class Classifier():
         
         self.num_files = len(self.photons_list)
         self.frame_shape = (pm['dets_x'], pm['dets_y'])
-        self.det_fname = read_config.get_filename(self.config_file, 'emc', 'in_detector_file')
-        output_folder = read_config.get_filename(self.config_file, 'emc', 'output_folder')
+        self.det_fname = read_config.get_filename(self.config_file, 'classifier', 'in_detector_file')
+        output_folder = read_config.get_filename(self.config_file, 'classifier', 'output_folder')
         self.output_folder = os.path.realpath(output_folder)
         self.ewald_rad = pm['ewald_rad']
         self.detd = pm['detd']/pm['pixsize']
@@ -143,7 +143,9 @@ class Classifier():
             if mask_flag:
                 sys.stderr.write('with mask...')
                 cx, cy, cz, mask = np.loadtxt(self.det_fname, usecols=(0,1,2,4), skiprows=1, unpack=True)
-                mask[mask==2] = 1
+                #mask[mask==2] = 1 # To keep only mask==0
+                mask[mask==1] = 0 # To keep both 0 and 1
+                mask = mask / 2 # To keep both 0 and 1
                 mask = 1 - mask
             else:
                 cx, cy, cz = np.loadtxt(self.det_fname, usecols=(0,1,2), skiprows=1, unpack=True)
@@ -196,7 +198,13 @@ class Classifier():
             
             s = plt.subplot(111)
             e = self.embedding_panel.embed_plot
-            s.hist2d(e[:,0], e[:,1], bins=[self.embedding_panel.binx, self.embedding_panel.biny], vmax=float(self.rangestr.get()))
+            try:
+                xnum = int(self.embedding_panel.x_axis_num.get())
+                ynum = int(self.embedding_panel.y_axis_num.get())
+            except ValueError:
+                print 'Need axes numbers to be integers'
+                return
+            s.hist2d(e[:,xnum], e[:,ynum], bins=[self.embedding_panel.binx, self.embedding_panel.biny], vmax=float(self.rangestr.get()))
             s.set_title('Spectral embedding')
             self.fig.add_subplot(s)
         else:
