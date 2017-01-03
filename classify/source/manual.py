@@ -92,7 +92,9 @@ class Manual_panel(ttk.Frame):
             num += 1
         else:
             points = np.where(self.classes.key_pos == cnum)[0]
-            index = np.searchsorted(points, num, side='left') + 1
+            index = np.searchsorted(points, num, side='left')
+            if num in points:
+                index += 1
             if index > len(points) - 1:
                 index = len(points) - 1
             num = points[index]
