@@ -5,6 +5,8 @@ import string
 import Tkinter as Tk
 import ttk
 from sklearn import neural_network
+import multiprocessing
+import ctypes
 
 class MLP_panel(ttk.Frame):
     def __init__(self, parent, *args, **kwargs):
@@ -20,6 +22,7 @@ class MLP_panel(ttk.Frame):
         self.predictions_fname = Tk.StringVar(); self.predictions_fname.set('predictions.dat')
         self.predict_first = Tk.StringVar(); self.predict_first.set('0')
         self.predict_last = Tk.StringVar(); self.predict_last.set('1000')
+        self.num_proc = Tk.StringVar(); self.num_proc.set('1')
         self.predictions = None
         self.trained = False
         
@@ -82,6 +85,9 @@ class MLP_panel(ttk.Frame):
         
         line = ttk.Frame(self.predict_frame); line.pack(fill=Tk.X)
         ttk.Button(line, text='Predict', command=self.predict).pack(side=Tk.LEFT)
+        ttk.Entry(line, textvariable=self.num_proc, width=2).pack(side=Tk.LEFT)
+        
+        line = ttk.Frame(self.predict_frame); line.pack(fill=Tk.X)
         ttk.Label(line, textvariable=self.predict_summary).pack(side=Tk.LEFT)
         
         line = ttk.Frame(self.predict_frame); line.pack(fill=Tk.X)
@@ -92,21 +98,37 @@ class MLP_panel(ttk.Frame):
         try:
             first = int(self.predict_first.get())
             last = int(self.predict_last.get())
+            num_proc = int(self.num_proc.get())
         except ValueError:
-            print 'Prediction range must be integers'
+            print 'Integers only'
             return
         
         if last < 0:
             last = self.parent.num_frames
-        self.predictions = np.zeros((self.parent.num_frames,), dtype=np.str_)
         
-        for i in range(first, last):
-            polar = self.conversion.polar.convert(self.emc_reader.get_frame(i))
-            ang_corr = np.expand_dims(self.conversion.polar.compute_ang_corr(polar).flatten(), axis=0)
-            self.predictions[i] = self.classes.key[self.mlp.predict(ang_corr)[0]]
-            sys.stderr.write('\r%d/%d' % (i+1, last))
+        predictions = multiprocessing.Array(ctypes.c_char, self.parent.num_frames)
+        jobs = []
+        for i in range(num_proc):
+            p = multiprocessing.Process(target=self.predict_worker, args=(i, num_proc, np.arange(first, last, dtype='i4'), predictions))
+            jobs.append(p)
+            p.start()
+        for j in jobs:
+            j.join()
+        sys.stderr.write('\r%d/%d\n' % (last, last))
         
+        self.predictions = np.frombuffer(predictions.get_obj(), dtype='S1')
         self.gen_predict_summary()
+
+    def get_and_convert(self, num):
+        return self.conversion.polar.compute_ang_corr(self.conversion.polar.convert(self.emc_reader.get_frame(num)))
+
+    def predict_worker(self, rank, num_proc, indices, predictions):
+        my_ind = indices[rank::num_proc]
+        for i in my_ind:
+            ang_corr = np.expand_dims(self.get_and_convert(i).flatten(), axis=0)
+            predictions[i] = self.classes.key[self.mlp.predict(ang_corr)[0]]
+            if rank == 0:
+                sys.stderr.write('\r%d/%d'%(i, indices[-1]))
 
     def gen_predict_summary(self, event=None):
         summary=''
