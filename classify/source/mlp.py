@@ -15,7 +15,7 @@ class MLP_panel(ttk.Frame):
         self.conversion = self.parent.conversion_panel
         
         self.layer_sizes = Tk.StringVar(); self.layer_sizes.set('10, 10')
-        self.alpha_var = Tk.StringVar(); self.alpha_var.set('1.e-3')
+        self.alpha_var = Tk.StringVar(); self.alpha_var.set('1.e-5')
         self.predict_summary = Tk.StringVar(); self.predict_summary.set('')
         self.predictions_fname = Tk.StringVar(); self.predictions_fname.set('predictions.dat')
         self.predict_first = Tk.StringVar(); self.predict_first.set('0')
@@ -98,11 +98,11 @@ class MLP_panel(ttk.Frame):
         
         if last < 0:
             last = self.parent.num_frames
-        self.predictions = np.zeros((last-first,), dtype=np.str_)
+        self.predictions = np.zeros((self.parent.num_frames,), dtype=np.str_)
         
         for i in range(first, last):
-            self.conversion.polar.convert(self.emc_reader.get_frame(i))
-            ang_corr = np.expand_dims(self.conversion.polar.compute_ang_corr().flatten(), axis=0)
+            polar = self.conversion.polar.convert(self.emc_reader.get_frame(i))
+            ang_corr = np.expand_dims(self.conversion.polar.compute_ang_corr(polar).flatten(), axis=0)
             self.predictions[i] = self.classes.key[self.mlp.predict(ang_corr)[0]]
             sys.stderr.write('\r%d/%d' % (i+1, last))
         
@@ -117,5 +117,4 @@ class MLP_panel(ttk.Frame):
 
     def save_predictions(self, event=None):
         print 'Saving predictions list to', self.predictions_fname.get()
-        np.savetxt(self.class_list_fname.get(), self.classes.clist, fmt='%s')
-        self.classes.unsaved = False
+        np.savetxt(self.predictions_fname.get(), self.predictions, fmt='%s')
