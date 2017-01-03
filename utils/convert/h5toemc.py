@@ -38,6 +38,7 @@ if __name__ == '__main__':
     logging.info(' '.join(sys.argv))
     pm = read_config.get_detector_config(args.config_file, show=args.vb)
     output_folder = read_config.get_filename(args.config_file, 'emc', 'output_folder')
+    curr_num_data = 0
 
     if not os.path.isfile(args.h5_name):
         print 'Data file %s not found. Exiting.' % args.h5_name
@@ -47,7 +48,7 @@ if __name__ == '__main__':
     if args.list:
         logging.info('Reading file names in list %s' % args.h5_name)
         with open(args.h5_name, 'r') as f:
-            flist = [fname.rstrip() for fname in f.readlines()]
+            flist = [os.path.realpath(fname.rstrip()) for fname in f.readlines()]
         logging.info
     else:
         flist = [args.h5_name]
@@ -59,6 +60,7 @@ if __name__ == '__main__':
         emcwriter = writeemc.EMC_writer(args.out_fname, pm['dets_x']*pm['dets_y'])
 
     for fname in flist:
+        print 'Processing', fname, curr_num_data
         f = h5py.File(fname, 'r')
         if args.dset_name is None:
             for name, obj in f['photonConverter'].items():
@@ -70,7 +72,11 @@ if __name__ == '__main__':
                     pass
             logging.info('Converting data in '+ dset.name)
         else:
-            dset = f[args.dset_name]
+            try:
+                dset = f[args.dset_name]
+            except KeyError:
+                print 'Dataset not found. Moving on.'
+                continue
             logging.info('Converting data in '+ args.dset_name)
 
         if args.sel_file is not None and args.sel_dset is not None:
@@ -80,13 +86,15 @@ if __name__ == '__main__':
             ind = np.arange(dset.shape[0], dtype='i4')
         elif args.sel_file is not None:
             ind = np.loadtxt(args.sel_file, dtype='i4')
+            ind -= curr_num_data
         else:
             ind = f[args.sel_dset][:]
 
         if ind.shape[0] == dset.shape[0] and ind.max() < 2:
             ind = np.where(ind==1)[0]
-
+        ind = ind[(ind>=0) & (ind<dset.shape[0])]
         num_frames = ind.shape[0]
+        curr_num_data += dset.shape[0]
         if not args.list:
             logging.info('Converting %d/%d frames in %s' % (num_frames, dset.shape[0], args.h5_name))
 
