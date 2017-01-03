@@ -58,6 +58,8 @@ class Manual_panel(ttk.Frame):
         self.classes.clist[num] = event.char
         self.classes.unsaved = True
         self.class_list_summary.set(self.classes.gen_summary())
+        if len(self.class_line.winfo_children()) != len(self.classes.key) + 1:
+            self.refresh_class_line()
         self.next_frame()
 
     def unassign_class(self, event=None):
@@ -65,6 +67,8 @@ class Manual_panel(ttk.Frame):
         self.classes.clist[num] = ''
         self.classes.unsaved = True
         self.class_list_summary.set(self.classes.gen_summary())
+        if len(self.class_line.winfo_children()) != len(self.classes.key) + 1:
+            self.refresh_class_line()
         self.parent.plot_frame()
 
     def classify_flag_changed(self, event=None):
