@@ -32,17 +32,20 @@ class Polar_converter():
         polar_arr[self.polar_count>0] /= self.polar_count[self.polar_count>0]
         return polar_arr.reshape(self.rad_max, -1)[self.r_min:self.r_max]
 
-    def compute_ang_corr(self, polar_arr, ang_max=10):
+    def compute_ang_corr(self, polar_arr, normed=True, ang_max=10):
         """
         Compute the angular correlation from the polar representation of given pattern
         """
         ang_corr = np.array([a - a.mean() for a in polar_arr])
         temp = []
         for a in ang_corr:
-            la = np.linalg.norm(a)
-            if la > 0.:
-                temp.append(np.absolute(np.fft.fft(a/la))[1:ang_max])
+            if normed:
+                la = np.linalg.norm(a)
+                if la > 0.:
+                    temp.append(np.absolute(np.fft.fft(a/la))[1:ang_max])
+                else:
+                    temp.append(np.zeros(ang_max-1))
             else:
-                temp.append(np.zeros(ang_max-1))
+                temp.append(np.absolute(np.fft.fft(a))[1:ang_max])
         return np.array(temp)
 

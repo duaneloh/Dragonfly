@@ -21,6 +21,7 @@ class Conversion_panel(ttk.Frame):
         self.first_frame = Tk.StringVar(); self.first_frame.set('0')
         self.last_frame = Tk.StringVar(); self.last_frame.set('1000')
         self.save_flag = Tk.IntVar(); self.save_flag.set(1)
+        self.normed_flag = Tk.IntVar(); self.normed_flag.set(1)
         self.num_proc = Tk.StringVar(); self.num_proc.set('1')
         
         self.polar = None
@@ -67,7 +68,8 @@ class Conversion_panel(ttk.Frame):
         line = ttk.Frame(self); line.pack(fill=Tk.X)
         ttk.Button(line, text='Process', command=self.convert_frames).pack(side=Tk.LEFT)
         ttk.Entry(line, textvariable=self.num_proc, width=2).pack(side=Tk.LEFT)
-        ttk.Checkbutton(line, text='Save to file', variable=self.save_flag).pack(side=Tk.RIGHT)
+        ttk.Checkbutton(line, text='Normed', variable=self.normed_flag).pack(side=Tk.RIGHT)
+        ttk.Checkbutton(line, text='Save', variable=self.save_flag).pack(side=Tk.RIGHT)
 
     def remake_converter(self, replot=True, event=None):
         self.polar = polar.Polar_converter(self.parent.cx, 
@@ -108,7 +110,7 @@ class Conversion_panel(ttk.Frame):
             np.save(fname, self.parent.ang_corr)
 
     def get_and_convert(self, num):
-        return self.polar.compute_ang_corr(self.polar.convert(self.emc_reader.get_frame(num)))
+        return self.polar.compute_ang_corr(self.polar.convert(self.emc_reader.get_frame(num)), normed=bool(self.normed_flag.get()))
 
     def convert_worker(self, rank, num_proc, indices, size, ang_corr):
         my_ind = indices[rank::num_proc]
