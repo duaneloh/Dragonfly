@@ -14,8 +14,8 @@ class Conversion_panel(ttk.Frame):
         
         self.parent = parent
         self.emc_reader = self.parent.emc_reader
-        self.r_min = Tk.StringVar(); self.r_min.set('10')
-        self.r_max = Tk.StringVar(); self.r_max.set('70')
+        self.r_min = Tk.StringVar(); self.r_min.set('16')
+        self.r_max = Tk.StringVar(); self.r_max.set('80')
         self.delta_r = Tk.StringVar(); self.delta_r.set('2')
         self.delta_ang = Tk.StringVar(); self.delta_ang.set('10')
         self.first_frame = Tk.StringVar(); self.first_frame.set('0')
@@ -85,14 +85,9 @@ class Conversion_panel(ttk.Frame):
         try:
             start = int(self.first_frame.get())
             end = int(self.last_frame.get())
-        except ValueError:
-            print 'Frame range must be integers'
-            return
-        
-        try:
             num_proc = int(self.num_proc.get())
         except ValueError:
-            print 'num_proc (%s) must be an integer' % self.num_proc.get()
+            print 'Integers only'
             return
         
         arr = self.get_and_convert(0)
@@ -105,7 +100,7 @@ class Conversion_panel(ttk.Frame):
         for j in jobs:
             j.join()
         sys.stderr.write('\r%d/%d\n' % (end, end))
-
+        
         self.parent.ang_corr = np.frombuffer(ang_corr.get_obj()).reshape(end-start, -1)
         if save:
             fname = self.parent.output_folder + '/ang_corr.npy'
@@ -119,7 +114,8 @@ class Conversion_panel(ttk.Frame):
         my_ind = indices[rank::num_proc]
         np_ang_corr = np.frombuffer(ang_corr.get_obj())
         for i in my_ind:
-            np_ang_corr[size*i:size*(i+1)] = self.get_and_convert(i).flatten()
+            ang_ind = np.where(indices==i)[0][0]
+            np_ang_corr[size*ang_ind:size*(ang_ind+1)] = self.get_and_convert(i).flatten()
             if rank == 0:
                 sys.stderr.write('\r%d/%d'%(i, indices[-1]))
 
