@@ -222,7 +222,7 @@ if __name__ == '__main__':
     
     parser = py_utils.my_argparser(description='Utility for viewing frames of the emc file (list)')
     parser.add_argument('--cmap', help='Matplotlib color map (default: jet)')
-    parser.add_argument('--mask', help='Whether to zero out masked pixels (default False)', action='store_true', default=False)
+    parser.add_argument('-M', '--mask', help='Whether to zero out masked pixels (default False)', action='store_true', default=False)
     args = parser.special_parse_args()
     
     try:
