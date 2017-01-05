@@ -349,6 +349,7 @@ int setup(char *config_fname, int continue_flag) {
 	alpha = 0. ;
 	beta = 1. ;
 	ewald_rad = -1. ;
+	icosahedral_flag = 0 ;
 	
 	char line[999], *token ;
 	fp = fopen(config_fname, "r") ;
@@ -422,6 +423,8 @@ int setup(char *config_fname, int continue_flag) {
 		}
 		else if (strcmp(token, "selection") == 0)
 			strcpy(sel_string, strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "sym_icosahedral") == 0)
+			icosahedral_flag = atoi(strtok(NULL, " =\n")) ;
 	}
 	fclose(fp) ;
 
