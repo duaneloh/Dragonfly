@@ -47,6 +47,7 @@ double tot_mean_count ;
 uint8_t *mask ;
 
 char output_folder[999], log_fname[999] ;
+int icosahedral_flag ;
 
 // setup.c
 int setup(char*, int) ;
@@ -58,6 +59,7 @@ double maximize() ;
 // interp.c
 void slice_gen(double*, double, double*, double*, double*) ;
 void slice_merge(double*, double*, double*, double*, double*) ;
+void symmetrize_icosahedral(double*, int) ;
 
 // quat.c
 int quat_gen(int, double**) ;
