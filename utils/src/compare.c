@@ -356,7 +356,7 @@ void gen_subset(double **quaternion, int num_div, double dmax) {
 	for (t = 0 ; t < 4 ; ++t)
 		max_quat[t] = (*quaternion)[max_r*5 + t] ;
 	free(*quaternion) ;
-	full_num_rot = quat_gen(num_div, quaternion) ;
+	full_num_rot = quat_gen(num_div, quaternion, 0) ;
 	
 	num_rot = 0 ;
 	for (r = 0 ; r < full_num_rot ; ++r) {
@@ -453,7 +453,7 @@ int main(int argc, char *argv[]) {
 		i2i2 += model2_rad[t] * model2_rad[t] ;
 	
 	// Parse quaternion and calculate max_corr
-	num_rot = quat_gen(4, &quat) ;
+	num_rot = quat_gen(4, &quat, 0) ;
 	calc_corr(quat, model1, model2) ;
 	
 	// Generate subset and recalculate max_corr
