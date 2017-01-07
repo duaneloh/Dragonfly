@@ -62,6 +62,6 @@ void slice_merge(double*, double*, double*, double*, double*) ;
 void symmetrize_icosahedral(double*, int) ;
 
 // quat.c
-int quat_gen(int, double**) ;
+int quat_gen(int, double**, int) ;
 
 #endif
