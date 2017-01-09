@@ -6,6 +6,7 @@
 #include <omp.h>
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
+#include <gsl/gsl_sf_gamma.h>
 #include <math.h>
 #include <sys/time.h>
 #include <float.h>
@@ -20,8 +21,8 @@ double rot[2][2] ;
 int size, num_data, num_data_p, num_pix, scale_method ;
 int **place_ones, **place_multi, *ones, *multi, **count_multi ;
 double fluence, rescale, mean_count, spread, detd, back, center ;
-double *intens, *det, *view ;
-char output_fname[999] ;
+double *intens, *det, *view, *likelihood ;
+char output_fname[999], likelihood_fname[999] ;
 uint8_t *mask ;
 
 int setup(char *) ;
@@ -121,7 +122,7 @@ int main(int argc, char *argv[]) {
 	{
 		int rank = omp_get_thread_num() ;
 		int photons, d, t ;
-		double scale = 1., quat[4] ;
+		double scale = 1., quat[4], val ;
 		double *view = malloc(num_pix * sizeof(double)) ;
 		gsl_rng *rng ;
 		
@@ -142,14 +143,23 @@ int main(int argc, char *argv[]) {
 					if (mask[t] > 1)
 						continue ;
 					
+					val = view[t]*scale + back ;
 					photons = gsl_ran_poisson(rng, view[t]*scale + back) ;
 					
-					if (photons == 1)
+					if (photons == 1) {
 						place_ones[d][ones[d]++] = t ;
+					}
 					else if (photons > 1) {
 						place_multi[d][multi[d]] = t ;
 						count_multi[d][multi[d]++] = photons ;
 						actual_mean_count += photons ;
+					}
+					
+					if (likelihood_fname[0] != '\0') {
+						if (photons == 0)
+							likelihood[d] -= val ;
+						else
+							likelihood[d] += photons*log(val) - val - gsl_sf_lnfact(photons) ;
 					}
 				}
 			}
@@ -182,10 +192,16 @@ int main(int argc, char *argv[]) {
 		fwrite(count_multi[d], sizeof(int), multi[d], fp) ;
 	fclose(fp) ;
 	
+	if (likelihood_fname[0] != '\0') {
+		fp = fopen(likelihood_fname, "wb") ;
+		fwrite(likelihood, sizeof(double), num_data, fp) ;
+		fclose(fp) ;
+	}
+	
 	gettimeofday(&t2, NULL) ;
 	fprintf(stderr, "Generated %d frames with %f photons/frame\n", num_data, actual_mean_count) ;
 	fprintf(stderr, "Time taken = %f s\n", (double)(t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.) ;
-
+	
 	free_mem() ;
 	
 	return 0 ;
@@ -207,7 +223,7 @@ int setup(char *config_fname) {
 	mean_count = -1. ;
 	spread = 0. ;
 	back = 0. ;
-	output_fname[0] = ' ' ;
+	output_fname[0] = '\0' ;
 	detsize = 0 ;
 	dets_x = 0 ;
 	dets_y = 0 ;
@@ -254,6 +270,8 @@ int setup(char *config_fname) {
 			back = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "out_photons_file") == 0)
 			strcpy(output_fname, strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "out_likelihood_file") == 0)
+			strcpy(likelihood_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "in_intensity_file") == 0)
 			strcpy(model_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "in_detector_file") == 0)
@@ -289,7 +307,7 @@ int setup(char *config_fname) {
 		fprintf(stderr, "Need num_data (number of frames to be generated)\n") ;
 		return 1 ;
 	}
-	if (output_fname[0] == ' ') {
+	if (output_fname[0] == '\0') {
 		fprintf(stderr, "Need out_photons (name of output emc format file)\n") ;
 		return 1 ;
 	}
@@ -313,6 +331,9 @@ int setup(char *config_fname) {
 			return 1 ;
 		}
 	}
+	
+	if (likelihood_fname[0] != '\0')
+		fprintf(stderr, "Saving frame-by-frame likelihoods to %s\n", likelihood_fname) ;
 	
 	char *config_folder = dirname(config_fname) ;
 	strcpy(line, det_fname) ;
@@ -354,6 +375,7 @@ int setup(char *config_fname) {
 	place_ones = malloc(num_data * sizeof(int*)) ;
 	place_multi = malloc(num_data * sizeof(int*)) ;
 	count_multi = malloc(num_data * sizeof(int*)) ;
+	likelihood = calloc(num_data, sizeof(double)) ;
 	
 	return 0 ;
 }
