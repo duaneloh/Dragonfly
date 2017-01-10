@@ -18,12 +18,15 @@ class Plotter:
     def __init__(self, master, config='config.ini', size=200, model=None):
         self.master = master
         self.size = size
+        self.old_size = size
         self.center = self.size/2
         self.max_iter = 0
+        self.cmap = 'CMRmap'
 
         self.fname = Tk.StringVar()
         self.logfname = Tk.StringVar()
         self.rangestr = Tk.StringVar()
+        self.rangeminstr = Tk.StringVar()
         self.expstr = Tk.StringVar()
         self.imagename = Tk.StringVar()
         self.log_imagename = Tk.StringVar()
@@ -51,6 +54,7 @@ class Plotter:
         self.log_imagename.set('images/log_fig.png')
         self.image_exists = False
         self.rangestr.set(str(1.))
+        self.rangeminstr.set(str(0.))
         self.expstr.set(str(1.))
         self.layernum.set(self.center)
         self.ifcheck.set(0)
@@ -94,6 +98,7 @@ class Plotter:
 
         self.old_fname = self.fname.get()
         self.old_rangestr = self.rangestr.get()
+        self.old_rangeminstr = self.rangeminstr.get()
 
         self.master.bind('<Return>', self.parse_and_plot)
         self.master.bind('<KP_Enter>', self.parse_and_plot)
@@ -106,7 +111,9 @@ class Plotter:
         line.pack(fill=Tk.X)
         Tk.Label(line,text="Log Filename: ").pack(side=Tk.LEFT)
         Tk.Entry(line,textvariable=self.logfname,width=20).pack(side=Tk.LEFT, fill=Tk.X, expand=1)
-        Tk.Label(line,text="PlotMax: ").pack(side=Tk.LEFT, fill=Tk.X)
+        Tk.Label(line,text="PlotMin: ").pack(side=Tk.LEFT)
+        Tk.Entry(line,textvariable=self.rangeminstr,width=6).pack(side=Tk.LEFT)
+        Tk.Label(line,text="PlotMax: ").pack(side=Tk.LEFT)
         Tk.Entry(line,textvariable=self.rangestr,width=6).pack(side=Tk.LEFT)
 
         line = Tk.Frame(self.options)
@@ -181,6 +188,7 @@ class Plotter:
     def plot_vol(self, num):
         self.imagename.set('images/' + os.path.splitext(os.path.basename(self.fname.get()))[0] + '.png')
         rangemax = float(self.rangestr.get())
+        rangemin = float(self.rangeminstr.get())
         exponent = float(self.expstr.get())
 
         a = self.vol[num,:,:]**exponent
@@ -191,19 +199,19 @@ class Plotter:
         grid = gridspec.GridSpec(1,3, wspace=0., hspace=0.)
 
         s1 = plt.Subplot(self.fig, grid[:,0])
-        s1.imshow(a, vmin=0, vmax=rangemax, cmap='jet', interpolation='none')
+        s1.imshow(a, vmin=rangemin, vmax=rangemax, cmap=self.cmap, interpolation='none')
         s1.set_title("YZ plane", y=1.01)
         s1.axis('off')
         self.fig.add_subplot(s1)
 
         s2 = plt.Subplot(self.fig, grid[:,1])
-        s2.matshow(b, vmin=0, vmax=rangemax, cmap='jet', interpolation='none')
+        s2.imshow(b, vmin=rangemin, vmax=rangemax, cmap=self.cmap, interpolation='none')
         s2.set_title("XZ plane", y=1.01)
         s2.axis('off')
         self.fig.add_subplot(s2)
 
         s3 = plt.Subplot(self.fig, grid[:,2])
-        s3.matshow(c, vmin=0, vmax=rangemax, cmap='jet', interpolation='none')
+        s3.imshow(c, vmin=rangemin, vmax=rangemax, cmap=self.cmap, interpolation='none')
         s3.set_title("XY plane", y=1.01)
         s3.axis('off')
         self.fig.add_subplot(s3)
@@ -212,6 +220,7 @@ class Plotter:
 
         self.image_exists = True
         self.old_rangestr = self.rangestr.get()
+        self.old_rangeminstr = self.rangeminstr.get()
 
     def parse(self):
         s = int(self.size)
@@ -225,6 +234,8 @@ class Plotter:
 
         self.vol = np.fromfile(f, dtype='f8')
         self.size = int(np.ceil(np.power(len(self.vol), 1./3.)))
+        if self.size != self.old_size:
+            self.old_size = self.size
         self.vol = self.vol.reshape(self.size, self.size, self.size)
         self.center = self.size/2
         if not self.image_exists:
@@ -274,7 +285,7 @@ class Plotter:
         num_rot = loglines[:,5].astype(np.int32)
         beta = loglines[:,6].astype(np.float64)
         num_rot_change = np.append(np.where(np.diff(num_rot)>0)[0], num_rot.shape[0])
-        beta_change = np.where(np.diff(beta)>0.)[0]
+        beta_change = np.where(np.diff(beta)!=0.)[0]
 
         # Sort o_array by the last iteration which has the same number of orientations
         o_array = np.asarray(self.orient, dtype='f8')
@@ -350,7 +361,7 @@ class Plotter:
         if not self.image_exists:
             self.parse()
             self.plot_vol(self.layernum.get())
-        elif self.old_fname == self.fname.get() and self.old_rangestr != self.rangestr.get():
+        elif self.old_fname == self.fname.get() and (self.old_rangestr != self.rangestr.get() or self.old_rangeminstr != self.rangeminstr.get()):
             self.plot_vol(self.layernum.get())
         else:
             self.parse()
