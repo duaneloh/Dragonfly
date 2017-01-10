@@ -38,12 +38,14 @@ class MLP_panel(ttk.Frame):
         entry = ttk.Entry(line, textvariable=self.layer_sizes, width=10)
         entry.pack(side=Tk.LEFT)
         entry.bind('<Return>', self.remake_mlp)
+        entry.bind('<KP_Enter>', self.remake_mlp)
         
         line = ttk.Frame(self); line.pack(fill=Tk.X)
         ttk.Label(line, text='alpha').pack(side=Tk.LEFT)
         entry = ttk.Entry(line, textvariable=self.alpha_var, width=5)
         entry.pack(side=Tk.LEFT)
         entry.bind('<Return>', self.remake_mlp)
+        entry.bind('<KP_Enter>', self.remake_mlp)
         
         line = ttk.Frame(self); line.pack(fill=Tk.X)
         ttk.Button(line, text='Update', command=self.remake_mlp).pack(side=Tk.LEFT)

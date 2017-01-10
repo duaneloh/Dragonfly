@@ -52,10 +52,12 @@ class Embedding_panel(ttk.Frame, object):
         entry = ttk.Entry(line, textvariable=self.x_axis_num, width=2)
         entry.pack(side=Tk.LEFT)
         entry.bind('<Return>', self.gen_hist)
+        entry.bind('<KP_Enter>', self.gen_hist)
         ttk.Label(line, text='Y-axis:').pack(side=Tk.LEFT)
         entry = ttk.Entry(line, textvariable=self.y_axis_num, width=2)
         entry.pack(side=Tk.LEFT)
         entry.bind('<Return>', self.gen_hist)
+        entry.bind('<KP_Enter>', self.gen_hist)
 
     def do_embedding(self, event=None):
         ang_corr = self.parent.ang_corr
@@ -96,7 +98,7 @@ class Embedding_panel(ttk.Frame, object):
         
         self.classes_line = ttk.Frame(self.classes_frame); self.classes_line.pack(fill=Tk.X)
         for i, k in enumerate(self.classes.key):
-            ttk.Radiobutton(self.classes_line, text=k, variable=self.class_num, value=i).grid(row=i/5,column=i%5)
+            ttk.Radiobutton(self.classes_line, text=k, variable=self.class_num, value=i, command=self.show_selected_class).grid(row=i/5,column=i%5)
         
         line = ttk.Frame(self.classes_frame); line.pack(fill=Tk.X)
         ttk.Button(line, text='Show', command=self.show_selected_class).pack(side=Tk.LEFT)
@@ -119,7 +121,7 @@ class Embedding_panel(ttk.Frame, object):
         for c in self.classes_line.winfo_children():
             c.destroy()
         for i, k in enumerate(self.classes.key):
-            ttk.Radiobutton(self.classes_line, text=k, variable=self.class_num, value=i).grid(row=i/5,column=i%5)
+            ttk.Radiobutton(self.classes_line, text=k, variable=self.class_num, value=i, command=self.show_selected_class).grid(row=i/5,column=i%5)
 
     def track_flag_changed(self, event=None):
         if self.track_flag.get() == 1:

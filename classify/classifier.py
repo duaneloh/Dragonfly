@@ -260,18 +260,14 @@ class Classifier():
             self.mlp_panel.grid_forget()
         
         if mode == 0:
-            print 'Switching to display mode'
+            pass
         elif mode == 1:
-            print 'Switching to manual classification mode'
             self.manual_panel.grid(row=0, column=1, rowspan=2, sticky='news')
         elif mode == 2:
-            print 'Switching to conversion mode'
             self.conversion_panel.grid(row=0, column=1, rowspan=2, sticky='news')
         elif mode == 3:
-            print 'Switching to embedding mode'
             self.embedding_panel.grid(row=0, column=1, rowspan=2, sticky='news')
         elif mode == 4:
-            print 'Switching to MLP mode'
             self.mlp_panel.grid(row=0, column=1, rowspan=2, sticky='news')
         self.plot_frame()
 
