@@ -5,6 +5,7 @@ import sys
 import os
 import matplotlib.pyplot as plt
 import Tkinter as Tk
+import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 class Frameviewer():
@@ -34,8 +35,15 @@ class Frameviewer():
         self.master.rowconfigure(0, weight=1)
         self.master.columnconfigure(0, weight=1)
         self.master.protocol('WM_DELETE_WINDOW', self.master.quit)
+        if sys.platform != 'darwin':
+            path_string = " ".join(os.path.realpath(__file__).split('/')[:-1])
+            self.master.tk.eval('source [file join / ' + path_string + ' themes plastik plastik.tcl]')
+            self.master.tk.eval('source [file join / ' + path_string + ' themes clearlooks clearlooks8.5.tcl]')
+            fstyle = ttk.Style()
+            fstyle.theme_use('clearlooks')
+            #fstyle.theme_use('plastik')
         
-        fig_frame = Tk.Frame(self.master)
+        fig_frame = ttk.Frame(self.master)
         fig_frame.grid(row=0, column=0, sticky='nsew')
         fig_frame.columnconfigure(0, weight=1)
         fig_frame.rowconfigure(0, weight=1)
@@ -46,26 +54,26 @@ class Frameviewer():
         self.canvas.show()
         self.canvas.get_tk_widget().pack(fill='both', expand=1)
         
-        self.options = Tk.Frame(self.master, relief=Tk.GROOVE, borderwidth=5, width=400, height=200)
+        self.options = ttk.Frame(self.master, relief=Tk.GROOVE, borderwidth=5, width=400, height=200)
         self.options.grid(row=1, column=0, sticky='nsew')
         
-        line = Tk.Frame(self.options)
+        line = ttk.Frame(self.options)
         line.pack(fill=Tk.X)
-        Tk.Label(line, text='Frame number: ').pack(side=Tk.LEFT)
-        Tk.Entry(line, textvariable=self.numstr, width=10).pack(side=Tk.LEFT)
-        Tk.Label(line, text='/%d'%self.num_frames).pack(side=Tk.LEFT)
-        Tk.Entry(line, textvariable=self.rangestr, width=6).pack(side=Tk.RIGHT)
-        Tk.Label(line, text='PlotMax: ').pack(side=Tk.RIGHT)
+        ttk.Label(line, text='Frame number: ').pack(side=Tk.LEFT)
+        ttk.Entry(line, textvariable=self.numstr, width=10).pack(side=Tk.LEFT)
+        ttk.Label(line, text='/%d'%self.num_frames).pack(side=Tk.LEFT)
+        ttk.Entry(line, textvariable=self.rangestr, width=6).pack(side=Tk.RIGHT)
+        ttk.Label(line, text='PlotMax: ').pack(side=Tk.RIGHT)
         
-        line = Tk.Frame(self.options)
+        line = ttk.Frame(self.options)
         line.pack(fill=Tk.X)
-        Tk.Button(line, text='Plot', command=self.plot_frame).pack(side=Tk.LEFT)
-        Tk.Button(line, text='Prev', command=self.prev_frame).pack(side=Tk.LEFT)
-        Tk.Button(line, text='Next', command=self.next_frame).pack(side=Tk.LEFT)
-        Tk.Button(line, text='Random', command=self.rand_frame).pack(side=Tk.LEFT)
+        ttk.Button(line, text='Plot', command=self.plot_frame).pack(side=Tk.LEFT)
+        ttk.Button(line, text='Prev', command=self.prev_frame).pack(side=Tk.LEFT)
+        ttk.Button(line, text='Next', command=self.next_frame).pack(side=Tk.LEFT)
+        ttk.Button(line, text='Random', command=self.rand_frame).pack(side=Tk.LEFT)
         if self.blacklist is not None:
-            Tk.Button(line, text='Next bad', command=self.next_bad_frame).pack(side=Tk.LEFT)
-        Tk.Button(line, text='Quit', command=self.quit).pack(side=Tk.RIGHT)
+            ttk.Button(line, text='Next bad', command=self.next_bad_frame).pack(side=Tk.LEFT)
+        ttk.Button(line, text='Quit', command=self.quit).pack(side=Tk.RIGHT)
         
         self.master.bind('<Return>', self.plot_frame)
         self.master.bind('<KP_Enter>', self.plot_frame)
