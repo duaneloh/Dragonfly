@@ -27,6 +27,7 @@ double maximize() {
 	for (d = 0 ; d < tot_num_data ; ++d) {
 		max_exp_p[d] = -DBL_MAX ;
 		p_sum[d] = 0. ;
+		likelihood[d] = count[d]*log(scale[d]) - sum_fact[d] ;
 	}
 	
 	memset(model2, 0, size*size*size*sizeof(double)) ;
@@ -260,7 +261,8 @@ double maximize() {
 					// Exponentiate log-likelihood and normalize to get probabilities
 					temp = prob[d_counter+d] ;
 					prob[d_counter+d] = exp(beta*(prob[d_counter+d] - max_exp[d_counter+d])) / p_sum[d_counter+d] ; 
-					priv_likelihood[d] += prob[d_counter+d] * (temp - sum_fact[d_counter+d]) ;
+//					priv_likelihood[d_counter+d] += prob[d_counter+d] * (temp - sum_fact[d_counter+d] + count[d_counter+d]*log(scale[d_counter+d])) ;
+					priv_likelihood[d_counter+d] += prob[d_counter+d] * temp ;
 					
 					// Calculate denominator for update rule
 					if (need_scaling) {
@@ -318,6 +320,13 @@ double maximize() {
 						old_view[t] = (1.-alpha) * view[t] + alpha * old_view[t] ;
 				}
 				
+				/*
+				for (d = 0 ; d < tot_num_data ; ++d)
+				if (r*num_proc + rank == rmax[d])
+				for (t = 0 ; t < num_pix ; ++t)
+						priv_likelihood[d] -= prob[d] * log(gsl_sf_bessel_I0_scaled(2.*view[t]*scale[d])) ;
+				*/
+				
 				if (alpha == 0.)
 					slice_merge(&quat[(r*num_proc + rank)*5], view, priv_model, priv_weight, det) ;
 			}
@@ -346,12 +355,6 @@ double maximize() {
 			}
 		}
 		#pragma omp barrier
-		
-		// Combine mutual info and likelihood from all MPI ranks
-		if (omp_rank == 0) {
-			MPI_Allreduce(MPI_IN_PLACE, likelihood, tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
-			MPI_Allreduce(MPI_IN_PLACE, info, tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
-		}
 		
 		if (need_scaling) {
 			if (omp_rank == 0)
@@ -398,6 +401,10 @@ double maximize() {
 	free(u) ;
 	free(bestprob) ;
 	
+	// Combine mutual info and likelihood from all MPI ranks
+	MPI_Allreduce(MPI_IN_PLACE, likelihood, tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
+	MPI_Allreduce(MPI_IN_PLACE, info, tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
+	
 	// Calculate updated scale factor using count[d] (total photons in frame d)
 	if (need_scaling) {
 		for (d = 0 ; d < tot_num_data ; ++d)
@@ -415,22 +422,25 @@ double maximize() {
 	}
 	
 	// Print frame-by-frame mutual information and likelihood to file
+	for (d = 0 ; d < tot_num_data ; ++d)
+	if (!blacklist[d]) {
+		mutual_info += info[d] ;
+		avg_likelihood += likelihood[d] ;
+	}
+	
 	if (rank == 0) {
 		char fname[999] ;
 		sprintf(fname, "%s/mutualInfo/info_%.3d.dat", output_folder, iteration) ;
 		FILE *fp_info = fopen(fname, "w") ;
-		for (d = 0 ; d < tot_num_data ; ++d) {
-			mutual_info += info[d] ;
-			fprintf(fp_info, "%.6e\n", info[d]) ;
-		}
-		fclose(fp_info) ;
-		
 		sprintf(fname, "%s/likelihood/likelihood_%.3d.dat", output_folder, iteration) ;
 		FILE *fp_likelihood = fopen(fname, "w") ;
+		
 		for (d = 0 ; d < tot_num_data ; ++d) {
-			avg_likelihood += likelihood[d] ;
+			fprintf(fp_info, "%.6e\n", info[d]) ;
 			fprintf(fp_likelihood, "%.6e\n", likelihood[d]) ;
 		}
+		
+		fclose(fp_info) ;
 		fclose(fp_likelihood) ;
 	}
 	
