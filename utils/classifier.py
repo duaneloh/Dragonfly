@@ -8,15 +8,14 @@ import Tkinter as Tk
 import ttk
 import tkMessageBox
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from source import data
-from source import manual
-from source import conversion
-from source import embedding
-from source import classes
-from source import mlp
-sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))+'/utils/py_src/')
-import py_utils
-import read_config
+from py_src import data
+from py_src import manual
+from py_src import conversion
+from py_src import embedding
+from py_src import classes
+from py_src import mlp
+from py_src import py_utils
+from py_src import read_config
 
 class Classifier():
     def __init__(self, master, config_file, cmap='jet', mask=False):
