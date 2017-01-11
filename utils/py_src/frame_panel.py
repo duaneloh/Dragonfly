@@ -2,14 +2,16 @@ import numpy as np
 import sys
 import os
 import string
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import Tkinter as Tk
-import ttk
+import sip
+sip.setapi('Qstring', 2)
+from PyQt4 import QtGui
+from PyQt4 import QtCore
+from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg
+from matplotlib.figure import Figure
 
-class Frame_panel(ttk.Frame):
+class Frame_panel(QtGui.QWidget):
     def __init__(self, parent, *args, **kwargs):
-        ttk.Frame.__init__(self, parent.master, *args, **kwargs)
+        super(Frame_panel, self).__init__(parent, *args, **kwargs)
         
         self.parent = parent
         self.emc_reader = self.parent.emc_reader
@@ -17,50 +19,57 @@ class Frame_panel(ttk.Frame):
         self.cmap = self.parent.cmap
         self.mode = None
         
-        self.numstr = Tk.StringVar(); self.numstr.set(str(0))
-        self.rangestr = Tk.StringVar(); self.rangestr.set(str(10))
+        self.numstr = '0'
+        self.rangestr = '10'
         
         self.init_UI()
 
     def init_UI(self):
-        self.fig = plt.figure(figsize=(6, 6))
-        self.canvas = FigureCanvasTkAgg(self.fig, self)
-        self.canvas_widget = self.canvas.get_tk_widget()
-        self.canvas.show()
-        self.canvas_widget.pack(fill='both', expand=1)
+        vbox = QtGui.QVBoxLayout(self)
         
-        self.options = ttk.Frame(self.parent.master, relief=Tk.GROOVE, borderwidth=5, width=400, height=200)
-        self.options.grid(row=1, column=0, sticky='nsew')
+        self.fig = Figure(figsize=(6, 6))
+        self.canvas = FigureCanvasQTAgg(self.fig)
+        #self.canvas.setFocusPolicy(QtCore.Qt.StrongFocus)
+        self.canvas.mpl_connect('button_press_event', self.frame_focus)
+        vbox.addWidget(self.canvas)
         
-        line = ttk.Frame(self.options)
-        line.pack(fill=Tk.X)
-        ttk.Label(line, text='Frame number: ').pack(side=Tk.LEFT)
-        ttk.Entry(line, textvariable=self.numstr, width=8).pack(side=Tk.LEFT)
-        ttk.Label(line, text='/%d'%self.num_frames).pack(side=Tk.LEFT)
-        ttk.Entry(line, textvariable=self.rangestr, width=6).pack(side=Tk.RIGHT)
-        ttk.Label(line, text='PlotMax: ').pack(side=Tk.RIGHT)
+        hbox = QtGui.QHBoxLayout()
+        vbox.addLayout(hbox)
+        label = QtGui.QLabel('Frame number: ', self)
+        hbox.addWidget(label)
+        self.numstr = QtGui.QLineEdit('0', self)
+        self.numstr.setFixedWidth(64)
+        hbox.addWidget(self.numstr)
+        label = QtGui.QLabel('/%d'%self.num_frames, self)
+        hbox.addWidget(label)
+        hbox.addStretch(1)
+        label = QtGui.QLabel('PlotMax:', self)
+        hbox.addWidget(label)
+        self.rangestr = QtGui.QLineEdit('10', self)
+        self.rangestr.setFixedWidth(48)
+        hbox.addWidget(self.rangestr)
         
-        line = ttk.Frame(self.options)
-        line.pack(fill=Tk.X)
-        ttk.Button(line, text='Plot', command=self.plot_frame).pack(side=Tk.LEFT)
-        ttk.Button(line, text='Prev', command=self.prev_frame).pack(side=Tk.LEFT)
-        ttk.Button(line, text='Next', command=self.next_frame).pack(side=Tk.LEFT)
-        ttk.Button(line, text='Random', command=self.rand_frame).pack(side=Tk.LEFT)
-        ttk.Button(line, text='Quit', command=self.parent.quit).pack(side=Tk.RIGHT)
-        
-        self.master.bind('<Return>', self.plot_frame)
-        self.master.bind('<KP_Enter>', self.plot_frame)
-        self.master.bind('<Control-n>', self.next_frame)
-        self.master.bind('<Control-p>', self.prev_frame)
-        self.master.bind('<Control-r>', self.rand_frame)
-        self.master.bind('<Control-q>', self.parent.quit)
-        self.canvas_widget.bind('<Button-1>', self.frame_focus)
-        self.canvas_widget.bind('<Right>', self.next_frame)
-        self.canvas_widget.bind('<Left>', self.prev_frame)
-        self.canvas_widget.bind('<Up>', self.next_frame)
-        self.canvas_widget.bind('<Down>', self.prev_frame)
+        hbox = QtGui.QHBoxLayout()
+        vbox.addLayout(hbox)
+        button = QtGui.QPushButton('Plot', self)
+        button.clicked.connect(self.plot_frame)
+        hbox.addWidget(button)
+        button = QtGui.QPushButton('Prev', self)
+        button.clicked.connect(self.prev_frame)
+        hbox.addWidget(button)
+        button = QtGui.QPushButton('Next', self)
+        button.clicked.connect(self.next_frame)
+        hbox.addWidget(button)
+        button = QtGui.QPushButton('Random', self)
+        button.clicked.connect(self.rand_frame)
+        hbox.addWidget(button)
+        hbox.addStretch(1)
+        button = QtGui.QPushButton('Quit', self)
+        button.clicked.connect(self.parent.quit)
+        hbox.addWidget(button)
         
         self.plot_frame()
+        self.show()
 
     def plot_frame(self, event=None, embed=None, force_frame=False):
         if self.mode is not None:
@@ -69,7 +78,7 @@ class Frame_panel(ttk.Frame):
             mode = 0
         
         try:
-            num = int(self.numstr.get())
+            num = int(self.numstr.text())
         except ValueError:
             print 'Frame number must be integer'
             return
@@ -82,14 +91,14 @@ class Frame_panel(ttk.Frame):
         
         if mode == 2:
             # Conversion panel
-            s = plt.subplot(121)
-            s.imshow(frame, vmin=0, vmax=float(self.rangestr.get()), interpolation='none', cmap=self.cmap)
+            s = self.fig.add_subplot(121)
+            s.imshow(frame, vmin=0, vmax=float(self.rangestr.text()), interpolation='none', cmap=self.cmap)
             s.set_title("%d photons" % frame.sum())
             self.fig.add_subplot(s)
             
-            s = plt.subplot(122)
+            s = self.fig.add_subplot(122)
             pframe = self.parent.conversion_panel.polar.convert(frame)
-            s.imshow(pframe, vmin=0, vmax=float(self.rangestr.get()), interpolation='none', cmap=self.cmap, aspect=float(pframe.shape[1])/pframe.shape[0])
+            s.imshow(pframe, vmin=0, vmax=float(self.rangestr.text()), interpolation='none', cmap=self.cmap, aspect=float(pframe.shape[1])/pframe.shape[0])
             title = 'Polar representation'
             self.fig.add_subplot(s)
         elif (not force_frame) and mode == 3 and self.parent.embedding_panel.embed is not None:
@@ -100,8 +109,8 @@ class Frame_panel(ttk.Frame):
             for p in ep.click_points_list:
                 self.canvas_widget.tag_raise(p)
             
-            plt.gcf().clear()
-            s = plt.subplot(111)
+            self.fig.clear()
+            s = self.fig.add_subplot(111)
             e = ep.embed_plot
             try:
                 xnum = int(ep.x_axis_num.get())
@@ -109,7 +118,7 @@ class Frame_panel(ttk.Frame):
             except ValueError:
                 print 'Need axes numbers to be integers'
                 return
-            s.hist2d(e[:,xnum], e[:,ynum], bins=[ep.binx, ep.biny], vmax=float(self.rangestr.get()))
+            s.hist2d(e[:,xnum], e[:,ynum], bins=[ep.binx, ep.biny], vmax=float(self.rangestr.text()))
             title = 'Spectral embedding'
             self.fig.add_subplot(s)
         else:
@@ -120,9 +129,9 @@ class Frame_panel(ttk.Frame):
                 for p in ep.click_points_list:
                     self.canvas_widget.tag_lower(p)
             
-            plt.gcf().clear()
-            s = plt.subplot(111)
-            s.imshow(frame, vmin=0, vmax=float(self.rangestr.get()), interpolation='none', cmap=self.cmap)
+            self.fig.clear()
+            s = self.fig.add_subplot(111)
+            s.imshow(frame, vmin=0, vmax=float(self.rangestr.text()), interpolation='none', cmap=self.cmap)
             title = '%d photons' % frame.sum()
             if mode == 1:
                 title += ' (%s)' % self.parent.classes.clist[num]
@@ -132,25 +141,37 @@ class Frame_panel(ttk.Frame):
                 title += ' (bad frame)'
             s.set_title(title)
             self.fig.add_subplot(s)
-        self.canvas.show()
+        self.canvas.draw()
 
     def next_frame(self, event=None):
-        num = int(self.numstr.get()) + 1
+        num = int(self.numstr.text()) + 1
         if num < self.num_frames:
-            self.numstr.set(str(num))
+            self.numstr.setText(str(num))
             self.plot_frame()
 
     def prev_frame(self, event=None):
-        num = int(self.numstr.get()) - 1
+        num = int(self.numstr.text()) - 1
         if num > -1:
-            self.numstr.set(str(num))
+            self.numstr.setText(str(num))
             self.plot_frame()
 
     def rand_frame(self, event=None):
         num = np.random.randint(0, self.num_frames)
-        self.numstr.set(str(num))
+        self.numstr.setText(str(num))
         self.plot_frame()
 
     def frame_focus(self, event=None):
-        self.canvas_widget.focus_set()
+        self.setFocus()
+
+    def keyPressEvent(self, event):
+        k = event.key()
+        
+        if k == QtCore.Qt.Key_Return or k == QtCore.Qt.Key_Enter:
+            self.plot_frame()
+        elif k == QtCore.Qt.Key_Right or k == QtCore.Qt.Key_Down:
+            self.next_frame()
+        elif k == QtCore.Qt.Key_Left or k == QtCore.Qt.Key_Up:
+            self.prev_frame()
+        else:
+            event.ignore()
 

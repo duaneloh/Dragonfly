@@ -3,21 +3,21 @@
 import numpy as np
 import sys
 import os
-import matplotlib.pyplot as plt
-import Tkinter as Tk
-import ttk
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import sip
+sip.setapi('Qstring', 2)
+from PyQt4 import QtGui
+from PyQt4 import QtCore
 from py_src import py_utils
 from py_src import read_config
 from py_src import frame_panel
 from py_src import data
 
-class Frameviewer():
-    def __init__(self, master, config_file, cmap='jet', mask=False):
-        self.master = master
-        self.cmap = cmap
+class Frameviewer(QtGui.QMainWindow):
+    def __init__(self, config_file, cmap='jet', mask=False):
+        super(Frameviewer, self).__init__()
         self.config_file = config_file
-        self.mode_val = None
+        self.cmap = cmap
+        print map(str, QtGui.QFontDatabase().families())
         
         self.get_config_params()
         self.geom = data.Det_reader(self.det_fname, self.detd, self.ewald_rad, mask_flag=mask)
@@ -26,23 +26,17 @@ class Frameviewer():
         self.init_UI()
 
     def init_UI(self):
-        self.master.title('Dragonfly Frame Viewer')
-        self.master.rowconfigure(0, weight=1)
-        self.master.columnconfigure(0, weight=1)
-        self.master.protocol('WM_DELETE_WINDOW', self.quit)
-        if sys.platform != 'darwin':
-            path_string = " ".join(os.path.realpath(__file__).split('/')[:-1])
-            self.master.tk.eval('source [file join / ' + path_string + ' themes plastik plastik.tcl]')
-            self.master.tk.eval('source [file join / ' + path_string + ' themes clearlooks clearlooks8.5.tcl]')
-            fstyle = ttk.Style()
-            fstyle.theme_use('clearlooks')
-            #fstyle.theme_use('plastik')
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+        self.setWindowTitle('Dragonfly Frame Viewer')
+        window = QtGui.QWidget()
+        self.hbox = QtGui.QHBoxLayout()
         
         self.frame_panel = frame_panel.Frame_panel(self)
-        self.frame_panel.grid(row=0, column=0, sticky='nsew')
-        self.frame_panel.columnconfigure(0, weight=1)
-        self.frame_panel.rowconfigure(0, weight=1)
-        self.frame_panel.mode = self.mode_val
+        self.hbox.addWidget(self.frame_panel)
+        
+        window.setLayout(self.hbox)
+        self.setCentralWidget(window)
+        self.show()
 
     def get_config_params(self):
         try:
@@ -70,16 +64,26 @@ class Frameviewer():
         self.ewald_rad = pm['ewald_rad']
         self.detd = pm['detd']/pm['pixsize']
 
-    def next_bad_frame(self, event=None):
-        cur_num = int(self.numstr.get())
-        ind = np.where(self.blacklist==1)[0]
-        num = ind[ind>cur_num][0]
-        #num = np.where(np.where(self.blacklist==1)[0]>cur_num)[0][0]
-        self.numstr.set(str(num))
-        self.plot_frame()
+    def keyPressEvent(self, event):
+        k = event.key()
+        m = int(event.modifiers())
+        
+        if QtGui.QKeySequence(m+k) == int(QtGui.QKeySequence('Ctrl+N')):
+            self.frame_panel.next_frame()
+        elif QtGui.QKeySequence(m+k) == int(QtGui.QKeySequence('Ctrl+P')):
+            self.frame_panel.prev_frame()
+        elif QtGui.QKeySequence(m+k) == int(QtGui.QKeySequence('Ctrl+R')):
+            self.frame_panel.rand_frame()
+        elif QtGui.QKeySequence(m+k) == int(QtGui.QKeySequence('Ctrl+Q')):
+            self.quit()
+        else:
+            event.ignore()
 
     def quit(self, event=None):
-        self.master.quit()
+        self.close()
+
+    def closeEvent(self, event):
+        self.quit()
 
 if __name__ == '__main__':
     parser = py_utils.my_argparser(description='Utility for viewing frames of the emc file (list)')
@@ -87,6 +91,6 @@ if __name__ == '__main__':
     parser.add_argument('-M', '--mask', help='Whether to zero out masked pixels (default False)', action='store_true', default=False)
     args = parser.special_parse_args()
     
-    root = Tk.Tk()
-    Frameviewer(root, args.config_file, cmap=args.cmap, mask=args.mask)
-    root.mainloop()
+    app = QtGui.QApplication(sys.argv)
+    Frameviewer(args.config_file, cmap=args.cmap, mask=args.mask)
+    sys.exit(app.exec_())
