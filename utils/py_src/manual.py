@@ -11,7 +11,8 @@ class Manual_panel(ttk.Frame):
         
         self.parent = parent
         self.classes = self.parent.classes
-        self.numstr = self.parent.numstr
+        self.numstr = self.parent.frame_panel.numstr
+        self.plot_frame = self.parent.frame_panel.plot_frame
         self.classify_flag = Tk.IntVar(); self.classify_flag.set(0)
         self.class_list_fname = Tk.StringVar(); self.class_list_fname.set('my_classes.dat')
         self.class_num = Tk.IntVar(); self.class_num.set(-1)
@@ -54,7 +55,7 @@ class Manual_panel(ttk.Frame):
             ttk.Radiobutton(self.class_line, text=k, variable=self.class_num, value=i).grid(row=(i+1)/5,column=(i+1)%5)
 
     def assign_class(self, event=None):
-        num = int(self.parent.numstr.get())
+        num = int(self.numstr.get())
         self.classes.clist[num] = event.char
         self.classes.unsaved = True
         self.class_list_summary.set(self.classes.gen_summary())
@@ -63,13 +64,13 @@ class Manual_panel(ttk.Frame):
         self.next_frame()
 
     def unassign_class(self, event=None):
-        num = int(self.parent.numstr.get())
+        num = int(self.numstr.get())
         self.classes.clist[num] = ''
         self.classes.unsaved = True
         self.class_list_summary.set(self.classes.gen_summary())
         if len(self.class_line.winfo_children()) != len(self.classes.key) + 1:
             self.refresh_class_line()
-        self.parent.plot_frame()
+        self.plot_frame()
 
     def classify_flag_changed(self, event=None):
         if self.classify_flag.get() == 0:
@@ -101,7 +102,7 @@ class Manual_panel(ttk.Frame):
         
         if num < self.parent.num_frames:
             self.numstr.set(str(num))
-            self.parent.plot_frame()
+            self.plot_frame()
 
     def prev_frame(self, event=None):
         num = int(self.numstr.get())
@@ -117,7 +118,7 @@ class Manual_panel(ttk.Frame):
         
         if num > -1:
             self.numstr.set(str(num))
-            self.parent.plot_frame()
+            self.plot_frame()
 
     def rand_frame(self, event=None):
         cnum = self.class_num.get()
@@ -127,5 +128,5 @@ class Manual_panel(ttk.Frame):
             points = np.where(self.classes.key_pos == cnum)[0]
             num = points[np.random.randint(len(points))]
         self.numstr.set(str(num))
-        self.parent.plot_frame()
+        self.plot_frame()
 

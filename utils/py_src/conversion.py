@@ -14,6 +14,7 @@ class Conversion_panel(ttk.Frame):
         
         self.parent = parent
         self.emc_reader = self.parent.emc_reader
+        self.plot_frame = self.parent.frame_panel.plot_frame
         self.r_min = Tk.StringVar(); self.r_min.set('16')
         self.r_max = Tk.StringVar(); self.r_max.set('80')
         self.delta_r = Tk.StringVar(); self.delta_r.set('2')
@@ -76,15 +77,15 @@ class Conversion_panel(ttk.Frame):
         ttk.Checkbutton(line, text='Save', variable=self.save_flag).pack(side=Tk.RIGHT)
 
     def remake_converter(self, replot=True, event=None):
-        self.polar = polar.Polar_converter(self.parent.cx, 
-                                               self.parent.cy, 
-                                               self.parent.raw_mask,
-                                               r_min = float(self.r_min.get()),
-                                               r_max = float(self.r_max.get()),
-                                               delta_r = float(self.delta_r.get()),
-                                               delta_ang = float(self.delta_ang.get()))
+        self.polar = polar.Polar_converter(self.parent.geom.cx, 
+                                           self.parent.geom.cy, 
+                                           self.parent.geom.raw_mask,
+                                           r_min = float(self.r_min.get()),
+                                           r_max = float(self.r_max.get()),
+                                           delta_r = float(self.delta_r.get()),
+                                           delta_ang = float(self.delta_ang.get()))
         if replot:
-            self.parent.plot_frame()
+            self.plot_frame()
 
     def convert_frames(self, save=True, event=None):
         ang_corr = []

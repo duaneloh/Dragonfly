@@ -14,6 +14,9 @@ class Embedding_panel(ttk.Frame, object):
         self.classes = self.parent.classes
         self.conversion = self.parent.conversion_panel
         self.manual = self.parent.manual_panel
+        self.plot_frame = self.parent.frame_panel.plot_frame
+        self.canvas_widget = self.parent.frame_panel.canvas_widget
+        self.numstr = self.parent.frame_panel.numstr
         
         self.track_flag = Tk.IntVar(); self.track_flag.set(0)
         self.current_roi = Tk.IntVar(); self.current_roi.set(0)
@@ -72,7 +75,7 @@ class Embedding_panel(ttk.Frame, object):
         self.embed_plot = self.embed
         
         self.gen_hist()
-        self.parent.plot_frame()
+        self.plot_frame()
         if not self.embedded:
             self.add_classes_frame()
         self.embedded = True
@@ -111,11 +114,11 @@ class Embedding_panel(ttk.Frame, object):
         key_pos = np.where(self.classes.key_pos == self.class_num.get())[0]
         key_pos = key_pos[(key_pos>=first) & (key_pos<last)] - first
         self.embed_plot = self.embed[key_pos]
-        self.parent.plot_frame()
+        self.plot_frame()
 
     def show_all_classes(self, event=None):
         self.embed_plot = self.embed
-        self.parent.plot_frame()
+        self.plot_frame()
 
     def refresh_classes(self,event=None):
         for c in self.classes_line.winfo_children():
@@ -126,13 +129,13 @@ class Embedding_panel(ttk.Frame, object):
     def track_flag_changed(self, event=None):
         if self.track_flag.get() == 1:
             if self.embed is not None:
-                self.connect_id = self.parent.canvas.mpl_connect('button_press_event', self.track_positions)
+                self.connect_id = self.parent.frame_panel.canvas.mpl_connect('button_press_event', self.track_positions)
         else:
             self.end_track_positions()
 
     def track_positions(self, event=None):
         self.event = event
-        self.click_points_list.append(self.parent.canvas_widget.create_line([event.guiEvent.x, event.guiEvent.y, event.guiEvent.x+1, event.guiEvent.y+1], fill='white', width=4.0))
+        self.click_points_list.append(self.canvas_widget.create_line([event.guiEvent.x, event.guiEvent.y, event.guiEvent.x+1, event.guiEvent.y+1], fill='white', width=4.0))
         self.positions.append([event.xdata, event.ydata])
         self.poly_positions.append([event.guiEvent.x, event.guiEvent.y])
 
@@ -153,7 +156,7 @@ class Embedding_panel(ttk.Frame, object):
         self.points_inside_list.append(np.where(points_inside)[0] + int(self.conversion.first_frame.get()))
         
         self.roi_list.append(
-            self.parent.canvas_widget.create_polygon(
+            self.canvas_widget.create_polygon(
                 np.array(self.poly_positions).flatten().tolist(), 
                 fill='',
                 outline='white',
@@ -161,7 +164,7 @@ class Embedding_panel(ttk.Frame, object):
             )
         )
         
-        self.parent.canvas.mpl_disconnect(self.connect_id)
+        self.parent.frame_panel.canvas.mpl_disconnect(self.connect_id)
         self.positions = []
         self.poly_positions = []
         if self.roi_summary is None:
@@ -208,9 +211,9 @@ class Embedding_panel(ttk.Frame, object):
     def clear_roi(self):
         self.roi_summary.set('')
         for p in self.roi_list:
-            self.parent.canvas_widget.delete(p)
+            self.canvas_widget.delete(p)
         for p in self.click_points_list:
-            self.parent.canvas_widget.delete(p)
+            self.canvas_widget.delete(p)
         self.roi_list = []
         self.click_points_list = []
         self.path_list = []
@@ -220,27 +223,27 @@ class Embedding_panel(ttk.Frame, object):
         self.roi_summary = None
 
     def prev_frame(self, event=None):
-        num = int(self.parent.numstr.get())
+        num = int(self.numstr.get())
         points = self.points_inside_list[self.current_roi.get()]
         index = np.searchsorted(points, num, side='left') - 1
         if index < 0:
             index = 0
-        self.parent.numstr.set(str(points[index]))
-        self.parent.plot_frame(force_frame=True)
+        self.numstr.set(str(points[index]))
+        self.plot_frame(force_frame=True)
 
     def next_frame(self, event=None):
-        num = int(self.parent.numstr.get())
+        num = int(self.numstr.get())
         points = self.points_inside_list[self.current_roi.get()]
         index = np.searchsorted(points, num, side='left') + 1
         if index > len(points) - 1:
             index = len(points) - 1
-        self.parent.numstr.set(str(points[index]))
-        self.parent.plot_frame(force_frame=True)
+        self.numstr.set(str(points[index]))
+        self.plot_frame(force_frame=True)
 
     def random_frame(self, event=None):
         points = self.points_inside_list[self.current_roi.get()]
-        self.parent.numstr.set(str(points[np.random.randint(len(points))]))
-        self.parent.plot_frame(force_frame=True)
+        self.numstr.set(str(points[np.random.randint(len(points))]))
+        self.plot_frame(force_frame=True)
 
     def apply_class(self, event=None):
         roi_num = self.current_roi.get()
@@ -251,7 +254,7 @@ class Embedding_panel(ttk.Frame, object):
 
     def grid_forget(self):
         for p in self.roi_list:
-            self.parent.canvas_widget.tag_lower(p)
+            self.canvas_widget.tag_lower(p)
         for p in self.click_points_list:
-            self.parent.canvas_widget.tag_lower(p)
+            self.canvas_widget.tag_lower(p)
         super(Embedding_panel, self).grid_forget()
