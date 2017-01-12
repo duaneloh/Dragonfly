@@ -3,8 +3,8 @@
 MPICC = mpicc
 CC = gcc
 
-CFLAGS = -Wno-unused-result -O3 -Wall -fopenmp
-LIBS = -lm -lgsl -lgslcblas -fopenmp
+CFLAGS = $(shell gsl-config --cflags) -Wno-unused-result -O3 -Wall -fopenmp
+LIBS = $(shell gsl-config --libs) -fopenmp
 
 OMPI_CC = $(CC)
 EMC_SRC = $(wildcard src/*.c)
