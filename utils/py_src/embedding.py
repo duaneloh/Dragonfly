@@ -2,30 +2,30 @@ import numpy as np
 import sys
 import os
 import string
-import Tkinter as Tk
-import ttk
+import matplotlib
 import matplotlib.path
+import matplotlib.patches
 from sklearn import manifold
+import sip
+sip.setapi('Qstring', 2)
+from PyQt4 import QtGui
+from PyQt4 import QtCore
 
-class Embedding_panel(ttk.Frame, object):
+class Embedding_panel(QtGui.QWidget):
     def __init__(self, parent, *args, **kwargs):
-        ttk.Frame.__init__(self, parent.master, *args, **kwargs)
+        super(Embedding_panel, self).__init__(parent, *args, **kwargs)
+        
+        self.setFixedWidth(250)
         self.parent = parent
         self.classes = self.parent.classes
         self.conversion = self.parent.conversion_panel
         self.manual = self.parent.manual_panel
-        self.plot_frame = self.parent.frame_panel.plot_frame
-        self.canvas_widget = self.parent.frame_panel.canvas_widget
-        self.numstr = self.parent.frame_panel.numstr
+        self.frame = self.parent.frame_panel
+        self.plot_frame = self.frame.plot_frame
+        self.canvas = self.frame.canvas
+        self.numstr = self.frame.numstr
         
-        self.track_flag = Tk.IntVar(); self.track_flag.set(0)
-        self.current_roi = Tk.IntVar(); self.current_roi.set(0)
-        self.class_tag = Tk.StringVar(); self.class_tag.set('')
-        self.class_num = Tk.IntVar(); self.class_num.set(0)
-        self.x_axis_num = Tk.StringVar(); self.x_axis_num.set('0')
-        self.y_axis_num = Tk.StringVar(); self.y_axis_num.set('1')
         self.positions = []
-        self.poly_positions = []
         self.roi_list = []
         self.path_list = []
         self.points_inside_list = []
@@ -37,30 +37,53 @@ class Embedding_panel(ttk.Frame, object):
         self.init_UI()
 
     def init_UI(self):
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
-        ttk.Label(line, text='Spectral manifold embedding').pack(side=Tk.LEFT, fill=Tk.X)
+        self.vbox = QtGui.QVBoxLayout(self)
         
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
-        ttk.Label(line, text='Frame range:').pack(side=Tk.LEFT)
-        ttk.Entry(line, textvariable=self.conversion.first_frame, width=8).pack(side=Tk.LEFT)
-        ttk.Label(line, text='-').pack(side=Tk.LEFT)
-        ttk.Entry(line, textvariable=self.conversion.last_frame, width=8).pack(side=Tk.LEFT)
+        label = QtGui.QLabel('Spectral manifold embedding', self)
+        self.vbox.addWidget(label)
         
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
-        ttk.Button(line, text='Embed', command=self.do_embedding).pack(side=Tk.LEFT)
-        ttk.Checkbutton(line, text='Draw ROI', variable=self.track_flag, command=self.track_flag_changed).pack(side=Tk.LEFT)
+        hbox = QtGui.QHBoxLayout()
+        self.vbox.addLayout(hbox)
+        label = QtGui.QLabel('Frame range:', self)
+        hbox.addWidget(label)
+        self.conversion.first_frame = QtGui.QLineEdit('0')
+        self.conversion.first_frame.setFixedWidth(64)
+        hbox.addWidget(self.conversion.first_frame)
+        label = QtGui.QLabel('-', self)
+        hbox.addWidget(label)
+        self.conversion.last_frame = QtGui.QLineEdit('1000')
+        self.conversion.last_frame.setFixedWidth(64)
+        hbox.addWidget(self.conversion.last_frame)
+        hbox.addStretch(1)
         
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
-        ttk.Label(line, text='X-axis:').pack(side=Tk.LEFT)
-        entry = ttk.Entry(line, textvariable=self.x_axis_num, width=2)
-        entry.pack(side=Tk.LEFT)
-        entry.bind('<Return>', self.gen_hist)
-        entry.bind('<KP_Enter>', self.gen_hist)
-        ttk.Label(line, text='Y-axis:').pack(side=Tk.LEFT)
-        entry = ttk.Entry(line, textvariable=self.y_axis_num, width=2)
-        entry.pack(side=Tk.LEFT)
-        entry.bind('<Return>', self.gen_hist)
-        entry.bind('<KP_Enter>', self.gen_hist)
+        hbox = QtGui.QHBoxLayout()
+        self.vbox.addLayout(hbox)
+        button = QtGui.QPushButton('Embed', self)
+        button.clicked.connect(self.do_embedding)
+        hbox.addWidget(button)
+        self.track_flag = QtGui.QCheckBox('Draw ROI', self)
+        self.track_flag.setChecked(False)
+        self.track_flag.stateChanged.connect(self.track_flag_changed)
+        hbox.addWidget(self.track_flag)
+        hbox.addStretch(1)
+        
+        hbox = QtGui.QHBoxLayout()
+        self.vbox.addLayout(hbox)
+        label = QtGui.QLabel('X-axis:', self)
+        hbox.addWidget(label)
+        self.x_axis_num = QtGui.QLineEdit('0', self)
+        self.x_axis_num.setFixedWidth(24)
+        self.x_axis_num.editingFinished.connect(self.gen_hist)
+        hbox.addWidget(self.x_axis_num)
+        label = QtGui.QLabel('Y-axis:', self)
+        hbox.addWidget(label)
+        self.y_axis_num = QtGui.QLineEdit('1', self)
+        self.y_axis_num.setFixedWidth(24)
+        self.y_axis_num.editingFinished.connect(self.gen_hist)
+        hbox.addWidget(self.y_axis_num)
+        hbox.addStretch(1)
+        
+        self.vbox.addStretch(1)
 
     def do_embedding(self, event=None):
         ang_corr = self.parent.ang_corr
@@ -82,8 +105,8 @@ class Embedding_panel(ttk.Frame, object):
 
     def gen_hist(self, event=None):
         try:
-            xnum = int(self.x_axis_num.get())
-            ynum = int(self.y_axis_num.get())
+            xnum = int(self.x_axis_num.text())
+            ynum = int(self.y_axis_num.text())
         except ValueError:
             print 'Need axes numbers to be integers'
             return
@@ -97,21 +120,35 @@ class Embedding_panel(ttk.Frame, object):
         self.biny = np.insert(self.biny, len(self.biny), [self.biny[-1]+dely, self.biny[-1]+6*dely])
 
     def add_classes_frame(self):
-        self.classes_frame = ttk.Frame(self, borderwidth=4, relief='groove'); self.classes_frame.pack(fill=Tk.X)
+        self.vbox.setStretch(self.vbox.count()-1, 0)
         
-        self.classes_line = ttk.Frame(self.classes_frame); self.classes_line.pack(fill=Tk.X)
-        for i, k in enumerate(self.classes.key):
-            ttk.Radiobutton(self.classes_line, text=k, variable=self.class_num, value=i, command=self.show_selected_class).grid(row=i/5,column=i%5)
+        hbox = QtGui.QHBoxLayout()
+        self.vbox.addLayout(hbox)
+        self.class_line = QtGui.QGridLayout()
+        hbox.addLayout(self.class_line)
+        hbox.addStretch(1)
+        self.class_num = QtGui.QButtonGroup()
+        self.refresh_classes()
         
-        line = ttk.Frame(self.classes_frame); line.pack(fill=Tk.X)
-        ttk.Button(line, text='Show', command=self.show_selected_class).pack(side=Tk.LEFT)
-        ttk.Button(line, text='See all', command=self.show_all_classes).pack(side=Tk.LEFT)
-        ttk.Button(line, text='Refresh', command=self.refresh_classes).pack(side=Tk.LEFT)
+        hbox = QtGui.QHBoxLayout()
+        self.vbox.addLayout(hbox)
+        button = QtGui.QPushButton('Show', self)
+        button.clicked.connect(self.show_selected_class)
+        hbox.addWidget(button)
+        button = QtGui.QPushButton('See all', self)
+        button.clicked.connect(self.show_all_classes)
+        hbox.addWidget(button)
+        button = QtGui.QPushButton('Refresh', self)
+        button.clicked.connect(self.refresh_classes)
+        hbox.addWidget(button)
+        hbox.addStretch(1)
+        
+        self.vbox.addStretch(1)
 
     def show_selected_class(self, event=None):
-        first = int(self.conversion.first_frame.get())
-        last = int(self.conversion.last_frame.get())
-        key_pos = np.where(self.classes.key_pos == self.class_num.get())[0]
+        first = int(self.conversion.first_frame.text())
+        last = int(self.conversion.last_frame.text())
+        key_pos = np.where(self.classes.key_pos == self.class_num.checkedId())[0]
         key_pos = key_pos[(key_pos>=first) & (key_pos<last)] - first
         self.embed_plot = self.embed[key_pos]
         self.plot_frame()
@@ -121,31 +158,44 @@ class Embedding_panel(ttk.Frame, object):
         self.plot_frame()
 
     def refresh_classes(self,event=None):
-        for c in self.classes_line.winfo_children():
-            c.destroy()
+        for i in reversed(range(self.class_line.count())):
+            w = self.class_line.itemAt(i).widget()
+            self.class_line.removeWidget(w)
+            w.setParent(None)
         for i, k in enumerate(self.classes.key):
-            ttk.Radiobutton(self.classes_line, text=k, variable=self.class_num, value=i, command=self.show_selected_class).grid(row=i/5,column=i%5)
+            if k == '':
+                text = '  '
+            else:
+                text = k
+            button = QtGui.QRadioButton(text, self)
+            button.clicked.connect(self.show_selected_class)
+            if i == 0:
+                button.setChecked(True)
+            self.class_num.addButton(button, i)
+            self.class_line.addWidget(button, i/5, i%5)
 
     def track_flag_changed(self, event=None):
-        if self.track_flag.get() == 1:
+        if self.track_flag.isChecked():
             if self.embed is not None:
-                self.connect_id = self.parent.frame_panel.canvas.mpl_connect('button_press_event', self.track_positions)
+                self.connect_id = self.frame.canvas.mpl_connect('button_press_event', self.track_positions)
         else:
             self.end_track_positions()
 
     def track_positions(self, event=None):
         self.event = event
-        self.click_points_list.append(self.canvas_widget.create_line([event.guiEvent.x, event.guiEvent.y, event.guiEvent.x+1, event.guiEvent.y+1], fill='white', width=4.0))
-        self.positions.append([event.xdata, event.ydata])
-        self.poly_positions.append([event.guiEvent.x, event.guiEvent.y])
+        x = event.xdata
+        y = event.ydata
+        self.click_points_list.append(self.frame.fig.get_axes()[0].plot([x], [y], marker='.', markersize=8., color='white')[0])
+        self.frame.canvas.draw()
+        self.positions.append([x, y])
 
     def end_track_positions(self):
         pos = np.array(self.positions)
         if pos.size == 0:
             return
         try:
-            xnum = int(self.x_axis_num.get())
-            ynum = int(self.y_axis_num.get())
+            xnum = int(self.x_axis_num.text())
+            ynum = int(self.y_axis_num.text())
         except ValueError:
             print 'Need axes numbers to be integers'
             return
@@ -153,52 +203,94 @@ class Embedding_panel(ttk.Frame, object):
         self.path_list.append(matplotlib.path.Path(pos, closed=True))
         points_inside = np.array([self.path_list[-1].contains_point((p[xnum], p[ynum])) for p in self.embed])
         print '%d/%d frames inside ROI %d' % (points_inside.sum(), len(points_inside), len(self.points_inside_list))
-        self.points_inside_list.append(np.where(points_inside)[0] + int(self.conversion.first_frame.get()))
+        self.points_inside_list.append(np.where(points_inside)[0] + int(self.conversion.first_frame.text()))
         
         self.roi_list.append(
-            self.canvas_widget.create_polygon(
-                np.array(self.poly_positions).flatten().tolist(), 
-                fill='',
-                outline='white',
-                width=2
+            matplotlib.patches.PathPatch(
+                self.path_list[-1],
+                color='white',
+                fill=False,
+                linewidth=2.,
+                figure=self.frame.fig
             )
         )
+        self.frame.fig.get_axes()[0].add_artist(self.roi_list[-1])
+        for p in self.click_points_list:
+            p.remove()
+        self.frame.canvas.draw()
         
-        self.parent.frame_panel.canvas.mpl_disconnect(self.connect_id)
+        self.frame.canvas.mpl_disconnect(self.connect_id)
         self.positions = []
-        self.poly_positions = []
+        self.click_points_list = []
         if self.roi_summary is None:
             self.add_roi_frame()
+        elif self.roi_summary.text() == '':
+            self.roi_frame.show()
         self.gen_roi_summary()
         self.add_roi_radiobutton(len(self.roi_list)-1)
 
     def add_roi_frame(self):
-        self.roi_summary = Tk.StringVar(); self.roi_summary.set('')
-        self.roi_frame = ttk.Frame(self, borderwidth=4, relief='groove'); self.roi_frame.pack(fill=Tk.X)
+        self.vbox.setStretch(self.vbox.count()-1, 0)
+        self.roi_frame = QtGui.QFrame(self)
+        self.vbox.addWidget(self.roi_frame)
+        self.vbox.addStretch(1)
+        vbox = QtGui.QVBoxLayout()
+        self.roi_frame.setLayout(vbox)
         
-        line = ttk.Frame(self.roi_frame); line.pack(fill=Tk.X)
-        ttk.Label(line, textvariable=self.roi_summary).pack(side=Tk.LEFT)
+        self.roi_summary = QtGui.QLabel('', self)
+        vbox.addWidget(self.roi_summary)
         
-        line = ttk.Frame(self.roi_frame); line.pack(fill=Tk.X)
-        ttk.Button(line, text='Clear ROIs', command=self.clear_roi).pack(side=Tk.LEFT)
+        hbox = QtGui.QHBoxLayout()
+        vbox.addLayout(hbox)
+        button = QtGui.QPushButton('Clear ROIs', self)
+        button.clicked.connect(self.clear_roi)
+        hbox.addWidget(button)
+        hbox.addStretch(1)
         
-        self.roi_choice = ttk.Frame(self.roi_frame); self.roi_choice.pack(fill=Tk.X)
+        hbox = QtGui.QHBoxLayout()
+        vbox.addLayout(hbox)
+        self.roi_choice = QtGui.QGridLayout()
+        self.current_roi = QtGui.QButtonGroup()
+        hbox.addLayout(self.roi_choice)
+        hbox.addStretch(1)
         
-        line = ttk.Frame(self.roi_frame); line.pack(fill=Tk.X)
-        ttk.Button(line, text='Prev', command=self.prev_frame).pack(side=Tk.LEFT)
-        ttk.Button(line, text='Next', command=self.next_frame).pack(side=Tk.LEFT)
-        ttk.Button(line, text='Random', command=self.random_frame).pack(side=Tk.LEFT)
+        hbox = QtGui.QHBoxLayout()
+        vbox.addLayout(hbox)
+        button = QtGui.QPushButton('Prev', self)
+        button.clicked.connect(self.prev_frame)
+        hbox.addWidget(button)
+        button = QtGui.QPushButton('Next', self)
+        button.clicked.connect(self.next_frame)
+        hbox.addWidget(button)
+        button = QtGui.QPushButton('Random', self)
+        button.clicked.connect(self.rand_frame)
+        hbox.addWidget(button)
+        hbox.addStretch(1)
         
-        line = ttk.Frame(self.roi_frame); line.pack(fill=Tk.X)
-        ttk.Entry(line, textvariable=self.class_tag, width=2).pack(side=Tk.LEFT)
-        ttk.Button(line, text='Apply Class', command=self.apply_class).pack(side=Tk.LEFT)
+        hbox = QtGui.QHBoxLayout()
+        vbox.addLayout(hbox)
+        self.class_tag = QtGui.QLineEdit('', self)
+        self.class_tag.setFixedWidth(24)
+        hbox.addWidget(self.class_tag)
+        button = QtGui.QPushButton('Apply Class', self)
+        button.clicked.connect(self.apply_class)
+        hbox.addWidget(button)
+        hbox.addStretch(1)
         
-        line = ttk.Frame(self.roi_frame); line.pack(fill=Tk.X)
-        ttk.Entry(line, textvariable=self.manual.class_list_fname).pack(side=Tk.LEFT)
-        ttk.Button(line, text='Save Classes', command=self.manual.save_class_list).pack(side=Tk.LEFT)
+        hbox = QtGui.QHBoxLayout()
+        vbox.addLayout(hbox)
+        hbox.addWidget(self.manual.class_list_fname)
+        button = QtGui.QPushButton('Save Classes', self)
+        button.clicked.connect(self.manual.save_class_list)
+        hbox.addWidget(button)
+        hbox.addStretch(1)
 
     def add_roi_radiobutton(self, num):
-        ttk.Radiobutton(self.roi_choice, text=str(num), variable=self.current_roi, value=num).grid(row=num/5, column=num%5)
+        button = QtGui.QRadioButton(str(num))
+        if num == 0:
+            button.setChecked(True)
+        self.current_roi.addButton(button, num)
+        self.roi_choice.addWidget(button, num/5, num%5)
 
     def gen_roi_summary(self):
         summary = 'Embedded frames = %d\n' % len(self.embed)
@@ -206,43 +298,43 @@ class Embedding_panel(ttk.Frame, object):
             summary += '%3d:%-5d ' % (i, len(p))
             if i%5 == 4:
                 summary += '\n'
-        self.roi_summary.set(summary)
+        self.roi_summary.setText(summary)
 
     def clear_roi(self):
-        self.roi_summary.set('')
         for p in self.roi_list:
-            self.canvas_widget.delete(p)
-        for p in self.click_points_list:
-            self.canvas_widget.delete(p)
+            p.remove()
+        self.frame.canvas.draw()
         self.roi_list = []
-        self.click_points_list = []
         self.path_list = []
         self.points_inside_list = []
-        self.roi_frame.pack_forget()
-        self.roi_frame.destroy()
-        self.roi_summary = None
+        for i in reversed(range(self.roi_choice.count())):
+            w = self.roi_choice.itemAt(i).widget()
+            self.roi_choice.removeWidget(w)
+            w.setParent(None)
+        self.roi_frame.hide()
+        self.roi_summary.setText('')
 
     def prev_frame(self, event=None):
-        num = int(self.numstr.get())
-        points = self.points_inside_list[self.current_roi.get()]
+        num = int(self.numstr.text())
+        points = self.points_inside_list[self.current_roi.checkedId()]
         index = np.searchsorted(points, num, side='left') - 1
         if index < 0:
             index = 0
-        self.numstr.set(str(points[index]))
+        self.numstr.setText(str(points[index]))
         self.plot_frame(force_frame=True)
 
     def next_frame(self, event=None):
-        num = int(self.numstr.get())
-        points = self.points_inside_list[self.current_roi.get()]
+        num = int(self.numstr.text())
+        points = self.points_inside_list[self.current_roi.checkedId()]
         index = np.searchsorted(points, num, side='left') + 1
         if index > len(points) - 1:
             index = len(points) - 1
-        self.numstr.set(str(points[index]))
+        self.numstr.setText(str(points[index]))
         self.plot_frame(force_frame=True)
 
-    def random_frame(self, event=None):
-        points = self.points_inside_list[self.current_roi.get()]
-        self.numstr.set(str(points[np.random.randint(len(points))]))
+    def rand_frame(self, event=None):
+        points = self.points_inside_list[self.current_roi.checkedId()]
+        self.numstr.setText(str(points[np.random.randint(len(points))]))
         self.plot_frame(force_frame=True)
 
     def apply_class(self, event=None):
@@ -252,9 +344,17 @@ class Embedding_panel(ttk.Frame, object):
         self.classes.gen_summary()
         self.classes.unsaved = True
 
-    def grid_forget(self):
-        for p in self.roi_list:
-            self.canvas_widget.tag_lower(p)
-        for p in self.click_points_list:
-            self.canvas_widget.tag_lower(p)
-        super(Embedding_panel, self).grid_forget()
+    def custom_hide(self):
+        r = self.parent.geometry()
+        rp = self.geometry()
+        r.setWidth(r.width() - rp.width())
+        self.hide()
+        self.parent.setGeometry(r)
+
+    def custom_show(self):
+        r = self.parent.geometry()
+        rp = self.geometry()
+        r.setWidth(r.width() + rp.width())
+        self.parent.setGeometry(r)
+        self.show()
+

@@ -2,27 +2,24 @@ import numpy as np
 import sys
 import os
 import string
-import Tkinter as Tk
-import ttk
 from sklearn import neural_network
 import multiprocessing
 import ctypes
+import sip
+sip.setapi('Qstring', 2)
+from PyQt4 import QtGui
+from PyQt4 import QtCore
 
-class MLP_panel(ttk.Frame):
+class MLP_panel(QtGui.QWidget):
     def __init__(self, parent, *args, **kwargs):
-        ttk.Frame.__init__(self, parent.master, *args, **kwargs)
+        super(MLP_panel, self).__init__(parent, *args, **kwargs)
+        
+        self.setFixedWidth(240)
         self.parent = parent
         self.classes = self.parent.classes
         self.emc_reader = self.parent.emc_reader
         self.conversion = self.parent.conversion_panel
         
-        self.layer_sizes = Tk.StringVar(); self.layer_sizes.set('10, 10')
-        self.alpha_var = Tk.StringVar(); self.alpha_var.set('1.e-5')
-        self.predict_summary = Tk.StringVar(); self.predict_summary.set('')
-        self.predictions_fname = Tk.StringVar(); self.predictions_fname.set('predictions.dat')
-        self.predict_first = Tk.StringVar(); self.predict_first.set('0')
-        self.predict_last = Tk.StringVar(); self.predict_last.set('1000')
-        self.num_proc = Tk.StringVar(); self.num_proc.set('1')
         self.predictions = None
         self.trained = False
         
@@ -30,32 +27,48 @@ class MLP_panel(ttk.Frame):
         self.remake_mlp()
 
     def init_UI(self):
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
-        ttk.Label(line, text='Multi-Layer Perceptron').pack(side=Tk.LEFT, fill=Tk.X)
+        self.vbox = QtGui.QVBoxLayout(self)
         
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
-        ttk.Label(line, text='Hidden layer sizes').pack(side=Tk.LEFT)
-        entry = ttk.Entry(line, textvariable=self.layer_sizes, width=10)
-        entry.pack(side=Tk.LEFT)
-        entry.bind('<Return>', self.remake_mlp)
-        entry.bind('<KP_Enter>', self.remake_mlp)
+        label = QtGui.QLabel('Multi-layer Perceptron', self)
+        self.vbox.addWidget(label)
         
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
-        ttk.Label(line, text='alpha').pack(side=Tk.LEFT)
-        entry = ttk.Entry(line, textvariable=self.alpha_var, width=5)
-        entry.pack(side=Tk.LEFT)
-        entry.bind('<Return>', self.remake_mlp)
-        entry.bind('<KP_Enter>', self.remake_mlp)
+        hbox = QtGui.QHBoxLayout()
+        self.vbox.addLayout(hbox)
+        label = QtGui.QLabel('Hidden layer sizes', self)
+        hbox.addWidget(label)
+        self.layer_sizes = QtGui.QLineEdit('10, 10', self)
+        self.layer_sizes.setFixedWidth(80)
+        self.layer_sizes.editingFinished.connect(self.remake_mlp)
+        hbox.addWidget(self.layer_sizes)
         
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
-        ttk.Button(line, text='Update', command=self.remake_mlp).pack(side=Tk.LEFT)
+        hbox = QtGui.QHBoxLayout()
+        self.vbox.addLayout(hbox)
+        label = QtGui.QLabel('alpha', self)
+        hbox.addWidget(label)
+        self.alpha_var = QtGui.QLineEdit('0.1', self)
+        self.alpha_var.setFixedWidth(80)
+        self.alpha_var.editingFinished.connect(self.remake_mlp)
+        hbox.addWidget(self.alpha_var)
         
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
-        ttk.Button(line, text='Train', command=self.train).pack(side=Tk.LEFT)
+        hbox = QtGui.QHBoxLayout()
+        self.vbox.addLayout(hbox)
+        button = QtGui.QPushButton('Update', self)
+        button.clicked.connect(self.remake_mlp)
+        hbox.addWidget(button)
+        hbox.addStretch(1)
+        
+        hbox = QtGui.QHBoxLayout()
+        self.vbox.addLayout(hbox)
+        button = QtGui.QPushButton('Train', self)
+        button.clicked.connect(self.train)
+        hbox.addWidget(button)
+        hbox.addStretch(1)
+        
+        self.vbox.addStretch(1)
 
     def remake_mlp(self, event=None):
-        sizes = tuple([int(s.strip()) for s in self.layer_sizes.get().split(',')])
-        alpha = float(self.alpha_var.get())
+        sizes = tuple([int(s.strip()) for s in str(self.layer_sizes.text()).split(',')])
+        alpha = float(self.alpha_var.text())
         self.mlp = neural_network.MLPClassifier(hidden_layer_sizes=sizes, alpha=alpha)
 
     def train(self, event=None):
@@ -74,33 +87,54 @@ class MLP_panel(ttk.Frame):
             self.parent.ang_corr = np.load(self.parent.output_folder+'/ang_corr.npy') #FIXME For debugging
             ang_corr = self.parent.ang_corr
         
-        key_pos = self.classes.key_pos[int(self.conversion.first_frame.get()):int(self.conversion.last_frame.get())]
+        key_pos = self.classes.key_pos[int(self.conversion.first_frame.text()):int(self.conversion.last_frame.text())]
         self.train_data = ang_corr[key_pos>0]
         self.train_labels = key_pos[key_pos>0]
 
     def add_predict_frame(self):
-        self.predict_frame = ttk.Frame(self); self.predict_frame.pack(fill=Tk.X)
+        self.vbox.setStretch(self.vbox.count()-1, 0)
         
-        line = ttk.Frame(self.predict_frame); line.pack(fill=Tk.X)
-        ttk.Entry(line, textvariable=self.predict_first, width=5).pack(side=Tk.LEFT)
-        ttk.Entry(line, textvariable=self.predict_last, width=5).pack(side=Tk.LEFT)
+        hbox = QtGui.QHBoxLayout()
+        self.vbox.addLayout(hbox)
+        self.predict_first = QtGui.QLineEdit('0')
+        self.predict_first.setFixedWidth(64)
+        hbox.addWidget(self.predict_first)
+        label = QtGui.QLabel('-', self)
+        hbox.addWidget(label)
+        self.predict_last = QtGui.QLineEdit('1000')
+        self.predict_last.setFixedWidth(64)
+        hbox.addWidget(self.predict_last)
+        hbox.addStretch(1)
         
-        line = ttk.Frame(self.predict_frame); line.pack(fill=Tk.X)
-        ttk.Button(line, text='Predict', command=self.predict).pack(side=Tk.LEFT)
-        ttk.Entry(line, textvariable=self.num_proc, width=2).pack(side=Tk.LEFT)
+        hbox = QtGui.QHBoxLayout()
+        self.vbox.addLayout(hbox)
+        button = QtGui.QPushButton('Predict', self)
+        button.clicked.connect(self.predict)
+        hbox.addWidget(button)
+        self.num_proc = QtGui.QLineEdit('1', self)
+        self.num_proc.setFixedWidth(24)
+        hbox.addWidget(self.num_proc)
+        hbox.addStretch(1)
         
-        line = ttk.Frame(self.predict_frame); line.pack(fill=Tk.X)
-        ttk.Label(line, textvariable=self.predict_summary).pack(side=Tk.LEFT)
+        self.predict_summary = QtGui.QLabel('', self)
+        self.gen_predict_summary()
+        self.vbox.addWidget(self.predict_summary)
         
-        line = ttk.Frame(self.predict_frame); line.pack(fill=Tk.X)
-        ttk.Entry(line, textvariable=self.predictions_fname).pack(side=Tk.LEFT)
-        ttk.Button(line, text='Save', command=self.save_predictions).pack(side=Tk.TOP, anchor=Tk.W)
+        hbox = QtGui.QHBoxLayout()
+        self.vbox.addLayout(hbox)
+        self.predictions_fname = QtGui.QLineEdit('predictions.dat', self)
+        hbox.addWidget(self.predictions_fname)
+        button = QtGui.QPushButton('Save', self)
+        button.clicked.connect(self.save_predictions)
+        hbox.addWidget(button)
+        
+        self.vbox.addStretch(1)
 
     def predict(self, event=None):
         try:
-            first = int(self.predict_first.get())
-            last = int(self.predict_last.get())
-            num_proc = int(self.num_proc.get())
+            first = int(self.predict_first.text())
+            last = int(self.predict_last.text())
+            num_proc = int(self.num_proc.text())
         except ValueError:
             print 'Integers only'
             return
@@ -137,8 +171,23 @@ class MLP_panel(ttk.Frame):
         key, counts = np.unique(self.predictions, return_counts=True)
         for i, c in zip(key, counts):
             summary += '|%-4s|%7d|\n' % (i, c)
-        self.predict_summary.set(summary)
+        self.predict_summary.setText(summary)
 
     def save_predictions(self, event=None):
-        print 'Saving predictions list to', self.predictions_fname.get()
-        np.savetxt(self.predictions_fname.get(), self.predictions, fmt='%s')
+        print 'Saving predictions list to', self.predictions_fname.text()
+        np.savetxt(self.predictions_fname.text(), self.predictions, fmt='%s')
+
+    def custom_hide(self):
+        r = self.parent.geometry()
+        rp = self.geometry()
+        r.setWidth(r.width() - rp.width())
+        self.hide()
+        self.parent.setGeometry(r)
+
+    def custom_show(self):
+        r = self.parent.geometry()
+        rp = self.geometry()
+        r.setWidth(r.width() + rp.width())
+        self.parent.setGeometry(r)
+        self.show()
+

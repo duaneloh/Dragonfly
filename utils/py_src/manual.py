@@ -2,93 +2,133 @@ import numpy as np
 import sys
 import os
 import string
-import Tkinter as Tk
-import ttk
+import sip
+sip.setapi('Qstring', 2)
+from PyQt4 import QtGui
+from PyQt4 import QtCore
 
-class Manual_panel(ttk.Frame):
+class Manual_panel(QtGui.QWidget):
     def __init__(self, parent, *args, **kwargs):
-        ttk.Frame.__init__(self, parent.master, *args, **kwargs)
+        super(Manual_panel, self).__init__(parent, *args, **kwargs)
         
+        self.setFixedWidth(280)
         self.parent = parent
         self.classes = self.parent.classes
         self.numstr = self.parent.frame_panel.numstr
         self.plot_frame = self.parent.frame_panel.plot_frame
-        self.classify_flag = Tk.IntVar(); self.classify_flag.set(0)
-        self.class_list_fname = Tk.StringVar(); self.class_list_fname.set('my_classes.dat')
-        self.class_num = Tk.IntVar(); self.class_num.set(-1)
-        
-        self.classes.init_list(fname=self.class_list_fname.get())
-        self.class_list_summary = Tk.StringVar(); self.class_list_summary.set(self.classes.gen_summary())
+        self.original_key_press = self.parent.keyPressEvent
         
         self.init_UI()
 
     def init_UI(self):
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
-        ttk.Label(line, text='Press any [a-z] key to assign label to frame').pack(side=Tk.LEFT, fill=Tk.X)
+        vbox = QtGui.QVBoxLayout(self)
         
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
-        ttk.Checkbutton(line, text='Classify', variable=self.classify_flag, command=self.classify_flag_changed).pack(side=Tk.LEFT)
-        ttk.Button(line, text='Unassign Class', command=self.unassign_class).pack(side=Tk.LEFT)
+        label = QtGui.QLabel('Press any [a-z] key to assign label to frame', self)
+        vbox.addWidget(label)
         
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
-        ttk.Entry(line, textvariable=self.class_list_fname).pack(side=Tk.LEFT)
-        ttk.Button(line, text='Save Classes', command=self.save_class_list).pack(side=Tk.TOP, anchor=Tk.W)
+        hbox = QtGui.QHBoxLayout()
+        vbox.addLayout(hbox)
+        self.classify_flag = QtGui.QCheckBox('Classify', self)
+        self.classify_flag.setChecked(False)
+        self.classify_flag.stateChanged.connect(self.classify_flag_changed)
+        hbox.addWidget(self.classify_flag)
+        button = QtGui.QPushButton('Unassign Class', self)
+        button.clicked.connect(self.unassign_class)
+        hbox.addWidget(button)
+        hbox.addStretch(1)
         
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
-        ttk.Label(line, text='Classification Summary:').pack(side=Tk.TOP, anchor=Tk.W)
-        ttk.Label(line, textvariable=self.class_list_summary).pack(side=Tk.TOP, anchor=Tk.W)
+        hbox = QtGui.QHBoxLayout()
+        vbox.addLayout(hbox)
+        self.class_list_fname = QtGui.QLineEdit('my_classes.dat', self)
+        hbox.addWidget(self.class_list_fname)
+        button = QtGui.QPushButton('Save Classes', self)
+        button.clicked.connect(self.save_class_list)
+        hbox.addWidget(button)
+        self.classes.init_list(fname=self.class_list_fname.text())
         
-        self.class_line = ttk.Frame(self); self.class_line.pack(fill=Tk.X)
+        label = QtGui.QLabel('Classification Summary:', self)
+        vbox.addWidget(label)
+        self.class_list_summary = QtGui.QLabel('', self)
+        self.class_list_summary.setText(self.classes.gen_summary())
+        vbox.addWidget(self.class_list_summary)
+        
+        self.class_line = QtGui.QGridLayout()
+        vbox.addLayout(self.class_line)
         self.refresh_class_line()
         
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
-        ttk.Button(line, text='Prev', command=self.prev_frame).pack(side=Tk.LEFT)
-        ttk.Button(line, text='Next', command=self.next_frame).pack(side=Tk.LEFT)
-        ttk.Button(line, text='Random', command=self.rand_frame).pack(side=Tk.LEFT)
-        ttk.Button(line, text='Refresh', command=self.refresh_class_line).pack(side=Tk.LEFT)
+        hbox = QtGui.QHBoxLayout()
+        vbox.addLayout(hbox)
+        button = QtGui.QPushButton('Prev', self)
+        button.clicked.connect(self.prev_frame)
+        hbox.addWidget(button)
+        button = QtGui.QPushButton('Next', self)
+        button.clicked.connect(self.next_frame)
+        hbox.addWidget(button)
+        button = QtGui.QPushButton('Random', self)
+        button.clicked.connect(self.rand_frame)
+        hbox.addWidget(button)
+        button = QtGui.QPushButton('Refresh', self)
+        button.clicked.connect(self.refresh_class_line)
+        hbox.addWidget(button)
+        hbox.addStretch(1)
         
-    def refresh_class_line(self):
-        for c in self.class_line.winfo_children():
-            c.destroy()
-        ttk.Radiobutton(self.class_line, text='All', variable=self.class_num, value=-1).grid(row=0,column=0)
-        for i, k in enumerate(self.classes.key):
-            ttk.Radiobutton(self.class_line, text=k, variable=self.class_num, value=i).grid(row=(i+1)/5,column=(i+1)%5)
+        vbox.addStretch(1)
 
-    def assign_class(self, event=None):
-        num = int(self.numstr.get())
-        self.classes.clist[num] = event.char
+    def refresh_class_line(self):
+        for i in reversed(range(self.class_line.count())):
+            w = self.class_line.itemAt(i).widget()
+            self.class_line.removeWidget(w)
+            w.setParent(None)
+        self.class_num = QtGui.QButtonGroup()
+        button = QtGui.QRadioButton('All')
+        button.setChecked(True)
+        self.class_num.addButton(button, 0)
+        self.class_line.addWidget(button, 0, 0)
+        for i, k in enumerate(self.classes.key):
+            if k == '':
+                text = '  '
+            else:
+                text = k
+            button = QtGui.QRadioButton(text, self)
+            self.class_num.addButton(button, i+1)
+            self.class_line.addWidget(button, (i+1)/5, (i+1)%5)
+
+    def assign_class(self, char):
+        num = int(self.numstr.text())
+        self.classes.clist[num] = char
         self.classes.unsaved = True
-        self.class_list_summary.set(self.classes.gen_summary())
-        if len(self.class_line.winfo_children()) != len(self.classes.key) + 1:
+        self.class_list_summary.setText(self.classes.gen_summary())
+        if self.class_line.count() != len(self.classes.key) + 1:
             self.refresh_class_line()
         self.next_frame()
 
     def unassign_class(self, event=None):
-        num = int(self.numstr.get())
+        num = int(self.numstr.text())
         self.classes.clist[num] = ''
         self.classes.unsaved = True
-        self.class_list_summary.set(self.classes.gen_summary())
-        if len(self.class_line.winfo_children()) != len(self.classes.key) + 1:
+        self.class_list_summary.setText(self.classes.gen_summary())
+        if self.class_line.count() != len(self.classes.key) + 1:
             self.refresh_class_line()
         self.plot_frame()
 
     def classify_flag_changed(self, event=None):
-        if self.classify_flag.get() == 0:
-            for c in string.ascii_lowercase:
-                self.parent.master.unbind(c)
+        if self.classify_flag.isChecked():
+            self.parent.keyPressEvent = self.classify_key_press
         else:
-            for c in string.ascii_lowercase:
-                self.parent.master.bind(c, self.assign_class)
-            self.parent.master.focus()
+            self.parent.keyPressEvent = self.original_key_press
+
+    def classify_key_press(self, event):
+        if str(event.text()) in string.ascii_lowercase:
+            self.assign_class(str(event.text()))
 
     def save_class_list(self, event=None):
         print 'Saving manually classified list to', self.class_list_fname.get()
-        np.savetxt(self.class_list_fname.get(), self.classes.clist, fmt='%s')
+        np.savetxt(self.class_list_fname.text(), self.classes.clist, fmt='%s')
         self.classes.unsaved = False
 
     def next_frame(self, event=None):
-        num = int(self.numstr.get())
-        cnum = self.class_num.get()
+        num = int(self.numstr.text())
+        cnum = self.class_num.checkedId() - 1
         if cnum == -1:
             num += 1
         else:
@@ -101,12 +141,12 @@ class Manual_panel(ttk.Frame):
             num = points[index]
         
         if num < self.parent.num_frames:
-            self.numstr.set(str(num))
+            self.numstr.setText(str(num))
             self.plot_frame()
 
     def prev_frame(self, event=None):
-        num = int(self.numstr.get())
-        cnum = self.class_num.get()
+        num = int(self.numstr.text())
+        cnum = self.class_num.checkedId() - 1
         if cnum == -1:
             num -= 1
         else:
@@ -117,16 +157,32 @@ class Manual_panel(ttk.Frame):
             num = points[index]
         
         if num > -1:
-            self.numstr.set(str(num))
+            self.numstr.setText(str(num))
             self.plot_frame()
 
     def rand_frame(self, event=None):
-        cnum = self.class_num.get()
+        cnum = self.class_num.checkedId() - 1
         if cnum == -1:
             num = np.random.randint(self.parent.num_frames)
         else:
             points = np.where(self.classes.key_pos == cnum)[0]
             num = points[np.random.randint(len(points))]
-        self.numstr.set(str(num))
+        self.numstr.setText(str(num))
         self.plot_frame()
+
+    def custom_hide(self):
+        self.classify_flag.setChecked(False)
+        self.classify_flag_changed()
+        r = self.parent.geometry()
+        rp = self.geometry()
+        r.setWidth(r.width() - rp.width())
+        self.hide()
+        self.parent.setGeometry(r)
+
+    def custom_show(self):
+        r = self.parent.geometry()
+        rp = self.geometry()
+        r.setWidth(r.width() + rp.width())
+        self.parent.setGeometry(r)
+        self.show()
 

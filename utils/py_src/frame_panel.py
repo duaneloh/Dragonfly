@@ -17,7 +17,6 @@ class Frame_panel(QtGui.QWidget):
         self.emc_reader = self.parent.emc_reader
         self.num_frames = self.parent.num_frames
         self.cmap = self.parent.cmap
-        self.mode = None
         
         self.numstr = '0'
         self.rangestr = '10'
@@ -28,6 +27,7 @@ class Frame_panel(QtGui.QWidget):
         vbox = QtGui.QVBoxLayout(self)
         
         self.fig = Figure(figsize=(6, 6))
+        self.fig.subplots_adjust(left=0.05, right=0.99, top=0.9, bottom=0.05)
         self.canvas = FigureCanvasQTAgg(self.fig)
         #self.canvas.setFocusPolicy(QtCore.Qt.StrongFocus)
         self.canvas.mpl_connect('button_press_event', self.frame_focus)
@@ -65,15 +65,15 @@ class Frame_panel(QtGui.QWidget):
         hbox.addWidget(button)
         hbox.addStretch(1)
         button = QtGui.QPushButton('Quit', self)
-        button.clicked.connect(self.parent.quit)
+        button.clicked.connect(self.parent.close)
         hbox.addWidget(button)
         
         self.plot_frame()
         self.show()
 
     def plot_frame(self, event=None, embed=None, force_frame=False):
-        if self.mode is not None:
-            mode = self.mode.get()
+        if self.parent.mode_val is not None:
+            mode = self.parent.mode_val
         else:
             mode = 0
         
@@ -91,6 +91,7 @@ class Frame_panel(QtGui.QWidget):
         
         if mode == 2:
             # Conversion panel
+            self.fig.clear()
             s = self.fig.add_subplot(121)
             s.imshow(frame, vmin=0, vmax=float(self.rangestr.text()), interpolation='none', cmap=self.cmap)
             s.set_title("%d photons" % frame.sum())
@@ -104,30 +105,33 @@ class Frame_panel(QtGui.QWidget):
         elif (not force_frame) and mode == 3 and self.parent.embedding_panel.embed is not None:
             # Embedding 
             ep = self.parent.embedding_panel
-            for p in ep.roi_list:
-                self.canvas_widget.tag_raise(p)
-            for p in ep.click_points_list:
-                self.canvas_widget.tag_raise(p)
+            try:
+                for p in ep.roi_list:
+                    p.remove()
+            except ValueError:
+                pass
             
             self.fig.clear()
             s = self.fig.add_subplot(111)
             e = ep.embed_plot
             try:
-                xnum = int(ep.x_axis_num.get())
-                ynum = int(ep.y_axis_num.get())
+                xnum = int(ep.x_axis_num.text())
+                ynum = int(ep.y_axis_num.text())
             except ValueError:
                 print 'Need axes numbers to be integers'
                 return
-            s.hist2d(e[:,xnum], e[:,ynum], bins=[ep.binx, ep.biny], vmax=float(self.rangestr.text()))
+            s.hist2d(e[:,xnum], e[:,ynum], bins=[ep.binx, ep.biny], vmax=float(self.rangestr.text()), cmap=self.cmap)
             title = 'Spectral embedding'
+            for p in ep.roi_list:
+                s.add_artist(p)
             self.fig.add_subplot(s)
         else:
             if mode == 3:
-                ep = self.parent.embedding_panel
-                for p in ep.roi_list:
-                    self.canvas_widget.tag_lower(p)
-                for p in ep.click_points_list:
-                    self.canvas_widget.tag_lower(p)
+                try:
+                    for p in self.parent.embedding_panel.roi_list:
+                        p.remove()
+                except ValueError:
+                    pass
             
             self.fig.clear()
             s = self.fig.add_subplot(111)
@@ -137,7 +141,7 @@ class Frame_panel(QtGui.QWidget):
                 title += ' (%s)' % self.parent.classes.clist[num]
             if mode == 4 and self.parent.mlp_panel.predictions is not None:
                 title += ' [%s]' % self.parent.mlp_panel.predictions[num]
-            if self.mode is None and self.parent.blacklist is not None and self.parent.blacklist[num] == 1:
+            if self.parent.mode_val is None and self.parent.blacklist is not None and self.parent.blacklist[num] == 1:
                 title += ' (bad frame)'
             s.set_title(title)
             self.fig.add_subplot(s)

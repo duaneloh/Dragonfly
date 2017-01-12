@@ -17,7 +17,7 @@ class Frameviewer(QtGui.QMainWindow):
         super(Frameviewer, self).__init__()
         self.config_file = config_file
         self.cmap = cmap
-        print map(str, QtGui.QFontDatabase().families())
+        self.mode_val = None
         
         self.get_config_params()
         self.geom = data.Det_reader(self.det_fname, self.detd, self.ewald_rad, mask_flag=mask)
@@ -75,15 +75,9 @@ class Frameviewer(QtGui.QMainWindow):
         elif QtGui.QKeySequence(m+k) == int(QtGui.QKeySequence('Ctrl+R')):
             self.frame_panel.rand_frame()
         elif QtGui.QKeySequence(m+k) == int(QtGui.QKeySequence('Ctrl+Q')):
-            self.quit()
+            self.close()
         else:
             event.ignore()
-
-    def quit(self, event=None):
-        self.close()
-
-    def closeEvent(self, event):
-        self.quit()
 
 if __name__ == '__main__':
     parser = py_utils.my_argparser(description='Utility for viewing frames of the emc file (list)')

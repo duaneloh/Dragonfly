@@ -3,9 +3,10 @@
 import sys
 import os
 import numpy as np
-import Tkinter as Tk
-import ttk
-import tkMessageBox
+import sip
+sip.setapi('Qstring', 2)
+from PyQt4 import QtGui
+from PyQt4 import QtCore
 from py_src import data
 from py_src import manual
 from py_src import conversion
@@ -16,13 +17,23 @@ from py_src import py_utils
 from py_src import read_config
 from py_src import frame_panel
 
-class Classifier():
-    def __init__(self, master, config_file, cmap='jet', mask=False):
-        self.master = master
-        self.cmap = cmap
+class Classifier(QtGui.QMainWindow):
+    def __init__(self, config_file, cmap='CMRmap', mask=False):
+        super(Classifier, self).__init__()
+        if cmap is None:
+            self.cmap = 'CMRmap'
+        else:
+            self.cmap = cmap
         self.config_file = config_file
-        self.mode_val = Tk.IntVar(); self.mode_val.set(0)
+        self.mode_dict = {
+            '&Display': 0,
+            '&Manual': 1,
+            '&Convert': 2,
+            '&Embedding': 3,
+            'M&LP': 4
+        }
         self.ang_corr = None
+        self.mode_val = 0
         
         self.get_config_params()
         self.geom = data.Det_reader(self.det_fname, self.detd, self.ewald_rad, mask_flag=mask)
@@ -33,38 +44,52 @@ class Classifier():
         self.init_UI()
 
     def init_UI(self):
-        self.master.title('Dragonfly Diffraction Pattern Classifier')
-        self.master.rowconfigure(0, weight=1)
-        self.master.columnconfigure(0, weight=1)
-        self.master.protocol('WM_DELETE_WINDOW', self.quit)
-        if sys.platform != 'darwin':
-            path_string = " ".join(os.path.realpath(__file__).split('/')[:-1])
-            self.master.tk.eval('source [file join / ' + path_string + ' themes plastik plastik.tcl]')
-            self.master.tk.eval('source [file join / ' + path_string + ' themes clearlooks clearlooks8.5.tcl]')
-            fstyle = ttk.Style()
-            fstyle.theme_use('clearlooks')
-            #fstyle.theme_use('plastik')
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+        self.setWindowTitle('Dragonfly Classifier')
+        self.setGeometry(0,0,800,900)
+        window = QtGui.QWidget()
+        hbox = QtGui.QHBoxLayout()
+        hbox.setSpacing(0)
+        hbox.setMargin(0)
         
         self.frame_panel = frame_panel.Frame_panel(self)
-        self.frame_panel.grid(row=0, column=0, sticky='nsew')
-        self.frame_panel.columnconfigure(0, weight=1)
-        self.frame_panel.rowconfigure(0, weight=1)
-        self.frame_panel.mode = self.mode_val
+        hbox.addWidget(self.frame_panel)
         
-        self.manual_panel = manual.Manual_panel(self, width=50)
-        self.conversion_panel = conversion.Conversion_panel(self, width=30)
-        self.embedding_panel = embedding.Embedding_panel(self, width=30)
-        self.mlp_panel = mlp.MLP_panel(self, width=30)
+        window.setLayout(hbox)
+        self.setCentralWidget(window)
+        self.show()
         
-        menubar = Tk.Menu(self.master)
-        modemenu = Tk.Menu(menubar, tearoff=0)
-        modemenu.add_radiobutton(label='Display', underline=0, variable=self.mode_val, value=0, command=self.switch_mode)
-        modemenu.add_radiobutton(label='Manual', underline=0, variable=self.mode_val, value=1, command=self.switch_mode)
-        modemenu.add_radiobutton(label='Convert', underline=0, variable=self.mode_val, value=2, command=self.switch_mode)
-        modemenu.add_radiobutton(label='Embedding', underline=0, variable=self.mode_val, value=3, command=self.switch_mode)
-        modemenu.add_radiobutton(label='MLP', underline=1, variable=self.mode_val, value=4, command=self.switch_mode)
-        menubar.add_cascade(label='Mode', menu=modemenu, underline=0)
-        self.master.config(menu=menubar)
+        menubar = self.menuBar()
+        modemenu = menubar.addMenu('&Mode')
+        self.modes = QtGui.QActionGroup(self, exclusive=True)
+        a = self.modes.addAction(QtGui.QAction('&Display', self, checkable=True))
+        a.triggered.connect(self.switch_mode)
+        modemenu.addAction(a)
+        a = self.modes.addAction(QtGui.QAction('&Manual', self, checkable=True))
+        a.triggered.connect(self.switch_mode)
+        modemenu.addAction(a)
+        a = self.modes.addAction(QtGui.QAction('&Convert', self, checkable=True))
+        a.triggered.connect(self.switch_mode)
+        modemenu.addAction(a)
+        a = self.modes.addAction(QtGui.QAction('&Embedding', self, checkable=True))
+        a.triggered.connect(self.switch_mode)
+        modemenu.addAction(a)
+        a = self.modes.addAction(QtGui.QAction('M&LP', self, checkable=True))
+        a.triggered.connect(self.switch_mode)
+        modemenu.addAction(a)
+        
+        self.manual_panel = manual.Manual_panel(self)
+        hbox.addWidget(self.manual_panel)
+        self.manual_panel.hide()
+        self.conversion_panel = conversion.Conversion_panel(self)
+        hbox.addWidget(self.conversion_panel)
+        self.conversion_panel.hide()
+        self.embedding_panel = embedding.Embedding_panel(self)
+        hbox.addWidget(self.embedding_panel)
+        self.embedding_panel.hide()
+        self.mlp_panel = mlp.MLP_panel(self)
+        hbox.addWidget(self.mlp_panel)
+        self.mlp_panel.hide()
 
     def get_config_params(self):
         try:
@@ -86,51 +111,72 @@ class Classifier():
         self.output_folder = os.path.realpath(output_folder)
         self.ewald_rad = pm['ewald_rad']
         self.detd = pm['detd']/pm['pixsize']
+        self.blacklist = None
 
     def switch_mode(self, event=None):
-        mode = self.mode_val.get()
+        mode = self.mode_dict[str(self.modes.checkedAction().text())]
+        self.mode_val = mode
         
-        if mode != 1 and len(self.manual_panel.grid_info()) > 0:
-            self.manual_panel.classify_flag.set(0)
-            self.manual_panel.classify_flag_changed()
-            self.manual_panel.grid_forget()
-        if mode != 2 and len(self.conversion_panel.grid_info()) > 0:
-            self.conversion_panel.grid_forget()
-        if mode != 3 and len(self.embedding_panel.grid_info()) > 0:
-            self.embedding_panel.grid_forget()
-        if mode != 4 and len(self.mlp_panel.grid_info()) > 0:
-            self.mlp_panel.grid_forget()
+        if mode != 1 and self.manual_panel.isVisible():
+            self.manual_panel.custom_hide()
+        if mode != 2 and self.conversion_panel.isVisible():
+            self.conversion_panel.custom_hide()
+        if mode != 3 and self.embedding_panel.isVisible():
+            self.embedding_panel.custom_hide()
+        if mode != 4 and self.mlp_panel.isVisible():
+            self.mlp_panel.custom_hide()
         
-        if mode == 0:
-            pass
-        elif mode == 1:
-            self.manual_panel.grid(row=0, column=1, rowspan=2, sticky='news')
-        elif mode == 2:
-            self.conversion_panel.grid(row=0, column=1, rowspan=2, sticky='news')
-        elif mode == 3:
-            self.embedding_panel.grid(row=0, column=1, rowspan=2, sticky='news')
-        elif mode == 4:
-            self.mlp_panel.grid(row=0, column=1, rowspan=2, sticky='news')
+        if mode == 1 and not self.manual_panel.isVisible():
+            self.manual_panel.custom_show()
+        elif mode == 2 and not self.conversion_panel.isVisible():
+            self.conversion_panel.custom_show()
+        elif mode == 3 and not self.embedding_panel.isVisible():
+            self.embedding_panel.custom_show()
+        elif mode == 4 and not self.mlp_panel.isVisible():
+            self.mlp_panel.custom_show()
+        
         self.frame_panel.plot_frame()
 
-    def quit(self, event=None):
+    def keyPressEvent(self, event):
+        k = event.key()
+        m = int(event.modifiers())
+        
+        if QtGui.QKeySequence(m+k) == int(QtGui.QKeySequence('Ctrl+N')):
+            self.frame_panel.next_frame()
+        elif QtGui.QKeySequence(m+k) == int(QtGui.QKeySequence('Ctrl+P')):
+            self.frame_panel.prev_frame()
+        elif QtGui.QKeySequence(m+k) == int(QtGui.QKeySequence('Ctrl+R')):
+            self.frame_panel.rand_frame()
+        elif QtGui.QKeySequence(m+k) == int(QtGui.QKeySequence('Ctrl+Q')):
+            self.close()
+        else:
+            event.ignore()
+
+    def closeEvent(self, event):
+        self.quit(event)
+
+    def quit(self, event):
         if self.classes.unsaved:
-            result = tkMessageBox.askquestion('Exit?', 'Unsaved changes to class list. Save?', parent=self.master, type=tkMessageBox.YESNOCANCEL)
-            if result == 'yes':
+            result = QtGui.QMessageBox.question(
+                self, 
+                'Warning', 
+                'Unsaved changes to class list. Save?',
+                QtGui.QMessageBox.Yes | QtGui.QMessageBox.No | QtGui.QMessageBox.Cancel,
+                QtGui.QMessageBox.Cancel)
+            if result == QtGui.QMessageBox.Yes:
                 self.manual_panel.save_class_list()
-            elif result == 'no':
+            elif result == QtGui.QMessageBox.No:
                 pass
             else:
                 return
-        
-        self.master.quit()
+        event.accept()
 
 if __name__ == '__main__':
     parser = py_utils.my_argparser(description='Utility for viewing frames of the emc file (list)')
-    parser.add_argument('--cmap', help='Matplotlib color map (default: jet)')
+    parser.add_argument('--cmap', help='Matplotlib color map (default: CMRmap)')
     parser.add_argument('-M', '--mask', help='Whether to zero out masked pixels (default False)', action='store_true', default=False)
     args = parser.special_parse_args()
     
-    root = Tk.Tk()
-    Classifier(root, args.config_file, cmap=args.cmap, mask=args.mask)
-    root.mainloop()
+    app = QtGui.QApplication(sys.argv)
+    Classifier(args.config_file, cmap=args.cmap, mask=args.mask)
+    sys.exit(app.exec_())

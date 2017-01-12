@@ -2,97 +2,123 @@ import numpy as np
 import sys
 import os
 import string
-import Tkinter as Tk
-import ttk
+import sip
+sip.setapi('Qstring', 2)
+from PyQt4 import QtGui
+from PyQt4 import QtCore
 import polar
 import multiprocessing
 import ctypes
 
-class Conversion_panel(ttk.Frame):
+class Conversion_panel(QtGui.QWidget):
     def __init__(self, parent, *args, **kwargs):
-        ttk.Frame.__init__(self, parent.master, *args, **kwargs)
+        super(Conversion_panel, self).__init__(parent, *args, **kwargs)
         
+        self.setFixedWidth(280)
         self.parent = parent
         self.emc_reader = self.parent.emc_reader
         self.plot_frame = self.parent.frame_panel.plot_frame
-        self.r_min = Tk.StringVar(); self.r_min.set('16')
-        self.r_max = Tk.StringVar(); self.r_max.set('80')
-        self.delta_r = Tk.StringVar(); self.delta_r.set('2')
-        self.delta_ang = Tk.StringVar(); self.delta_ang.set('10')
-        self.first_frame = Tk.StringVar(); self.first_frame.set('0')
-        self.last_frame = Tk.StringVar(); self.last_frame.set('1000')
-        self.save_flag = Tk.IntVar(); self.save_flag.set(1)
-        self.normed_flag = Tk.IntVar(); self.normed_flag.set(1)
-        self.num_proc = Tk.StringVar(); self.num_proc.set('1')
         
         self.polar = None
         self.init_UI()
         self.remake_converter(replot=False)
 
     def init_UI(self):
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
-        ttk.Label(line, text='Convert to angular correlations').pack(side=Tk.LEFT)
+        vbox = QtGui.QVBoxLayout(self)
         
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
-        ttk.Label(line, text='R_min:').pack(side=Tk.LEFT)
-        entry = ttk.Entry(line, textvariable=self.r_min, width=5)
-        entry.pack(side=Tk.LEFT)
-        entry.bind('<Return>', self.remake_converter)
-        entry.bind('<KP_Enter>', self.remake_converter)
-        ttk.Label(line, text='R_max:').pack(side=Tk.LEFT)
-        entry = ttk.Entry(line, textvariable=self.r_max, width=5)
-        entry.pack(side=Tk.LEFT)
-        entry.bind('<Return>', self.remake_converter)
-        entry.bind('<KP_Enter>', self.remake_converter)
+        label = QtGui.QLabel('Convert to angular correlations', self)
+        vbox.addWidget(label)
         
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
-        ttk.Label(line, text='dR:').pack(side=Tk.LEFT)
-        entry = ttk.Entry(line, textvariable=self.delta_r, width=5)
-        entry.pack(side=Tk.LEFT)
-        entry.bind('<Return>', self.remake_converter)
-        entry.bind('<KP_Enter>', self.remake_converter)
-        ttk.Label(line, text=u'd\u03b8:').pack(side=Tk.LEFT)
-        entry = ttk.Entry(line, textvariable=self.delta_ang, width=5)
-        entry.pack(side=Tk.LEFT)
-        entry.bind('<Return>', self.remake_converter)
-        entry.bind('<KP_Enter>', self.remake_converter)
-        ttk.Label(line, text='deg').pack(side=Tk.LEFT)
+        hbox = QtGui.QHBoxLayout()
+        vbox.addLayout(hbox)
+        label = QtGui.QLabel('R_min:', self)
+        hbox.addWidget(label)
+        self.r_min = QtGui.QLineEdit('16')
+        self.r_min.setFixedWidth(40)
+        self.r_min.editingFinished.connect(self.remake_converter)
+        hbox.addWidget(self.r_min)
+        label = QtGui.QLabel('R_max:', self)
+        hbox.addWidget(label)
+        self.r_max = QtGui.QLineEdit('80')
+        self.r_max.setFixedWidth(40)
+        self.r_max.editingFinished.connect(self.remake_converter)
+        hbox.addWidget(self.r_max)
+        hbox.addStretch(1)
         
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
-        ttk.Button(line, text='Update', command=self.remake_converter).pack(side=Tk.LEFT)
+        hbox = QtGui.QHBoxLayout()
+        vbox.addLayout(hbox)
+        label = QtGui.QLabel('dR:', self)
+        hbox.addWidget(label)
+        self.delta_r = QtGui.QLineEdit('2')
+        self.delta_r.setFixedWidth(40)
+        self.delta_r.editingFinished.connect(self.remake_converter)
+        hbox.addWidget(self.delta_r)
+        label = QtGui.QLabel(u'd\u03b8:', self)
+        hbox.addWidget(label)
+        self.delta_ang = QtGui.QLineEdit('10')
+        self.delta_ang.setFixedWidth(40)
+        self.delta_ang.editingFinished.connect(self.remake_converter)
+        hbox.addWidget(self.delta_ang)
+        label = QtGui.QLabel('deg', self)
+        hbox.addWidget(label)
+        hbox.addStretch(1)
         
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
-        ttk.Label(line, text='Batch processing').pack(side=Tk.LEFT)
+        button = QtGui.QPushButton('Update', self)
+        button.clicked.connect(self.remake_converter)
+        vbox.addWidget(button)
         
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
-        ttk.Label(line, text='Frame range:').pack(side=Tk.LEFT)
-        ttk.Entry(line, textvariable=self.first_frame, width=8).pack(side=Tk.LEFT)
-        ttk.Label(line, text='-').pack(side=Tk.LEFT)
-        ttk.Entry(line, textvariable=self.last_frame, width=8).pack(side=Tk.LEFT)
+        label = QtGui.QLabel('Batch processing', self)
+        vbox.addWidget(label)
         
-        line = ttk.Frame(self); line.pack(fill=Tk.X)
-        ttk.Button(line, text='Process', command=self.convert_frames).pack(side=Tk.LEFT)
-        ttk.Entry(line, textvariable=self.num_proc, width=2).pack(side=Tk.LEFT)
-        ttk.Checkbutton(line, text='Normed', variable=self.normed_flag).pack(side=Tk.RIGHT)
-        ttk.Checkbutton(line, text='Save', variable=self.save_flag).pack(side=Tk.RIGHT)
+        hbox = QtGui.QHBoxLayout()
+        vbox.addLayout(hbox)
+        label = QtGui.QLabel('Frame range:', self)
+        hbox.addWidget(label)
+        self.first_frame = QtGui.QLineEdit('0')
+        self.first_frame.setFixedWidth(64)
+        hbox.addWidget(self.first_frame)
+        label = QtGui.QLabel('-', self)
+        hbox.addWidget(label)
+        self.last_frame = QtGui.QLineEdit('1000')
+        self.last_frame.setFixedWidth(64)
+        hbox.addWidget(self.last_frame)
+        hbox.addStretch(1)
+        
+        hbox = QtGui.QHBoxLayout()
+        vbox.addLayout(hbox)
+        button = QtGui.QPushButton('Process', self)
+        button.clicked.connect(self.convert_frames)
+        hbox.addWidget(button)
+        self.num_proc = QtGui.QLineEdit('1', self)
+        self.num_proc.setFixedWidth(24)
+        hbox.addWidget(self.num_proc)
+        hbox.addStretch(1)
+        self.save_flag = QtGui.QCheckBox('Save', self)
+        self.save_flag.setChecked(True)
+        hbox.addWidget(self.save_flag)
+        self.normed_flag = QtGui.QCheckBox('Normed', self)
+        self.normed_flag.setChecked(True)
+        hbox.addWidget(self.normed_flag)
+        
+        vbox.addStretch(1)
 
     def remake_converter(self, replot=True, event=None):
         self.polar = polar.Polar_converter(self.parent.geom.cx, 
                                            self.parent.geom.cy, 
                                            self.parent.geom.raw_mask,
-                                           r_min = float(self.r_min.get()),
-                                           r_max = float(self.r_max.get()),
-                                           delta_r = float(self.delta_r.get()),
-                                           delta_ang = float(self.delta_ang.get()))
+                                           r_min = float(self.r_min.text()),
+                                           r_max = float(self.r_max.text()),
+                                           delta_r = float(self.delta_r.text()),
+                                           delta_ang = float(self.delta_ang.text()))
         if replot:
             self.plot_frame()
 
-    def convert_frames(self, save=True, event=None):
+    def convert_frames(self, event=None):
         ang_corr = []
         try:
-            start = int(self.first_frame.get())
-            end = int(self.last_frame.get())
-            num_proc = int(self.num_proc.get())
+            start = int(self.first_frame.text())
+            end = int(self.last_frame.text())
+            num_proc = int(self.num_proc.text())
         except ValueError:
             print 'Integers only'
             return
@@ -109,13 +135,13 @@ class Conversion_panel(ttk.Frame):
         sys.stderr.write('\r%d/%d\n' % (end, end))
         
         self.parent.ang_corr = np.frombuffer(ang_corr.get_obj()).reshape(end-start, -1)
-        if save:
+        if self.save_flag.isChecked():
             fname = self.parent.output_folder + '/ang_corr.npy'
             print 'Saving angular correlations to', fname
             np.save(fname, self.parent.ang_corr)
 
     def get_and_convert(self, num):
-        return self.polar.compute_ang_corr(self.polar.convert(self.emc_reader.get_frame(num)), normed=bool(self.normed_flag.get()))
+        return self.polar.compute_ang_corr(self.polar.convert(self.emc_reader.get_frame(num)), normed=self.normed_flag.isChecked())
 
     def convert_worker(self, rank, num_proc, indices, size, ang_corr):
         my_ind = indices[rank::num_proc]
@@ -125,4 +151,18 @@ class Conversion_panel(ttk.Frame):
             np_ang_corr[size*ang_ind:size*(ang_ind+1)] = self.get_and_convert(i).flatten()
             if rank == 0:
                 sys.stderr.write('\r%d/%d'%(i, indices[-1]))
+
+    def custom_hide(self):
+        r = self.parent.geometry()
+        rp = self.geometry()
+        r.setWidth(r.width() - rp.width())
+        self.hide()
+        self.parent.setGeometry(r)
+
+    def custom_show(self):
+        r = self.parent.geometry()
+        rp = self.geometry()
+        r.setWidth(r.width() + rp.width())
+        self.parent.setGeometry(r)
+        self.show()
 
