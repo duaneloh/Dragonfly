@@ -2,17 +2,14 @@ import numpy as np
 import sys
 import os
 import string
-#import sip
-#sip.setapi('Qstring', 2)
-#from PyQt4 import QtGui
-#from PyQt4 import QtCore
-from PyQt5 import QtCore, QtGui, QtWidgets
-import matplotlib
-matplotlib.use('Qt5Agg')
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+import sip
+sip.setapi('Qstring', 2)
+from PyQt4 import QtGui
+from PyQt4 import QtCore
+from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 
-class Frame_panel(QtWidgets.QWidget):
+class Frame_panel(QtGui.QWidget):
     def __init__(self, parent, *args, **kwargs):
         super(Frame_panel, self).__init__(parent, *args, **kwargs)
         
@@ -27,7 +24,7 @@ class Frame_panel(QtWidgets.QWidget):
         self.init_UI()
 
     def init_UI(self):
-        vbox = QtWidgets.QVBoxLayout(self)
+        vbox = QtGui.QVBoxLayout(self)
         
         self.fig = Figure(figsize=(6, 6))
         self.fig.subplots_adjust(left=0.05, right=0.99, top=0.9, bottom=0.05)
@@ -36,38 +33,38 @@ class Frame_panel(QtWidgets.QWidget):
         self.canvas.mpl_connect('button_press_event', self.frame_focus)
         vbox.addWidget(self.canvas)
         
-        hbox = QtWidgets.QHBoxLayout()
+        hbox = QtGui.QHBoxLayout()
         vbox.addLayout(hbox)
-        label = QtWidgets.QLabel('Frame number: ', self)
+        label = QtGui.QLabel('Frame number: ', self)
         hbox.addWidget(label)
-        self.numstr = QtWidgets.QLineEdit('0', self)
+        self.numstr = QtGui.QLineEdit('0', self)
         self.numstr.setFixedWidth(64)
         hbox.addWidget(self.numstr)
-        label = QtWidgets.QLabel('/%d'%self.num_frames, self)
+        label = QtGui.QLabel('/%d'%self.num_frames, self)
         hbox.addWidget(label)
         hbox.addStretch(1)
-        label = QtWidgets.QLabel('PlotMax:', self)
+        label = QtGui.QLabel('PlotMax:', self)
         hbox.addWidget(label)
-        self.rangestr = QtWidgets.QLineEdit('10', self)
+        self.rangestr = QtGui.QLineEdit('10', self)
         self.rangestr.setFixedWidth(48)
         hbox.addWidget(self.rangestr)
         
-        hbox = QtWidgets.QHBoxLayout()
+        hbox = QtGui.QHBoxLayout()
         vbox.addLayout(hbox)
-        button = QtWidgets.QPushButton('Plot', self)
+        button = QtGui.QPushButton('Plot', self)
         button.clicked.connect(self.plot_frame)
         hbox.addWidget(button)
-        button = QtWidgets.QPushButton('Prev', self)
+        button = QtGui.QPushButton('Prev', self)
         button.clicked.connect(self.prev_frame)
         hbox.addWidget(button)
-        button = QtWidgets.QPushButton('Next', self)
+        button = QtGui.QPushButton('Next', self)
         button.clicked.connect(self.next_frame)
         hbox.addWidget(button)
-        button = QtWidgets.QPushButton('Random', self)
+        button = QtGui.QPushButton('Random', self)
         button.clicked.connect(self.rand_frame)
         hbox.addWidget(button)
         hbox.addStretch(1)
-        button = QtWidgets.QPushButton('Quit', self)
+        button = QtGui.QPushButton('Quit', self)
         button.clicked.connect(self.parent.close)
         hbox.addWidget(button)
         

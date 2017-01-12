@@ -2,14 +2,15 @@ import numpy as np
 import sys
 import os
 import string
-#import sip
-#sip.setapi('Qstring', 2)
-#from PyQt4 import QtGui
-#from PyQt4 import QtCore
+import sip
+sip.setapi('Qstring', 2)
+from PyQt4 import QtGui
+from PyQt4 import QtCore
 import polar
-from PyQt5 import QtCore, QtGui, QtWidgets
+import multiprocessing
+import ctypes
 
-class Conversion_panel(QtWidgets.QWidget):
+class Conversion_panel(QtGui.QWidget):
     def __init__(self, parent, *args, **kwargs):
         super(Conversion_panel, self).__init__(parent, *args, **kwargs)
         
@@ -23,79 +24,79 @@ class Conversion_panel(QtWidgets.QWidget):
         self.remake_converter(replot=False)
 
     def init_UI(self):
-        vbox = QtWidgets.QVBoxLayout(self)
+        vbox = QtGui.QVBoxLayout(self)
         
-        label = QtWidgets.QLabel('Convert to angular correlations', self)
+        label = QtGui.QLabel('Convert to angular correlations', self)
         vbox.addWidget(label)
         
-        hbox = QtWidgets.QHBoxLayout()
+        hbox = QtGui.QHBoxLayout()
         vbox.addLayout(hbox)
-        label = QtWidgets.QLabel('R_min:', self)
+        label = QtGui.QLabel('R_min:', self)
         hbox.addWidget(label)
-        self.r_min = QtWidgets.QLineEdit('16')
+        self.r_min = QtGui.QLineEdit('16')
         self.r_min.setFixedWidth(40)
         self.r_min.editingFinished.connect(self.remake_converter)
         hbox.addWidget(self.r_min)
-        label = QtWidgets.QLabel('R_max:', self)
+        label = QtGui.QLabel('R_max:', self)
         hbox.addWidget(label)
-        self.r_max = QtWidgets.QLineEdit('80')
+        self.r_max = QtGui.QLineEdit('80')
         self.r_max.setFixedWidth(40)
         self.r_max.editingFinished.connect(self.remake_converter)
         hbox.addWidget(self.r_max)
         hbox.addStretch(1)
         
-        hbox = QtWidgets.QHBoxLayout()
+        hbox = QtGui.QHBoxLayout()
         vbox.addLayout(hbox)
-        label = QtWidgets.QLabel('dR:', self)
+        label = QtGui.QLabel('dR:', self)
         hbox.addWidget(label)
-        self.delta_r = QtWidgets.QLineEdit('2')
+        self.delta_r = QtGui.QLineEdit('2')
         self.delta_r.setFixedWidth(40)
         self.delta_r.editingFinished.connect(self.remake_converter)
         hbox.addWidget(self.delta_r)
-        label = QtWidgets.QLabel(u'd\u03b8:', self)
+        label = QtGui.QLabel(u'd\u03b8:', self)
         hbox.addWidget(label)
-        self.delta_ang = QtWidgets.QLineEdit('10')
+        self.delta_ang = QtGui.QLineEdit('10')
         self.delta_ang.setFixedWidth(40)
         self.delta_ang.editingFinished.connect(self.remake_converter)
         hbox.addWidget(self.delta_ang)
-        label = QtWidgets.QLabel('deg', self)
+        label = QtGui.QLabel('deg', self)
         hbox.addWidget(label)
         hbox.addStretch(1)
         
-        button = QtWidgets.QPushButton('Update', self)
+        button = QtGui.QPushButton('Update', self)
         button.clicked.connect(self.remake_converter)
         vbox.addWidget(button)
         
-        label = QtWidgets.QLabel('Batch processing', self)
+        label = QtGui.QLabel('Batch processing', self)
         vbox.addWidget(label)
         
-        hbox = QtWidgets.QHBoxLayout()
+        hbox = QtGui.QHBoxLayout()
         vbox.addLayout(hbox)
-        label = QtWidgets.QLabel('Frame range:', self)
+        label = QtGui.QLabel('Frame range:', self)
         hbox.addWidget(label)
-        self.first_frame = QtWidgets.QLineEdit('0')
+        self.first_frame = QtGui.QLineEdit('0')
         self.first_frame.setFixedWidth(64)
         hbox.addWidget(self.first_frame)
-        label = QtWidgets.QLabel('-', self)
+        label = QtGui.QLabel('-', self)
         hbox.addWidget(label)
-        self.last_frame = QtWidgets.QLineEdit('1000')
+        self.last_frame = QtGui.QLineEdit('1000')
         self.last_frame.setFixedWidth(64)
         hbox.addWidget(self.last_frame)
         hbox.addStretch(1)
         
-        hbox = QtWidgets.QHBoxLayout()
+        hbox = QtGui.QHBoxLayout()
         vbox.addLayout(hbox)
-        button = QtWidgets.QPushButton('Process', self)
+        button = QtGui.QPushButton('Process', self)
         button.clicked.connect(self.convert_frames)
         hbox.addWidget(button)
-        self.num_proc = QtWidgets.QLineEdit('1', self)
+        self.num_proc = QtGui.QLineEdit('1', self)
         self.num_proc.setFixedWidth(24)
         hbox.addWidget(self.num_proc)
         hbox.addStretch(1)
-        self.save_flag = QtWidgets.QCheckBox('Save', self)
+        self.save_flag = QtGui.QCheckBox('Save', self)
         self.save_flag.setChecked(True)
         hbox.addWidget(self.save_flag)
-        self.normed_flag = QtWidgets.QCheckBox('Normed', self)
+        self.normed_flag = QtGui.QCheckBox('Normed', self)
         self.normed_flag.setChecked(True)
         hbox.addWidget(self.normed_flag)
         

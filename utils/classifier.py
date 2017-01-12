@@ -3,11 +3,10 @@
 import sys
 import os
 import numpy as np
-#import sip
-#sip.setapi('Qstring', 2)
-#from PyQt4 import QtGui
-#from PyQt4 import QtCore
-from PyQt5 import QtCore, QtGui, QtWidgets
+import sip
+sip.setapi('Qstring', 2)
+from PyQt4 import QtGui
+from PyQt4 import QtCore
 from py_src import data
 from py_src import manual
 from py_src import conversion
@@ -18,7 +17,7 @@ from py_src import py_utils
 from py_src import read_config
 from py_src import frame_panel
 
-class Classifier(QtWidgets.QMainWindow):
+class Classifier(QtGui.QMainWindow):
     def __init__(self, config_file, cmap='CMRmap', mask=False):
         super(Classifier, self).__init__()
         if cmap is None:
@@ -48,9 +47,10 @@ class Classifier(QtWidgets.QMainWindow):
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setWindowTitle('Dragonfly Classifier')
         self.setGeometry(0,0,800,900)
-        window = QtWidgets.QWidget()
-        hbox = QtWidgets.QHBoxLayout()
+        window = QtGui.QWidget()
+        hbox = QtGui.QHBoxLayout()
         hbox.setSpacing(0)
+        hbox.setMargin(0)
         
         self.frame_panel = frame_panel.Frame_panel(self)
         hbox.addWidget(self.frame_panel)
@@ -61,20 +61,20 @@ class Classifier(QtWidgets.QMainWindow):
         
         menubar = self.menuBar()
         modemenu = menubar.addMenu('&Mode')
-        self.modes = QtWidgets.QActionGroup(self, exclusive=True)
-        a = self.modes.addAction(QtWidgets.QAction('&Display', self, checkable=True))
+        self.modes = QtGui.QActionGroup(self, exclusive=True)
+        a = self.modes.addAction(QtGui.QAction('&Display', self, checkable=True))
         a.triggered.connect(self.switch_mode)
         modemenu.addAction(a)
-        a = self.modes.addAction(QtWidgets.QAction('&Manual', self, checkable=True))
+        a = self.modes.addAction(QtGui.QAction('&Manual', self, checkable=True))
         a.triggered.connect(self.switch_mode)
         modemenu.addAction(a)
-        a = self.modes.addAction(QtWidgets.QAction('&Convert', self, checkable=True))
+        a = self.modes.addAction(QtGui.QAction('&Convert', self, checkable=True))
         a.triggered.connect(self.switch_mode)
         modemenu.addAction(a)
-        a = self.modes.addAction(QtWidgets.QAction('&Embedding', self, checkable=True))
+        a = self.modes.addAction(QtGui.QAction('&Embedding', self, checkable=True))
         a.triggered.connect(self.switch_mode)
         modemenu.addAction(a)
-        a = self.modes.addAction(QtWidgets.QAction('M&LP', self, checkable=True))
+        a = self.modes.addAction(QtGui.QAction('M&LP', self, checkable=True))
         a.triggered.connect(self.switch_mode)
         modemenu.addAction(a)
         
@@ -157,15 +157,15 @@ class Classifier(QtWidgets.QMainWindow):
 
     def quit(self, event):
         if self.classes.unsaved:
-            result = QtWidgets.QMessageBox.question(
+            result = QtGui.QMessageBox.question(
                 self, 
                 'Warning', 
                 'Unsaved changes to class list. Save?',
-                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No | QtWidgets.QMessageBox.Cancel,
-                QtWidgets.QMessageBox.Cancel)
-            if result == QtWidgets.QMessageBox.Yes:
+                QtGui.QMessageBox.Yes | QtGui.QMessageBox.No | QtGui.QMessageBox.Cancel,
+                QtGui.QMessageBox.Cancel)
+            if result == QtGui.QMessageBox.Yes:
                 self.manual_panel.save_class_list()
-            elif result == QtWidgets.QMessageBox.No:
+            elif result == QtGui.QMessageBox.No:
                 pass
             else:
                 return
@@ -177,6 +177,6 @@ if __name__ == '__main__':
     parser.add_argument('-M', '--mask', help='Whether to zero out masked pixels (default False)', action='store_true', default=False)
     args = parser.special_parse_args()
     
-    app = QtWidgets.QApplication(sys.argv)
+    app = QtGui.QApplication(sys.argv)
     Classifier(args.config_file, cmap=args.cmap, mask=args.mask)
     sys.exit(app.exec_())

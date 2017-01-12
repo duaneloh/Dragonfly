@@ -5,13 +5,12 @@ import string
 from sklearn import neural_network
 import multiprocessing
 import ctypes
-#import sip
-#sip.setapi('Qstring', 2)
-#from PyQt4 import QtGui
-#from PyQt4 import QtCore
-from PyQt5 import QtCore, QtGui, QtWidgets
+import sip
+sip.setapi('Qstring', 2)
+from PyQt4 import QtGui
+from PyQt4 import QtCore
 
-class MLP_panel(QtWidgets.QWidget):
+class MLP_panel(QtGui.QWidget):
     def __init__(self, parent, *args, **kwargs):
         super(MLP_panel, self).__init__(parent, *args, **kwargs)
         
@@ -28,39 +27,39 @@ class MLP_panel(QtWidgets.QWidget):
         self.remake_mlp()
 
     def init_UI(self):
-        self.vbox = QtWidgets.QVBoxLayout(self)
+        self.vbox = QtGui.QVBoxLayout(self)
         
-        label = QtWidgets.QLabel('Multi-layer Perceptron', self)
+        label = QtGui.QLabel('Multi-layer Perceptron', self)
         self.vbox.addWidget(label)
         
-        hbox = QtWidgets.QHBoxLayout()
+        hbox = QtGui.QHBoxLayout()
         self.vbox.addLayout(hbox)
-        label = QtWidgets.QLabel('Hidden layer sizes', self)
+        label = QtGui.QLabel('Hidden layer sizes', self)
         hbox.addWidget(label)
-        self.layer_sizes = QtWidgets.QLineEdit('10, 10', self)
+        self.layer_sizes = QtGui.QLineEdit('10, 10', self)
         self.layer_sizes.setFixedWidth(80)
         self.layer_sizes.editingFinished.connect(self.remake_mlp)
         hbox.addWidget(self.layer_sizes)
         
-        hbox = QtWidgets.QHBoxLayout()
+        hbox = QtGui.QHBoxLayout()
         self.vbox.addLayout(hbox)
-        label = QtWidgets.QLabel('alpha', self)
+        label = QtGui.QLabel('alpha', self)
         hbox.addWidget(label)
-        self.alpha_var = QtWidgets.QLineEdit('0.1', self)
+        self.alpha_var = QtGui.QLineEdit('0.1', self)
         self.alpha_var.setFixedWidth(80)
         self.alpha_var.editingFinished.connect(self.remake_mlp)
         hbox.addWidget(self.alpha_var)
         
-        hbox = QtWidgets.QHBoxLayout()
+        hbox = QtGui.QHBoxLayout()
         self.vbox.addLayout(hbox)
-        button = QtWidgets.QPushButton('Update', self)
+        button = QtGui.QPushButton('Update', self)
         button.clicked.connect(self.remake_mlp)
         hbox.addWidget(button)
         hbox.addStretch(1)
         
-        hbox = QtWidgets.QHBoxLayout()
+        hbox = QtGui.QHBoxLayout()
         self.vbox.addLayout(hbox)
-        button = QtWidgets.QPushButton('Train', self)
+        button = QtGui.QPushButton('Train', self)
         button.clicked.connect(self.train)
         hbox.addWidget(button)
         hbox.addStretch(1)
@@ -70,7 +69,7 @@ class MLP_panel(QtWidgets.QWidget):
     def remake_mlp(self, event=None):
         sizes = tuple([int(s.strip()) for s in str(self.layer_sizes.text()).split(',')])
         alpha = float(self.alpha_var.text())
-        #self.mlp = neural_network.MLPClassifier(hidden_layer_sizes=sizes, alpha=alpha)
+        self.mlp = neural_network.MLPClassifier(hidden_layer_sizes=sizes, alpha=alpha)
 
     def train(self, event=None):
         self.get_training_data()
@@ -95,37 +94,37 @@ class MLP_panel(QtWidgets.QWidget):
     def add_predict_frame(self):
         self.vbox.setStretch(self.vbox.count()-1, 0)
         
-        hbox = QtWidgets.QHBoxLayout()
+        hbox = QtGui.QHBoxLayout()
         self.vbox.addLayout(hbox)
-        self.predict_first = QtWidgets.QLineEdit('0')
+        self.predict_first = QtGui.QLineEdit('0')
         self.predict_first.setFixedWidth(64)
         hbox.addWidget(self.predict_first)
-        label = QtWidgets.QLabel('-', self)
+        label = QtGui.QLabel('-', self)
         hbox.addWidget(label)
-        self.predict_last = QtWidgets.QLineEdit('1000')
+        self.predict_last = QtGui.QLineEdit('1000')
         self.predict_last.setFixedWidth(64)
         hbox.addWidget(self.predict_last)
         hbox.addStretch(1)
         
-        hbox = QtWidgets.QHBoxLayout()
+        hbox = QtGui.QHBoxLayout()
         self.vbox.addLayout(hbox)
-        button = QtWidgets.QPushButton('Predict', self)
+        button = QtGui.QPushButton('Predict', self)
         button.clicked.connect(self.predict)
         hbox.addWidget(button)
-        self.num_proc = QtWidgets.QLineEdit('1', self)
+        self.num_proc = QtGui.QLineEdit('1', self)
         self.num_proc.setFixedWidth(24)
         hbox.addWidget(self.num_proc)
         hbox.addStretch(1)
         
-        self.predict_summary = QtWidgets.QLabel('', self)
+        self.predict_summary = QtGui.QLabel('', self)
         self.gen_predict_summary()
         self.vbox.addWidget(self.predict_summary)
         
-        hbox = QtWidgets.QHBoxLayout()
+        hbox = QtGui.QHBoxLayout()
         self.vbox.addLayout(hbox)
-        self.predictions_fname = QtWidgets.QLineEdit('predictions.dat', self)
+        self.predictions_fname = QtGui.QLineEdit('predictions.dat', self)
         hbox.addWidget(self.predictions_fname)
-        button = QtWidgets.QPushButton('Save', self)
+        button = QtGui.QPushButton('Save', self)
         button.clicked.connect(self.save_predictions)
         hbox.addWidget(button)
         
