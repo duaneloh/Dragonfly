@@ -74,12 +74,12 @@ class Conversion_panel(QtGui.QWidget):
         vbox.addLayout(hbox)
         label = QtGui.QLabel('Frame range:', self)
         hbox.addWidget(label)
-        self.first_frame = QtGui.QLineEdit('0')
+        self.first_frame = QtGui.QLineEdit('0', self)
         self.first_frame.setFixedWidth(64)
         hbox.addWidget(self.first_frame)
         label = QtGui.QLabel('-', self)
         hbox.addWidget(label)
-        self.last_frame = QtGui.QLineEdit('1000')
+        self.last_frame = QtGui.QLineEdit('1000', self)
         self.last_frame.setFixedWidth(64)
         hbox.addWidget(self.last_frame)
         hbox.addStretch(1)
@@ -123,6 +123,7 @@ class Conversion_panel(QtGui.QWidget):
             print 'Integers only'
             return
         
+        print 'Converting from %d to %d with %d processors' % (start, end, num_proc)
         arr = self.get_and_convert(0)
         ang_corr = multiprocessing.Array(ctypes.c_double, arr.size*(end-start))
         jobs = []

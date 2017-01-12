@@ -45,6 +45,7 @@ class Manual_panel(QtGui.QWidget):
         button.clicked.connect(self.save_class_list)
         hbox.addWidget(button)
         self.classes.init_list(fname=self.class_list_fname.text())
+        hbox.addStretch(1)
         
         label = QtGui.QLabel('Classification Summary:', self)
         vbox.addWidget(label)
@@ -52,9 +53,12 @@ class Manual_panel(QtGui.QWidget):
         self.class_list_summary.setText(self.classes.gen_summary())
         vbox.addWidget(self.class_list_summary)
         
+        hbox = QtGui.QHBoxLayout()
+        vbox.addLayout(hbox)
         self.class_line = QtGui.QGridLayout()
-        vbox.addLayout(self.class_line)
+        hbox.addLayout(self.class_line)
         self.refresh_class_line()
+        hbox.addStretch(1)
         
         hbox = QtGui.QHBoxLayout()
         vbox.addLayout(hbox)
@@ -122,8 +126,8 @@ class Manual_panel(QtGui.QWidget):
             self.assign_class(str(event.text()))
 
     def save_class_list(self, event=None):
-        print 'Saving manually classified list to', self.class_list_fname.get()
-        np.savetxt(self.class_list_fname.text(), self.classes.clist, fmt='%s')
+        print 'Saving manually classified list to', self.class_list_fname.text()
+        np.savetxt(str(self.class_list_fname.text()), self.classes.clist, fmt='%s')
         self.classes.unsaved = False
 
     def next_frame(self, event=None):

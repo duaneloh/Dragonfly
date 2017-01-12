@@ -44,20 +44,6 @@ class Embedding_panel(QtGui.QWidget):
         
         hbox = QtGui.QHBoxLayout()
         self.vbox.addLayout(hbox)
-        label = QtGui.QLabel('Frame range:', self)
-        hbox.addWidget(label)
-        self.conversion.first_frame = QtGui.QLineEdit('0')
-        self.conversion.first_frame.setFixedWidth(64)
-        hbox.addWidget(self.conversion.first_frame)
-        label = QtGui.QLabel('-', self)
-        hbox.addWidget(label)
-        self.conversion.last_frame = QtGui.QLineEdit('1000')
-        self.conversion.last_frame.setFixedWidth(64)
-        hbox.addWidget(self.conversion.last_frame)
-        hbox.addStretch(1)
-        
-        hbox = QtGui.QHBoxLayout()
-        self.vbox.addLayout(hbox)
         button = QtGui.QPushButton('Embed', self)
         button.clicked.connect(self.do_embedding)
         hbox.addWidget(button)
@@ -338,8 +324,8 @@ class Embedding_panel(QtGui.QWidget):
         self.plot_frame(force_frame=True)
 
     def apply_class(self, event=None):
-        roi_num = self.current_roi.get()
-        class_char = self.class_tag.get()
+        roi_num = self.current_roi.checkedId()
+        class_char = str(self.class_tag.text())
         self.classes.clist[self.points_inside_list[roi_num]] = class_char
         self.classes.gen_summary()
         self.classes.unsaved = True
