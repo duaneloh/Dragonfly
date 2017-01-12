@@ -2,12 +2,13 @@ import numpy as np
 import sys
 import os
 import string
-import sip
-sip.setapi('Qstring', 2)
-from PyQt4 import QtGui
-from PyQt4 import QtCore
+#import sip
+#sip.setapi('Qstring', 2)
+#from PyQt4 import QtGui
+#from PyQt4 import QtCore
+from PyQt5 import QtCore, QtGui, QtWidgets
 
-class Manual_panel(QtGui.QWidget):
+class Manual_panel(QtWidgets.QWidget):
     def __init__(self, parent, *args, **kwargs):
         super(Manual_panel, self).__init__(parent, *args, **kwargs)
         
@@ -21,53 +22,53 @@ class Manual_panel(QtGui.QWidget):
         self.init_UI()
 
     def init_UI(self):
-        vbox = QtGui.QVBoxLayout(self)
+        vbox = QtWidgets.QVBoxLayout(self)
         
-        label = QtGui.QLabel('Press any [a-z] key to assign label to frame', self)
+        label = QtWidgets.QLabel('Press any [a-z] key to assign label to frame', self)
         vbox.addWidget(label)
         
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         vbox.addLayout(hbox)
-        self.classify_flag = QtGui.QCheckBox('Classify', self)
+        self.classify_flag = QtWidgets.QCheckBox('Classify', self)
         self.classify_flag.setChecked(False)
         self.classify_flag.stateChanged.connect(self.classify_flag_changed)
         hbox.addWidget(self.classify_flag)
-        button = QtGui.QPushButton('Unassign Class', self)
+        button = QtWidgets.QPushButton('Unassign Class', self)
         button.clicked.connect(self.unassign_class)
         hbox.addWidget(button)
         hbox.addStretch(1)
         
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         vbox.addLayout(hbox)
-        self.class_list_fname = QtGui.QLineEdit('my_classes.dat', self)
+        self.class_list_fname = QtWidgets.QLineEdit('my_classes.dat', self)
         hbox.addWidget(self.class_list_fname)
-        button = QtGui.QPushButton('Save Classes', self)
+        button = QtWidgets.QPushButton('Save Classes', self)
         button.clicked.connect(self.save_class_list)
         hbox.addWidget(button)
         self.classes.init_list(fname=self.class_list_fname.text())
         
-        label = QtGui.QLabel('Classification Summary:', self)
+        label = QtWidgets.QLabel('Classification Summary:', self)
         vbox.addWidget(label)
-        self.class_list_summary = QtGui.QLabel('', self)
+        self.class_list_summary = QtWidgets.QLabel('', self)
         self.class_list_summary.setText(self.classes.gen_summary())
         vbox.addWidget(self.class_list_summary)
         
-        self.class_line = QtGui.QGridLayout()
+        self.class_line = QtWidgets.QGridLayout()
         vbox.addLayout(self.class_line)
         self.refresh_class_line()
         
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         vbox.addLayout(hbox)
-        button = QtGui.QPushButton('Prev', self)
+        button = QtWidgets.QPushButton('Prev', self)
         button.clicked.connect(self.prev_frame)
         hbox.addWidget(button)
-        button = QtGui.QPushButton('Next', self)
+        button = QtWidgets.QPushButton('Next', self)
         button.clicked.connect(self.next_frame)
         hbox.addWidget(button)
-        button = QtGui.QPushButton('Random', self)
+        button = QtWidgets.QPushButton('Random', self)
         button.clicked.connect(self.rand_frame)
         hbox.addWidget(button)
-        button = QtGui.QPushButton('Refresh', self)
+        button = QtWidgets.QPushButton('Refresh', self)
         button.clicked.connect(self.refresh_class_line)
         hbox.addWidget(button)
         hbox.addStretch(1)
@@ -79,8 +80,8 @@ class Manual_panel(QtGui.QWidget):
             w = self.class_line.itemAt(i).widget()
             self.class_line.removeWidget(w)
             w.setParent(None)
-        self.class_num = QtGui.QButtonGroup()
-        button = QtGui.QRadioButton('All')
+        self.class_num = QtWidgets.QButtonGroup()
+        button = QtWidgets.QRadioButton('All')
         button.setChecked(True)
         self.class_num.addButton(button, 0)
         self.class_line.addWidget(button, 0, 0)
@@ -89,7 +90,7 @@ class Manual_panel(QtGui.QWidget):
                 text = '  '
             else:
                 text = k
-            button = QtGui.QRadioButton(text, self)
+            button = QtWidgets.QRadioButton(text, self)
             self.class_num.addButton(button, i+1)
             self.class_line.addWidget(button, (i+1)/5, (i+1)%5)
 
