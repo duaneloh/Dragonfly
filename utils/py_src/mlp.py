@@ -73,8 +73,11 @@ class MLP_panel(QtGui.QWidget):
 
     def train(self, event=None):
         self.get_training_data()
+        if len(self.train_data) == 0:
+            sys.stderr.write('Need to classify some of the converted frames in order to train\n')
+            return
         self.mlp.fit(self.train_data, self.train_labels)
-        print 'Done training'
+        sys.stderr.write('Done training\n')
         #print 'Score on training set =', self.mlp.score(self.train_data, self.train_labels)
         if not self.trained:
             self.add_predict_frame()
@@ -136,11 +139,15 @@ class MLP_panel(QtGui.QWidget):
             last = int(self.predict_last.text())
             num_proc = int(self.num_proc.text())
         except ValueError:
-            print 'Integers only'
+            sys.stderr.write('Integers only\n')
             return
         
         if last < 0:
             last = self.parent.num_frames
+        if self.get_and_convert(first).shape[0] != self.parent.ang_corr.shape[1]:
+            sys.stderr.write('Wrong length for converted image (expected %d, got %d). You may need to update converter.\n' %
+                (self.parent.ang_corr.shape[1], self.get_and_convert(first).shape[0]))
+            return
         
         predictions = multiprocessing.Array(ctypes.c_char, self.parent.num_frames)
         jobs = []
@@ -156,12 +163,12 @@ class MLP_panel(QtGui.QWidget):
         self.gen_predict_summary()
 
     def get_and_convert(self, num):
-        return self.conversion.polar.compute_ang_corr(self.conversion.polar.convert(self.emc_reader.get_frame(num)))
+        return self.conversion.polar.compute_ang_corr(self.conversion.polar.convert(self.emc_reader.get_frame(num))).flatten()
 
     def predict_worker(self, rank, num_proc, indices, predictions):
         my_ind = indices[rank::num_proc]
         for i in my_ind:
-            ang_corr = np.expand_dims(self.get_and_convert(i).flatten(), axis=0)
+            ang_corr = np.expand_dims(self.get_and_convert(i), axis=0)
             predictions[i] = self.classes.key[self.mlp.predict(ang_corr)[0]]
             if rank == 0:
                 sys.stderr.write('\r%d/%d'%(i, indices[-1]))
@@ -174,8 +181,8 @@ class MLP_panel(QtGui.QWidget):
         self.predict_summary.setText(summary)
 
     def save_predictions(self, event=None):
-        print 'Saving predictions list to', self.predictions_fname.text()
-        np.savetxt(self.predictions_fname.text(), self.predictions, fmt='%s')
+        sys.stderr.write('Saving predictions list to %s\n'%str(self.predictions_fname.text()))
+        np.savetxt(str(self.predictions_fname.text()), self.predictions, fmt='%s')
 
     def custom_hide(self):
         r = self.parent.geometry()
