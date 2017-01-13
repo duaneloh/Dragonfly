@@ -51,18 +51,19 @@ class Classifier(QtGui.QMainWindow):
         hbox = QtGui.QHBoxLayout()
         hbox.setSpacing(0)
         hbox.setMargin(0)
-        
+
         self.frame_panel = frame_panel.Frame_panel(self)
         hbox.addWidget(self.frame_panel)
-        
+
         window.setLayout(hbox)
         self.setCentralWidget(window)
         self.show()
-        
+
         menubar = self.menuBar()
         modemenu = menubar.addMenu('&Mode')
         self.modes = QtGui.QActionGroup(self, exclusive=True)
         a = self.modes.addAction(QtGui.QAction('&Display', self, checkable=True))
+        a.setChecked(True)
         a.triggered.connect(self.switch_mode)
         modemenu.addAction(a)
         a = self.modes.addAction(QtGui.QAction('&Manual', self, checkable=True))
@@ -77,7 +78,16 @@ class Classifier(QtGui.QMainWindow):
         a = self.modes.addAction(QtGui.QAction('M&LP', self, checkable=True))
         a.triggered.connect(self.switch_mode)
         modemenu.addAction(a)
-        
+
+        thememenu = menubar.addMenu('&Theme')
+        self.theme = QtGui.QActionGroup(self, exclusive=True)
+        for i, s in enumerate(map(str, list(QtGui.QStyleFactory.keys()))):
+            a = self.theme.addAction(QtGui.QAction(s, self, checkable=True))
+            if i == 0:
+                a.setChecked(True)
+            a.triggered.connect(self.switch_theme)
+            thememenu.addAction(a)
+
         self.manual_panel = manual.Manual_panel(self)
         hbox.addWidget(self.manual_panel)
         self.manual_panel.hide()
@@ -136,6 +146,9 @@ class Classifier(QtGui.QMainWindow):
             self.mlp_panel.custom_show()
         
         self.frame_panel.plot_frame()
+
+    def switch_theme(self, event=None):
+        QtGui.QApplication.instance().setStyle(self.theme.checkedAction().text())
 
     def keyPressEvent(self, event):
         k = event.key()
