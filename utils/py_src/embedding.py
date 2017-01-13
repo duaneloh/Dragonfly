@@ -19,7 +19,6 @@ class Embedding_panel(QtGui.QWidget):
         self.parent = parent
         self.classes = self.parent.classes
         self.conversion = self.parent.conversion_panel
-        self.manual = self.parent.manual_panel
         self.frame = self.parent.frame_panel
         self.plot_frame = self.frame.plot_frame
         self.canvas = self.frame.canvas
@@ -265,9 +264,11 @@ class Embedding_panel(QtGui.QWidget):
         
         hbox = QtGui.QHBoxLayout()
         vbox.addLayout(hbox)
-        hbox.addWidget(self.manual.class_list_fname)
+        self.class_fname = QtGui.QLineEdit(self.classes.fname, self)
+        self.class_fname.editingFinished.connect(self.update_name)
+        hbox.addWidget(self.class_fname)
         button = QtGui.QPushButton('Save Classes', self)
-        button.clicked.connect(self.manual.save_class_list)
+        button.clicked.connect(self.classes.save)
         hbox.addWidget(button)
         hbox.addStretch(1)
 
@@ -277,6 +278,9 @@ class Embedding_panel(QtGui.QWidget):
             button.setChecked(True)
         self.current_roi.addButton(button, num)
         self.roi_choice.addWidget(button, num/5, num%5)
+
+    def update_name(self, event=None):
+        self.classes.fname = str(self.class_fname.text())
 
     def gen_roi_summary(self):
         summary = 'Embedded frames = %d\n' % len(self.embed)
@@ -347,4 +351,6 @@ class Embedding_panel(QtGui.QWidget):
         self.show()
         if self.embedded:
             self.refresh_classes()
+        if self.roi_summary is not None:
+            self.class_fname.setText(self.classes.fname)
 

@@ -39,12 +39,12 @@ class Manual_panel(QtGui.QWidget):
         
         hbox = QtGui.QHBoxLayout()
         vbox.addLayout(hbox)
-        self.class_list_fname = QtGui.QLineEdit('my_classes.dat', self)
-        hbox.addWidget(self.class_list_fname)
+        self.class_fname = QtGui.QLineEdit(self.classes.fname, self)
+        self.class_fname.editingFinished.connect(self.update_name)
+        hbox.addWidget(self.class_fname)
         button = QtGui.QPushButton('Save Classes', self)
-        button.clicked.connect(self.save_class_list)
+        button.clicked.connect(self.classes.save)
         hbox.addWidget(button)
-        self.classes.init_list(fname=self.class_list_fname.text())
         hbox.addStretch(1)
         
         label = QtGui.QLabel('Classification Summary:', self)
@@ -125,10 +125,8 @@ class Manual_panel(QtGui.QWidget):
         if str(event.text()) in string.ascii_lowercase:
             self.assign_class(str(event.text()))
 
-    def save_class_list(self, event=None):
-        sys.stderr.write('Saving manually classified list to %s\n'%self.class_list_fname.text())
-        np.savetxt(str(self.class_list_fname.text()), self.classes.clist, fmt='%s')
-        self.classes.unsaved = False
+    def update_name(self, event=None):
+        self.classes.fname = str(self.class_fname.text())
 
     def next_frame(self, event=None):
         num = int(self.numstr.text())
@@ -190,4 +188,5 @@ class Manual_panel(QtGui.QWidget):
         self.parent.setGeometry(r)
         self.show()
         self.refresh_class_line()
+        self.class_fname.setText(self.classes.fname)
 
