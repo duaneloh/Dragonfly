@@ -327,6 +327,8 @@ class Embedding_panel(QtGui.QWidget):
         roi_num = self.current_roi.checkedId()
         class_char = str(self.class_tag.text())
         self.classes.clist[self.points_inside_list[roi_num]] = class_char
+        if self.class_line.count() != len(self.classes.key) + 1:
+            self.refresh_classes()
         self.classes.gen_summary()
         self.classes.unsaved = True
 
@@ -343,4 +345,6 @@ class Embedding_panel(QtGui.QWidget):
         r.setWidth(r.width() + rp.width())
         self.parent.setGeometry(r)
         self.show()
+        if self.embedded:
+            self.refresh_classes()
 

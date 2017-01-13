@@ -189,4 +189,5 @@ class Manual_panel(QtGui.QWidget):
         r.setWidth(r.width() + rp.width())
         self.parent.setGeometry(r)
         self.show()
+        self.refresh_class_line()
 
