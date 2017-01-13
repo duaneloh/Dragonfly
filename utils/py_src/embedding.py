@@ -94,7 +94,7 @@ class Embedding_panel(QtGui.QWidget):
             xnum = int(self.x_axis_num.text())
             ynum = int(self.y_axis_num.text())
         except ValueError:
-            print 'Need axes numbers to be integers'
+            sys.stderr.write('Need axes numbers to be integers\n')
             return
         self.hist2d, self.binx, self.biny = np.histogram2d(self.embed[:,xnum], self.embed[:,ynum], bins=100)
         
@@ -183,12 +183,12 @@ class Embedding_panel(QtGui.QWidget):
             xnum = int(self.x_axis_num.text())
             ynum = int(self.y_axis_num.text())
         except ValueError:
-            print 'Need axes numbers to be integers'
+            sys.stderr.write('Need axes numbers to be integers\n')
             return
         pos = np.append(pos, pos[-1]).reshape(-1,2)
         self.path_list.append(matplotlib.path.Path(pos, closed=True))
         points_inside = np.array([self.path_list[-1].contains_point((p[xnum], p[ynum])) for p in self.embed])
-        print '%d/%d frames inside ROI %d' % (points_inside.sum(), len(points_inside), len(self.points_inside_list))
+        sys.stderr.write('%d/%d frames inside ROI %d\n' % (points_inside.sum(), len(points_inside), len(self.points_inside_list)))
         self.points_inside_list.append(np.where(points_inside)[0] + int(self.conversion.first_frame.text()))
         
         self.roi_list.append(

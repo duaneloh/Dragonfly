@@ -120,10 +120,10 @@ class Conversion_panel(QtGui.QWidget):
             end = int(self.last_frame.text())
             num_proc = int(self.num_proc.text())
         except ValueError:
-            print 'Integers only'
+            sys.stderr.write('Integers only\n')
             return
         
-        print 'Converting from %d to %d with %d processors' % (start, end, num_proc)
+        sys.stderr.write('Converting from %d to %d with %d processors\n' % (start, end, num_proc))
         arr = self.get_and_convert(0)
         ang_corr = multiprocessing.Array(ctypes.c_double, arr.size*(end-start))
         jobs = []
@@ -138,7 +138,7 @@ class Conversion_panel(QtGui.QWidget):
         self.parent.ang_corr = np.frombuffer(ang_corr.get_obj()).reshape(end-start, -1)
         if self.save_flag.isChecked():
             fname = self.parent.output_folder + '/ang_corr.npy'
-            print 'Saving angular correlations to', fname
+            sys.stderr.write('Saving angular correlations to %s\n'%fname)
             np.save(fname, self.parent.ang_corr)
 
     def get_and_convert(self, num):

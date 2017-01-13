@@ -126,7 +126,7 @@ class Manual_panel(QtGui.QWidget):
             self.assign_class(str(event.text()))
 
     def save_class_list(self, event=None):
-        print 'Saving manually classified list to', self.class_list_fname.text()
+        sys.stderr.write('Saving manually classified list to %s\n'%self.class_list_fname.text())
         np.savetxt(str(self.class_list_fname.text()), self.classes.clist, fmt='%s')
         self.classes.unsaved = False
 

@@ -80,7 +80,7 @@ class Frame_panel(QtGui.QWidget):
         try:
             num = int(self.numstr.text())
         except ValueError:
-            print 'Frame number must be integer'
+            sys.stderr.write('Frame number must be integer\n')
             return
         
         if num < 0 or num >= self.num_frames:
@@ -118,7 +118,7 @@ class Frame_panel(QtGui.QWidget):
                 xnum = int(ep.x_axis_num.text())
                 ynum = int(ep.y_axis_num.text())
             except ValueError:
-                print 'Need axes numbers to be integers'
+                sys.stderr.write('Need axes numbers to be integers\n')
                 return
             s.hist2d(e[:,xnum], e[:,ynum], bins=[ep.binx, ep.biny], vmax=float(self.rangestr.text()), cmap=self.cmap)
             title = 'Spectral embedding'
