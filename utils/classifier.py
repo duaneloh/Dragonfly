@@ -178,11 +178,11 @@ class Classifier(QtGui.QMainWindow):
                 QtGui.QMessageBox.Cancel)
             if result == QtGui.QMessageBox.Yes:
                 self.manual_panel.save_class_list()
+                event.accept()
             elif result == QtGui.QMessageBox.No:
-                pass
+                event.accept()
             else:
-                return
-        event.accept()
+                event.ignore()
 
 if __name__ == '__main__':
     parser = py_utils.my_argparser(description='Utility for viewing frames of the emc file (list)')
