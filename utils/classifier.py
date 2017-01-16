@@ -47,7 +47,7 @@ class Classifier(QtGui.QMainWindow):
     def init_UI(self):
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setWindowTitle('Dragonfly Classifier')
-        self.setGeometry(0,0,800,900)
+        self.setGeometry(0,0,1100,900)
         window = QtGui.QWidget()
         hbox = QtGui.QHBoxLayout()
         hbox.setSpacing(0)
@@ -60,26 +60,12 @@ class Classifier(QtGui.QMainWindow):
         self.setCentralWidget(window)
         self.show()
 
-        menubar = self.menuBar()
-        modemenu = menubar.addMenu('&Mode')
-        self.modes = QtGui.QActionGroup(self, exclusive=True)
-        a = self.modes.addAction(QtGui.QAction('&Display', self, checkable=True))
-        a.setChecked(True)
-        a.triggered.connect(self.switch_mode)
-        modemenu.addAction(a)
-        a = self.modes.addAction(QtGui.QAction('&Manual', self, checkable=True))
-        a.triggered.connect(self.switch_mode)
-        modemenu.addAction(a)
-        a = self.modes.addAction(QtGui.QAction('&Convert', self, checkable=True))
-        a.triggered.connect(self.switch_mode)
-        modemenu.addAction(a)
-        a = self.modes.addAction(QtGui.QAction('&Embedding', self, checkable=True))
-        a.triggered.connect(self.switch_mode)
-        modemenu.addAction(a)
-        a = self.modes.addAction(QtGui.QAction('M&LP', self, checkable=True))
-        a.triggered.connect(self.switch_mode)
-        modemenu.addAction(a)
+        self.manual_panel = manual.Manual_panel(self)
+        self.conversion_panel = conversion.Conversion_panel(self)
+        self.embedding_panel = embedding.Embedding_panel(self)
+        self.mlp_panel = mlp.MLP_panel(self)
 
+        menubar = self.menuBar()
         thememenu = menubar.addMenu('&Theme')
         self.theme = QtGui.QActionGroup(self, exclusive=True)
         for i, s in enumerate(map(str, list(QtGui.QStyleFactory.keys()))):
@@ -89,18 +75,15 @@ class Classifier(QtGui.QMainWindow):
             a.triggered.connect(self.switch_theme)
             thememenu.addAction(a)
 
-        self.manual_panel = manual.Manual_panel(self)
-        hbox.addWidget(self.manual_panel)
-        self.manual_panel.hide()
-        self.conversion_panel = conversion.Conversion_panel(self)
-        hbox.addWidget(self.conversion_panel)
-        self.conversion_panel.hide()
-        self.embedding_panel = embedding.Embedding_panel(self)
-        hbox.addWidget(self.embedding_panel)
-        self.embedding_panel.hide()
-        self.mlp_panel = mlp.MLP_panel(self)
-        hbox.addWidget(self.mlp_panel)
-        self.mlp_panel.hide()
+        toolbox = QtGui.QToolBox(self)
+        hbox.addWidget(toolbox)
+        toolbox.setFixedWidth(300)
+        toolbox.addItem(QtGui.QWidget(self), '&Display')
+        toolbox.addItem(self.manual_panel, '&Manual')
+        toolbox.addItem(self.conversion_panel, '&Conversion')
+        toolbox.addItem(self.embedding_panel, '&Embedding')
+        toolbox.addItem(self.mlp_panel, 'M&LP')
+        toolbox.currentChanged.connect(self.tab_changed)
 
     def get_config_params(self):
         try:
@@ -124,28 +107,8 @@ class Classifier(QtGui.QMainWindow):
         self.detd = pm['detd']/pm['pixsize']
         self.blacklist = None
 
-    def switch_mode(self, event=None):
-        mode = self.mode_dict[str(self.modes.checkedAction().text())]
-        self.mode_val = mode
-        
-        if mode != 1 and self.manual_panel.isVisible():
-            self.manual_panel.custom_hide()
-        if mode != 2 and self.conversion_panel.isVisible():
-            self.conversion_panel.custom_hide()
-        if mode != 3 and self.embedding_panel.isVisible():
-            self.embedding_panel.custom_hide()
-        if mode != 4 and self.mlp_panel.isVisible():
-            self.mlp_panel.custom_hide()
-        
-        if mode == 1 and not self.manual_panel.isVisible():
-            self.manual_panel.custom_show()
-        elif mode == 2 and not self.conversion_panel.isVisible():
-            self.conversion_panel.custom_show()
-        elif mode == 3 and not self.embedding_panel.isVisible():
-            self.embedding_panel.custom_show()
-        elif mode == 4 and not self.mlp_panel.isVisible():
-            self.mlp_panel.custom_show()
-        
+    def tab_changed(self, index):
+        self.mode_val = index
         self.frame_panel.plot_frame()
 
     def switch_theme(self, event=None):
