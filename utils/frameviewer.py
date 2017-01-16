@@ -10,7 +10,8 @@ from PyQt4 import QtCore
 from py_src import py_utils
 from py_src import read_config
 from py_src import frame_panel
-from py_src import data
+from py_src import reademc 
+from py_src import readdet
 
 class Frameviewer(QtGui.QMainWindow):
     def __init__(self, config_file, cmap='jet', mask=False):
@@ -20,8 +21,8 @@ class Frameviewer(QtGui.QMainWindow):
         self.mode_val = None
         
         self.get_config_params()
-        self.geom = data.Det_reader(self.det_fname, self.detd, self.ewald_rad, mask_flag=mask)
-        self.emc_reader = data.EMC_reader(self.photons_list, self.geom.x, self.geom.y, self.geom.mask)
+        self.geom = readdet.Det_reader(self.det_fname, self.detd, self.ewald_rad, mask_flag=mask)
+        self.emc_reader = reademc.EMC_reader(self.photons_list, self.geom.x, self.geom.y, self.geom.mask)
         self.num_frames = self.emc_reader.num_frames
         self.init_UI()
 

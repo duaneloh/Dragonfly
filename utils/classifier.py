@@ -7,7 +7,8 @@ import sip
 sip.setapi('Qstring', 2)
 from PyQt4 import QtGui
 from PyQt4 import QtCore
-from py_src import data
+from py_src import reademc
+from py_src import readdet
 from py_src import manual
 from py_src import conversion
 from py_src import embedding
@@ -36,8 +37,8 @@ class Classifier(QtGui.QMainWindow):
         self.mode_val = 0
         
         self.get_config_params()
-        self.geom = data.Det_reader(self.det_fname, self.detd, self.ewald_rad, mask_flag=mask)
-        self.emc_reader = data.EMC_reader(self.photons_list, self.geom.x, self.geom.y, self.geom.mask)
+        self.geom = readdet.Det_reader(self.det_fname, self.detd, self.ewald_rad, mask_flag=mask)
+        self.emc_reader = reademc.EMC_reader(self.photons_list, self.geom.x, self.geom.y, self.geom.mask)
         self.num_frames = self.emc_reader.num_frames
         self.classes = classes.Frame_classes(self.num_frames)
         
