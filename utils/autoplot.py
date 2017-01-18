@@ -14,50 +14,28 @@ from glob import glob
 import re
 
 class Plotter:
-    def __init__(self, master, config='config.ini', size=200, model=None):
+    def __init__(self, master, config='config.ini', model=None):
         self.master = master
-        self.size = size
-        self.center = self.size/2
-        self.max_iter = 0
-
-        self.fname = Tk.StringVar()
-        self.logfname = Tk.StringVar()
-        self.rangestr = Tk.StringVar()
-        self.expstr = Tk.StringVar()
-        self.imagename = Tk.StringVar()
-        self.log_imagename = Tk.StringVar()
-        self.layernum = Tk.IntVar()
-        self.ifcheck = Tk.IntVar()
-        self.iter = Tk.IntVar()
         self.orientnum = set()
         self.orient = []
         self.log_txt = ""
+        self.max_iter = 0
+        self.image_exists = False
 
-        with open(config, 'r') as f:
-            filestring = f.read()
-            words = filter(None, re.split('[ =\n]', filestring))
-            try:
-                ind = words.index('output_folder')
-                self.folder = words[ind+1]
-            except ValueError:
-                self.folder = 'data/'
-            try:
-                ind = words.index('log_file')
-                self.logfname.set(words[ind+1])
-            except ValueError:
-                self.logfname.set('EMC.log')
+        self.fname = Tk.StringVar()
+        self.logfname = Tk.StringVar(); 
+        self.read_config(config)
         if model is None:
             self.fname.set(self.folder+'/output/intens_001.bin')
         else:
             self.fname.set(model)
-        self.imagename.set('images/' + os.path.splitext(os.path.basename(self.fname.get()))[0] + '.png')
-        self.log_imagename.set('images/log_fig.png')
-        self.image_exists = False
-        self.rangestr.set(str(1.))
-        self.expstr.set(str(1.))
-        self.layernum.set(self.center)
-        self.ifcheck.set(0)
-        self.iter.set(0)
+        self.rangestr = Tk.StringVar(); self.rangestr.set(str(1.))
+        self.expstr = Tk.StringVar(); self.expstr.set(str(1.))
+        self.imagename = Tk.StringVar(); self.imagename.set('images/' + os.path.splitext(os.path.basename(self.fname.get()))[0] + '.png')
+        self.log_imagename = Tk.StringVar(); self.log_imagename.set('images/log_fig.png')
+        self.layernum = Tk.IntVar(); self.layernum.set(0)
+        self.ifcheck = Tk.IntVar(); self.ifcheck.set(0)
+        self.iter = Tk.IntVar(); self.iter.set(0)
 
         self.init_UI()
         if model is not None:
@@ -135,7 +113,7 @@ class Plotter:
         line.pack(fill=Tk.BOTH, expand=1)
         Tk.Label(line,text='Layer no. ').pack(side=Tk.LEFT)
         Tk.Button(line,text="-",command=self.decrement_layer).pack(side=Tk.LEFT,fill=Tk.Y)
-        self.layerSlider = Tk.Scale(line,from_=0,to=int(self.size-1),orient=Tk.HORIZONTAL,length=250,width=20,
+        self.layerSlider = Tk.Scale(line,from_=0,to=1,orient=Tk.HORIZONTAL,length=250,width=20,
                                     variable=self.layernum,command=None)
         self.layerSlider.pack(side=Tk.LEFT, expand=1, fill=Tk.BOTH)
         Tk.Button(line,text="+",command=self.increment_layer).pack(side=Tk.LEFT,fill=Tk.Y)
@@ -181,6 +159,21 @@ class Plotter:
         self.txt.config(yscrollcommand=scroll.set)
         self.txt.insert(Tk.END, self.log_txt)
 
+    def read_config(self, config):
+        with open(config, 'r') as f:
+            filestring = f.read()
+            words = filter(None, re.split('[ =\n]', filestring))
+            try:
+                ind = words.index('output_folder')
+                self.folder = words[ind+1]
+            except ValueError:
+                self.folder = 'data/'
+            try:
+                ind = words.index('log_file')
+                self.logfname.set(words[ind+1])
+            except ValueError:
+                self.logfname.set('EMC.log')
+
     def plot_vol(self, num):
         self.imagename.set('images/' + os.path.splitext(os.path.basename(self.fname.get()))[0] + '.png')
         rangemax = float(self.rangestr.get())
@@ -217,7 +210,6 @@ class Plotter:
         self.old_rangestr = self.rangestr.get()
 
     def parse(self):
-        s = int(self.size)
         fname = self.fname.get()
 
         if os.path.isfile(fname):
@@ -231,8 +223,8 @@ class Plotter:
         self.vol = self.vol.reshape(self.size, self.size, self.size)
         self.center = self.size/2
         if not self.image_exists:
-            self.layernum.set(self.center)
             self.layerSlider.configure(to=int(self.size))
+            self.layernum.set(self.center)
 
         self.old_fname = fname
 
