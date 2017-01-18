@@ -192,7 +192,7 @@ void parse_input(char *fname) {
 		}
 	}
 	
-	if (start_iter == 1) {
+	if (!rank && start_iter == 1) {
 		char fname0[999] ;
 		sprintf(fname0, "%s/output/intens_000.bin", output_folder) ;
 		FILE *fp0 = fopen(fname0, "wb") ;
@@ -233,7 +233,7 @@ void calc_scale() {
 		curr = curr->next ;
 	}
 	
-	if (start_iter == 1) {
+	if (!rank && start_iter == 1) {
 		sprintf(fname, "%s/scale/scale_000.dat", output_folder) ;
 		fp = fopen(fname, "w") ;
 		for (d = 0 ; d < tot_num_data ; ++d)
@@ -322,9 +322,11 @@ int setup(char *config_fname, int continue_flag) {
 	char data_fname[999], out_data_fname[999] ;
 	char merge_flist[999], merge_fname[999] ;
 	char out_det_fname[999], sel_string[999] ;
+	int good_section ;
 	double qmax, qmin, detd, pixsize, ewald_rad ;
 	int dets_x, dets_y, detsize, num_div ;
 	
+	good_section = 0 ;
 	known_scale = 0 ;
 	start_iter = 1 ;
 	strcpy(log_fname, "EMC.log") ;
@@ -349,6 +351,7 @@ int setup(char *config_fname, int continue_flag) {
 	alpha = 0. ;
 	beta = 1. ;
 	ewald_rad = -1. ;
+	icosahedral_flag = 0 ;
 	
 	char line[999], *token ;
 	fp = fopen(config_fname, "r") ;
@@ -358,7 +361,18 @@ int setup(char *config_fname, int continue_flag) {
 	}
 	while (fgets(line, 999, fp) != NULL) {
 		token = strtok(line, " =") ;
-		if (token[0] == '#' || token[0] == '\n' || token[0] == '[')
+		if (token[0] == '#' || token[0] == '\n') {
+			continue ;
+		}
+		else if (token[0] == '[') {
+			token = strtok(token, "[]") ;
+			if (strcmp(token, "classifier") == 0)
+				good_section = 0 ;
+			else
+				good_section = 1 ;
+			continue ;
+		}
+		if (!good_section)
 			continue ;
 		
 		// [parameters]
@@ -385,13 +399,17 @@ int setup(char *config_fname, int continue_flag) {
 			beta = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "ewald_rad") == 0)
 			ewald_rad = atof(strtok(NULL, " =\n")) ;
+		// [make_detector]
+		else if (strcmp(token, "out_detector_file") == 0)
+			strcpy(out_det_fname, strtok(NULL, " =\n")) ;
+		// [make_data]
+		else if (strcmp(token, "out_photons_file") == 0)
+			strcpy(out_data_fname, strtok(NULL, " =\n")) ;
 		// [emc]
 		else if (strcmp(token, "in_photons_file") == 0)
 			strcpy(data_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "in_photons_file") == 0)
 			strcpy(data_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "out_photons_file") == 0)
-			strcpy(out_data_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "in_photons_list") == 0)
 			strcpy(data_flist, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "merge_photons_file") == 0)
@@ -410,8 +428,6 @@ int setup(char *config_fname, int continue_flag) {
 			num_div = atoi(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "in_quat_file") == 0)
 			strcpy(quat_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "out_detector_file") == 0)
-			strcpy(out_det_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "blacklist_file") == 0)
 			strcpy(blacklist_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "scale_file") == 0)
@@ -422,6 +438,8 @@ int setup(char *config_fname, int continue_flag) {
 		}
 		else if (strcmp(token, "selection") == 0)
 			strcpy(sel_string, strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "sym_icosahedral") == 0)
+			icosahedral_flag = atoi(strtok(NULL, " =\n")) ;
 	}
 	fclose(fp) ;
 
@@ -454,7 +472,7 @@ int setup(char *config_fname, int continue_flag) {
 		return 1 ;
 	}
 	else if (num_div > 0)
-		num_rot = quat_gen(num_div, &quat) ;
+		num_rot = quat_gen(num_div, &quat, icosahedral_flag) ;
 	else if (parse_quat(quat_fname))
 			return 1 ;
 	

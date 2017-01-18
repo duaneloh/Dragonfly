@@ -25,18 +25,20 @@ from py_src import read_config
 
 if __name__ == '__main__':
     logging.basicConfig(filename='recon.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-    parser      = py_utils.my_argparser(description='h5toemc')
+    parser = py_utils.my_argparser(description='h5toemc')
     parser.add_argument('h5_name', help='HDF5 file to convert to emc format')
     parser.add_argument('-d', '--dset_name', help='Name of HDF5 dataset containing photon data', default=None)
-    parser.add_argument('-s', '--sel_file', help='Path to text file containing indices of frames or a set of 0 or 1 values. Default: Do all', default=None)
+    parser.add_argument('-s', '--sel_file', help='Path to text file containing indices of frames\nor a set of 0 or 1 values. Default: Do all', default=None)
     parser.add_argument('-S', '--sel_dset', help='Same as --sel_file, but pointing to the name of an HDF5 dataset', default=None)
     parser.add_argument('-l', '--list', help='h5_name is list of h5 files rather than a single one', action='store_true', default=False)
-    args        = parser.special_parse_args()
+    parser.add_argument('-o', '--out_fname', help='Output filename if different from calculated name', default=None)
+    args = parser.special_parse_args()
 
-    logging.info('Starting h5toemc_spi2....')
+    logging.info('Starting h5toemc....')
     logging.info(' '.join(sys.argv))
-    pm          = read_config.get_detector_config(args.config_file, show=args.vb)
+    pm = read_config.get_detector_config(args.config_file, show=args.vb)
     output_folder = read_config.get_filename(args.config_file, 'emc', 'output_folder')
+    curr_num_data = 0
 
     if not os.path.isfile(args.h5_name):
         print 'Data file %s not found. Exiting.' % args.h5_name
@@ -46,15 +48,19 @@ if __name__ == '__main__':
     if args.list:
         logging.info('Reading file names in list %s' % args.h5_name)
         with open(args.h5_name, 'r') as f:
-            flist = [fname.rstrip() for fname in f.readlines()]
+            flist = [os.path.realpath(fname.rstrip()) for fname in f.readlines()]
         logging.info
     else:
         flist = [args.h5_name]
 
-    emcwriter = writeemc.EMC_writer('%s/%s.emc' % (output_folder, os.path.splitext(os.path.basename(args.h5_name))[0]),
-                                    pm['dets_x']*pm['dets_y'])
+    if args.out_fname is None:
+        emcwriter = writeemc.EMC_writer('%s/%s.emc' % (output_folder, os.path.splitext(os.path.basename(args.h5_name))[0]),
+                                        pm['dets_x']*pm['dets_y'])
+    else:
+        emcwriter = writeemc.EMC_writer(args.out_fname, pm['dets_x']*pm['dets_y'])
 
     for fname in flist:
+        print 'Processing', fname, curr_num_data
         f = h5py.File(fname, 'r')
         if args.dset_name is None:
             for name, obj in f['photonConverter'].items():
@@ -66,7 +72,11 @@ if __name__ == '__main__':
                     pass
             logging.info('Converting data in '+ dset.name)
         else:
-            dset = f[args.dset_name]
+            try:
+                dset = f[args.dset_name]
+            except KeyError:
+                print 'Dataset not found. Moving on.'
+                continue
             logging.info('Converting data in '+ args.dset_name)
 
         if args.sel_file is not None and args.sel_dset is not None:
@@ -76,13 +86,15 @@ if __name__ == '__main__':
             ind = np.arange(dset.shape[0], dtype='i4')
         elif args.sel_file is not None:
             ind = np.loadtxt(args.sel_file, dtype='i4')
+            ind -= curr_num_data
         else:
             ind = f[args.sel_dset][:]
 
         if ind.shape[0] == dset.shape[0] and ind.max() < 2:
             ind = np.where(ind==1)[0]
-
+        ind = ind[(ind>=0) & (ind<dset.shape[0])]
         num_frames = ind.shape[0]
+        curr_num_data += dset.shape[0]
         if not args.list:
             logging.info('Converting %d/%d frames in %s' % (num_frames, dset.shape[0], args.h5_name))
 
