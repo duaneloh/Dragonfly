@@ -7,13 +7,11 @@ import os
 import time
 import glob
 import re
-import sip
-sip.setapi('QString', 2)
-from PyQt4 import QtCore, QtGui
+from PyQt5 import QtCore, QtWidgets, QtGui
 import matplotlib
-from matplotlib.backends.backend_qt4agg import FigureCanvas
+from matplotlib.backends.backend_qt5agg import FigureCanvas
 
-class Progress_viewer(QtGui.QMainWindow):
+class Progress_viewer(QtWidgets.QMainWindow):
     def __init__(self, config='config.ini', model=None):
         super(Progress_viewer, self).__init__()
         self.config = config
@@ -31,134 +29,135 @@ class Progress_viewer(QtGui.QMainWindow):
 
     def init_UI(self):
         self.setWindowTitle('Dragonfly Progress Viewer')
-        overall = QtGui.QWidget()
+        self.setGeometry(100, 100, 1500, 800)
+        overall = QtWidgets.QWidget()
         self.setCentralWidget(overall)
-        self.grid = QtGui.QGridLayout(overall)
+        self.grid = QtWidgets.QGridLayout(overall)
 
         # Volume slices figure
-        self.fig = matplotlib.figure.Figure(figsize=(15,5), facecolor='w')
+        self.fig = matplotlib.figure.Figure(figsize=(14,5), facecolor='#353535')
         self.fig.subplots_adjust(left=0.0, bottom=0.00, right=0.99, wspace=0.0)
         self.canvas = FigureCanvas(self.fig)
         self.grid.addWidget(self.canvas, 0, 0)
         self.canvas.show()
 
         # Progress plots figure
-        self.log_fig = matplotlib.figure.Figure(figsize=(15,5), facecolor='white')
+        self.log_fig = matplotlib.figure.Figure(figsize=(14,5), facecolor='w')
         self.plotcanvas = FigureCanvas(self.log_fig)
         self.grid.addWidget(self.plotcanvas, 1, 0)
         self.plotcanvas.show()
 
         # Plot options widget
-        self.options = QtGui.QVBoxLayout()
+        self.options = QtWidgets.QVBoxLayout()
         self.grid.addLayout(self.options, 0, 1, 2, 1)
 
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         self.options.addLayout(hbox)
-        label = QtGui.QLabel('Log file name:', self)
+        label = QtWidgets.QLabel('Log file name:', self)
         hbox.addWidget(label)
-        self.logfname = QtGui.QLineEdit('EMC.log', self)
+        self.logfname = QtWidgets.QLineEdit('EMC.log', self)
         self.logfname.setMinimumWidth(160)
         hbox.addWidget(self.logfname)
-        label = QtGui.QLabel('PlotMax:', self)
+        label = QtWidgets.QLabel('PlotMax:', self)
         hbox.addWidget(label)
-        self.rangestr = QtGui.QLineEdit('1', self)
+        self.rangestr = QtWidgets.QLineEdit('1', self)
         self.rangestr.setFixedWidth(48)
         self.rangestr.returnPressed.connect(self.range_changed)
         hbox.addWidget(self.rangestr)
 
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         self.options.addLayout(hbox)
-        label = QtGui.QLabel('File name:', self)
+        label = QtWidgets.QLabel('File name:', self)
         hbox.addWidget(label)
-        self.fname = QtGui.QLineEdit('data/output/intens_001.bin', self)
+        self.fname = QtWidgets.QLineEdit('data/output/intens_001.bin', self)
         self.logfname.setMinimumWidth(160)
         hbox.addWidget(self.fname)
-        label = QtGui.QLabel('Exp:', self)
+        label = QtWidgets.QLabel('Exp:', self)
         hbox.addWidget(label)
-        self.expstr = QtGui.QLineEdit('1', self)
+        self.expstr = QtWidgets.QLineEdit('1', self)
         self.expstr.setFixedWidth(48)
         self.expstr.returnPressed.connect(self.range_changed)
         hbox.addWidget(self.expstr)
 
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         self.options.addLayout(hbox)
-        label = QtGui.QLabel('Image name:', self)
+        label = QtWidgets.QLabel('Image name:', self)
         hbox.addWidget(label)
-        self.imagename = QtGui.QLineEdit('images/'+os.path.splitext(os.path.basename(self.fname.text()))[0]+'.png', self)
+        self.imagename = QtWidgets.QLineEdit('images/'+os.path.splitext(os.path.basename(self.fname.text()))[0]+'.png', self)
         self.imagename.setMinimumWidth(160)
         hbox.addWidget(self.imagename)
-        button = QtGui.QPushButton('Save', self)
+        button = QtWidgets.QPushButton('Save', self)
         button.clicked.connect(self.save_plot)
         hbox.addWidget(button)
 
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         self.options.addLayout(hbox)
-        label = QtGui.QLabel('Log image name:', self)
+        label = QtWidgets.QLabel('Log image name:', self)
         hbox.addWidget(label)
-        self.log_imagename = QtGui.QLineEdit('images/log_fig.png', self)
+        self.log_imagename = QtWidgets.QLineEdit('images/log_fig.png', self)
         self.log_imagename.setMinimumWidth(160)
         hbox.addWidget(self.log_imagename)
-        button = QtGui.QPushButton('Save', self)
+        button = QtWidgets.QPushButton('Save', self)
         button.clicked.connect(self.save_log_plot)
         hbox.addWidget(button)
 
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         self.options.addLayout(hbox)
-        label = QtGui.QLabel('Layer num.', self)
+        label = QtWidgets.QLabel('Layer num.', self)
         hbox.addWidget(label)
-        self.layer_slider = QtGui.QSlider(QtCore.Qt.Horizontal, self)
+        self.layer_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
         self.layer_slider.setRange(0, 200)
         self.layer_slider.sliderMoved.connect(self.layernum_changed)
         self.layer_slider.sliderReleased.connect(self.layernum_changed)
         hbox.addWidget(self.layer_slider)
-        self.layernum = QtGui.QLineEdit(str(self.layer_slider.value()), self)
+        self.layernum = QtWidgets.QLineEdit(str(self.layer_slider.value()), self)
         self.layernum.returnPressed.connect(self.layernum_changed)
         self.layernum.setFixedWidth(36)
         hbox.addWidget(self.layernum)
 
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         self.options.addLayout(hbox)
-        label = QtGui.QLabel('Iteration', self)
+        label = QtWidgets.QLabel('Iteration', self)
         hbox.addWidget(label)
-        self.iter_slider = QtGui.QSlider(QtCore.Qt.Horizontal, self)
+        self.iter_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
         self.iter_slider.setRange(0, 200)
         self.iter_slider.sliderMoved.connect(self.iter_changed)
         self.iter_slider.sliderReleased.connect(self.iter_changed)
         hbox.addWidget(self.iter_slider)
-        self.iter = QtGui.QLineEdit(str(self.iter_slider.value()), self)
+        self.iter = QtWidgets.QLineEdit(str(self.iter_slider.value()), self)
         self.iter.returnPressed.connect(self.iter_changed)
         self.iter.setFixedWidth(36)
         hbox.addWidget(self.iter)
 
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         self.options.addLayout(hbox)
-        button = QtGui.QPushButton('Check', self)
+        button = QtWidgets.QPushButton('Check', self)
         button.clicked.connect(self.check_for_new)
         hbox.addWidget(button)
-        self.ifcheck = QtGui.QCheckBox('Keep checking', self)
+        self.ifcheck = QtWidgets.QCheckBox('Keep checking', self)
         self.ifcheck.stateChanged.connect(self.keep_checking)
         self.ifcheck.setChecked(False)
         hbox.addWidget(self.ifcheck)
         hbox.addStretch(1)
 
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         self.options.addLayout(hbox)
         hbox.addStretch(1)
-        button = QtGui.QPushButton('Plot', self)
+        button = QtWidgets.QPushButton('Plot', self)
         button.clicked.connect(self.parse_and_plot)
         hbox.addWidget(button)
-        button = QtGui.QPushButton('Reparse', self)
+        button = QtWidgets.QPushButton('Reparse', self)
         button.clicked.connect(self.force_plot)
         hbox.addWidget(button)
-        button = QtGui.QPushButton('Quit', self)
+        button = QtWidgets.QPushButton('Quit', self)
         button.clicked.connect(self.close)
         hbox.addWidget(button)
 
-        log_area = QtGui.QScrollArea(self)
+        log_area = QtWidgets.QScrollArea(self)
         self.options.addWidget(log_area)
         log_area.setMinimumWidth(450)
         log_area.setWidgetResizable(True)
-        self.emclog_text = QtGui.QTextEdit('Press Check to get log file contents', self)
+        self.emclog_text = QtWidgets.QTextEdit('Press Check to get log file contents', self)
         self.emclog_text.setReadOnly(True)
         self.emclog_text.setFontPointSize(8)
         self.emclog_text.setTabStopWidth(22)
@@ -215,19 +214,19 @@ class Progress_viewer(QtGui.QMainWindow):
         self.fig.clf()
 
         s1 = self.fig.add_subplot(131)
-        s1.imshow(a, vmin=0, vmax=rangemax, cmap='CMRmap', interpolation='none')
-        s1.set_title("YZ plane", y=1.01)
+        s1.imshow(a, vmin=0, vmax=rangemax, cmap='gray', interpolation='none')
+        s1.set_title("YZ plane", y=1.01, color='w')
 
         s1.axis('off')
 
         s2 = self.fig.add_subplot(132)
-        s2.matshow(b, vmin=0, vmax=rangemax, cmap='CMRmap', interpolation='none')
-        s2.set_title("XZ plane", y=1.01)
+        s2.matshow(b, vmin=0, vmax=rangemax, cmap='gray', interpolation='none')
+        s2.set_title("XZ plane", y=1.01, color='w')
         s2.axis('off')
 
         s3 = self.fig.add_subplot(133)
-        s3.matshow(c, vmin=0, vmax=rangemax, cmap='CMRmap', interpolation='none')
-        s3.set_title("XY plane", y=1.01)
+        s3.matshow(c, vmin=0, vmax=rangemax, cmap='gray', interpolation='none')
+        s3.set_title("XY plane", y=1.01, color='w')
         s3.axis('off')
 
         self.canvas.draw()
@@ -307,14 +306,14 @@ class Progress_viewer(QtGui.QMainWindow):
 
         self.log_fig.clf()
         grid = matplotlib.gridspec.GridSpec(2,3, wspace=0.3, hspace=0.2)
-        grid.update(left=0.08, right=0.99, hspace=0.2, wspace=0.3)
+        grid.update(left=0.05, right=0.99, hspace=0.2, wspace=0.3)
 
         # Plot RMS change
         s1 = self.log_fig.add_subplot(grid[:,0])
         s1.plot(iter, change, 'o-')
         s1.set_yscale('log')
         s1.set_xlabel('Iteration')
-        s1.set_ylabel('RMS change')
+        s1.set_ylabel('RMS change', labelpad=-10)
         s1_lim = s1.get_ylim()
         s1.set_ylim(s1_lim)
         for i in beta_change:
@@ -411,9 +410,9 @@ class Progress_viewer(QtGui.QMainWindow):
         
         if k == QtCore.Qt.Key_Return or k == QtCore.Qt.Key_Enter:
             self.parse_and_plot()
-        elif QtGui.QKeySequence(m+k) == int(QtGui.QKeySequence('Ctrl+Q')):
+        elif QtGui.QKeySequence(m+k) == QtGui.QKeySequence('Ctrl+Q'):
             self.close()
-        elif QtGui.QKeySequence(m+k) == int(QtGui.QKeySequence('Ctrl+S')):
+        elif QtGui.QKeySequence(m+k) == QtGui.QKeySequence('Ctrl+S'):
             self.save_plot()
         else:
             event.ignore()
@@ -422,8 +421,20 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Dragonfly Progress Monitor')
     parser.add_argument('-c', '--config_file', help='Path to config file. Default=config.ini', default='config.ini')
     parser.add_argument('-f', '--volume_file', help='Show slices of particular file instead of output', default=None)
-    args = parser.parse_args()
+    args, unknown = parser.parse_known_args()
     
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(unknown)
+    palette = QtGui.QPalette()
+    palette.setColor(QtGui.QPalette.Window, QtGui.QColor(53,53,53))
+    palette.setColor(QtGui.QPalette.WindowText, QtGui.QColor(255,255,255))
+    palette.setColor(QtGui.QPalette.Base, QtGui.QColor(25,25,25))
+    palette.setColor(QtGui.QPalette.Text, QtGui.QColor(255,255,255))
+    palette.setColor(QtGui.QPalette.Button, QtGui.QColor(53,53,53))
+    palette.setColor(QtGui.QPalette.ButtonText, QtGui.QColor(255,255,255))
+    palette.setColor(QtGui.QPalette.BrightText, QtGui.QColor(255,255,255))
+    palette.setColor(QtGui.QPalette.Highlight, QtGui.QColor(26,218,26))
+    palette.setColor(QtGui.QPalette.HighlightedText, QtGui.QColor(0,0,0))
+    app.setStyle('Fusion')
+    app.setPalette(palette)
     p = Progress_viewer(config=args.config_file, model=args.volume_file)
     sys.exit(app.exec_())
