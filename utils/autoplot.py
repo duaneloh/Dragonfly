@@ -2,162 +2,191 @@
 
 import argparse
 import numpy as np
-import matplotlib.pyplot as plt
 import sys
-import Tkinter as Tk
 import os
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import matplotlib.gridspec as gridspec
-import matplotlib.patches as patches
 import time
-from glob import glob
+import glob
 import re
+import sip
+sip.setapi('QString', 2)
+from PyQt4 import QtCore, QtGui
+import matplotlib
+from matplotlib.backends.backend_qt4agg import FigureCanvas
 
-class Plotter:
-    def __init__(self, master, config='config.ini', model=None):
-        self.master = master
-        self.orientnum = set()
-        self.orient = []
+class Progress_viewer(QtGui.QMainWindow):
+    def __init__(self, config='config.ini', model=None):
+        super(Progress_viewer, self).__init__()
+        self.config = config
+        self.model_name = model
         self.log_txt = ""
         self.max_iter = 0
+        self.need_replot = False
         self.image_exists = False
 
-        self.fname = Tk.StringVar()
-        self.logfname = Tk.StringVar(); 
-        self.read_config(config)
-        if model is None:
-            self.fname.set(self.folder+'/output/intens_001.bin')
-        else:
-            self.fname.set(model)
-        self.rangestr = Tk.StringVar(); self.rangestr.set(str(1.))
-        self.expstr = Tk.StringVar(); self.expstr.set(str(1.))
-        self.imagename = Tk.StringVar(); self.imagename.set('images/' + os.path.splitext(os.path.basename(self.fname.get()))[0] + '.png')
-        self.log_imagename = Tk.StringVar(); self.log_imagename.set('images/log_fig.png')
-        self.layernum = Tk.IntVar(); self.layernum.set(0)
-        self.ifcheck = Tk.IntVar(); self.ifcheck.set(0)
-        self.iter = Tk.IntVar(); self.iter.set(0)
-
         self.init_UI()
+        self.read_config(config)
         if model is not None:
             self.parse_and_plot()
+        self.old_fname = self.fname.text()
 
     def init_UI(self):
-        self.master.title('Dragonfly Progress Monitor')
-        self.master.rowconfigure(0, weight=1)
-        self.master.columnconfigure(0, weight=1)
-        self.master.protocol('WM_DELETE_WINDOW', self.quit_)
+        self.setWindowTitle('Dragonfly Progress Viewer')
+        overall = QtGui.QWidget()
+        self.setCentralWidget(overall)
+        self.grid = QtGui.QGridLayout(overall)
 
-        fig_frame = Tk.Frame(self.master)
-        fig_frame.grid(row=0, column=0, sticky='nsew')
-        fig_frame.columnconfigure(0, weight=1)
-        fig_frame.rowconfigure(0, weight=1)
-        self.fig = plt.figure(figsize=(14,5))
+        # Volume slices figure
+        self.fig = matplotlib.figure.Figure(figsize=(15,5), facecolor='w')
         self.fig.subplots_adjust(left=0.0, bottom=0.00, right=0.99, wspace=0.0)
-        self.canvas = FigureCanvasTkAgg(self.fig, fig_frame)
+        self.canvas = FigureCanvas(self.fig)
+        self.grid.addWidget(self.canvas, 0, 0)
         self.canvas.show()
-        self.canvas.get_tk_widget().pack(fill='both', expand=1)
 
-        log_fig_frame = Tk.Frame(self.master)
-        log_fig_frame.grid(row=1, column=0, sticky='nsew')
-        log_fig_frame.columnconfigure(0, weight=1)
-        log_fig_frame.rowconfigure(1, weight=1)
-        self.log_fig = plt.figure(figsize=(14,5), facecolor='white')
-        #self.log_fig.subplots_adjust(left=0.0, bottom=0.00, right=0.99, wspace=0.0)
-        self.plotcanvas = FigureCanvasTkAgg(self.log_fig, log_fig_frame)
+        # Progress plots figure
+        self.log_fig = matplotlib.figure.Figure(figsize=(15,5), facecolor='white')
+        self.plotcanvas = FigureCanvas(self.log_fig)
+        self.grid.addWidget(self.plotcanvas, 1, 0)
         self.plotcanvas.show()
-        self.plotcanvas.get_tk_widget().pack(fill='both', expand=1)
 
-        self.options = Tk.Frame(self.master,relief=Tk.GROOVE,borderwidth=5,width=400, height=200)
-        self.options.grid(row=0,column=1,sticky=Tk.N)
+        # Plot options widget
+        self.options = QtGui.QVBoxLayout()
+        self.grid.addLayout(self.options, 0, 1, 2, 1)
 
-        self.log_display = Tk.Frame(self.master,relief=Tk.GROOVE,borderwidth=5,width=400, height=200)
-        self.log_display.grid(row=1,column=1,sticky='ns')
+        hbox = QtGui.QHBoxLayout()
+        self.options.addLayout(hbox)
+        label = QtGui.QLabel('Log file name:', self)
+        hbox.addWidget(label)
+        self.logfname = QtGui.QLineEdit('EMC.log', self)
+        self.logfname.setMinimumWidth(160)
+        hbox.addWidget(self.logfname)
+        label = QtGui.QLabel('PlotMax:', self)
+        hbox.addWidget(label)
+        self.rangestr = QtGui.QLineEdit('1', self)
+        self.rangestr.setFixedWidth(48)
+        self.rangestr.returnPressed.connect(self.range_changed)
+        hbox.addWidget(self.rangestr)
 
-        self.old_fname = self.fname.get()
-        self.old_rangestr = self.rangestr.get()
+        hbox = QtGui.QHBoxLayout()
+        self.options.addLayout(hbox)
+        label = QtGui.QLabel('File name:', self)
+        hbox.addWidget(label)
+        self.fname = QtGui.QLineEdit('data/output/intens_001.bin', self)
+        self.logfname.setMinimumWidth(160)
+        hbox.addWidget(self.fname)
+        label = QtGui.QLabel('Exp:', self)
+        hbox.addWidget(label)
+        self.expstr = QtGui.QLineEdit('1', self)
+        self.expstr.setFixedWidth(48)
+        self.expstr.returnPressed.connect(self.range_changed)
+        hbox.addWidget(self.expstr)
 
-        self.master.bind('<Return>', self.parse_and_plot)
-        self.master.bind('<KP_Enter>', self.parse_and_plot)
-        self.master.bind('<Control-s>', self.save_plot)
-        self.master.bind('<Control-q>', self.quit_)
-        self.master.bind('<Up>', self.increment_layer)
-        self.master.bind('<Down>', self.decrement_layer)
+        hbox = QtGui.QHBoxLayout()
+        self.options.addLayout(hbox)
+        label = QtGui.QLabel('Image name:', self)
+        hbox.addWidget(label)
+        self.imagename = QtGui.QLineEdit('images/'+os.path.splitext(os.path.basename(self.fname.text()))[0]+'.png', self)
+        self.imagename.setMinimumWidth(160)
+        hbox.addWidget(self.imagename)
+        button = QtGui.QPushButton('Save', self)
+        button.clicked.connect(self.save_plot)
+        hbox.addWidget(button)
 
-        line = Tk.Frame(self.options)
-        line.pack(fill=Tk.X)
-        Tk.Label(line,text="Log Filename: ").pack(side=Tk.LEFT)
-        Tk.Entry(line,textvariable=self.logfname,width=20).pack(side=Tk.LEFT, fill=Tk.X, expand=1)
-        Tk.Label(line,text="PlotMax: ").pack(side=Tk.LEFT, fill=Tk.X)
-        Tk.Entry(line,textvariable=self.rangestr,width=6).pack(side=Tk.LEFT)
+        hbox = QtGui.QHBoxLayout()
+        self.options.addLayout(hbox)
+        label = QtGui.QLabel('Log image name:', self)
+        hbox.addWidget(label)
+        self.log_imagename = QtGui.QLineEdit('images/log_fig.png', self)
+        self.log_imagename.setMinimumWidth(160)
+        hbox.addWidget(self.log_imagename)
+        button = QtGui.QPushButton('Save', self)
+        button.clicked.connect(self.save_log_plot)
+        hbox.addWidget(button)
 
-        line = Tk.Frame(self.options)
-        line.pack(fill=Tk.X)
-        Tk.Label(line,text="Filename: ").pack(side=Tk.LEFT)
-        Tk.Entry(line,textvariable=self.fname,width=20).pack(side=Tk.LEFT, fill=Tk.X, expand=1)
-        Tk.Label(line,text="Exp: ").pack(side=Tk.LEFT)
-        Tk.Entry(line,textvariable=self.expstr,width=6).pack(side=Tk.LEFT)
+        hbox = QtGui.QHBoxLayout()
+        self.options.addLayout(hbox)
+        label = QtGui.QLabel('Layer num.', self)
+        hbox.addWidget(label)
+        self.layer_slider = QtGui.QSlider(QtCore.Qt.Horizontal, self)
+        self.layer_slider.setRange(0, 200)
+        self.layer_slider.sliderMoved.connect(self.layernum_changed)
+        self.layer_slider.sliderReleased.connect(self.layernum_changed)
+        hbox.addWidget(self.layer_slider)
+        self.layernum = QtGui.QLineEdit(str(self.layer_slider.value()), self)
+        self.layernum.returnPressed.connect(self.layernum_changed)
+        self.layernum.setFixedWidth(36)
+        hbox.addWidget(self.layernum)
 
-        line = Tk.Frame(self.options)
-        line.pack(fill=Tk.X)
-        Tk.Label(line,text="Image name: ").pack(side=Tk.LEFT)
-        Tk.Entry(line,textvariable=self.imagename,width=30).pack(side=Tk.LEFT, fill=Tk.X, expand=1)
-        Tk.Button(line,text="Save",command=self.save_plot).pack(side=Tk.LEFT)
+        hbox = QtGui.QHBoxLayout()
+        self.options.addLayout(hbox)
+        label = QtGui.QLabel('Iteration', self)
+        hbox.addWidget(label)
+        self.iter_slider = QtGui.QSlider(QtCore.Qt.Horizontal, self)
+        self.iter_slider.setRange(0, 200)
+        self.iter_slider.sliderMoved.connect(self.iter_changed)
+        self.iter_slider.sliderReleased.connect(self.iter_changed)
+        hbox.addWidget(self.iter_slider)
+        self.iter = QtGui.QLineEdit(str(self.iter_slider.value()), self)
+        self.iter.returnPressed.connect(self.iter_changed)
+        self.iter.setFixedWidth(36)
+        hbox.addWidget(self.iter)
 
-        line = Tk.Frame(self.options)
-        line.pack(fill=Tk.X)
-        Tk.Label(line,text="Log image name: ").pack(side=Tk.LEFT)
-        Tk.Entry(line,textvariable=self.log_imagename,width=30).pack(side=Tk.LEFT, fill=Tk.X, expand=1)
-        Tk.Button(line,text="Save",command=self.save_log_plot).pack(side=Tk.LEFT)
+        hbox = QtGui.QHBoxLayout()
+        self.options.addLayout(hbox)
+        button = QtGui.QPushButton('Check', self)
+        button.clicked.connect(self.check_for_new)
+        hbox.addWidget(button)
+        self.ifcheck = QtGui.QCheckBox('Keep checking', self)
+        self.ifcheck.stateChanged.connect(self.keep_checking)
+        self.ifcheck.setChecked(False)
+        hbox.addWidget(self.ifcheck)
+        hbox.addStretch(1)
 
-        line = Tk.Frame(self.options)
-        line.pack(fill=Tk.BOTH, expand=1)
-        Tk.Label(line,text='Layer no. ').pack(side=Tk.LEFT)
-        Tk.Button(line,text="-",command=self.decrement_layer).pack(side=Tk.LEFT,fill=Tk.Y)
-        self.layerSlider = Tk.Scale(line,from_=0,to=1,orient=Tk.HORIZONTAL,length=250,width=20,
-                                    variable=self.layernum,command=None)
-        self.layerSlider.pack(side=Tk.LEFT, expand=1, fill=Tk.BOTH)
-        Tk.Button(line,text="+",command=self.increment_layer).pack(side=Tk.LEFT,fill=Tk.Y)
+        hbox = QtGui.QHBoxLayout()
+        self.options.addLayout(hbox)
+        hbox.addStretch(1)
+        button = QtGui.QPushButton('Plot', self)
+        button.clicked.connect(self.parse_and_plot)
+        hbox.addWidget(button)
+        button = QtGui.QPushButton('Reparse', self)
+        button.clicked.connect(self.force_plot)
+        hbox.addWidget(button)
+        button = QtGui.QPushButton('Quit', self)
+        button.clicked.connect(self.close)
+        hbox.addWidget(button)
 
-        line = Tk.Frame(self.options)
-        line.pack(fill=Tk.BOTH, expand=1)
-        Tk.Label(line,text='Iteration: ').pack(side=Tk.LEFT)
-        Tk.Button(line,text="-",command=self.decrement_iter).pack(side=Tk.LEFT,fill=Tk.Y)
-        self.slider = Tk.Scale(line,from_=0,to=self.max_iter,orient=Tk.HORIZONTAL,length=250,width=20,
-                               variable=self.iter,command=self.change_iter)
-        self.slider.pack(side=Tk.LEFT, expand=1, fill=Tk.BOTH)
-        Tk.Button(line,text="+",command=self.increment_iter).pack(side=Tk.LEFT,fill=Tk.Y)
+        log_area = QtGui.QScrollArea(self)
+        self.options.addWidget(log_area)
+        log_area.setMinimumWidth(450)
+        log_area.setWidgetResizable(True)
+        self.emclog_text = QtGui.QTextEdit('Press Check to get log file contents', self)
+        self.emclog_text.setReadOnly(True)
+        self.emclog_text.setFontPointSize(8)
+        self.emclog_text.setTabStopWidth(22)
+        log_area.setWidget(self.emclog_text)
 
-        line = Tk.Frame(self.options)
-        line.pack(fill=Tk.X)
-        Tk.Button(line,text="Check",command=self.check_for_new).pack(side=Tk.LEFT)
-        Tk.Checkbutton(line,text="Keep checking",variable=self.ifcheck,command=self.keep_checking).pack(side=Tk.LEFT)
+        self.show()
 
-        line = Tk.Frame(self.options)
-        line.pack(fill=Tk.X)
-        Tk.Button(line,text="Quit",command=self.master.quit).pack(side=Tk.RIGHT)
-        Tk.Button(line,text="Reparse",command=self.force_plot).pack(side=Tk.RIGHT)
-        Tk.Button(line,text="Plot",command=self.parse_and_plot).pack(side=Tk.RIGHT)
-
-        if os.path.exists('recon.log'):
-            with open("recon.log", 'r') as f:
-                all_lines = ''.join(f.readlines())
+    def layernum_changed(self, value=None):
+        if value is None:
+            self.layer_slider.setValue(int(self.layernum.text()))
+            self.need_replot = True
+            self.parse_and_plot()
         else:
-            all_lines = ''
-        scroll2 = Tk.Scrollbar(self.options)
-        self.txt2 = Tk.Text(self.options, height=10, width=70, font=("Arial",8))
-        scroll2.pack(side=Tk.RIGHT, fill=Tk.Y, expand=1)
-        self.txt2.pack(side=Tk.LEFT, fill=Tk.Y, expand=1)
-        scroll2.config(command=self.txt2.yview)
-        self.txt2.config(yscrollcommand=scroll2.set)
-        self.txt2.insert(Tk.END, all_lines)
+            self.layernum.setText(str(value))
+            self.layer_slider.setValue(value)
 
-        scroll = Tk.Scrollbar(self.log_display)
-        self.txt = Tk.Text(self.log_display, height=28, width=70, font=("Arial",8))
-        scroll.pack(side=Tk.RIGHT, fill=Tk.Y, expand=1)
-        self.txt.pack(side=Tk.LEFT, fill=Tk.Y, expand=1)
-        scroll.config(command=self.txt.yview)
-        self.txt.config(yscrollcommand=scroll.set)
-        self.txt.insert(Tk.END, self.log_txt)
+    def iter_changed(self, value=None):
+        if value is None:
+            self.iter_slider.setValue(int(self.iter.text()))
+            self.fname.setText('data/output/intens_%.3d.bin' % int(self.iter.text()))
+            self.parse_and_plot()
+        else:
+            self.iter.setText('%3d'%value)
+            self.iter_slider.setValue(value)
+            self.fname.setText('data/output/intens_%.3d.bin' % value)
+
+    def range_changed(self):
+        self.need_replot = True
 
     def read_config(self, config):
         with open(config, 'r') as f:
@@ -170,52 +199,48 @@ class Plotter:
                 self.folder = 'data/'
             try:
                 ind = words.index('log_file')
-                self.logfname.set(words[ind+1])
+                self.logfname.setText(words[ind+1])
             except ValueError:
-                self.logfname.set('EMC.log')
+                self.logfname.setText('EMC.log')
 
     def plot_vol(self, num):
-        self.imagename.set('images/' + os.path.splitext(os.path.basename(self.fname.get()))[0] + '.png')
-        rangemax = float(self.rangestr.get())
-        exponent = float(self.expstr.get())
+        self.imagename.setText('images/' + os.path.splitext(os.path.basename(self.fname.text()))[0] + '.png')
+        rangemax = float(self.rangestr.text())
+        exponent = float(self.expstr.text())
 
         a = self.vol[num,:,:]**exponent
         b = self.vol[:,num,:]**exponent
         c = self.vol[:,:,num]**exponent
 
         self.fig.clf()
-        grid = gridspec.GridSpec(1,3, wspace=0., hspace=0.)
 
-        s1 = plt.Subplot(self.fig, grid[:,0])
-        s1.imshow(a, vmin=0, vmax=rangemax, cmap='jet', interpolation='none')
+        s1 = self.fig.add_subplot(131)
+        s1.imshow(a, vmin=0, vmax=rangemax, cmap='CMRmap', interpolation='none')
         s1.set_title("YZ plane", y=1.01)
-        s1.axis('off')
-        self.fig.add_subplot(s1)
 
-        s2 = plt.Subplot(self.fig, grid[:,1])
-        s2.matshow(b, vmin=0, vmax=rangemax, cmap='jet', interpolation='none')
+        s1.axis('off')
+
+        s2 = self.fig.add_subplot(132)
+        s2.matshow(b, vmin=0, vmax=rangemax, cmap='CMRmap', interpolation='none')
         s2.set_title("XZ plane", y=1.01)
         s2.axis('off')
-        self.fig.add_subplot(s2)
 
-        s3 = plt.Subplot(self.fig, grid[:,2])
-        s3.matshow(c, vmin=0, vmax=rangemax, cmap='jet', interpolation='none')
+        s3 = self.fig.add_subplot(133)
+        s3.matshow(c, vmin=0, vmax=rangemax, cmap='CMRmap', interpolation='none')
         s3.set_title("XY plane", y=1.01)
         s3.axis('off')
-        self.fig.add_subplot(s3)
 
-        self.canvas.show()
-
+        self.canvas.draw()
         self.image_exists = True
-        self.old_rangestr = self.rangestr.get()
+        self.need_replot = False
 
     def parse(self):
-        fname = self.fname.get()
+        fname = self.fname.text()
 
         if os.path.isfile(fname):
             f = open(fname, "r")
         else:
-            print "Unable to open", fname
+            sys.stderr.write("Unable to open %s\n"%fname)
             return
 
         self.vol = np.fromfile(f, dtype='f8')
@@ -223,18 +248,16 @@ class Plotter:
         self.vol = self.vol.reshape(self.size, self.size, self.size)
         self.center = self.size/2
         if not self.image_exists:
-            self.layerSlider.configure(to=int(self.size))
-            self.layernum.set(self.center)
+            self.layer_slider.setRange(0, self.size-1)
+            self.layernum_changed(self.center)
 
         self.old_fname = fname
 
     def plot_log(self):
         # Read log file to get log lines (one for each completed iteration)
-        with open(self.logfname.get(), 'r') as f:
+        with open(self.logfname.text(), 'r') as f:
             all_lines = f.readlines()
-            self.log_txt = ''.join(all_lines)
-            self.txt.delete('1.0', Tk.END)
-            self.txt.insert(Tk.END, self.log_txt)
+            self.emclog_text.setText(''.join(all_lines))
 
             lines = [l.rstrip().split() for l in all_lines]
             flag = False
@@ -253,7 +276,7 @@ class Plotter:
             return
 
         # Read orientation files for the first n iterations
-        o_files = sorted(glob(self.folder+"/orientations/*.bin"))
+        o_files = sorted(glob.glob(self.folder+"/orientations/*.bin"))
         self.orient = []
         for i in range(len(loglines)):
             p = self.folder+'/orientations/orientations_%.3d.bin' % (i+1)
@@ -283,11 +306,11 @@ class Plotter:
         o_array = o_array.T
 
         self.log_fig.clf()
-        grid = gridspec.GridSpec(2,3, wspace=0.3, hspace=0.2)
-        grid.update(left=0.05, right=0.99, hspace=0.0, wspace=0.2)
+        grid = matplotlib.gridspec.GridSpec(2,3, wspace=0.3, hspace=0.2)
+        grid.update(left=0.08, right=0.99, hspace=0.2, wspace=0.3)
 
         # Plot RMS change
-        s1 = plt.Subplot(self.log_fig, grid[:,0])
+        s1 = self.log_fig.add_subplot(grid[:,0])
         s1.plot(iter, change, 'o-')
         s1.set_yscale('log')
         s1.set_xlabel('Iteration')
@@ -298,10 +321,9 @@ class Plotter:
             s1.plot([i+1,i+1], s1_lim,'k--',lw=1)
         for i in num_rot_change[:-1]:
             s1.plot([i+1,i+1], s1_lim,'r--',lw=1)
-        self.log_fig.add_subplot(s1)
 
         # Plot average mutual information
-        s2 = plt.Subplot(self.log_fig, grid[0,1])
+        s2 = self.log_fig.add_subplot(grid[0,1])
         s2.plot(iter, info, 'o-')
         s2.set_xlabel('Iteration')
         s2.set_ylabel(r'Mutual info. $I(K,\Omega | W)$')
@@ -311,10 +333,9 @@ class Plotter:
             s2.plot([i+1,i+1], s2_lim,'k--',lw=1)
         for i in num_rot_change[:-1]:
             s2.plot([i+1,i+1], s2_lim,'r--',lw=1)
-        self.log_fig.add_subplot(s2)
 
         # Plot average log-likelihood
-        s3 = plt.Subplot(self.log_fig, grid[1,1])
+        s3 = self.log_fig.add_subplot(grid[1,1])
         s3.plot(iter[1:], like[1:], 'o-')
         s3.set_xlabel('Iteration')
         s3.set_ylabel('Avg log-likelihood')
@@ -324,91 +345,78 @@ class Plotter:
             s3.plot([i+1,i+1], s3_lim,'k--',lw=1)
         for i in num_rot_change[:-1]:
             s3.plot([i+1,i+1], s3_lim,'r--',lw=1)
-        self.log_fig.add_subplot(s3)
 
         # Plot most likely orientation convergence plot
         if len(loglines) > 1:
-            s4 = plt.Subplot(self.log_fig, grid[:,2])
+            s4 = self.log_fig.add_subplot(grid[:,2])
             sh = o_array.shape
             s4.imshow(o_array**0.5, aspect=(1.*sh[1]/sh[0]), extent=[1,sh[1],sh[0],0])
             s4.get_yaxis().set_ticks([])
             s4.set_xlabel('Iteration')
             s4.set_ylabel('Pattern number (sorted)')
             s4.set_title('Most likely orientations of data\n(sorted/colored by last iteration)')
-            self.log_fig.add_subplot(s4)
 
         grid.tight_layout(self.log_fig)
-        self.plotcanvas.show()
+        self.plotcanvas.draw()
 
     def parse_and_plot(self, event=None):
-        if not self.image_exists:
+        if not self.image_exists or self.old_fname != self.fname.text():
             self.parse()
-            self.plot_vol(self.layernum.get())
-        elif self.old_fname == self.fname.get() and self.old_rangestr != self.rangestr.get():
-            self.plot_vol(self.layernum.get())
+            self.plot_vol(int(self.layernum.text()))
+        elif self.need_replot:
+            self.plot_vol(int(self.layernum.text()))
         else:
-            self.parse()
-            self.plot_vol(self.layernum.get())
+            pass
 
     def check_for_new(self, event=None):
-        with open(self.logfname.get(), 'r') as f:
+        with open(self.logfname.text(), 'r') as f:
             last_line = f.readlines()[-1].rstrip().split()
         try:
-            iter = int(last_line[0])
+            iteration = int(last_line[0])
         except ValueError:
-            iter = 0
+            iteration = 0
 
-        if iter > 0 and self.max_iter != iter:
-            self.fname.set(self.folder+'/output/intens_%.3d.bin' % iter)
-            self.max_iter = iter
-            self.slider.configure(to=self.max_iter)
-            self.iter.set(iter)
+        if iteration > 0 and self.max_iter != iteration:
+            self.fname.setText(self.folder+'/output/intens_%.3d.bin' % iteration)
+            self.max_iter = iteration
+            self.iter_slider.setRange(0, self.max_iter)
+            self.iter_changed(iteration)
             self.plot_log()
             self.parse_and_plot()
 
     def keep_checking(self, event=None):
-        if self.ifcheck.get() is 1:
+        if self.ifcheck.isChecked():
             self.check_for_new()
-            self.master.after(5000, self.keep_checking)
+            self.checker = QtCore.QTimer(self)
+            self.checker.timeout.connect(self.check_for_new)
+            self.checker.start(5000)
+        else:
+            self.checker.stop()
 
     def force_plot(self, event=None):
         self.parse()
-        self.plot_vol(self.layernum.get())
-
-    def increment_layer(self, event=None):
-        self.layernum.set(min(self.layernum.get()+1, self.size-1))
-        self.plot_vol(self.layernum.get())
-
-    def decrement_layer(self, event=None):
-        self.layernum.set(max(self.layernum.get()-1, 0))
-        self.plot_vol(self.layernum.get())
-
-    def increment_iter(self, event=None):
-        self.iter.set(min(self.iter.get()+1, self.max_iter))
-        if self.iter.get() >= 0:
-            self.fname.set(self.folder+'/output/intens_%.3d.bin' % self.iter.get())
-            self.parse_and_plot()
-
-    def decrement_iter(self, event=None):
-        self.iter.set(max(self.iter.get()-1, 0))
-        if self.iter.get() >= 0:
-            self.fname.set(self.folder+'/output/intens_%.3d.bin' % self.iter.get())
-            self.parse_and_plot()
-
-    def change_iter(self, event=None):
-        if self.iter.get() >= 0:
-            self.fname.set(self.folder+'/output/intens_%.3d.bin' % self.iter.get())
+        self.plot_vol(int(self.layernum.text()))
 
     def save_plot(self, event=None):
-        self.fig.savefig(self.imagename.get(), bbox_inches='tight')
-        print "Saved to", self.imagename.get()
+        self.fig.savefig(str(self.imagename.text()), bbox_inches='tight')
+        sys.stderr.write('Saved to %s'%self.imagename.text())
 
     def save_log_plot(self, event=None):
-        self.log_fig.savefig(self.log_imagename.get(), bbox_inches='tight')
-        print "Saved to", self.log_imagename.get()
+        self.log_fig.savefig(self.log_imagename.text(), bbox_inches='tight')
+        sys.stderr.write("Saved to %s\n"%self.log_imagename.text())
 
-    def quit_(self, event=None):
-        self.master.quit()
+    def keyPressEvent(self, event):
+        k = event.key()
+        m = int(event.modifiers())
+        
+        if k == QtCore.Qt.Key_Return or k == QtCore.Qt.Key_Enter:
+            self.parse_and_plot()
+        elif QtGui.QKeySequence(m+k) == int(QtGui.QKeySequence('Ctrl+Q')):
+            self.close()
+        elif QtGui.QKeySequence(m+k) == int(QtGui.QKeySequence('Ctrl+S')):
+            self.save_plot()
+        else:
+            event.ignore()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Dragonfly Progress Monitor')
@@ -416,6 +424,6 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--volume_file', help='Show slices of particular file instead of output', default=None)
     args = parser.parse_args()
     
-    root = Tk.Tk()
-    plotter = Plotter(root, config=args.config_file, model=args.volume_file)
-    root.mainloop()
+    app = QtGui.QApplication(sys.argv)
+    p = Progress_viewer(config=args.config_file, model=args.volume_file)
+    sys.exit(app.exec_())
