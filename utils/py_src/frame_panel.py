@@ -2,14 +2,12 @@ import numpy as np
 import sys
 import os
 import string
-import sip
-sip.setapi('Qstring', 2)
-from PyQt4 import QtGui
-from PyQt4 import QtCore
-from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg
+from PyQt5 import QtCore, QtWidgets
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
+import slices
 
-class Frame_panel(QtGui.QWidget):
+class Frame_panel(QtWidgets.QWidget):
     def __init__(self, parent, *args, **kwargs):
         super(Frame_panel, self).__init__(parent, *args, **kwargs)
         
@@ -17,6 +15,7 @@ class Frame_panel(QtGui.QWidget):
         self.emc_reader = self.parent.emc_reader
         self.num_frames = self.parent.num_frames
         self.cmap = self.parent.cmap
+        self.slices = slices.Slice_generator(self.parent.geom, 'data/quat.dat')
         
         self.numstr = '0'
         self.rangestr = '10'
@@ -24,47 +23,49 @@ class Frame_panel(QtGui.QWidget):
         self.init_UI()
 
     def init_UI(self):
-        vbox = QtGui.QVBoxLayout(self)
+        vbox = QtWidgets.QVBoxLayout(self)
         
         self.fig = Figure(figsize=(6, 6))
         self.fig.subplots_adjust(left=0.05, right=0.99, top=0.9, bottom=0.05)
         self.canvas = FigureCanvasQTAgg(self.fig)
-        #self.canvas.setFocusPolicy(QtCore.Qt.StrongFocus)
         self.canvas.mpl_connect('button_press_event', self.frame_focus)
         vbox.addWidget(self.canvas)
         
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         vbox.addLayout(hbox)
-        label = QtGui.QLabel('Frame number: ', self)
+        label = QtWidgets.QLabel('Frame number: ', self)
         hbox.addWidget(label)
-        self.numstr = QtGui.QLineEdit('0', self)
+        self.numstr = QtWidgets.QLineEdit('0', self)
         self.numstr.setFixedWidth(64)
         hbox.addWidget(self.numstr)
-        label = QtGui.QLabel('/%d'%self.num_frames, self)
+        label = QtWidgets.QLabel('/%d'%self.num_frames, self)
         hbox.addWidget(label)
         hbox.addStretch(1)
-        label = QtGui.QLabel('PlotMax:', self)
+        self.compare_flag = QtWidgets.QCheckBox('Compare', self)
+        self.compare_flag.clicked.connect(self.compare_flag_changed)
+        hbox.addWidget(self.compare_flag)
+        label = QtWidgets.QLabel('PlotMax:', self)
         hbox.addWidget(label)
-        self.rangestr = QtGui.QLineEdit('10', self)
+        self.rangestr = QtWidgets.QLineEdit('10', self)
         self.rangestr.setFixedWidth(48)
         hbox.addWidget(self.rangestr)
         
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         vbox.addLayout(hbox)
-        button = QtGui.QPushButton('Plot', self)
+        button = QtWidgets.QPushButton('Plot', self)
         button.clicked.connect(self.plot_frame)
         hbox.addWidget(button)
-        button = QtGui.QPushButton('Prev', self)
+        button = QtWidgets.QPushButton('Prev', self)
         button.clicked.connect(self.prev_frame)
         hbox.addWidget(button)
-        button = QtGui.QPushButton('Next', self)
+        button = QtWidgets.QPushButton('Next', self)
         button.clicked.connect(self.next_frame)
         hbox.addWidget(button)
-        button = QtGui.QPushButton('Random', self)
+        button = QtWidgets.QPushButton('Random', self)
         button.clicked.connect(self.rand_frame)
         hbox.addWidget(button)
         hbox.addStretch(1)
-        button = QtGui.QPushButton('Quit', self)
+        button = QtWidgets.QPushButton('Quit', self)
         button.clicked.connect(self.parent.close)
         hbox.addWidget(button)
         
@@ -134,7 +135,14 @@ class Frame_panel(QtGui.QWidget):
                     pass
             
             self.fig.clear()
-            s = self.fig.add_subplot(111)
+            if self.compare_flag.isChecked():
+                s = self.fig.add_subplot(121)
+                sc = self.fig.add_subplot(122)
+                tomo = self.slices.get_slice(7, num)
+                sc.imshow(tomo, cmap=self.cmap, vmin=0, vmax=float(self.rangestr.text()), interpolation='none')
+                self.fig.add_subplot(sc)
+            else:
+                s = self.fig.add_subplot(111)
             s.imshow(frame, vmin=0, vmax=float(self.rangestr.text()), interpolation='none', cmap=self.cmap)
             title = '%d photons' % frame.sum()
             if mode == 1:
@@ -162,6 +170,9 @@ class Frame_panel(QtGui.QWidget):
     def rand_frame(self, event=None):
         num = np.random.randint(0, self.num_frames)
         self.numstr.setText(str(num))
+        self.plot_frame()
+
+    def compare_flag_changed(self):
         self.plot_frame()
 
     def frame_focus(self, event=None):
