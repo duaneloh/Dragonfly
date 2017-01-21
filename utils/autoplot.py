@@ -10,6 +10,7 @@ import re
 from PyQt5 import QtCore, QtWidgets, QtGui
 import matplotlib
 from matplotlib.backends.backend_qt5agg import FigureCanvas
+from py_src import frame_panel
 
 class Progress_viewer(QtWidgets.QMainWindow):
     def __init__(self, config='config.ini', model=None):
@@ -51,6 +52,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.options = QtWidgets.QVBoxLayout()
         self.grid.addLayout(self.options, 0, 1, 2, 1)
 
+        # -- Log file
         hbox = QtWidgets.QHBoxLayout()
         self.options.addLayout(hbox)
         label = QtWidgets.QLabel('Log file name:', self)
@@ -65,6 +67,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.rangestr.returnPressed.connect(self.range_changed)
         hbox.addWidget(self.rangestr)
 
+        # -- Volume file
         hbox = QtWidgets.QHBoxLayout()
         self.options.addLayout(hbox)
         label = QtWidgets.QLabel('File name:', self)
@@ -79,6 +82,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.expstr.returnPressed.connect(self.range_changed)
         hbox.addWidget(self.expstr)
 
+        # -- Image saving
         hbox = QtWidgets.QHBoxLayout()
         self.options.addLayout(hbox)
         label = QtWidgets.QLabel('Image name:', self)
@@ -89,7 +93,6 @@ class Progress_viewer(QtWidgets.QMainWindow):
         button = QtWidgets.QPushButton('Save', self)
         button.clicked.connect(self.save_plot)
         hbox.addWidget(button)
-
         hbox = QtWidgets.QHBoxLayout()
         self.options.addLayout(hbox)
         label = QtWidgets.QLabel('Log image name:', self)
@@ -101,6 +104,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
         button.clicked.connect(self.save_log_plot)
         hbox.addWidget(button)
 
+        # -- Sliders
         hbox = QtWidgets.QHBoxLayout()
         self.options.addLayout(hbox)
         label = QtWidgets.QLabel('Layer num.', self)
@@ -114,7 +118,6 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.layernum.returnPressed.connect(self.layernum_changed)
         self.layernum.setFixedWidth(36)
         hbox.addWidget(self.layernum)
-
         hbox = QtWidgets.QHBoxLayout()
         self.options.addLayout(hbox)
         label = QtWidgets.QLabel('Iteration', self)
@@ -129,6 +132,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.iter.setFixedWidth(36)
         hbox.addWidget(self.iter)
 
+        # -- Buttons
         hbox = QtWidgets.QHBoxLayout()
         self.options.addLayout(hbox)
         button = QtWidgets.QPushButton('Check', self)
@@ -139,7 +143,6 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.ifcheck.setChecked(False)
         hbox.addWidget(self.ifcheck)
         hbox.addStretch(1)
-
         hbox = QtWidgets.QHBoxLayout()
         self.options.addLayout(hbox)
         hbox.addStretch(1)
@@ -153,6 +156,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
         button.clicked.connect(self.close)
         hbox.addWidget(button)
 
+        # -- Log file display
         log_area = QtWidgets.QScrollArea(self)
         self.options.addWidget(log_area)
         log_area.setMinimumWidth(450)

@@ -5,12 +5,9 @@ import string
 from sklearn import neural_network
 import multiprocessing
 import ctypes
-import sip
-sip.setapi('Qstring', 2)
-from PyQt4 import QtGui
-from PyQt4 import QtCore
+from PyQt5 import QtCore, QtWidgets
 
-class MLP_panel(QtGui.QWidget):
+class MLP_panel(QtWidgets.QWidget):
     def __init__(self, parent, *args, **kwargs):
         super(MLP_panel, self).__init__(parent, *args, **kwargs)
         
@@ -27,39 +24,39 @@ class MLP_panel(QtGui.QWidget):
         self.remake_mlp()
 
     def init_UI(self):
-        self.vbox = QtGui.QVBoxLayout(self)
+        self.vbox = QtWidgets.QVBoxLayout(self)
         
-        label = QtGui.QLabel('Multi-layer Perceptron', self)
+        label = QtWidgets.QLabel('Multi-layer Perceptron', self)
         self.vbox.addWidget(label)
         
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         self.vbox.addLayout(hbox)
-        label = QtGui.QLabel('Hidden layer sizes', self)
+        label = QtWidgets.QLabel('Hidden layer sizes', self)
         hbox.addWidget(label)
-        self.layer_sizes = QtGui.QLineEdit('10, 10', self)
+        self.layer_sizes = QtWidgets.QLineEdit('10, 10', self)
         self.layer_sizes.setFixedWidth(80)
         self.layer_sizes.editingFinished.connect(self.remake_mlp)
         hbox.addWidget(self.layer_sizes)
         
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         self.vbox.addLayout(hbox)
-        label = QtGui.QLabel('alpha', self)
+        label = QtWidgets.QLabel('alpha', self)
         hbox.addWidget(label)
-        self.alpha_var = QtGui.QLineEdit('0.1', self)
+        self.alpha_var = QtWidgets.QLineEdit('0.1', self)
         self.alpha_var.setFixedWidth(80)
         self.alpha_var.editingFinished.connect(self.remake_mlp)
         hbox.addWidget(self.alpha_var)
         
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         self.vbox.addLayout(hbox)
-        button = QtGui.QPushButton('Update', self)
+        button = QtWidgets.QPushButton('Update', self)
         button.clicked.connect(self.remake_mlp)
         hbox.addWidget(button)
         hbox.addStretch(1)
         
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         self.vbox.addLayout(hbox)
-        button = QtGui.QPushButton('Train', self)
+        button = QtWidgets.QPushButton('Train', self)
         button.clicked.connect(self.train)
         hbox.addWidget(button)
         hbox.addStretch(1)
@@ -97,37 +94,37 @@ class MLP_panel(QtGui.QWidget):
     def add_predict_frame(self):
         self.vbox.setStretch(self.vbox.count()-1, 0)
         
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         self.vbox.addLayout(hbox)
-        self.predict_first = QtGui.QLineEdit('0')
+        self.predict_first = QtWidgets.QLineEdit('0')
         self.predict_first.setFixedWidth(64)
         hbox.addWidget(self.predict_first)
-        label = QtGui.QLabel('-', self)
+        label = QtWidgets.QLabel('-', self)
         hbox.addWidget(label)
-        self.predict_last = QtGui.QLineEdit('1000')
+        self.predict_last = QtWidgets.QLineEdit('1000')
         self.predict_last.setFixedWidth(64)
         hbox.addWidget(self.predict_last)
         hbox.addStretch(1)
         
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         self.vbox.addLayout(hbox)
-        button = QtGui.QPushButton('Predict', self)
+        button = QtWidgets.QPushButton('Predict', self)
         button.clicked.connect(self.predict)
         hbox.addWidget(button)
-        self.num_proc = QtGui.QLineEdit('1', self)
+        self.num_proc = QtWidgets.QLineEdit('1', self)
         self.num_proc.setFixedWidth(24)
         hbox.addWidget(self.num_proc)
         hbox.addStretch(1)
         
-        self.predict_summary = QtGui.QLabel('', self)
+        self.predict_summary = QtWidgets.QLabel('', self)
         self.gen_predict_summary()
         self.vbox.addWidget(self.predict_summary)
         
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         self.vbox.addLayout(hbox)
-        self.predictions_fname = QtGui.QLineEdit('predictions.dat', self)
+        self.predictions_fname = QtWidgets.QLineEdit('predictions.dat', self)
         hbox.addWidget(self.predictions_fname)
-        button = QtGui.QPushButton('Save', self)
+        button = QtWidgets.QPushButton('Save', self)
         button.clicked.connect(self.save_predictions)
         hbox.addWidget(button)
         

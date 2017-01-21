@@ -3,17 +3,14 @@
 import numpy as np
 import sys
 import os
-import sip
-sip.setapi('Qstring', 2)
-from PyQt4 import QtGui
-from PyQt4 import QtCore
+from PyQt5 import QtCore, QtWidgets, QtGui
 from py_src import py_utils
 from py_src import read_config
 from py_src import frame_panel
 from py_src import reademc 
 from py_src import readdet
 
-class Frameviewer(QtGui.QMainWindow):
+class Frameviewer(QtWidgets.QMainWindow):
     def __init__(self, config_file, cmap='jet', mask=False):
         super(Frameviewer, self).__init__()
         self.config_file = config_file
@@ -29,8 +26,8 @@ class Frameviewer(QtGui.QMainWindow):
     def init_UI(self):
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setWindowTitle('Dragonfly Frame Viewer')
-        window = QtGui.QWidget()
-        self.hbox = QtGui.QHBoxLayout()
+        window = QtWidgets.QWidget()
+        self.hbox = QtWidgets.QHBoxLayout()
         
         self.frame_panel = frame_panel.Frame_panel(self)
         self.hbox.addWidget(self.frame_panel)
@@ -69,13 +66,13 @@ class Frameviewer(QtGui.QMainWindow):
         k = event.key()
         m = int(event.modifiers())
         
-        if QtGui.QKeySequence(m+k) == int(QtGui.QKeySequence('Ctrl+N')):
+        if QtGui.QKeySequence(m+k) == QtGui.QKeySequence('Ctrl+N'):
             self.frame_panel.next_frame()
-        elif QtGui.QKeySequence(m+k) == int(QtGui.QKeySequence('Ctrl+P')):
+        elif QtGui.QKeySequence(m+k) == QtGui.QKeySequence('Ctrl+P'):
             self.frame_panel.prev_frame()
-        elif QtGui.QKeySequence(m+k) == int(QtGui.QKeySequence('Ctrl+R')):
+        elif QtGui.QKeySequence(m+k) == QtGui.QKeySequence('Ctrl+R'):
             self.frame_panel.rand_frame()
-        elif QtGui.QKeySequence(m+k) == int(QtGui.QKeySequence('Ctrl+Q')):
+        elif QtGui.QKeySequence(m+k) == QtGui.QKeySequence('Ctrl+Q'):
             self.close()
         else:
             event.ignore()
@@ -86,6 +83,8 @@ if __name__ == '__main__':
     parser.add_argument('-M', '--mask', help='Whether to zero out masked pixels (default False)', action='store_true', default=False)
     args = parser.special_parse_args()
     
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
+    print QtWidgets.QStyleFactory.keys()
+    app.setStyle('Fusion')
     Frameviewer(args.config_file, cmap=args.cmap, mask=args.mask)
     sys.exit(app.exec_())

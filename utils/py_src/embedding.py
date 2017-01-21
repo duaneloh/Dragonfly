@@ -6,12 +6,9 @@ import matplotlib
 import matplotlib.path
 import matplotlib.patches
 from sklearn import manifold
-import sip
-sip.setapi('Qstring', 2)
-from PyQt4 import QtGui
-from PyQt4 import QtCore
+from PyQt5 import QtCore, QtWidgets
 
-class Embedding_panel(QtGui.QWidget):
+class Embedding_panel(QtWidgets.QWidget):
     def __init__(self, parent, *args, **kwargs):
         super(Embedding_panel, self).__init__(parent, *args, **kwargs)
         
@@ -36,33 +33,33 @@ class Embedding_panel(QtGui.QWidget):
         self.init_UI()
 
     def init_UI(self):
-        self.vbox = QtGui.QVBoxLayout(self)
+        self.vbox = QtWidgets.QVBoxLayout(self)
         
-        label = QtGui.QLabel('Spectral manifold embedding', self)
+        label = QtWidgets.QLabel('Spectral manifold embedding', self)
         self.vbox.addWidget(label)
         
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         self.vbox.addLayout(hbox)
-        button = QtGui.QPushButton('Embed', self)
+        button = QtWidgets.QPushButton('Embed', self)
         button.clicked.connect(self.do_embedding)
         hbox.addWidget(button)
-        self.track_flag = QtGui.QCheckBox('Draw ROI', self)
+        self.track_flag = QtWidgets.QCheckBox('Draw ROI', self)
         self.track_flag.setChecked(False)
         self.track_flag.stateChanged.connect(self.track_flag_changed)
         hbox.addWidget(self.track_flag)
         hbox.addStretch(1)
         
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         self.vbox.addLayout(hbox)
-        label = QtGui.QLabel('X-axis:', self)
+        label = QtWidgets.QLabel('X-axis:', self)
         hbox.addWidget(label)
-        self.x_axis_num = QtGui.QLineEdit('0', self)
+        self.x_axis_num = QtWidgets.QLineEdit('0', self)
         self.x_axis_num.setFixedWidth(24)
         self.x_axis_num.editingFinished.connect(self.gen_hist)
         hbox.addWidget(self.x_axis_num)
-        label = QtGui.QLabel('Y-axis:', self)
+        label = QtWidgets.QLabel('Y-axis:', self)
         hbox.addWidget(label)
-        self.y_axis_num = QtGui.QLineEdit('1', self)
+        self.y_axis_num = QtWidgets.QLineEdit('1', self)
         self.y_axis_num.setFixedWidth(24)
         self.y_axis_num.editingFinished.connect(self.gen_hist)
         hbox.addWidget(self.y_axis_num)
@@ -107,23 +104,23 @@ class Embedding_panel(QtGui.QWidget):
     def add_classes_frame(self):
         self.vbox.setStretch(self.vbox.count()-1, 0)
         
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         self.vbox.addLayout(hbox)
-        self.class_line = QtGui.QGridLayout()
+        self.class_line = QtWidgets.QGridLayout()
         hbox.addLayout(self.class_line)
         hbox.addStretch(1)
-        self.class_num = QtGui.QButtonGroup()
+        self.class_num = QtWidgets.QButtonGroup()
         self.refresh_classes()
         
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         self.vbox.addLayout(hbox)
-        button = QtGui.QPushButton('Show', self)
+        button = QtWidgets.QPushButton('Show', self)
         button.clicked.connect(self.show_selected_class)
         hbox.addWidget(button)
-        button = QtGui.QPushButton('See all', self)
+        button = QtWidgets.QPushButton('See all', self)
         button.clicked.connect(self.show_all_classes)
         hbox.addWidget(button)
-        button = QtGui.QPushButton('Refresh', self)
+        button = QtWidgets.QPushButton('Refresh', self)
         button.clicked.connect(self.refresh_classes)
         hbox.addWidget(button)
         hbox.addStretch(1)
@@ -152,7 +149,7 @@ class Embedding_panel(QtGui.QWidget):
                 text = '  '
             else:
                 text = k
-            button = QtGui.QRadioButton(text, self)
+            button = QtWidgets.QRadioButton(text, self)
             button.clicked.connect(self.show_selected_class)
             if i == 0:
                 button.setChecked(True)
@@ -216,64 +213,64 @@ class Embedding_panel(QtGui.QWidget):
 
     def add_roi_frame(self):
         self.vbox.setStretch(self.vbox.count()-1, 0)
-        self.roi_frame = QtGui.QFrame(self)
+        self.roi_frame = QtWidgets.QFrame(self)
         self.vbox.addWidget(self.roi_frame)
         self.vbox.addStretch(1)
-        vbox = QtGui.QVBoxLayout()
+        vbox = QtWidgets.QVBoxLayout()
         self.roi_frame.setLayout(vbox)
         
-        self.roi_summary = QtGui.QLabel('', self)
+        self.roi_summary = QtWidgets.QLabel('', self)
         vbox.addWidget(self.roi_summary)
         
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         vbox.addLayout(hbox)
-        button = QtGui.QPushButton('Clear ROIs', self)
+        button = QtWidgets.QPushButton('Clear ROIs', self)
         button.clicked.connect(self.clear_roi)
         hbox.addWidget(button)
         hbox.addStretch(1)
         
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         vbox.addLayout(hbox)
-        self.roi_choice = QtGui.QGridLayout()
-        self.current_roi = QtGui.QButtonGroup()
+        self.roi_choice = QtWidgets.QGridLayout()
+        self.current_roi = QtWidgets.QButtonGroup()
         hbox.addLayout(self.roi_choice)
         hbox.addStretch(1)
         
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         vbox.addLayout(hbox)
-        button = QtGui.QPushButton('Prev', self)
+        button = QtWidgets.QPushButton('Prev', self)
         button.clicked.connect(self.prev_frame)
         hbox.addWidget(button)
-        button = QtGui.QPushButton('Next', self)
+        button = QtWidgets.QPushButton('Next', self)
         button.clicked.connect(self.next_frame)
         hbox.addWidget(button)
-        button = QtGui.QPushButton('Random', self)
+        button = QtWidgets.QPushButton('Random', self)
         button.clicked.connect(self.rand_frame)
         hbox.addWidget(button)
         hbox.addStretch(1)
         
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         vbox.addLayout(hbox)
-        self.class_tag = QtGui.QLineEdit('', self)
+        self.class_tag = QtWidgets.QLineEdit('', self)
         self.class_tag.setFixedWidth(24)
         hbox.addWidget(self.class_tag)
-        button = QtGui.QPushButton('Apply Class', self)
+        button = QtWidgets.QPushButton('Apply Class', self)
         button.clicked.connect(self.apply_class)
         hbox.addWidget(button)
         hbox.addStretch(1)
         
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         vbox.addLayout(hbox)
-        self.class_fname = QtGui.QLineEdit(self.classes.fname, self)
+        self.class_fname = QtWidgets.QLineEdit(self.classes.fname, self)
         self.class_fname.editingFinished.connect(self.update_name)
         hbox.addWidget(self.class_fname)
-        button = QtGui.QPushButton('Save Classes', self)
+        button = QtWidgets.QPushButton('Save Classes', self)
         button.clicked.connect(self.classes.save)
         hbox.addWidget(button)
         hbox.addStretch(1)
 
     def add_roi_radiobutton(self, num):
-        button = QtGui.QRadioButton(str(num))
+        button = QtWidgets.QRadioButton(str(num))
         if num == 0:
             button.setChecked(True)
         self.current_roi.addButton(button, num)

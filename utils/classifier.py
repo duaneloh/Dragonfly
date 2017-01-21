@@ -3,10 +3,7 @@
 import sys
 import os
 import numpy as np
-import sip
-sip.setapi('Qstring', 2)
-from PyQt4 import QtGui
-from PyQt4 import QtCore
+from PyQt5 import QtCore, QtWidgets, QtGui
 from py_src import reademc
 from py_src import readdet
 from py_src import manual
@@ -18,7 +15,7 @@ from py_src import py_utils
 from py_src import read_config
 from py_src import frame_panel
 
-class Classifier(QtGui.QMainWindow):
+class Classifier(QtWidgets.QMainWindow):
     def __init__(self, config_file, cmap='CMRmap', mask=False):
         super(Classifier, self).__init__()
         if cmap is None:
@@ -48,10 +45,9 @@ class Classifier(QtGui.QMainWindow):
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setWindowTitle('Dragonfly Classifier')
         self.setGeometry(0,0,1100,900)
-        window = QtGui.QWidget()
-        hbox = QtGui.QHBoxLayout()
+        window = QtWidgets.QWidget()
+        hbox = QtWidgets.QHBoxLayout()
         hbox.setSpacing(0)
-        hbox.setMargin(0)
 
         self.frame_panel = frame_panel.Frame_panel(self)
         hbox.addWidget(self.frame_panel)
@@ -67,18 +63,18 @@ class Classifier(QtGui.QMainWindow):
 
         menubar = self.menuBar()
         thememenu = menubar.addMenu('&Theme')
-        self.theme = QtGui.QActionGroup(self, exclusive=True)
-        for i, s in enumerate(map(str, list(QtGui.QStyleFactory.keys()))):
-            a = self.theme.addAction(QtGui.QAction(s, self, checkable=True))
+        self.theme = QtWidgets.QActionGroup(self, exclusive=True)
+        for i, s in enumerate(map(str, list(QtWidgets.QStyleFactory.keys()))):
+            a = self.theme.addAction(QtWidgets.QAction(s, self, checkable=True))
             if i == 0:
                 a.setChecked(True)
             a.triggered.connect(self.switch_theme)
             thememenu.addAction(a)
 
-        toolbox = QtGui.QToolBox(self)
+        toolbox = QtWidgets.QToolBox(self)
         hbox.addWidget(toolbox)
         toolbox.setFixedWidth(300)
-        toolbox.addItem(QtGui.QWidget(self), '&Display')
+        toolbox.addItem(QtWidgets.QWidget(self), '&Display')
         toolbox.addItem(self.manual_panel, '&Manual')
         toolbox.addItem(self.conversion_panel, '&Conversion')
         toolbox.addItem(self.embedding_panel, '&Embedding')
@@ -112,19 +108,19 @@ class Classifier(QtGui.QMainWindow):
         self.frame_panel.plot_frame()
 
     def switch_theme(self, event=None):
-        QtGui.QApplication.instance().setStyle(self.theme.checkedAction().text())
+        QtWidgets.QApplication.instance().setStyle(self.theme.checkedAction().text())
 
     def keyPressEvent(self, event):
         k = event.key()
         m = int(event.modifiers())
         
-        if QtGui.QKeySequence(m+k) == int(QtGui.QKeySequence('Ctrl+N')):
+        if QtGui.QKeySequence(m+k) == QtGui.QKeySequence('Ctrl+N'):
             self.frame_panel.next_frame()
-        elif QtGui.QKeySequence(m+k) == int(QtGui.QKeySequence('Ctrl+P')):
+        elif QtGui.QKeySequence(m+k) == QtGui.QKeySequence('Ctrl+P'):
             self.frame_panel.prev_frame()
-        elif QtGui.QKeySequence(m+k) == int(QtGui.QKeySequence('Ctrl+R')):
+        elif QtGui.QKeySequence(m+k) == QtGui.QKeySequence('Ctrl+R'):
             self.frame_panel.rand_frame()
-        elif QtGui.QKeySequence(m+k) == int(QtGui.QKeySequence('Ctrl+Q')):
+        elif QtGui.QKeySequence(m+k) == QtGui.QKeySequence('Ctrl+Q'):
             self.close()
         else:
             event.ignore()
@@ -134,16 +130,16 @@ class Classifier(QtGui.QMainWindow):
 
     def quit(self, event):
         if self.classes.unsaved:
-            result = QtGui.QMessageBox.question(
+            result = QtWidgets.QMessageBox.question(
                 self, 
                 'Warning', 
                 'Unsaved changes to class list. Save?',
-                QtGui.QMessageBox.Yes | QtGui.QMessageBox.No | QtGui.QMessageBox.Cancel,
-                QtGui.QMessageBox.Cancel)
-            if result == QtGui.QMessageBox.Yes:
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No | QtWidgets.QMessageBox.Cancel,
+                QtWidgets.QMessageBox.Cancel)
+            if result == QtWidgets.QMessageBox.Yes:
                 self.manual_panel.save_class_list()
                 event.accept()
-            elif result == QtGui.QMessageBox.No:
+            elif result == QtWidgets.QMessageBox.No:
                 event.accept()
             else:
                 event.ignore()
@@ -154,6 +150,7 @@ if __name__ == '__main__':
     parser.add_argument('-M', '--mask', help='Whether to zero out masked pixels (default False)', action='store_true', default=False)
     args = parser.special_parse_args()
     
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
+    app.setStyle('Fusion')
     Classifier(args.config_file, cmap=args.cmap, mask=args.mask)
     sys.exit(app.exec_())
