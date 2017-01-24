@@ -6,6 +6,8 @@ try:
     from PyQt5 import QtCore, QtWidgets, QtGui
     from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 except ImportError:
+    import sip
+    sip.setapi('QString', 2)
     from PyQt4 import QtCore, QtGui
     from PyQt4 import QtGui as QtWidgets
     from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg

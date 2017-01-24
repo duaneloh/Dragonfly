@@ -6,6 +6,8 @@ import os
 try:
     from PyQt5 import QtCore, QtWidgets, QtGui
 except ImportError:
+    import sip
+    sip.setapi('QString', 2)
     from PyQt4 import QtCore, QtGui
     from PyQt4 import QtGui as QtWidgets
 from py_src import py_utils
@@ -88,7 +90,6 @@ if __name__ == '__main__':
     args = parser.special_parse_args()
     
     app = QtWidgets.QApplication(sys.argv)
-    print QtWidgets.QStyleFactory.keys()
     app.setStyle('Fusion')
     Frameviewer(args.config_file, cmap=args.cmap, mask=args.mask)
     sys.exit(app.exec_())

@@ -9,6 +9,8 @@ from sklearn import manifold
 try:
     from PyQt5 import QtCore, QtWidgets, QtGui
 except ImportError:
+    import sip
+    sip.setapi('QString', 2)
     from PyQt4 import QtCore, QtGui
     from PyQt4 import QtGui as QtWidgets
 
