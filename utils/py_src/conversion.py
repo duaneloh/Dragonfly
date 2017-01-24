@@ -2,7 +2,11 @@ import numpy as np
 import sys
 import os
 import string
-from PyQt5 import QtCore, QtWidgets
+try:
+    from PyQt5 import QtCore, QtWidgets, QtGui
+except ImportError:
+    from PyQt4 import QtCore, QtGui
+    from PyQt4 import QtGui as QtWidgets
 import polar
 import multiprocessing
 import ctypes

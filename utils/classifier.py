@@ -3,7 +3,11 @@
 import sys
 import os
 import numpy as np
-from PyQt5 import QtCore, QtWidgets, QtGui
+try:
+    from PyQt5 import QtCore, QtWidgets, QtGui
+except ImportError:
+    from PyQt4 import QtCore, QtGui
+    from PyQt4 import QtGui as QtWidgets
 from py_src import reademc
 from py_src import readdet
 from py_src import manual

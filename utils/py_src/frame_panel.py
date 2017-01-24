@@ -2,8 +2,13 @@ import numpy as np
 import sys
 import os
 import string
-from PyQt5 import QtCore, QtWidgets
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+try:
+    from PyQt5 import QtCore, QtWidgets, QtGui
+    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+except ImportError:
+    from PyQt4 import QtCore, QtGui
+    from PyQt4 import QtGui as QtWidgets
+    from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 import slices
 

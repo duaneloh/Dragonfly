@@ -5,7 +5,11 @@ import string
 from sklearn import neural_network
 import multiprocessing
 import ctypes
-from PyQt5 import QtCore, QtWidgets
+try:
+    from PyQt5 import QtCore, QtWidgets, QtGui
+except ImportError:
+    from PyQt4 import QtCore, QtGui
+    from PyQt4 import QtGui as QtWidgets
 
 class MLP_panel(QtWidgets.QWidget):
     def __init__(self, parent, *args, **kwargs):

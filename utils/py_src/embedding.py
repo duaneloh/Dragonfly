@@ -6,7 +6,11 @@ import matplotlib
 import matplotlib.path
 import matplotlib.patches
 from sklearn import manifold
-from PyQt5 import QtCore, QtWidgets
+try:
+    from PyQt5 import QtCore, QtWidgets, QtGui
+except ImportError:
+    from PyQt4 import QtCore, QtGui
+    from PyQt4 import QtGui as QtWidgets
 
 class Embedding_panel(QtWidgets.QWidget):
     def __init__(self, parent, *args, **kwargs):

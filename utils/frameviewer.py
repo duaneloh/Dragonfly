@@ -3,7 +3,11 @@
 import numpy as np
 import sys
 import os
-from PyQt5 import QtCore, QtWidgets, QtGui
+try:
+    from PyQt5 import QtCore, QtWidgets, QtGui
+except ImportError:
+    from PyQt4 import QtCore, QtGui
+    from PyQt4 import QtGui as QtWidgets
 from py_src import py_utils
 from py_src import read_config
 from py_src import frame_panel
