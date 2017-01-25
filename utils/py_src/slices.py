@@ -18,7 +18,10 @@ class Slice_generator():
         self.model = self.model.reshape(size,size,size)
         self.size = size
         self.rmax = np.fromfile('%s/orientations/orientations_%.3d.bin' % (self.folder, iteration), '=i4')
-        self.scale = np.loadtxt('%s/scale/scale_%.3d.dat' % (self.folder, iteration))
+        try:
+            self.scale = np.loadtxt('%s/scale/scale_%.3d.dat' % (self.folder, iteration))
+        except IOError:
+            self.scale = np.ones(self.rmax.shape)
         self.current_iteration = iteration
 
     def gen_rot_matrix(self, num):
