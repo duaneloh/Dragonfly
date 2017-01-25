@@ -102,6 +102,8 @@ class EMC_reader():
             count_multi = np.fromfile(f, dtype='i4', count=multi_size)
         
         frame = np.zeros(self.num_pix[file_num], dtype='i4')
-        frame[self.x[place_ones], self.y[place_ones]] = 1
-        frame[self.x[place_multi], self.y[place_multi]] = 1
+        np.add.at(frame, (self.x[place_ones], self.y[place_ones]), 1)
+        np.add.at(frame, (self.x[place_multi], self.y[place_multi]), count_multi)
+        
+        return frame * self.mask
 
