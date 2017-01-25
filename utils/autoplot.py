@@ -47,6 +47,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.fig.subplots_adjust(left=0.0, bottom=0.00, right=0.99, wspace=0.0)
         self.canvas = FigureCanvas(self.fig)
         self.grid.addWidget(self.canvas, 0, 0)
+        self.grid.setColumnStretch(0, 1)
         self.canvas.show()
 
         # Progress plots figure
@@ -58,6 +59,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
         # Plot options widget
         self.options = QtWidgets.QVBoxLayout()
         self.grid.addLayout(self.options, 0, 1, 2, 1)
+        self.grid.setColumnStretch(1, 0)
 
         # -- Log file
         hbox = QtWidgets.QHBoxLayout()
@@ -171,6 +173,8 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.emclog_text = QtWidgets.QTextEdit('Press Check to get log file contents', self)
         self.emclog_text.setReadOnly(True)
         self.emclog_text.setFontPointSize(8)
+        self.emclog_text.setFontFamily('Courier')
+        self.emclog_text.setFontWeight(QtGui.QFont.DemiBold)
         self.emclog_text.setTabStopWidth(22)
         log_area.setWidget(self.emclog_text)
 
