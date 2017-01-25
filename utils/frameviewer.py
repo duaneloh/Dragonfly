@@ -17,10 +17,13 @@ from py_src import reademc
 from py_src import readdet
 
 class Frameviewer(QtWidgets.QMainWindow):
-    def __init__(self, config_file, cmap='jet', mask=False):
+    def __init__(self, config_file, cmap=None, mask=False):
         super(Frameviewer, self).__init__()
         self.config_file = config_file
-        self.cmap = cmap
+        if cmap is None:
+            self.cmap = 'CMRmap'
+        else:
+            self.cmap = cmap
         self.mode_val = None
         
         self.get_config_params()
@@ -85,7 +88,7 @@ class Frameviewer(QtWidgets.QMainWindow):
 
 if __name__ == '__main__':
     parser = py_utils.my_argparser(description='Utility for viewing frames of the emc file (list)')
-    parser.add_argument('--cmap', help='Matplotlib color map (default: jet)')
+    parser.add_argument('--cmap', help='Matplotlib color map (default: CMRmap)')
     parser.add_argument('-M', '--mask', help='Whether to zero out masked pixels (default False)', action='store_true', default=False)
     args = parser.special_parse_args()
     
