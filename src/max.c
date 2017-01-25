@@ -27,7 +27,10 @@ double maximize() {
 	for (d = 0 ; d < tot_num_data ; ++d) {
 		max_exp_p[d] = -DBL_MAX ;
 		p_sum[d] = 0. ;
-		likelihood[d] = count[d]*log(scale[d]) - sum_fact[d] ;
+		if (need_scaling)
+			likelihood[d] = count[d]*log(scale[d]) - sum_fact[d] ;
+		else
+			likelihood[d] = -sum_fact[d] ;
 	}
 	
 	memset(model2, 0, size*size*size*sizeof(double)) ;
