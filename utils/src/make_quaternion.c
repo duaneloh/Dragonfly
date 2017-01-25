@@ -91,10 +91,8 @@ int main(int argc, char* argv[]) {
 		fprintf(stderr, "Need num_div (number of divisions of 600-cell)\n") ;
 		return 1 ;
 	}
-	if (quat_fname[0] == '\0') {
-		fprintf(stderr, "Writing to data/quat.dat") ;
+	if (quat_fname[0] == '\0')
 		strcpy(quat_fname, "data/quat.dat") ;
-	}
 	
 	strcpy(line, dirname(config_fname)) ;
 	strcat(strcat(line, "/"), quat_fname) ;
