@@ -6,6 +6,8 @@ class Slice_generator():
         self.det = np.array([geom.cx, geom.cy, geom.cz]).T
         self.mask = geom.mask
         self.frame_shape = geom.frame_shape
+        self.ix = geom.x
+        self.iy = geom.y
         self.quat = np.loadtxt(quat_fname, skiprows=1, usecols=(0,1,2,3))
         self.folder = folder
         self.current_iteration = -1
@@ -15,8 +17,8 @@ class Slice_generator():
         size = int(np.round(self.model.shape[0]**(1./3.)))
         self.model = self.model.reshape(size,size,size)
         self.size = size
-        self.rmax = np.fromfile('%s/orientations/orientations_%.3d.bin' % (self.folder,iteration), '=i4')
-        self.info = np.loadtxt('%s/mutualInfo/info_%.3d.dat' % (self.folder,iteration))
+        self.rmax = np.fromfile('%s/orientations/orientations_%.3d.bin' % (self.folder, iteration), '=i4')
+        self.scale = np.loadtxt('%s/scale/scale_%.3d.dat' % (self.folder, iteration))
         self.current_iteration = iteration
 
     def gen_rot_matrix(self, num):
@@ -32,8 +34,10 @@ class Slice_generator():
         if iteration != self.current_iteration:
             self.init_model(iteration)
         rot_matrix = self.gen_rot_matrix(self.rmax[num])
-        rot_coords = np.dot(rot_matrix, self.det[:,:3].T)
+        rot_coords = np.dot(rot_matrix, self.det.T)
         rot_coords = np.round((rot_coords + self.size/2)).astype('i4')
-        sl = self.model[rot_coords[0], rot_coords[1], rot_coords[2]].reshape(self.frame_shape)
-        return sl * self.mask
+        sl = self.model[rot_coords[0], rot_coords[1], rot_coords[2]]
+        im = np.zeros(self.frame_shape)
+        np.add.at(im, [self.ix, self.iy], sl)
+        return im * self.mask * self.scale[num]
 
