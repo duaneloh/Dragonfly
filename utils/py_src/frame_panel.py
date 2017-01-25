@@ -4,13 +4,13 @@ import os
 import string
 try:
     from PyQt5 import QtCore, QtWidgets, QtGui
-    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+    from matplotlib.backends.backend_qt5agg import FigureCanvas
 except ImportError:
     import sip
     sip.setapi('QString', 2)
     from PyQt4 import QtCore, QtGui
     from PyQt4 import QtGui as QtWidgets
-    from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg
+    from matplotlib.backends.backend_qt4agg import FigureCanvas
 from matplotlib.figure import Figure
 import slices
 
@@ -34,7 +34,7 @@ class Frame_panel(QtWidgets.QWidget):
         
         self.fig = Figure(figsize=(6, 6))
         self.fig.subplots_adjust(left=0.05, right=0.99, top=0.9, bottom=0.05)
-        self.canvas = FigureCanvasQTAgg(self.fig)
+        self.canvas = FigureCanvas(self.fig)
         self.canvas.mpl_connect('button_press_event', self.frame_focus)
         vbox.addWidget(self.canvas)
         
@@ -143,11 +143,18 @@ class Frame_panel(QtWidgets.QWidget):
             
             self.fig.clear()
             if self.compare_flag.isChecked():
-                s = self.fig.add_subplot(121)
-                sc = self.fig.add_subplot(122)
-                tomo = self.slices.get_slice(7, num)
-                sc.imshow(tomo, cmap=self.cmap, vmin=0, vmax=float(self.rangestr.text()), interpolation='none')
-                self.fig.add_subplot(sc)
+                with open('EMC.log', 'r') as f:
+                    line = f.readlines()[-1]
+                try:
+                    iteration = int(line.split()[0])
+                    s = self.fig.add_subplot(121)
+                    sc = self.fig.add_subplot(122)
+                    tomo = self.slices.get_slice(iteration, num)
+                    sc.imshow(tomo, cmap=self.cmap, vmin=0, vmax=float(self.rangestr.text()), interpolation='none')
+                    self.fig.add_subplot(sc)
+                except (IndexError, ValueError):
+                    sys.stderr.write('Unable to determine iteration number from EMC.log\n')
+                    s = self.fig.add_subplot(111)
             else:
                 s = self.fig.add_subplot(111)
             s.imshow(frame, vmin=0, vmax=float(self.rangestr.text()), interpolation='none', cmap=self.cmap)
