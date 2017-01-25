@@ -7,9 +7,16 @@ import os
 import time
 import glob
 import re
-from PyQt5 import QtCore, QtWidgets, QtGui
 import matplotlib
-from matplotlib.backends.backend_qt5agg import FigureCanvas
+try:
+    from PyQt5 import QtCore, QtWidgets, QtGui
+    from matplotlib.backends.backend_qt5agg import FigureCanvas
+except ImportError:
+    import sip
+    sip.setapi('QString', 2)
+    from PyQt4 import QtCore, QtGui
+    from PyQt4 import QtGui as QtWidgets
+    from matplotlib.backends.backend_qt4agg import FigureCanvas
 from py_src import frame_panel
 
 class Progress_viewer(QtWidgets.QMainWindow):
@@ -439,6 +446,6 @@ if __name__ == '__main__':
     palette.setColor(QtGui.QPalette.Highlight, QtGui.QColor(26,218,26))
     palette.setColor(QtGui.QPalette.HighlightedText, QtGui.QColor(0,0,0))
     app.setStyle('Fusion')
-    app.setPalette(palette)
+    #app.setPalette(palette)
     p = Progress_viewer(config=args.config_file, model=args.volume_file)
     sys.exit(app.exec_())
