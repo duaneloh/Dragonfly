@@ -53,7 +53,7 @@ if __name__ == '__main__':
     emcwriter = writeemc.EMC_writer('%s/%s.emc' % (output_folder, os.path.splitext(os.path.basename(args.h5_name))[0]),
                                     pm['dets_x']*pm['dets_y'])
 
-    for fname in flist:
+    for fnum, fname in enumerate(flist):
         f = h5py.File(fname, 'r')
         if args.dset_name is None:
             for name, obj in f['photonConverter'].items():
@@ -72,28 +72,41 @@ if __name__ == '__main__':
             logging.info('Both sel_file and sel_dset specified. Pick one.')
             sys.exit(1)
         elif args.sel_file is None and args.sel_dset is None:
-            ind = np.arange(dset.shape[0], dtype='i4')
+            logging.info('Converting all images')
+            if len(dset.shape) == 3:
+                ind = np.arange(dset.shape[0], dtype='i4')
+            else:
+                ind = 0
         elif args.sel_file is not None:
             ind = np.loadtxt(args.sel_file, dtype='i4')
         else:
             ind = f[args.sel_dset][:]
 
-        if ind.shape[0] == dset.shape[0] and ind.max() < 2:
-            ind = np.where(ind==1)[0]
+        if type(ind) is np.array:
+            if ind.shape[0] == dset.shape[0] and ind.max() < 2:
+                ind = np.where(ind==1)[0]
+            ind = ind[(ind>=0) & (ind<dset.shape[0])]
+            num_frames = ind.shape[0]
+        else:
+            num_frames = 1
 
-        num_frames = ind.shape[0]
+        curr_num_data += num_frames
         if not args.list:
             logging.info('Converting %d/%d frames in %s' % (num_frames, dset.shape[0], args.h5_name))
 
         for i in range(num_frames):
-            photons = dset[ind[i]]
+            if len(dset.shape) == 3:
+                photons = dset[ind[i]]
+            else:
+                photons = dset[:]
             photons[photons<0] = 0
             emcwriter.write_frame(photons.flatten())
             if not args.list:
                 sys.stderr.write('\rFinished %d/%d' % (i+1, num_frames))
 
         f.close()
+        if not args.list:
+            sys.stderr.write('\n')
+        sys.stderr.write('\rProcessed %s %d/%d' % (fname, fnum, len(flist)))
 
-    if not args.list:
-        sys.stderr.write('\n')
     emcwriter.finish_write()
