@@ -7,8 +7,12 @@ class EMC_reader():
         self.photons_list = photons_list
         self.x = x
         self.y = y
-        self.mask = mask
-        self.frame_shape = mask.shape
+        self.raw_mask = mask
+        
+        self.frame_shape = (self.x.max()+1, self.y.max()+1)
+        self.mask = 2*np.ones(self.frame_shape, dtype='u1')
+        self.mask[self.x, self.y] = self.raw_mask
+        
         self.parse_headers()
 
     def parse_headers(self):
@@ -33,7 +37,7 @@ class EMC_reader():
         self.num_data_list = np.cumsum(self.num_data_list)
         self.num_frames = self.num_data_list[-1]
 
-    def get_frame(self, num, raw=True):
+    def get_frame(self, num, raw=False):
         file_num = np.where(num < self.num_data_list)[0][0]
         if file_num == 0:
             frame_num = num
@@ -41,7 +45,7 @@ class EMC_reader():
             frame_num = num - self.num_data_list[file_num-1]
         
         if raw:
-            return self.read_frame(file_num, frame_num)
+            return self.read_raw_frame(file_num, frame_num)
         else:
             return self.read_frame(file_num, frame_num)
 
@@ -102,8 +106,8 @@ class EMC_reader():
             count_multi = np.fromfile(f, dtype='i4', count=multi_size)
         
         frame = np.zeros(self.num_pix[file_num], dtype='i4')
-        np.add.at(frame, (self.x[place_ones], self.y[place_ones]), 1)
-        np.add.at(frame, (self.x[place_multi], self.y[place_multi]), count_multi)
+        np.add.at(frame, place_ones, 1)
+        np.add.at(frame, place_multi, count_multi)
         
-        return frame * self.mask
+        return frame * self.raw_mask
 

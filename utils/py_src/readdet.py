@@ -13,20 +13,20 @@ class Det_reader():
         sys.stderr.write('Reading detector file...')
         if mask_flag:
             sys.stderr.write('with mask...')
-            self.cx, self.cy, self.cz, mask = np.loadtxt(self.det_fname, usecols=(0,1,2,4), skiprows=1, unpack=True)
+            self.qx, self.qy, self.qz, mask = np.loadtxt(self.det_fname, usecols=(0,1,2,4), skiprows=1, unpack=True)
             #mask[mask==2] = 1 # To keep only mask==0
             mask[mask==1] = 0 # To keep both 0 and 1
             mask = mask / 2 # To keep both 0 and 1
             mask = 1 - mask
         else:
-            self.cx, self.cy, self.cz = np.loadtxt(self.det_fname, usecols=(0,1,2), skiprows=1, unpack=True)
-            mask = np.ones(self.cx.shape)
+            self.qx, self.qy, self.qz = np.loadtxt(self.det_fname, usecols=(0,1,2), skiprows=1, unpack=True)
+            mask = np.ones(self.qx.shape)
         sys.stderr.write('done\n')
         
-        x = self.cx*self.detd/(self.cz+self.ewald_rad)
-        y = self.cy*self.detd/(self.cz+self.ewald_rad)
-        self.x = np.round(x - x.min()).astype('i4')
-        self.y = np.round(y - y.min()).astype('i4')
+        self.cx = self.qx*self.detd/(self.qz+self.ewald_rad)
+        self.cy = self.qy*self.detd/(self.qz+self.ewald_rad)
+        self.x = np.round(self.cx - self.cx.min()).astype('i4')
+        self.y = np.round(self.cy - self.cy.min()).astype('i4')
         
         self.frame_shape = (self.x.max()+1, self.y.max()+1)
         self.mask = np.ones(self.frame_shape)

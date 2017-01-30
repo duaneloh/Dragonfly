@@ -145,7 +145,7 @@ class Conversion_panel(QtWidgets.QWidget):
             np.save(fname, self.parent.ang_corr)
 
     def get_and_convert(self, num):
-        return self.polar.compute_ang_corr(self.polar.convert(self.emc_reader.get_frame(num)), normed=self.normed_flag.isChecked())
+        return self.polar.compute_ang_corr(self.polar.convert(self.emc_reader.get_frame(num, raw=True)), normed=self.normed_flag.isChecked())
 
     def convert_worker(self, rank, num_proc, indices, size, ang_corr):
         my_ind = indices[rank::num_proc]

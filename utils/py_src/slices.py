@@ -3,7 +3,7 @@ import numpy as np
 
 class Slice_generator():
     def __init__(self, geom, quat_fname, folder='data/'):
-        self.det = np.array([geom.cx, geom.cy, geom.cz]).T
+        self.det = np.array([geom.qx, geom.qy, geom.qz]).T
         self.mask = geom.mask
         self.frame_shape = geom.frame_shape
         self.ix = geom.x

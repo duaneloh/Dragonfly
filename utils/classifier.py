@@ -41,7 +41,7 @@ class Classifier(QtWidgets.QMainWindow):
         
         self.get_config_params()
         self.geom = readdet.Det_reader(self.det_fname, self.detd, self.ewald_rad, mask_flag=mask)
-        self.emc_reader = reademc.EMC_reader(self.photons_list, self.geom.x, self.geom.y, self.geom.mask)
+        self.emc_reader = reademc.EMC_reader(self.photons_list, self.geom.x, self.geom.y, self.geom.raw_mask)
         self.num_frames = self.emc_reader.num_frames
         self.classes = classes.Frame_classes(self.num_frames)
         

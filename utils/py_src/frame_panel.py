@@ -15,14 +15,16 @@ from matplotlib.figure import Figure
 import slices
 
 class Frame_panel(QtWidgets.QWidget):
-    def __init__(self, parent, *args, **kwargs):
+    def __init__(self, parent, compare=False, *args, **kwargs):
         super(Frame_panel, self).__init__(parent, *args, **kwargs)
         
         self.parent = parent
         self.emc_reader = self.parent.emc_reader
         self.num_frames = self.parent.num_frames
         self.cmap = self.parent.cmap
-        self.slices = slices.Slice_generator(self.parent.geom, 'data/quat.dat')
+        self.do_compare = compare
+        if self.do_compare:
+            self.slices = slices.Slice_generator(self.parent.geom, 'data/quat.dat')
         
         self.numstr = '0'
         self.rangestr = '10'
@@ -48,9 +50,10 @@ class Frame_panel(QtWidgets.QWidget):
         label = QtWidgets.QLabel('/%d'%self.num_frames, self)
         hbox.addWidget(label)
         hbox.addStretch(1)
-        self.compare_flag = QtWidgets.QCheckBox('Compare', self)
-        self.compare_flag.clicked.connect(self.compare_flag_changed)
-        hbox.addWidget(self.compare_flag)
+        if self.do_compare:
+            self.compare_flag = QtWidgets.QCheckBox('Compare', self)
+            self.compare_flag.clicked.connect(self.compare_flag_changed)
+            hbox.addWidget(self.compare_flag)
         label = QtWidgets.QLabel('PlotMax:', self)
         hbox.addWidget(label)
         self.rangestr = QtWidgets.QLineEdit('10', self)
@@ -106,7 +109,8 @@ class Frame_panel(QtWidgets.QWidget):
             self.fig.add_subplot(s)
             
             s = self.fig.add_subplot(122)
-            pframe = self.parent.conversion_panel.polar.convert(frame)
+            raw_frame = self.emc_reader.get_frame(num, raw=True)
+            pframe = self.parent.conversion_panel.polar.convert(raw_frame)
             s.imshow(pframe, vmin=0, vmax=float(self.rangestr.text()), interpolation='none', cmap=self.cmap, aspect=float(pframe.shape[1])/pframe.shape[0])
             title = 'Polar representation'
             self.fig.add_subplot(s)
@@ -142,7 +146,7 @@ class Frame_panel(QtWidgets.QWidget):
                     pass
             
             self.fig.clear()
-            if self.compare_flag.isChecked():
+            if self.do_compare and self.compare_flag.isChecked():
                 with open('EMC.log', 'r') as f:
                     line = f.readlines()[-1]
                 try:

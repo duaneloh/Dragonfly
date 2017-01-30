@@ -28,7 +28,7 @@ class Frameviewer(QtWidgets.QMainWindow):
         
         self.get_config_params()
         self.geom = readdet.Det_reader(self.det_fname, self.detd, self.ewald_rad, mask_flag=mask)
-        self.emc_reader = reademc.EMC_reader(self.photons_list, self.geom.x, self.geom.y, self.geom.mask)
+        self.emc_reader = reademc.EMC_reader(self.photons_list, self.geom.x, self.geom.y, self.geom.raw_mask)
         self.num_frames = self.emc_reader.num_frames
         self.init_UI()
 
@@ -61,7 +61,11 @@ class Frameviewer(QtWidgets.QMainWindow):
         self.num_files = len(self.photons_list)
         self.frame_shape = (pm['dets_x'], pm['dets_y'])
         self.det_fname = read_config.get_filename(self.config_file, 'emc', 'in_detector_file')
-        output_folder = read_config.get_filename(self.config_file, 'emc', 'output_folder')
+        try:
+            output_folder = read_config.get_filename(self.config_file, 'emc', 'output_folder')
+        except read_config.ConfigParser.NoOptionError:
+            output_folder = 'data/'
+        
         try:
             self.blacklist = np.loadtxt(read_config.get_filename(args.config_file, 'emc', 'blacklist_file'), dtype='u1')
         except read_config.ConfigParser.NoOptionError:
