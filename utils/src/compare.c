@@ -370,7 +370,7 @@ void gen_subset(double **quaternion, int num_div, double dmax) {
 			num_rot++ ;
 		}
 	}
-	printf("\nnew num_rot = %d\n", num_rot) ;
+	printf("\nNew num_rot = %d\n", num_rot) ;
 }
 
 int main(int argc, char *argv[]) {
@@ -442,7 +442,7 @@ int main(int argc, char *argv[]) {
 	fp = fopen(intens_fname2, "rb") ;
 	fread(model2, sizeof(double), vol, fp) ;
 	fclose(fp) ;
-	fprintf(stderr, "Parsed models\n") ;
+	fprintf(stderr, "Parsed models from %s and %s\n", intens_fname1, intens_fname2) ;
 	
 	// Radial average subtraction
 	subtract_radial_average(model1, model2, model1_rad, model2_rad) ;
@@ -454,7 +454,7 @@ int main(int argc, char *argv[]) {
 	
 	// Parse quaternion and calculate max_corr
 	num_rot = quat_gen(4, &quat, 0) ;
-	calc_corr(quat, model1, model2) ;
+	calc_corr(quat, model1_rad, model2_rad) ;
 	
 	// Generate subset and recalculate max_corr
 	gen_subset(&quat, 30, 0.06) ;
