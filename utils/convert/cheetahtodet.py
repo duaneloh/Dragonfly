@@ -24,16 +24,16 @@ from py_src import read_config
 
 if __name__ == '__main__':
     logging.basicConfig(filename='recon.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-    parser      = py_utils.my_argparser(description='cheetahtodet')
+    parser = py_utils.my_argparser(description='cheetahtodet')
     parser.add_argument('h5_name', help='HDF5 file to convert to detector format')
-    parser.add_argument('-M', '--mask', help='Path to detector style mask (0:good, 1:nomerge, 2:bad) in h5 file')
+    parser.add_argument('-M', '--mask', help='Path to detector style mask (0:good, 1:no_orient, 2:bad) in h5 file')
     parser.add_argument('--mask_dset', help='Data set in mask file. Default: /data/data', default='data/data')
-    args        = parser.special_parse_args()
+    args = parser.special_parse_args()
 
     logging.info('Starting cheetahtodet...')
     logging.info(' '.join(sys.argv))
-    pm          = read_config.get_detector_config(args.config_file, show=args.vb)
-    q_pm        = read_config.compute_q_params(pm['detd'], pm['dets_x'], pm['dets_y'], pm['pixsize'], pm['wavelength'], pm['ewald_rad'], show=args.vb)
+    pm = read_config.get_detector_config(args.config_file, show=args.vb)
+    q_pm = read_config.compute_q_params(pm['detd'], pm['dets_x'], pm['dets_y'], pm['pixsize'], pm['wavelength'], pm['ewald_rad'], show=args.vb)
     output_folder = read_config.get_filename(args.config_file, 'emc', 'output_folder')
 
     # Cheetah geometry files have coordinates in m
@@ -43,9 +43,7 @@ if __name__ == '__main__':
         z = f['z'][:].flatten() * 1.e3 + pm['detd']
     
     norm = np.sqrt(x*x + y*y + z*z)
-    print norm.shape
     polar = read_config.compute_polarization(pm['polarization'], x, y, norm)
-    print polar.shape
     qscaling    = 1. / pm['wavelength'] / q_pm['q_sep']
     qx = x * qscaling / norm
     qy = y * qscaling / norm
@@ -54,7 +52,7 @@ if __name__ == '__main__':
     solid_angle = polar*solid_angle
     radius = np.sqrt(x*x + y*y)
     if args.mask is None:
-        rmax = min(x.max(), np.abs(x.min()), y.max(), np.abs(y.min()))
+        rmax = min(np.abs(x.max()), np.abs(x.min()), np.abs(y.max()), np.abs(y.min()))
         mask = np.zeros(solid_angle.shape, dtype='u1')
         mask[radius>rmax] = 1
     else:
@@ -62,7 +60,8 @@ if __name__ == '__main__':
             mask = f[args.mask_dset][:].astype('u1')
     
     det_file = output_folder + '/' + os.path.splitext(os.path.basename(args.h5_name))[0] + '.dat'
-    print 'Writing detector file to', det_file
+    logging.info('Writing detector file to %s'%det_file)
+    sys.stderr.write('Writing detector file to %s\n'%det_file)
     
     with open(det_file, "w") as fp:
         fp.write(str(qx.shape[0]) + "\n")

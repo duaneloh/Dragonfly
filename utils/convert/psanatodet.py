@@ -56,12 +56,11 @@ if __name__ == '__main__':
     qx = cx * qscaling / norm
     qy = cy * qscaling / norm
     qz = qscaling * (detd / norm - 1.)
-    solid_angle = pm['detd']*(pm['pixsize']*pm['pixsize']) / np.power(norm, 3.0)
+    solid_angle = pm['detd']*pm['pixsize']*pm['pixsize'] / np.power(norm, 3.0)
     solid_angle = polar*solid_angle
 
-    mask = det.mask(evt, status=True, calib=True).flatten()
-    mask = 1 - mask
-    mask[mask==1] = 2
+    mask = det.mask(evt, status=True, calib=True, edges=True, central=True, unbondnbrs8=True).flatten()
+    mask = 2*(1 - mask)
     rmax = min(x.max(), np.abs(x.min()), y.max(), np.abs(y.min()))
     mask = np.zeros(solid_angle.shape, dtype='u1')
     mask[(rad>rmax) & (mask==0)] = 1
