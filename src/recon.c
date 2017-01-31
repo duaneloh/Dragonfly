@@ -125,7 +125,10 @@ int main(int argc, char *argv[]) {
 					if (inter_weight[x] > 0.)
 						model2[x] *= norm / inter_weight[x] ;
 				
-				sym_intens(model2, size, center) ;
+				if (icosahedral_flag)
+					symmetrize_icosahedral(model2, size) ;
+				else
+					sym_intens(model2, size, center) ;
 				
 				for (x = 0 ; x < size*size*size ; ++x) {
 					diff = model2[x] - model1[x] ;
