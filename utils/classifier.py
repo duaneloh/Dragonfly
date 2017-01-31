@@ -143,7 +143,7 @@ class Classifier(QtWidgets.QMainWindow):
                 QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No | QtWidgets.QMessageBox.Cancel,
                 QtWidgets.QMessageBox.Cancel)
             if result == QtWidgets.QMessageBox.Yes:
-                self.manual_panel.save_class_list()
+                self.classes.save()
                 event.accept()
             elif result == QtWidgets.QMessageBox.No:
                 event.accept()
