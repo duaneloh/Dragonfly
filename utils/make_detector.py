@@ -20,10 +20,10 @@ if __name__ == "__main__":
     if to_write:
         timer       = py_utils.my_timer()
         pm          = read_config.get_detector_config(args.config_file, show=args.vb)
-        q_pm        = read_config.compute_q_params(pm['detd'], pm['dets_x'], pm['dets_y'], pm['pixsize'], pm['wavelength'], show=args.vb)
+        q_pm        = read_config.compute_q_params(pm['detd'], pm['dets_x'], pm['dets_y'], pm['pixsize'], pm['wavelength'], pm['ewald_rad'], show=args.vb)
         timer.reset_and_report("Reading experiment parameters") if args.vb else timer.reset()
 
-        fov_len     = int(np.ceil(q_pm['fov_in_A']/q_pm['half_p_res']) + 1)
+        fov_len     = 2 * int(np.ceil(q_pm['fov_in_A']/q_pm['half_p_res']/2.)) + 3
         det_cen_x   = pm['detc_x']
         det_cen_y   = pm['detc_y']
         qscaling    = 1. / pm['wavelength'] / q_pm['q_sep']
@@ -34,9 +34,6 @@ if __name__ == "__main__":
         polar       = read_config.compute_polarization(pm['polarization'], px, py, norm)
         (qx, qy)    = (px*qscaling/norm, py*qscaling/norm)
         qz          = qscaling*(pm['detd']/norm - 1.)
-        qx         *= pm['ewald_rad'] * pm['pixsize'] / pm['detd']
-        qy         *= pm['ewald_rad'] * pm['pixsize'] / pm['detd']
-        qz         *= pm['ewald_rad'] * pm['pixsize'] / pm['detd']
         logging.info('{:<15}:{:10.4f}'.format('qmax', np.sqrt(qx*qx + qy*qy + qz*qz).max()))
         solid_angle = pm['detd']*(pm['pixsize']*pm['pixsize']) / np.power(norm, 3.0)
         solid_angle = polar*solid_angle

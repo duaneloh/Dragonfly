@@ -685,6 +685,59 @@ void print_quat(int num, double *quat) {
 	}
 }
 
+int reduce_icosahedral(int n, double *quat) {
+	int r, t, i, keep_quat, vnum = 8 ;
+	int old_num_rot = 10*(5*n*n*n + n), num_rot = 0 ;
+	double dist, dist0 ;
+	
+	// For all non-vertex quaternions
+	for (r = 60 ; r < old_num_rot ; ++r) {
+		keep_quat = 1 ;
+		
+		// Calculate distance to quat[8]
+		// which should be {1,0,0,0}
+		dist0 = 0. ;
+		for (t = 0 ; t < 4 ; ++t)
+			dist0 += quat[r*5+t] * quat[vnum*5+t] ;
+		dist0 = 1. - dist0*dist0 ;
+		
+		// Calculate distance to all other vertex quaternions
+		for (i = 0 ; i < 60 ; ++i) {
+			if (i == vnum)
+				continue ;
+			
+			dist = 0 ;
+			for (t = 0 ; t < 4 ; ++t)
+				dist += quat[r*5+t] * quat[i*5+t] ;
+			dist = 1. - dist*dist ;
+			
+			if (dist < dist0) {
+				keep_quat = 0 ;
+				break ;
+			}
+		}
+		
+		// If closest vertex is 8, keep quaternion
+		if (keep_quat) {
+			for (t = 0 ; t < 5 ; ++t)
+				quat[(60+num_rot)*5+t] = quat[r*5+t] ;
+			num_rot++ ;
+		}
+	}
+	
+	// Move kept quaternions to first indices
+	for (t = 0 ; t < 5 ; ++t)
+		quat[0*5+t] = quat[8*5+t] ;
+	
+	for (r = 0 ; r < num_rot ; ++r)
+	for (t = 0 ; t < 5 ; ++t)
+		quat[(1+r)*5+t] = quat[(60+r)*5+t] ;
+	num_rot++ ;
+	
+	fprintf(stderr, "num_rot = %d -> %d\n", old_num_rot, num_rot) ;
+	return num_rot ;
+}
+
 void quat_free_mem(int num) {
 	free(vertice_points) ;
 	
@@ -696,7 +749,7 @@ void quat_free_mem(int num) {
 		free(cell_points) ;
 }
 
-int quat_gen(int num_div, double **quat_ptr) {
+int quat_gen(int num_div, double **quat_ptr, int do_icos) {
 	int r, num_rot ;
 	double total_weight = 0. ;
 
@@ -716,6 +769,9 @@ int quat_gen(int num_div, double **quat_ptr) {
 		refine_cell(num_div) ;
 	
 	print_quat(num_div, *quat_ptr) ;
+
+	if (do_icos)
+		num_rot = reduce_icosahedral(num_div, *quat_ptr) ;
 	
 	quat_free_mem(num_div) ;
 	

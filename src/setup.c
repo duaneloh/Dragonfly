@@ -192,7 +192,7 @@ void parse_input(char *fname) {
 		}
 	}
 	
-	if (start_iter == 1) {
+	if (!rank && start_iter == 1) {
 		char fname0[999] ;
 		sprintf(fname0, "%s/output/intens_000.bin", output_folder) ;
 		FILE *fp0 = fopen(fname0, "wb") ;
@@ -233,7 +233,7 @@ void calc_scale() {
 		curr = curr->next ;
 	}
 	
-	if (start_iter == 1) {
+	if (!rank && start_iter == 1) {
 		sprintf(fname, "%s/scale/scale_000.dat", output_folder) ;
 		fp = fopen(fname, "w") ;
 		for (d = 0 ; d < tot_num_data ; ++d)
@@ -321,8 +321,7 @@ int setup(char *config_fname, int continue_flag) {
 	char scale_fname[999], blacklist_fname[999] ;
 	char data_fname[999], out_data_fname[999] ;
 	char merge_flist[999], merge_fname[999] ;
-	char out_det_fname[999], out_quat_fname[999] ;
-	char sel_string[999] ;
+	char out_det_fname[999], sel_string[999] ;
 	double qmax, qmin, detd, pixsize, ewald_rad ;
 	int dets_x, dets_y, detsize, num_div ;
 	
@@ -350,6 +349,7 @@ int setup(char *config_fname, int continue_flag) {
 	alpha = 0. ;
 	beta = 1. ;
 	ewald_rad = -1. ;
+	icosahedral_flag = 0 ;
 	
 	char line[999], *token ;
 	fp = fopen(config_fname, "r") ;
@@ -413,8 +413,6 @@ int setup(char *config_fname, int continue_flag) {
 			strcpy(quat_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "out_detector_file") == 0)
 			strcpy(out_det_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "out_quat_file") == 0)
-			strcpy(out_quat_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "blacklist_file") == 0)
 			strcpy(blacklist_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "scale_file") == 0)
@@ -425,6 +423,8 @@ int setup(char *config_fname, int continue_flag) {
 		}
 		else if (strcmp(token, "selection") == 0)
 			strcpy(sel_string, strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "sym_icosahedral") == 0)
+			icosahedral_flag = atoi(strtok(NULL, " =\n")) ;
 	}
 	fclose(fp) ;
 
@@ -437,6 +437,19 @@ int setup(char *config_fname, int continue_flag) {
 		fprintf(stderr, "Need detector parameters, detd, detsize, pixsize\n") ;
 		return 1 ;
 	}
+	
+	sprintf(line, "%s/output", output_folder) ;
+	mkdir(line, 0750) ;
+	sprintf(line, "%s/weights", output_folder) ;
+	mkdir(line, 0750) ;
+	sprintf(line, "%s/mutualInfo", output_folder) ;
+	mkdir(line, 0750) ;
+	sprintf(line, "%s/scale", output_folder) ;
+	mkdir(line, 0750) ;
+	sprintf(line, "%s/orientations", output_folder) ;
+	mkdir(line, 0750) ;
+	sprintf(line, "%s/likelihood", output_folder) ;
+	mkdir(line, 0750) ;
 	
 	double hx = (dets_x - 1) / 2 * pixsize ;
 	double hy = (dets_y - 1) / 2 * pixsize ;
@@ -457,7 +470,7 @@ int setup(char *config_fname, int continue_flag) {
 		return 1 ;
 	}
 	else if (num_div > 0)
-		num_rot = quat_gen(num_div, &quat) ;
+		num_rot = quat_gen(num_div, &quat, icosahedral_flag) ;
 	else if (parse_quat(quat_fname))
 			return 1 ;
 	
