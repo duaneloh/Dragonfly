@@ -2,13 +2,14 @@
 
 '''
 Convert frames in an h5 file or list of files into emc format
-If not all frames need to be converted, one can use a selection file or a selection dataset
+If not all frames need to be converted, one can use a selection file or a 
+selection dataset
 
 Needs:
     <h5_fname> - Path to photon-converted h5 file used in SPI
 
 Produces:
-    EMC file with all the frames in the h5 file(s)
+    EMC file with all the single hits in the h5 file
 '''
 
 import os
@@ -24,17 +25,18 @@ from py_src import read_config
 
 if __name__ == '__main__':
     logging.basicConfig(filename='recon.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-    parser      = py_utils.my_argparser(description='h5toemc')
+    parser = py_utils.my_argparser(description='h5toemc')
     parser.add_argument('h5_name', help='HDF5 file to convert to emc format')
     parser.add_argument('-d', '--dset_name', help='Name of HDF5 dataset containing photon data', default=None)
-    parser.add_argument('-s', '--sel_file', help='Path to text file containing indices of frames or a set of 0 or 1 values. Default: Do all', default=None)
+    parser.add_argument('-s', '--sel_file', help='Path to text file containing indices of frames\nor a set of 0 or 1 values. Default: Do all', default=None)
     parser.add_argument('-S', '--sel_dset', help='Same as --sel_file, but pointing to the name of an HDF5 dataset', default=None)
     parser.add_argument('-l', '--list', help='h5_name is list of h5 files rather than a single one', action='store_true', default=False)
-    args        = parser.special_parse_args()
+    parser.add_argument('-o', '--out_fname', help='Output filename if different from calculated name', default=None)
+    args = parser.special_parse_args()
 
-    logging.info('Starting h5toemc...')
+    logging.info('Starting h5toemc....')
     logging.info(' '.join(sys.argv))
-    pm          = read_config.get_detector_config(args.config_file, show=args.vb)
+    pm = read_config.get_detector_config(args.config_file, show=args.vb)
     output_folder = read_config.get_filename(args.config_file, 'emc', 'output_folder')
     curr_num_data = 0
 
@@ -51,8 +53,11 @@ if __name__ == '__main__':
     else:
         flist = [args.h5_name]
 
-    emcwriter = writeemc.EMC_writer('%s/%s.emc' % (output_folder, os.path.splitext(os.path.basename(args.h5_name))[0]),
-                                    pm['dets_x']*pm['dets_y'])
+    if args.out_fname is None:
+        emcwriter = writeemc.EMC_writer('%s/%s.emc' % (output_folder, os.path.splitext(os.path.basename(args.h5_name))[0]),
+                                        pm['dets_x']*pm['dets_y'])
+    else:
+        emcwriter = writeemc.EMC_writer(args.out_fname, pm['dets_x']*pm['dets_y'])
 
     for fnum, fname in enumerate(flist):
         f = h5py.File(fname, 'r')
