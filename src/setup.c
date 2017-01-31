@@ -438,6 +438,19 @@ int setup(char *config_fname, int continue_flag) {
 		return 1 ;
 	}
 	
+	sprintf(line, "%s/output", output_folder) ;
+	mkdir(line, 0750) ;
+	sprintf(line, "%s/weights", output_folder) ;
+	mkdir(line, 0750) ;
+	sprintf(line, "%s/mutualInfo", output_folder) ;
+	mkdir(line, 0750) ;
+	sprintf(line, "%s/scale", output_folder) ;
+	mkdir(line, 0750) ;
+	sprintf(line, "%s/orientations", output_folder) ;
+	mkdir(line, 0750) ;
+	sprintf(line, "%s/likelihood", output_folder) ;
+	mkdir(line, 0750) ;
+	
 	double hx = (dets_x - 1) / 2 * pixsize ;
 	double hy = (dets_y - 1) / 2 * pixsize ;
 	qmax = 2. * sin(0.5 * atan(sqrt(hx*hx + hy*hy)/detd)) ;
