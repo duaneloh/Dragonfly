@@ -43,7 +43,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.grid = QtWidgets.QGridLayout(overall)
 
         # Volume slices figure
-        self.fig = matplotlib.figure.Figure(figsize=(14,5), facecolor='#353535')
+        self.fig = matplotlib.figure.Figure(figsize=(14,5))
         self.fig.subplots_adjust(left=0.0, bottom=0.00, right=0.99, wspace=0.0)
         self.canvas = FigureCanvas(self.fig)
         self.grid.addWidget(self.canvas, 0, 0)
@@ -230,18 +230,18 @@ class Progress_viewer(QtWidgets.QMainWindow):
 
         s1 = self.fig.add_subplot(131)
         s1.imshow(a, vmin=0, vmax=rangemax, cmap='gray', interpolation='none')
-        s1.set_title("YZ plane", y=1.01, color='w')
+        s1.set_title("YZ plane", y=1.01)
 
         s1.axis('off')
 
         s2 = self.fig.add_subplot(132)
         s2.matshow(b, vmin=0, vmax=rangemax, cmap='gray', interpolation='none')
-        s2.set_title("XZ plane", y=1.01, color='w')
+        s2.set_title("XZ plane", y=1.01)
         s2.axis('off')
 
         s3 = self.fig.add_subplot(133)
         s3.matshow(c, vmin=0, vmax=rangemax, cmap='gray', interpolation='none')
-        s3.set_title("XY plane", y=1.01, color='w')
+        s3.set_title("XY plane", y=1.01)
         s3.axis('off')
 
         self.canvas.draw()
