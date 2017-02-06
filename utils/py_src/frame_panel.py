@@ -100,6 +100,12 @@ class Frame_panel(QtWidgets.QWidget):
         
         frame = self.emc_reader.get_frame(num)
         
+        try:
+            for p in self.parent.embedding_panel.roi_list:
+                p.remove()
+        except (ValueError, AttributeError):
+            pass
+        
         if mode == 2:
             # Conversion panel
             self.fig.clear()
@@ -117,11 +123,6 @@ class Frame_panel(QtWidgets.QWidget):
         elif (not force_frame) and mode == 3 and self.parent.embedding_panel.embed is not None:
             # Embedding 
             ep = self.parent.embedding_panel
-            try:
-                for p in ep.roi_list:
-                    p.remove()
-            except ValueError:
-                pass
             
             self.fig.clear()
             s = self.fig.add_subplot(111)
@@ -138,13 +139,6 @@ class Frame_panel(QtWidgets.QWidget):
                 s.add_artist(p)
             self.fig.add_subplot(s)
         else:
-            if mode == 3:
-                try:
-                    for p in self.parent.embedding_panel.roi_list:
-                        p.remove()
-                except ValueError:
-                    pass
-            
             self.fig.clear()
             if self.do_compare and self.compare_flag.isChecked():
                 with open('EMC.log', 'r') as f:
