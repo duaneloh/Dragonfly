@@ -82,7 +82,7 @@ if __name__ == '__main__':
             logging.info('Both sel_file and sel_dset specified. Pick one.')
             sys.exit(1)
         elif args.sel_file is None and args.sel_dset is None:
-            logging.info('Converting all images')
+            logging.info('Converting all images. dset.shape = %s' % (dset.shape,))
             if len(dset.shape) == 3:
                 ind = np.arange(dset.shape[0], dtype='i4')
             else:
@@ -93,7 +93,7 @@ if __name__ == '__main__':
         else:
             ind = f[args.sel_dset][:]
 
-        if type(ind) is np.array:
+        if type(ind) is np.ndarray:
             if ind.shape[0] == dset.shape[0] and ind.max() < 2:
                 ind = np.where(ind==1)[0]
             ind = ind[(ind>=0) & (ind<dset.shape[0])]
