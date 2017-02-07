@@ -201,9 +201,14 @@ class Frame_panel(QtWidgets.QWidget):
         self.setFocus()
 
     def save_powder(self):
-        fname = '%s/powder.bin' % self.parent.output_folder
+        fname = '%s/assem_powder.bin' % self.parent.output_folder
         sys.stderr.write('Saving assembled powder sum with shape %s to %s\n' % ((self.powder_sum.shape,), fname))
         self.powder_sum.tofile(fname)
+        
+        raw_powder = self.emc_reader.get_powder(raw=True)
+        fname = '%s/powder.bin' % self.parent.output_folder
+        sys.stderr.write('Saving assembled powder sum with shape %s to %s\n' % ((raw_powder.shape,), fname))
+        raw_powder.tofile(fname)
 
     def keyPressEvent(self, event):
         k = event.key()

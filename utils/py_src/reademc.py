@@ -111,8 +111,11 @@ class EMC_reader():
         
         return frame * self.raw_mask
 
-    def get_powder(self):
-        powder = np.zeros(self.frame_shape, dtype='f8')
+    def get_powder(self, raw=False):
+        if raw:
+            powder = np.zeros((self.num_pix[0],), dtype='f8')
+        else:
+            powder = np.zeros(self.frame_shape, dtype='f8')
         
         for photons_file in self.photons_list:
             with open(photons_file, 'rb') as f:
@@ -124,8 +127,15 @@ class EMC_reader():
                 place_multi = np.fromfile(f, dtype='i4', count=multi.sum())
                 count_multi = np.fromfile(f, dtype='i4', count=multi.sum())
         
-            np.add.at(powder, (self.x[place_ones], self.y[place_ones]), 1)
-            np.add.at(powder, (self.x[place_multi], self.y[place_multi]), count_multi)
+            if raw:
+                np.add.at(powder, place_ones, 1)
+                np.add.at(powder, place_multi, count_multi)
+            else:
+                np.add.at(powder, (self.x[place_ones], self.y[place_ones]), 1)
+                np.add.at(powder, (self.x[place_multi], self.y[place_multi]), count_multi)
         
-        return powder * self.mask
+        if raw:
+            return powder * self.raw_mask
+        else:
+            return powder * self.mask
 
