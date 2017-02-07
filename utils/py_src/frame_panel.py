@@ -15,7 +15,7 @@ from matplotlib.figure import Figure
 import slices
 
 class Frame_panel(QtWidgets.QWidget):
-    def __init__(self, parent, compare=False, *args, **kwargs):
+    def __init__(self, parent, compare=False, powder=False, *args, **kwargs):
         super(Frame_panel, self).__init__(parent, *args, **kwargs)
         
         self.parent = parent
@@ -23,8 +23,11 @@ class Frame_panel(QtWidgets.QWidget):
         self.num_frames = self.parent.num_frames
         self.cmap = self.parent.cmap
         self.do_compare = compare
+        self.do_powder = powder
         if self.do_compare:
             self.slices = slices.Slice_generator(self.parent.geom, 'data/quat.dat')
+        if self.do_powder:
+            self.powder_sum = self.emc_reader.get_powder()
         
         self.numstr = '0'
         self.rangestr = '10'
@@ -42,15 +45,16 @@ class Frame_panel(QtWidgets.QWidget):
         
         hbox = QtWidgets.QHBoxLayout()
         vbox.addLayout(hbox)
-        label = QtWidgets.QLabel('Frame number: ', self)
-        hbox.addWidget(label)
-        self.numstr = QtWidgets.QLineEdit('0', self)
-        self.numstr.setFixedWidth(64)
-        hbox.addWidget(self.numstr)
-        label = QtWidgets.QLabel('/%d'%self.num_frames, self)
-        hbox.addWidget(label)
+        if not self.do_powder:
+            label = QtWidgets.QLabel('Frame number: ', self)
+            hbox.addWidget(label)
+            self.numstr = QtWidgets.QLineEdit('0', self)
+            self.numstr.setFixedWidth(64)
+            hbox.addWidget(self.numstr)
+            label = QtWidgets.QLabel('/%d'%self.num_frames, self)
+            hbox.addWidget(label)
         hbox.addStretch(1)
-        if self.do_compare:
+        if not self.do_powder and self.do_compare:
             self.compare_flag = QtWidgets.QCheckBox('Compare', self)
             self.compare_flag.clicked.connect(self.compare_flag_changed)
             hbox.addWidget(self.compare_flag)
@@ -65,15 +69,20 @@ class Frame_panel(QtWidgets.QWidget):
         button = QtWidgets.QPushButton('Plot', self)
         button.clicked.connect(self.plot_frame)
         hbox.addWidget(button)
-        button = QtWidgets.QPushButton('Prev', self)
-        button.clicked.connect(self.prev_frame)
-        hbox.addWidget(button)
-        button = QtWidgets.QPushButton('Next', self)
-        button.clicked.connect(self.next_frame)
-        hbox.addWidget(button)
-        button = QtWidgets.QPushButton('Random', self)
-        button.clicked.connect(self.rand_frame)
-        hbox.addWidget(button)
+        if self.do_powder:
+            button = QtWidgets.QPushButton('Save', self)
+            button.clicked.connect(self.save_powder)
+            hbox.addWidget(button)
+        else:
+            button = QtWidgets.QPushButton('Prev', self)
+            button.clicked.connect(self.prev_frame)
+            hbox.addWidget(button)
+            button = QtWidgets.QPushButton('Next', self)
+            button.clicked.connect(self.next_frame)
+            hbox.addWidget(button)
+            button = QtWidgets.QPushButton('Random', self)
+            button.clicked.connect(self.rand_frame)
+            hbox.addWidget(button)
         hbox.addStretch(1)
         button = QtWidgets.QPushButton('Quit', self)
         button.clicked.connect(self.parent.close)
@@ -88,17 +97,18 @@ class Frame_panel(QtWidgets.QWidget):
         else:
             mode = 0
         
-        try:
-            num = int(self.numstr.text())
-        except ValueError:
-            sys.stderr.write('Frame number must be integer\n')
-            return
-        
-        if num < 0 or num >= self.num_frames:
-            sys.stderr.write('Frame number %d out of range!\n' % num)
-            return
-        
-        frame = self.emc_reader.get_frame(num)
+        if self.do_powder:
+            frame = self.powder_sum
+        else:
+            try:
+                num = int(self.numstr.text())
+            except ValueError:
+                sys.stderr.write('Frame number must be integer\n')
+                return
+            if num < 0 or num >= self.num_frames:
+                sys.stderr.write('Frame number %d out of range!\n' % num)
+                return
+            frame = self.emc_reader.get_frame(num)
         
         try:
             for p in self.parent.embedding_panel.roi_list:
@@ -189,6 +199,11 @@ class Frame_panel(QtWidgets.QWidget):
 
     def frame_focus(self, event=None):
         self.setFocus()
+
+    def save_powder(self):
+        fname = '%s/powder.bin' % self.parent.output_folder
+        sys.stderr.write('Saving assembled powder sum with shape %s to %s\n' % ((self.powder_sum.shape,), fname))
+        self.powder_sum.tofile(fname)
 
     def keyPressEvent(self, event):
         k = event.key()

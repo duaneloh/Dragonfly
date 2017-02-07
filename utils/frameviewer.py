@@ -17,9 +17,10 @@ from py_src import reademc
 from py_src import readdet
 
 class Frameviewer(QtWidgets.QMainWindow):
-    def __init__(self, config_file, cmap=None, mask=False):
+    def __init__(self, config_file, cmap=None, mask=False, do_powder=False):
         super(Frameviewer, self).__init__()
         self.config_file = config_file
+        self.do_powder = do_powder
         if cmap is None:
             self.cmap = 'CMRmap'
         else:
@@ -38,7 +39,7 @@ class Frameviewer(QtWidgets.QMainWindow):
         window = QtWidgets.QWidget()
         self.hbox = QtWidgets.QHBoxLayout()
         
-        self.frame_panel = frame_panel.Frame_panel(self)
+        self.frame_panel = frame_panel.Frame_panel(self, powder=self.do_powder)
         self.hbox.addWidget(self.frame_panel)
         
         window.setLayout(self.hbox)
@@ -94,9 +95,10 @@ if __name__ == '__main__':
     parser = py_utils.my_argparser(description='Utility for viewing frames of the emc file (list)')
     parser.add_argument('--cmap', help='Matplotlib color map (default: CMRmap)')
     parser.add_argument('-M', '--mask', help='Whether to zero out masked pixels (default False)', action='store_true', default=False)
+    parser.add_argument('-P', '--powder', help='Show powder sum of all frames', action='store_true', default=False)
     args = parser.special_parse_args()
     
     app = QtWidgets.QApplication(sys.argv)
     app.setStyle('Fusion')
-    Frameviewer(args.config_file, cmap=args.cmap, mask=args.mask)
+    Frameviewer(args.config_file, cmap=args.cmap, mask=args.mask, do_powder=args.powder)
     sys.exit(app.exec_())
