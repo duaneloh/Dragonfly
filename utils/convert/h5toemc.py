@@ -23,6 +23,60 @@ from py_src import py_utils
 from py_src import writeemc
 from py_src import read_config
 
+def get_dset(fp, args):
+    if args.dset_name is None:
+        for name, obj in fp['photonConverter'].items():
+            try:
+                temp = obj.keys()
+                dset = obj['photonCount']
+                break
+            except AttributeError:
+                pass
+        logging.info('Converting data in '+ dset.name)
+    else:
+        try:
+            dset = fp[args.dset_name]
+        except KeyError:
+            print 'Dataset not found. Moving on.'
+            return None 
+        logging.info('Converting data in '+ args.dset_name)
+    return dset
+
+def get_indices(fp, dset, args):
+    if args.sel_file is not None and args.sel_dset is not None:
+        logging.info('Both sel_file and sel_dset specified. Pick one.')
+        sys.exit(1)
+    elif args.sel_file is None and args.sel_dset is None:
+        logging.info('Converting all images. dset.shape = %s' % (dset.shape,))
+        if len(dset.shape) == 3:
+            ind = np.arange(dset.shape[0], dtype='i4')
+        else:
+            ind = 0
+    elif args.sel_file is not None:
+        ind = np.loadtxt(args.sel_file, dtype='i4')
+        ind -= curr_num_data
+    else:
+        ind = fp[args.sel_dset][:]
+
+    if type(ind) is np.ndarray:
+        if ind.shape[0] == dset.shape[0] and ind.max() < 2:
+            ind = np.where(ind==1)[0]
+        ind = ind[(ind>=0) & (ind<dset.shape[0])]
+        num_frames = ind.shape[0]
+    else:
+        num_frames = 1
+
+    return ind, num_frames
+
+def bin_image(array, binning):
+    '''
+    Convenience function to bin 2D array by some bin factor
+    The binning must divide the array shape
+    '''
+    s = array.shape
+    out = array.reshape(s[0]/binning, binning, s[1]/binning, binning).sum(axis=(1,3))
+    return out
+
 if __name__ == '__main__':
     logging.basicConfig(filename='recon.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     parser = py_utils.my_argparser(description='h5toemc')
@@ -61,45 +115,11 @@ if __name__ == '__main__':
 
     for fnum, fname in enumerate(flist):
         f = h5py.File(fname, 'r')
-        if args.dset_name is None:
-            for name, obj in f['photonConverter'].items():
-                try:
-                    temp = obj.keys()
-                    dset = obj['photonCount']
-                    break
-                except AttributeError:
-                    pass
-            logging.info('Converting data in '+ dset.name)
-        else:
-            try:
-                dset = f[args.dset_name]
-            except KeyError:
-                print 'Dataset not found. Moving on.'
-                continue
-            logging.info('Converting data in '+ args.dset_name)
-
-        if args.sel_file is not None and args.sel_dset is not None:
-            logging.info('Both sel_file and sel_dset specified. Pick one.')
-            sys.exit(1)
-        elif args.sel_file is None and args.sel_dset is None:
-            logging.info('Converting all images. dset.shape = %s' % (dset.shape,))
-            if len(dset.shape) == 3:
-                ind = np.arange(dset.shape[0], dtype='i4')
-            else:
-                ind = 0
-        elif args.sel_file is not None:
-            ind = np.loadtxt(args.sel_file, dtype='i4')
-            ind -= curr_num_data
-        else:
-            ind = f[args.sel_dset][:]
-
-        if type(ind) is np.ndarray:
-            if ind.shape[0] == dset.shape[0] and ind.max() < 2:
-                ind = np.where(ind==1)[0]
-            ind = ind[(ind>=0) & (ind<dset.shape[0])]
-            num_frames = ind.shape[0]
-        else:
-            num_frames = 1
+        dset = get_dset(f, args)
+        if dset is None:
+            continue
+        
+        ind, num_frames = get_indices(f, dset, args)
 
         curr_num_data += num_frames
         if not args.list:
