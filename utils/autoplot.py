@@ -19,13 +19,28 @@ except ImportError:
     from matplotlib.backends.backend_qt4agg import FigureCanvas
 from py_src import frame_panel
 
+class mySpinBox(QtWidgets.QSpinBox):
+    def __init__(self, parent, *args, **kwargs):
+        super(mySpinBox, self).__init__(parent, *args, **kwargs)
+        self.parent = parent
+
+    def stepBy(self, steps):
+        target_value = self.value() + steps
+        if (target_value < self.minimum()):
+            self.setValue(self.minimum())
+        elif (target_value > self.maximum()):
+            self.setValue(self.maximum())
+        else:
+            self.setValue(target_value)
+        self.parent.need_replot = True
+
 class Progress_viewer(QtWidgets.QMainWindow):
     def __init__(self, config='config.ini', model=None):
         super(Progress_viewer, self).__init__()
         self.config = config
         self.model_name = model
         self.log_txt = ""
-        self.max_iter = 0
+        self.max_iternum = 0
         self.need_replot = False
         self.image_exists = False
 
@@ -120,26 +135,34 @@ class Progress_viewer(QtWidgets.QMainWindow):
         hbox.addWidget(label)
         self.layer_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
         self.layer_slider.setRange(0, 200)
-        self.layer_slider.sliderMoved.connect(self.layernum_changed)
+        self.layer_slider.sliderMoved.connect(self.layerslider_moved)
         self.layer_slider.sliderReleased.connect(self.layernum_changed)
         hbox.addWidget(self.layer_slider)
-        self.layernum = QtWidgets.QLineEdit(str(self.layer_slider.value()), self)
-        self.layernum.returnPressed.connect(self.layernum_changed)
-        self.layernum.setFixedWidth(36)
+        self.layernum = mySpinBox(self)
+        self.layernum.setValue(self.layer_slider.value())
+        self.layernum.setMinimum(0)
+        self.layernum.setMaximum(200)
+        self.layernum.valueChanged.connect(self.layernum_changed)
+        self.layernum.editingFinished.connect(self.layernum_changed)
+        self.layernum.setFixedWidth(48)
         hbox.addWidget(self.layernum)
         hbox = QtWidgets.QHBoxLayout()
         self.options.addLayout(hbox)
         label = QtWidgets.QLabel('Iteration', self)
         hbox.addWidget(label)
         self.iter_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        self.iter_slider.setRange(0, 200)
-        self.iter_slider.sliderMoved.connect(self.iter_changed)
-        self.iter_slider.sliderReleased.connect(self.iter_changed)
+        self.iter_slider.setRange(0, 1)
+        self.iter_slider.sliderMoved.connect(self.iterslider_moved)
+        self.iter_slider.sliderReleased.connect(self.iternum_changed)
         hbox.addWidget(self.iter_slider)
-        self.iter = QtWidgets.QLineEdit(str(self.iter_slider.value()), self)
-        self.iter.returnPressed.connect(self.iter_changed)
-        self.iter.setFixedWidth(36)
-        hbox.addWidget(self.iter)
+        self.iternum = mySpinBox(self)
+        self.iternum.setValue(self.iter_slider.value())
+        self.iternum.setMinimum(0)
+        self.iternum.setMaximum(1)
+        self.iternum.valueChanged.connect(self.iternum_changed)
+        self.iternum.editingFinished.connect(self.iternum_changed)
+        self.iternum.setFixedWidth(48)
+        hbox.addWidget(self.iternum)
 
         # -- Buttons
         hbox = QtWidgets.QHBoxLayout()
@@ -180,24 +203,28 @@ class Progress_viewer(QtWidgets.QMainWindow):
 
         self.show()
 
-    def layernum_changed(self, value=None):
+    def layernum_changed(self, value=None, replot=True):
         if value is None:
-            self.layer_slider.setValue(int(self.layernum.text()))
+            # Slider released or editing finished
             self.need_replot = True
-            self.parse_and_plot()
-        else:
-            self.layernum.setText(str(value))
+        elif value == self.layernum.value():
             self.layer_slider.setValue(value)
+        self.parse_and_plot()
 
-    def iter_changed(self, value=None):
+    def layerslider_moved(self, value):
+        self.layernum.setValue(value)
+        
+    def iternum_changed(self, value=None):
         if value is None:
-            self.iter_slider.setValue(int(self.iter.text()))
-            self.fname.setText('data/output/intens_%.3d.bin' % int(self.iter.text()))
-            self.parse_and_plot()
-        else:
-            self.iter.setText('%3d'%value)
+            self.fname.setText('data/output/intens_%.3d.bin' % self.iternum.value())
+        elif value == self.iternum.value():
             self.iter_slider.setValue(value)
-            self.fname.setText('data/output/intens_%.3d.bin' % value)
+            if self.need_replot:
+                self.fname.setText('data/output/intens_%.3d.bin' % value)
+        self.parse_and_plot()
+
+    def iterslider_moved(self, value):
+        self.iternum.setValue(value)
 
     def range_changed(self):
         self.need_replot = True
@@ -263,7 +290,9 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.center = self.size/2
         if not self.image_exists:
             self.layer_slider.setRange(0, self.size-1)
-            self.layernum_changed(self.center)
+            self.layernum.setMaximum(self.size-1)
+            self.layer_slider.setValue(self.center)
+            self.layerslider_moved(self.center)
 
         self.old_fname = fname
 
@@ -298,7 +327,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
             with open(p, 'r') as f:
                 self.orient.append(np.fromfile(f, '=i4'))
 
-        iter = loglines[:,0].astype(np.int32)
+        iternum = loglines[:,0].astype(np.int32)
         change = loglines[:,2].astype(np.float64)
         info = loglines[:,3].astype(np.float64)
         like = loglines[:,4].astype(np.float64)
@@ -325,7 +354,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
 
         # Plot RMS change
         s1 = self.log_fig.add_subplot(grid[:,0])
-        s1.plot(iter, change, 'o-')
+        s1.plot(iternum, change, 'o-')
         s1.set_yscale('log')
         s1.set_xlabel('Iteration')
         s1.set_ylabel('RMS change', labelpad=-10)
@@ -338,7 +367,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
 
         # Plot average mutual information
         s2 = self.log_fig.add_subplot(grid[0,1])
-        s2.plot(iter, info, 'o-')
+        s2.plot(iternum, info, 'o-')
         s2.set_xlabel('Iteration')
         s2.set_ylabel(r'Mutual info. $I(K,\Omega | W)$')
         s2_lim = s2.get_ylim()
@@ -350,7 +379,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
 
         # Plot average log-likelihood
         s3 = self.log_fig.add_subplot(grid[1,1])
-        s3.plot(iter[1:], like[1:], 'o-')
+        s3.plot(iternum[1:], like[1:], 'o-')
         s3.set_xlabel('Iteration')
         s3.set_ylabel('Avg log-likelihood')
         s3_lim = s3.get_ylim()
@@ -390,11 +419,13 @@ class Progress_viewer(QtWidgets.QMainWindow):
         except ValueError:
             iteration = 0
 
-        if iteration > 0 and self.max_iter != iteration:
+        if iteration > 0 and self.max_iternum != iteration:
             self.fname.setText(self.folder+'/output/intens_%.3d.bin' % iteration)
-            self.max_iter = iteration
-            self.iter_slider.setRange(0, self.max_iter)
-            self.iter_changed(iteration)
+            self.max_iternum = iteration
+            self.iter_slider.setRange(0, self.max_iternum)
+            self.iternum.setMaximum(self.max_iternum)
+            self.iter_slider.setValue(iteration)
+            self.iterslider_moved(iteration)
             self.plot_log()
             self.parse_and_plot()
 
