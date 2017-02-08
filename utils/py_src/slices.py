@@ -39,6 +39,7 @@ class Slice_generator():
         rot_matrix = self.gen_rot_matrix(self.rmax[num])
         rot_coords = np.dot(rot_matrix, self.det.T)
         rot_coords = np.round((rot_coords + self.size/2)).astype('i4')
+        rot_coords[(rot_coords<0) | (rot_coords>self.size-1)] = 0
         sl = self.model[rot_coords[0], rot_coords[1], rot_coords[2]]
         im = np.zeros(self.frame_shape)
         np.add.at(im, [self.ix, self.iy], sl)

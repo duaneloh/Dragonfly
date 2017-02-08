@@ -31,6 +31,7 @@ class Frame_panel(QtWidgets.QWidget):
         
         self.numstr = '0'
         self.rangestr = '10'
+        self.iteration = None
         
         self.init_UI()
 
@@ -88,8 +89,9 @@ class Frame_panel(QtWidgets.QWidget):
         button.clicked.connect(self.parent.close)
         hbox.addWidget(button)
         
-        self.plot_frame()
         self.show()
+        if not self.do_compare:
+            self.plot_frame()
 
     def plot_frame(self, event=None, embed=None, force_frame=False):
         if self.parent.mode_val is not None:
@@ -153,15 +155,20 @@ class Frame_panel(QtWidgets.QWidget):
             if self.do_compare and self.compare_flag.isChecked():
                 with open('EMC.log', 'r') as f:
                     line = f.readlines()[-1]
-                try:
-                    iteration = int(line.split()[0])
+                    try:
+                        self.iteration = int(line.split()[0])
+                    except (IndexError, ValueError):
+                        sys.stderr.write('Unable to determine iteration number from EMC.log\n')
+                        sys.stderr.write('%s\n' % line)
+                        self.iteration = None
+
+                if self.iteration > 0:
                     s = self.fig.add_subplot(121)
                     sc = self.fig.add_subplot(122)
-                    tomo = self.slices.get_slice(iteration, num)
+                    tomo = self.slices.get_slice(self.iteration, num)
                     sc.imshow(tomo, cmap=self.cmap, vmin=0, vmax=float(self.rangestr.text()), interpolation='none')
                     self.fig.add_subplot(sc)
-                except (IndexError, ValueError):
-                    sys.stderr.write('Unable to determine iteration number from EMC.log\n')
+                else:
                     s = self.fig.add_subplot(111)
             else:
                 s = self.fig.add_subplot(111)
