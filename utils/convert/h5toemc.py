@@ -140,4 +140,5 @@ if __name__ == '__main__':
             sys.stderr.write('\n')
         sys.stderr.write('\rProcessed %s %d/%d' % (fname, fnum, len(flist)))
 
+    sys.stderr.write('\n')
     emcwriter.finish_write()
