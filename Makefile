@@ -3,15 +3,15 @@
 MPICC = mpicc
 CC = gcc
 
-CFLAGS = -Wno-unused-result -O3 -Wall -fopenmp
-LIBS = -lm -lgsl -lgslcblas -fopenmp
+CFLAGS = $(shell gsl-config --cflags) -Wno-unused-result -O3 -Wall -fopenmp
+LIBS = $(shell gsl-config --libs) -fopenmp
 
 OMPI_CC = $(CC)
 EMC_SRC = $(wildcard src/*.c)
 EMC_OBJ = $(patsubst src/%.c, bin/%.o, $(EMC_SRC))
 UTILS_SRC = $(wildcard utils/src/*.c)
 UTILS = $(patsubst utils/src/%.c, utils/%, $(UTILS_SRC))
-DIRECTORIES = data bin images data/output data/orientations data/mutualInfo data/weights data/scale
+DIRECTORIES = data bin images data/output data/orientations data/mutualInfo data/weights data/scale data/likelihood
 
 all: mkdir emc $(UTILS)
 
