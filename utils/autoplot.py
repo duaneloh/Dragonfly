@@ -379,7 +379,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
 
         # Plot average log-likelihood
         s3 = self.log_fig.add_subplot(grid[1,1])
-        s3.plot(iternum[1:], like[1:], 'o-')
+        s3.plot(iternum, like, 'o-')
         s3.set_xlabel('Iteration')
         s3.set_ylabel('Avg log-likelihood')
         s3_lim = s3.get_ylim()
@@ -392,6 +392,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
         # Plot most likely orientation convergence plot
         if len(loglines) > 1:
             s4 = self.log_fig.add_subplot(grid[:,2])
+            o_array = o_array[o_array[:,-1]>=0]
             sh = o_array.shape
             s4.imshow(o_array**0.5, aspect=(1.*sh[1]/sh[0]), extent=[1,sh[1],sh[0],0])
             s4.get_yaxis().set_ticks([])
