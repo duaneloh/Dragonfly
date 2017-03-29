@@ -29,6 +29,7 @@ if __name__ == "__main__":
     parser.add_argument("--bayes", action='store_true', default=False)
     parser.add_argument("--tukey", action='store_true', default=False)
     parser.add_argument("--slac", action='store_true', default=False)
+    parser.add_argument("--davinci", action="store_true", default=False)
     parser.add_argument("--dry_run", action='store_true', default=False,
                         help="print commands to screen but we won't actually run them")
     args = parser.parse_args()
@@ -51,6 +52,9 @@ if __name__ == "__main__":
     elif args.slac:
         args.num_mpi = 16
         args.num_threads = 2
+    elif args.davinci:
+        args.num_mpi = 5
+        args.num_threads = 4
 
     # We might not need this anymore, except with the extend with quaternion up-refinement.
     # Decide if we are just refining the reconstruction with more iterations
@@ -78,9 +82,15 @@ if __name__ == "__main__":
         else:
             print cmd
 
+    # MPI options
+    MPI_options = []
+    if args.davinci:
+        MPI_options.append("--bind-to none")
+
     # Switch between openMP only or openMPI + openMP
     if args.num_mpi > 0:
-        cmd = ' '.join(["mpirun -n", str(args.num_mpi)] + openMP_cmd)
+        cmd = ' '.join(["mpirun -n", str(args.num_mpi)] + MPI_options + openMP_cmd)
+        
         if not args.dry_run:
             logging.info(20*"=" + "\n")
             logging.info(20*"=" + "\n" + cmd)
