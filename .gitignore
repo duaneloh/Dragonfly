@@ -13,6 +13,7 @@ bin/
 *.png
 *.raw
 *.byt
+*.pyc
 data
 
 # Utilities

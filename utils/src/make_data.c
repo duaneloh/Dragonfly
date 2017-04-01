@@ -18,10 +18,10 @@
 #define COUNTS 1
 
 double rot[2][2] ;
-int size, num_data, num_data_p, num_pix, scale_method ;
+int size, num_data, num_data_p, num_pix, scale_method, num_rot ;
 int **place_ones, **place_multi, *ones, *multi, **count_multi ;
 double fluence, rescale, mean_count, spread, detd, back, center ;
-double *intens, *det, *view, *likelihood ;
+double *intens, *det, *view, *likelihood, *quat_list ;
 char output_fname[999], likelihood_fname[999] ;
 uint8_t *mask ;
 
@@ -85,8 +85,13 @@ int main(int argc, char *argv[]) {
 		
 		#pragma omp for schedule(static) reduction(+:intens_ave)
 		for (d = 0 ; d < NUM_AVE ; ++d) {
-			rand_quat(quat, rng) ;
-			slice_gen(quat, view, intens, det) ;
+			if (num_rot == 0) {
+				rand_quat(quat, rng) ;
+				slice_gen(quat, view, intens, det) ;
+			}
+			else {
+				slice_gen(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], view, intens, det) ;
+			}
             
 			for (t = 0 ; t < num_pix ; ++t){
 				if (mask[t] > 1)
@@ -132,8 +137,13 @@ int main(int argc, char *argv[]) {
 		
 		#pragma omp for schedule(static,1) reduction(+:actual_mean_count)
 		for (d = 0 ; d < num_data ; ++d) {
-			rand_quat(quat, rng) ;
-			slice_gen(quat, view, intens, det) ;
+			if (num_rot == 0) {
+				rand_quat(quat, rng) ;
+				slice_gen(quat, view, intens, det) ;
+			}
+			else {
+				slice_gen(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], view, intens, det) ;
+			}
 			
 			if (spread > 0.)
 				scale = gsl_ran_gaussian(rng, spread) ;
@@ -213,6 +223,7 @@ int setup(char *config_fname) {
 	char line[999], *token ;
 	char det_fname[999], model_fname[999] ;
 	char out_det_fname[999], out_model_fname[999] ;
+	char quat_fname[999] ;
 	double detd, pixsize, qmax, qmin, ewald_rad ;
 	int detsize, dets_x, dets_y ;
 	
@@ -230,6 +241,8 @@ int setup(char *config_fname) {
 	detd = 0. ;
 	pixsize = 0. ;
 	ewald_rad = -1. ;
+	quat_fname[0] = '\0' ;
+	num_rot = 0 ;
 	
 	fp = fopen(config_fname, "r") ;
 	if (fp == NULL) {
@@ -280,6 +293,8 @@ int setup(char *config_fname) {
 			strcpy(out_model_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "out_detector_file") == 0)
 			strcpy(out_det_fname, strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "in_quat_list") == 0)
+			strcpy(quat_fname, strtok(NULL, " =\n")) ;
 	}
 	fclose(fp) ;
 	
@@ -366,6 +381,16 @@ int setup(char *config_fname) {
 		fscanf(fp, "%" SCNu8, &mask[t]) ;
 	}
 	fclose(fp) ;
+	
+	if (quat_fname[0] != '\0') {
+		fprintf(stderr, "Picking discrete orientations from %s\n", quat_fname) ;
+		fp = fopen(quat_fname, "r") ;
+		fscanf(fp, "%d\n", &num_rot) ;
+		quat_list = malloc(num_rot * 4 * sizeof(double)) ;
+		for (t = 0 ; t < num_rot*4 ; ++t)
+			fscanf(fp, "%lf", &quat_list[t]) ;
+		fclose(fp) ;
+	}
 	
 	back /= num_pix ;
 	view = malloc(num_pix * sizeof(double)) ;

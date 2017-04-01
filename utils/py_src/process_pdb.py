@@ -126,9 +126,12 @@ def atoms_to_density_map(atoms, voxelSZ):
     logging.info(msg)
     elec_den = atoms[:,0].copy()
 
-    x = (x-x_min)/voxelSZ
-    y = (y-y_min)/voxelSZ
-    z = (z-z_min)/voxelSZ
+    #x = (x-x_min)/voxelSZ
+    #y = (y-y_min)/voxelSZ
+    #z = (z-z_min)/voxelSZ
+    x = (x-0.5*(x_max+x_min-grid_len))/voxelSZ
+    y = (y-0.5*(y_max+y_min-grid_len))/voxelSZ
+    z = (z-0.5*(z_max+z_min-grid_len))/voxelSZ
 
     bins = np.arange(R+1)
     all_bins = np.vstack((bins,bins,bins))
