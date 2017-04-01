@@ -265,36 +265,33 @@ void calc_sum_fact() {
 }
 
 void gen_blacklist(char *fname, int flag) {
-	int d ;
+	int d, current = flag%2 ;
 	num_blacklist = 0 ;
 	blacklist = calloc(tot_num_data, sizeof(uint8_t)) ;
 	
 	FILE *fp = fopen(fname, "r") ;
-	if (fp == NULL) {
-		if (flag == 1) {
-			for (d = 0 ; d < tot_num_data ; ++d)
-			if (d % 2 == 0) {
-				blacklist[d] = 1 ;
-				num_blacklist++ ;
-			}
-		}
-		else if (flag == 2) {
-			for (d = 0 ; d < tot_num_data ; ++d)
-			if (d % 2 == 1) {
-				blacklist[d] = 1 ;
-				num_blacklist++ ;
-			}
-		}
-	}
-	else {
+	if (fp != NULL) {
+		if (!rank)
+			fprintf(stderr, "Blacklisting frames according to %s\n", fname) ;
 		for (d = 0 ; d < tot_num_data ; ++d) {
 			fscanf(fp, "%" SCNu8 "\n", &blacklist[d]) ;
 			if (blacklist[d])
 				num_blacklist++ ;
 		}
+		fclose(fp) ;
 	}
+	
+	if (flag > 0) {
+		for (d = 0 ; d < tot_num_data ; ++d)
+		if (!blacklist[d]) {
+			blacklist[d] = current ;
+			num_blacklist += current ;
+			current = 1 - current ;
+		}
+	}
+	
 	if (!rank)
-		fprintf(stderr, "%d blacklisted frames\n", num_blacklist) ;
+		fprintf(stderr, "%d/%d blacklisted frames\n", num_blacklist, tot_num_data) ;
 }
 
 void parse_scale(char *fname) {
@@ -534,11 +531,13 @@ int setup(char *config_fname, int continue_flag) {
 	if (sel_string[0] == '\0')
 		gen_blacklist(blacklist_fname, 0) ;
 	else if (strcmp(sel_string, "odd_only") == 0) {
-		fprintf(stderr, "Only processing 'odd' frames\n") ;
+		if (!rank)
+			fprintf(stderr, "Only processing 'odd' frames\n") ;
 		gen_blacklist(blacklist_fname, 1) ;
 	}
 	else if (strcmp(sel_string, "even_only") == 0) {
-		fprintf(stderr, "Only processing 'even' frames\n") ;
+		if (!rank)
+			fprintf(stderr, "Only processing 'even' frames\n") ;
 		gen_blacklist(blacklist_fname, 2) ;
 	}
 	else {
