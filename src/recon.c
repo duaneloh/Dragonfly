@@ -65,9 +65,10 @@ int main(int argc, char *argv[]) {
 		fp = fopen(log_fname, "w") ;
 		fprintf(fp, "Cryptotomography with the EMC algorithm using MPI+OpenMP\n\n") ;
 		fprintf(fp, "Data parameters:\n") ;
-		fprintf(fp, "\tnum_data = %d\n\tmean_count = %f\n\n", 
-		        tot_num_data, 
-		        tot_mean_count) ;
+		if (num_blacklist == 0)
+			fprintf(fp, "\tnum_data = %d\n\tmean_count = %f\n\n", tot_num_data, tot_mean_count) ;
+		else
+			fprintf(fp, "\tnum_data = %d/%d\n\tmean_count = %f\n\n", tot_num_data-num_blacklist, tot_num_data, tot_mean_count) ;
 		fprintf(fp, "System size:\n") ;
 		fprintf(fp, "\tnum_rot = %d\n\tnum_pix = %d/%d\n\tsystem_volume = %d X %d X %d\n\n", 
 		        num_rot, 

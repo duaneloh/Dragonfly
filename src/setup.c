@@ -265,36 +265,33 @@ void calc_sum_fact() {
 }
 
 void gen_blacklist(char *fname, int flag) {
-	int d ;
+	int d, current = flag%2 ;
 	num_blacklist = 0 ;
 	blacklist = calloc(tot_num_data, sizeof(uint8_t)) ;
 	
 	FILE *fp = fopen(fname, "r") ;
-	if (fp == NULL) {
-		if (flag == 1) {
-			for (d = 0 ; d < tot_num_data ; ++d)
-			if (d % 2 == 0) {
-				blacklist[d] = 1 ;
-				num_blacklist++ ;
-			}
-		}
-		else if (flag == 2) {
-			for (d = 0 ; d < tot_num_data ; ++d)
-			if (d % 2 == 1) {
-				blacklist[d] = 1 ;
-				num_blacklist++ ;
-			}
-		}
-	}
-	else {
+	if (fp != NULL) {
+		if (!rank)
+			fprintf(stderr, "Blacklisting frames according to %s\n", fname) ;
 		for (d = 0 ; d < tot_num_data ; ++d) {
 			fscanf(fp, "%" SCNu8 "\n", &blacklist[d]) ;
 			if (blacklist[d])
 				num_blacklist++ ;
 		}
+		fclose(fp) ;
 	}
+	
+	if (flag > 0) {
+		for (d = 0 ; d < tot_num_data ; ++d)
+		if (!blacklist[d]) {
+			blacklist[d] = current ;
+			num_blacklist += current ;
+			current = 1 - current ;
+		}
+	}
+	
 	if (!rank)
-		fprintf(stderr, "%d blacklisted frames\n", num_blacklist) ;
+		fprintf(stderr, "%d/%d blacklisted frames\n", num_blacklist, tot_num_data) ;
 }
 
 void parse_scale(char *fname) {
@@ -322,9 +319,11 @@ int setup(char *config_fname, int continue_flag) {
 	char data_fname[999], out_data_fname[999] ;
 	char merge_flist[999], merge_fname[999] ;
 	char out_det_fname[999], sel_string[999] ;
+	int good_section ;
 	double qmax, qmin, detd, pixsize, ewald_rad ;
 	int dets_x, dets_y, detsize, num_div ;
 	
+	good_section = 0 ;
 	known_scale = 0 ;
 	start_iter = 1 ;
 	strcpy(log_fname, "EMC.log") ;
@@ -359,7 +358,20 @@ int setup(char *config_fname, int continue_flag) {
 	}
 	while (fgets(line, 999, fp) != NULL) {
 		token = strtok(line, " =") ;
-		if (token[0] == '#' || token[0] == '\n' || token[0] == '[')
+		if (token[0] == '#' || token[0] == '\n') {
+			continue ;
+		}
+		else if (token[0] == '[') {
+			token = strtok(token, "[]") ;
+			if (strcmp(token, "emc") == 0 ||
+			    strcmp(token, "make_detector") == 0 ||
+			    strcmp(token, "make_data") == 0)
+				good_section = 1 ;
+			else
+				good_section = 0 ;
+			continue ;
+		}
+		if (!good_section)
 			continue ;
 		
 		// [parameters]
@@ -386,13 +398,17 @@ int setup(char *config_fname, int continue_flag) {
 			beta = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "ewald_rad") == 0)
 			ewald_rad = atof(strtok(NULL, " =\n")) ;
+		// [make_detector]
+		else if (strcmp(token, "out_detector_file") == 0)
+			strcpy(out_det_fname, strtok(NULL, " =\n")) ;
+		// [make_data]
+		else if (strcmp(token, "out_photons_file") == 0)
+			strcpy(out_data_fname, strtok(NULL, " =\n")) ;
 		// [emc]
 		else if (strcmp(token, "in_photons_file") == 0)
 			strcpy(data_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "in_photons_file") == 0)
 			strcpy(data_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "out_photons_file") == 0)
-			strcpy(out_data_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "in_photons_list") == 0)
 			strcpy(data_flist, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "merge_photons_file") == 0)
@@ -411,8 +427,6 @@ int setup(char *config_fname, int continue_flag) {
 			num_div = atoi(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "in_quat_file") == 0)
 			strcpy(quat_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "out_detector_file") == 0)
-			strcpy(out_det_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "blacklist_file") == 0)
 			strcpy(blacklist_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "scale_file") == 0)
@@ -519,11 +533,13 @@ int setup(char *config_fname, int continue_flag) {
 	if (sel_string[0] == '\0')
 		gen_blacklist(blacklist_fname, 0) ;
 	else if (strcmp(sel_string, "odd_only") == 0) {
-		fprintf(stderr, "Only processing 'odd' frames\n") ;
+		if (!rank)
+			fprintf(stderr, "Only processing 'odd' frames\n") ;
 		gen_blacklist(blacklist_fname, 1) ;
 	}
 	else if (strcmp(sel_string, "even_only") == 0) {
-		fprintf(stderr, "Only processing 'even' frames\n") ;
+		if (!rank)
+			fprintf(stderr, "Only processing 'even' frames\n") ;
 		gen_blacklist(blacklist_fname, 2) ;
 	}
 	else {
