@@ -1,4 +1,7 @@
-## Quick start  
+## Quick start 
+### Download the Dragonfly package
+If you are on the github.io page, you may download the zipped tarball of this package by clicking on link near the top right of this page. Alternatively, you can download or git clone this package from the Dragonfly github repository.
+
 ### Spawn a reconstruction directory
 Type in the topmost directory:
 	```
