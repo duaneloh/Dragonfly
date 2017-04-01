@@ -1,4 +1,13 @@
-#include "emc.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+#include <float.h>
+#include <math.h>
+#include <omp.h>
+
+extern int size, center, num_pix ;
+extern uint8_t *mask ;
 
 void make_rot_quat(double *quaternion, double rot[3][3]) {
 	double q0, q1, q2, q3, q01, q02, q03, q11, q12, q13, q22, q23, q33 ;
