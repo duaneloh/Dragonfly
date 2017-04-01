@@ -18,6 +18,8 @@ except ImportError:
     from PyQt4 import QtGui as QtWidgets
     from matplotlib.backends.backend_qt4agg import FigureCanvas
 from py_src import frame_panel
+from py_src import py_utils
+from py_src import read_config
 
 class mySpinBox(QtWidgets.QSpinBox):
     def __init__(self, parent, *args, **kwargs):
@@ -44,8 +46,8 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.need_replot = False
         self.image_exists = False
 
-        self.init_UI()
         self.read_config(config)
+        self.init_UI()
         if model is not None:
             self.parse_and_plot()
         self.old_fname = self.fname.text()
@@ -81,7 +83,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.options.addLayout(hbox)
         label = QtWidgets.QLabel('Log file name:', self)
         hbox.addWidget(label)
-        self.logfname = QtWidgets.QLineEdit('EMC.log', self)
+        self.logfname = QtWidgets.QLineEdit(self.logfname, self)
         self.logfname.setMinimumWidth(160)
         hbox.addWidget(self.logfname)
         label = QtWidgets.QLabel('PlotMax:', self)
@@ -96,7 +98,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.options.addLayout(hbox)
         label = QtWidgets.QLabel('File name:', self)
         hbox.addWidget(label)
-        self.fname = QtWidgets.QLineEdit('data/output/intens_001.bin', self)
+        self.fname = QtWidgets.QLineEdit(self.folder+'/output/intens_001.bin', self)
         self.logfname.setMinimumWidth(160)
         hbox.addWidget(self.fname)
         label = QtWidgets.QLabel('Exp:', self)
@@ -216,11 +218,11 @@ class Progress_viewer(QtWidgets.QMainWindow):
         
     def iternum_changed(self, value=None):
         if value is None:
-            self.fname.setText('data/output/intens_%.3d.bin' % self.iternum.value())
+            self.fname.setText(self.folder+'/output/intens_%.3d.bin' % self.iternum.value())
         elif value == self.iternum.value():
             self.iter_slider.setValue(value)
             if self.need_replot:
-                self.fname.setText('data/output/intens_%.3d.bin' % value)
+                self.fname.setText(self.folder+'/output/intens_%.3d.bin' % value)
         self.parse_and_plot()
 
     def iterslider_moved(self, value):
@@ -230,19 +232,15 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.need_replot = True
 
     def read_config(self, config):
-        with open(config, 'r') as f:
-            filestring = f.read()
-            words = filter(None, re.split('[ =\n]', filestring))
-            try:
-                ind = words.index('output_folder')
-                self.folder = words[ind+1]
-            except ValueError:
-                self.folder = 'data/'
-            try:
-                ind = words.index('log_file')
-                self.logfname.setText(words[ind+1])
-            except ValueError:
-                self.logfname.setText('EMC.log')
+        try:
+            self.folder = read_config.get_filename(config, 'emc', 'output_folder')
+        except read_config.ConfigParser.NoOptionError:
+            self.folder = 'data/'
+
+        try:
+            self.logfname = read_config.get_filename(config, 'emc', 'log_file')
+        except read_config.ConfigParser.NoOptionError:
+            self.logfname = 'EMC.log'
 
     def plot_vol(self, num):
         self.imagename.setText('images/' + os.path.splitext(os.path.basename(self.fname.text()))[0] + '.png')
