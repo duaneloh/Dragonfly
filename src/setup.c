@@ -364,6 +364,7 @@ int setup(char *config_fname, int continue_flag) {
 		else if (token[0] == '[') {
 			token = strtok(token, "[]") ;
 			if (strcmp(token, "emc") == 0 ||
+			    strcmp(token, "parameters") == 0 ||
 			    strcmp(token, "make_detector") == 0 ||
 			    strcmp(token, "make_data") == 0)
 				good_section = 1 ;
