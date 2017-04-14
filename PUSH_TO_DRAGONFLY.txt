@@ -1,0 +1,51 @@
+How to push new versions of EMC up to the Dragonfly repo?
+
+#Clone repo from EMC
+git clone git@github.com:duaneloh/EMC
+
+#Switch remotes from EMC to Dragonfly
+git remote remove origin
+git remote add origin git@github.com:duaneloh/Dragonfly
+
+#Replace master branch with another that has no commit history
+git checkout --orphan newbranch
+git add -A
+git commit -m "Committing version A.B.C"
+
+#Delete master branch, and rename newbranch as master
+git branch -D master
+git branch -m master
+
+#Then push to new branch on Dragonfly
+git push origin master:Version_A.B.C.
+
+#Have to make the default branch on Dragonfly the new version.
+
+--------------------------------------------------------------------------------
+Pull request method:
+
+1. Create a temporary local clone of EMC
+	$ git clone git@github.com:duaneloh/EMC.git temp_repo
+	$ cd temp_repo
+
+2. Create a fork of duaneloh/Dragonfly into your personal account by going to
+   the website and clicking 'Fork' in the top right corner.
+
+3. Add your personal fork as a remote and pull from its master branch
+	$ git remote add fork git@github.com:<username>/Dragonfly.git
+	$ git pull fork master
+
+4. You will get a set of conflicts for all the files you have changed. You
+   want to accept the local version for these files. So, for each of the 
+   conflicted files do
+	$ git checkout --ours <filename>
+   You can also do it for all files by grep-ing for the '<<<<<' string.
+
+5. Once this is done, commit your changes with a version number message. After
+   that, push to your personal fork.
+	$ git push fork master
+
+6. Now on the main Dragonfly webpage, open a pull request (across forks) and
+   describe your changes in detail. You can then notify people to review if you
+   want and then squash the commits and accept the changes.
+--------------------------------------------------------------------------------
