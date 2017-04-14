@@ -43,6 +43,7 @@ def get_dset(fp, args):
     return dset
 
 def get_indices(fp, dset, args):
+    all_frames = False
     if args.sel_file is not None and args.sel_dset is not None:
         logging.info('Both sel_file and sel_dset specified. Pick one.')
         sys.exit(1)
@@ -52,6 +53,7 @@ def get_indices(fp, dset, args):
             ind = np.arange(dset.shape[0], dtype='i4')
         else:
             ind = 0
+        all_frames = True
     elif args.sel_file is not None:
         ind = np.loadtxt(args.sel_file, dtype='i4')
         ind -= curr_num_data
@@ -59,7 +61,7 @@ def get_indices(fp, dset, args):
         ind = fp[args.sel_dset][:]
 
     if type(ind) is np.ndarray:
-        if ind.shape[0] == dset.shape[0] and ind.max() < 2:
+        if not all_frames and ind.shape[0] == dset.shape[0] and ind.max() < 2:
             ind = np.where(ind==1)[0]
         ind = ind[(ind>=0) & (ind<dset.shape[0])]
         num_frames = ind.shape[0]
