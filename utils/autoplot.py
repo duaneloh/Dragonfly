@@ -98,8 +98,11 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.options.addLayout(hbox)
         label = QtWidgets.QLabel('File name:', self)
         hbox.addWidget(label)
-        self.fname = QtWidgets.QLineEdit(self.folder+'/output/intens_001.bin', self)
-        self.logfname.setMinimumWidth(160)
+        if self.model_name is None:
+            self.fname = QtWidgets.QLineEdit(self.folder+'/output/intens_001.bin', self)
+        else:
+            self.fname = QtWidgets.QLineEdit(self.model_name, self)
+        self.fname.setMinimumWidth(160)
         hbox.addWidget(self.fname)
         label = QtWidgets.QLabel('Exp:', self)
         hbox.addWidget(label)
@@ -256,7 +259,6 @@ class Progress_viewer(QtWidgets.QMainWindow):
         s1 = self.fig.add_subplot(131)
         s1.imshow(a, vmin=0, vmax=rangemax, cmap='CMRmap', interpolation='none')
         s1.set_title("YZ plane", y=1.01)
-
         s1.axis('off')
 
         s2 = self.fig.add_subplot(132)
