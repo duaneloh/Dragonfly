@@ -16,8 +16,12 @@ if __name__ == "__main__":
                         help="resume reconstruction from last output")
     parser.add_argument("-R", dest="resume_recon_add_quat", action='store_true', default=False,
                         help="same as -r, except we increase quaternion sampling by one")
+    parser.add_argument("-B", dest="resume_recon_increase_beta", action='store_true', default=False,
+                        help="same as -r, except we increase beta by a factor of two")
     parser.add_argument("-q", dest="quat_add", type=int, default=0,
                         help="increase quaternion sampling by an integer (default=0)")
+    parser.add_argument("-b", dest="beta_incr", type=float, default=1.,
+                        help="increase beta by multiplying with a float (default=1.)")
     parser.add_argument("-m", dest="num_mpi", type=int, default=0,
                         help="number of mpi processes (default=0)")
     parser.add_argument("-i", dest="num_iter", type=int, default=10,
@@ -53,7 +57,7 @@ if __name__ == "__main__":
         args.num_mpi = 16
         args.num_threads = 2
     elif args.davinci:
-        args.num_mpi = 5
+        args.num_mpi = 30
         args.num_threads = 4
 
     # We might not need this anymore, except with the extend with quaternion up-refinement.
@@ -62,6 +66,9 @@ if __name__ == "__main__":
         ext_str = "-r"
     elif args.resume_recon_add_quat:
         args.quat_add = 1
+        ext_str = "-r"
+    elif args.resume_recon_increase_beta:
+        args.beta_incr = 2
         ext_str = "-r"
     else:
         ext_str = ""
@@ -81,6 +88,10 @@ if __name__ == "__main__":
             subprocess.call(cmd, shell=True)
         else:
             print cmd
+
+    # Beta should incremented in the log file
+    if args.beta_incr != 1:
+        py_utils.increment_beta_sensibly(args.config_file, args.beta_incr)
 
     # MPI options
     MPI_options = []

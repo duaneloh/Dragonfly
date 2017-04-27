@@ -171,3 +171,17 @@ def increment_quat_file_sensibly(config_fname, incr):
 
     with open("config.ini", "w") as fp:
         config.write(fp)
+
+def increment_beta_sensibly(config_fname, incr):
+    config = ConfigParser.ConfigParser()
+    config.read(config_fname)
+
+    beta = float(config.get("emc", "beta"))
+    msg = ["Setting beta from", str(beta), "to", str(beta*incr)]
+    logging.info(' '.join(msg))
+    beta *= incr
+    config.set("emc", "beta", beta)
+    
+    with open("config.ini", "w") as fp:
+        config.write(fp)
+
