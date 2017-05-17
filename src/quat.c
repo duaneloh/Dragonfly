@@ -6,12 +6,8 @@
 #define num_edge 720
 #define num_face 1200
 #define num_cell 600
-
 // number of nearest neighbors = num_edge / num_vert * 2
 #define nnn 12
-
-//void ver_even_permute( int ) ;
-//double weight( double*, double* ) ;
 
 struct q_point{
 	int vec[4][2] ;
@@ -26,9 +22,7 @@ int nn_list[num_vert][nnn] ;
 int edge2cell[num_edge][4] ;
 int face2cell[num_face][4] ;
 
-// components a and b of the coordinate (a + b*tau) / (2*num_div)
 int vec_vertices[num_vert][4][2] ;
-// square of minimal distance between two vertices
 double min_dist2 ;
 
 struct q_point *vertice_points, *edge_points, *face_points, *cell_points ;
