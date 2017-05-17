@@ -16,7 +16,6 @@ DIRECTORIES = data bin images data/output data/orientations data/mutualInfo data
 all: mkdir emc $(UTILS)
 
 mkdir: $(DIRECTORIES)
-
 $(DIRECTORIES):
 	mkdir -p $(DIRECTORIES)
 
@@ -27,12 +26,14 @@ else
 	`export OMPI_CC=$(OMPI_CC); $(MPICC) -o $@ $^ $(LIBS)`
 endif
 
-$(EMC_OBJ): bin/%.o: src/%.c src/emc.h
+$(EMC_OBJ): bin/%.o: src/%.c
 ifeq ($(OMPI_CC), gcc)
 	$(MPICC) -c $< -o $@ $(CFLAGS)
 else
 	`export OMPI_CC=$(OMPI_CC); $(MPICC) -c $< -o $@ $(CFLAGS)`
 endif
+
+bin/recon.o bin/setup.o bin/max.o: src/emc.h
 
 $(UTILS): utils/%: utils/src/%.c
 	$(CC) -o $@ $< $(CFLAGS) $(LIBS)
