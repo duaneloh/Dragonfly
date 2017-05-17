@@ -241,7 +241,7 @@ double maximize() {
 			
 			prob = probab[r] ;
 			d_counter = 0 ;
-			if (iteration == num_iter + start_iter - 1 && merge_frames != NULL) {
+			if (merge_frames != NULL) {
 				if (!rank && !r)
 					fprintf(stderr, "Merging with different data file\n") ;
 				curr = merge_frames ;
