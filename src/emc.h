@@ -11,16 +11,16 @@
 #include <limits.h>
 #include <sys/stat.h>
 #include <math.h>
-#include <time.h>
 #include <sys/time.h>
 #include <mpi.h>
 #include <omp.h>
 #include <gsl/gsl_sf_bessel.h>
 #include <gsl/gsl_sf_gamma.h>
+#include <gsl/gsl_rng.h>
 
 #define PROB_MIN 0.000001
 
-int rank, num_proc, iteration, num_iter, start_iter, num_rot_p ;
+int rank, num_proc, iteration, start_iter, num_rot_p ;
 int size, center, num_rot, num_pix, rel_num_pix, beta_period ;
 
 double mutual_info, rms_change, alpha, beta, beta_jump ;
