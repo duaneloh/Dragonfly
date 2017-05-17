@@ -1,6 +1,6 @@
 #include "emc.h"
 
-int parse_det(char *fname) {
+int parse_det(char *fname, double **detector, uint8_t **pixmask) {
 	int t, d ;
 	double mean_pol = 0. ;
 	
@@ -12,27 +12,27 @@ int parse_det(char *fname) {
 		return 1 ;
 	}
 	fscanf(fp, "%d", &num_pix) ;
-	det = malloc(4 * num_pix * sizeof(double)) ;
-	mask = malloc(num_pix * sizeof(uint8_t)) ;
+	(*detector) = malloc(4 * num_pix * sizeof(double)) ;
+	(*pixmask) = malloc(num_pix * sizeof(uint8_t)) ;
 	for (t = 0 ; t < num_pix ; ++t) {
 		for (d = 0 ; d < 4 ; ++d)
-			fscanf(fp, "%lf", &det[t*4 + d]) ;
-		fscanf(fp, "%" SCNu8, &mask[t]) ;
-		if (mask[t] < 1)
+			fscanf(fp, "%lf", &(*detector)[t*4 + d]) ;
+		fscanf(fp, "%" SCNu8, &(*pixmask)[t]) ;
+		if ((*pixmask)[t] < 1)
 			rel_num_pix++ ;
-		mean_pol += det[t*4 + 3] ;
+		mean_pol += (*detector)[t*4 + 3] ;
 	}
 	
 	mean_pol /= num_pix ;
 	for (t = 0 ; t < num_pix ; ++t)
-		det[t*4 + 3] /= mean_pol ;
+		(*detector)[t*4 + 3] /= mean_pol ;
 	
 	fclose(fp) ;
 	
 	return 0 ;
 }
 
-int parse_quat(char *fname) {
+int parse_quat(char *fname, double **quaternions) {
 	int r, t ;
 	
 	FILE *fp = fopen(fname, "r") ;
@@ -42,15 +42,15 @@ int parse_quat(char *fname) {
 	}
 	double total_weight = 0. ;
 	fscanf(fp, "%d", &num_rot) ;
-	quat = malloc(num_rot * 5 * sizeof(double)) ;
+	(*quaternions) = malloc(num_rot * 5 * sizeof(double)) ;
 	for (r = 0 ; r < num_rot ; ++r) {
 		for (t = 0 ; t < 5 ; ++t)
-			fscanf(fp, "%lf", &quat[r*5 + t]) ;
-		total_weight += quat[r*5 + 4] ;
+			fscanf(fp, "%lf", &(*quaternions)[r*5 + t]) ;
+		total_weight += (*quaternions)[r*5 + 4] ;
 	}
 	total_weight = 1. / total_weight ;
 	for (r = 0 ; r < num_rot ; ++r)
-		quat[r*5 + 4] *= total_weight ;
+		(*quaternions)[r*5 + 4] *= total_weight ;
 	fclose(fp) ;
 	
 	return 0 ;
@@ -115,7 +115,7 @@ int parse_dataset(char *fname, struct dataset *current) {
 	return 0 ;
 }
 
-int parse_data(char *fname) {
+int parse_data(char *fname, struct dataset **frames_pointer) {
 	struct dataset *curr ;
 	char data_fname[999] ;
 	
@@ -125,6 +125,7 @@ int parse_data(char *fname) {
 		return 1 ;
 	}
 	
+	frames = *frames_pointer ;
 	frames = malloc(sizeof(struct dataset)) ;
 	frames->next = NULL ;
 	
@@ -171,17 +172,24 @@ void parse_input(char *fname) {
 	model2 = malloc(size * size * size * sizeof(double)) ;
 	inter_weight = malloc(size * size * size * sizeof(double)) ;
 	
-	srand(time(NULL)) ;
-	
 	if (rank == 0) {
 		FILE *fp = fopen(fname, "r") ;
 		if (fp == NULL) {
 			if (!rank)
 				fprintf(stderr, "Random start\n") ;
+			struct timeval t ;
+			const gsl_rng_type *T ;
+			gsl_rng_env_setup() ;
+			T = gsl_rng_default ;
+			gsl_rng *rng = gsl_rng_alloc(T) ;
+			gettimeofday(&t, NULL) ;
+			gsl_rng_set(rng, t.tv_sec + t.tv_usec) ;
 			
 			model_mean = tot_mean_count / rel_num_pix * 2. ;
 			for (x = 0 ; x < size * size * size ; ++x)
-				model1[x] = ((double) rand() / RAND_MAX) * model_mean ;
+				model1[x] = gsl_rng_uniform(rng) * model_mean ;
+			
+			gsl_rng_free(rng) ;
 		}
 		else {
 			if (!rank)
@@ -477,7 +485,7 @@ int setup(char *config_fname, int continue_flag) {
 	center = size / 2 ;
 	fprintf(stderr, "Generating 3D volume of size %d\n", size) ;
 	
-	if (parse_det(det_fname))
+	if (parse_det(det_fname, &det, &mask))
 		return 1 ;
 
 	if (num_div > 0 && quat_fname[0] != '\0') {
@@ -486,8 +494,8 @@ int setup(char *config_fname, int continue_flag) {
 	}
 	else if (num_div > 0)
 		num_rot = quat_gen(num_div, &quat, icosahedral_flag) ;
-	else if (parse_quat(quat_fname))
-			return 1 ;
+	else if (parse_quat(quat_fname, &quat))
+		return 1 ;
 	
 	num_rot_p = num_rot / num_proc ;
 	if (rank < (num_rot % num_proc))
@@ -510,7 +518,7 @@ int setup(char *config_fname, int continue_flag) {
 		tot_num_data = frames->num_data ;
 		tot_mean_count = frames->mean_count ;
 	}
-	else if (parse_data(data_flist))
+	else if (parse_data(data_flist, &frames))
 		return 1 ;
 	
 	if (merge_flist[0] != '\0' && merge_fname[0] != '\0') {
@@ -526,7 +534,7 @@ int setup(char *config_fname, int continue_flag) {
 			return 1 ;
 	}
 	else if (merge_flist[0] != '\0') {
-		if (parse_data(merge_flist))
+		if (parse_data(merge_flist, &merge_frames))
 			return 1 ;
 	}
 	
@@ -552,7 +560,7 @@ int setup(char *config_fname, int continue_flag) {
 		fp = fopen(log_fname, "r") ;
 		if (fp == NULL) {
 			fprintf(stderr, "No log file found to continue run\n") ;
-			continue_flag = 0 ;
+			return 1 ;
 		}
 		else {
 			while (!feof(fp))
