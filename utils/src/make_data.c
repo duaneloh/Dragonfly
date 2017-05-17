@@ -18,10 +18,10 @@
 #define COUNTS 1
 
 double rot[2][2] ;
-int size, num_data, num_data_p, num_pix, scale_method, num_rot ;
+int size, num_data, num_data_p, num_pix, scale_method, num_rot, do_gamma ;
 int **place_ones, **place_multi, *ones, *multi, **count_multi ;
-double fluence, rescale, mean_count, spread, detd, back, center ;
-double *intens, *det, *view, *likelihood, *quat_list ;
+double fluence, rescale, mean_count, detd, back, center ;
+double *intens, *det, *likelihood, *quat_list ;
 char output_fname[999], likelihood_fname[999] ;
 uint8_t *mask ;
 
@@ -108,16 +108,21 @@ int main(int argc, char *argv[]) {
     if (scale_method == FLUENCE) {
 		rescale = fluence*pow(2.81794e-9, 2) ;
 		mean_count = rescale*intens_ave ;
-		fprintf(stderr, "Target mean_count = %f\n", mean_count) ;
+		fprintf(stderr, "Target mean_count = %f for fluence = %.3e photons/um^2\n", mean_count, fluence) ;
 	}
 	else if (scale_method == COUNTS)
 		rescale = mean_count / intens_ave ;
 	
-	spread /= mean_count ;
+	long num_multi = (mean_count + back*num_pix) > num_pix ?
+	                 num_pix :
+	                 (mean_count + back*num_pix) ;
+	long num_ones = 10*num_multi > num_pix ? num_pix : 10*num_multi ;
+	fprintf(stderr, "Assuming maximum of %ld and %ld ones and multi pixels respectively.\n", num_ones, num_multi) ;
+	
 	for (d = 0 ; d < num_data ; ++d) {
-		place_ones[d] = malloc((long) 5 * mean_count * (1+spread) * sizeof(int)) ;
-		place_multi[d] = malloc((long) mean_count * (1+spread) * sizeof(int)) ;
-		count_multi[d] = malloc((long) mean_count * (1+spread) * sizeof(int)) ;
+		place_ones[d] = malloc((long) num_ones * sizeof(int)) ;
+		place_multi[d] = malloc((long) num_multi * sizeof(int)) ;
+		count_multi[d] = malloc((long) num_multi * sizeof(int)) ;
 	}
 	
 	for (x = 0 ; x < size * size * size ; ++x)
@@ -145,8 +150,8 @@ int main(int argc, char *argv[]) {
 				slice_gen(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], view, intens, det) ;
 			}
 			
-			if (spread > 0.)
-				scale = gsl_ran_gaussian(rng, spread) ;
+			if (do_gamma)
+				scale = gsl_ran_gamma(rng, 2., 0.5) ;
 			
 			if (scale > 0.) {
 				for (t = 0 ; t < num_pix ; ++t) {
@@ -154,7 +159,7 @@ int main(int argc, char *argv[]) {
 						continue ;
 					
 					val = view[t]*scale + back ;
-					photons = gsl_ran_poisson(rng, view[t]*scale + back) ;
+					photons = gsl_ran_poisson(rng, val) ;
 					
 					if (photons == 1) {
 						place_ones[d][ones[d]++] = t ;
@@ -212,7 +217,7 @@ int main(int argc, char *argv[]) {
 	fprintf(stderr, "Generated %d frames with %f photons/frame\n", num_data, actual_mean_count) ;
 	fprintf(stderr, "Time taken = %f s\n", (double)(t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.) ;
 	
-	free_mem() ;
+	//free_mem() ;
 	
 	return 0 ;
 }
@@ -232,7 +237,7 @@ int setup(char *config_fname) {
 	num_data = 0 ;
 	fluence = -1. ;
 	mean_count = -1. ;
-	spread = 0. ;
+	do_gamma = 0 ;
 	back = 0. ;
 	output_fname[0] = '\0' ;
 	detsize = 0 ;
@@ -277,8 +282,6 @@ int setup(char *config_fname) {
 			mean_count = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "fluence") == 0)
 			fluence = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "mean_count_spread") == 0)
-			spread = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "bg_count") == 0)
 			back = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "out_photons_file") == 0)
@@ -295,6 +298,8 @@ int setup(char *config_fname) {
 			strcpy(out_det_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "in_quat_list") == 0)
 			strcpy(quat_fname, strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "gamma_fluence") == 0)
+			do_gamma = atoi(strtok(NULL, " =\n")) ;
 	}
 	fclose(fp) ;
 	
@@ -349,6 +354,8 @@ int setup(char *config_fname) {
 	
 	if (likelihood_fname[0] != '\0')
 		fprintf(stderr, "Saving frame-by-frame likelihoods to %s\n", likelihood_fname) ;
+	if (do_gamma)
+		fprintf(stderr, "Assuming Gamma-distributed variable incident fluence\n") ;
 	
 	char *config_folder = dirname(config_fname) ;
 	strcpy(line, det_fname) ;
@@ -393,7 +400,6 @@ int setup(char *config_fname) {
 	}
 	
 	back /= num_pix ;
-	view = malloc(num_pix * sizeof(double)) ;
 	
 	ones = calloc(num_data, sizeof(int)) ;
 	multi = calloc(num_data, sizeof(int)) ;
@@ -410,8 +416,8 @@ void free_mem() {
 	
 	free(intens) ;
 	free(det) ;
-	free(view) ;
 	free(mask) ;
+	free(likelihood) ;
 	
 	free(ones) ;
 	free(multi) ;
@@ -420,6 +426,7 @@ void free_mem() {
 		free(place_multi[d]) ;
 		free(count_multi[d]) ;
 	}
+	fprintf(stderr, "Freeing data memory\n") ;
 	free(place_ones) ;
 	free(place_multi) ;
 	free(count_multi) ;
