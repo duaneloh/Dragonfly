@@ -5,9 +5,9 @@
 #include <math.h>
 #include <float.h>
 #include <omp.h>
-#include "../../src/quat.c"
+#include "../../src/quat.h"
 
-int num_rot, s, c, rmax, rmin, max_r = 0 ;
+int s, c, rmax, rmin, max_r = 0 ;
 double i2i2, max_corr = -DBL_MAX ;
 
 char* extract_fname(char* fullName) {
@@ -55,7 +55,7 @@ void make_rot_quat(double *quaternion, double rot[3][3]) {
 }
 
 // Calculate corr using radial-average-subtracted models
-void calc_corr(double *quat, double *m1, double *m2) {
+void calc_corr(struct rotation *quat, double *m1, double *m2) {
 	int vol = s*s*s ;
 	
 	#pragma omp parallel default(shared)
@@ -69,9 +69,9 @@ void calc_corr(double *quat, double *m1, double *m2) {
 		
 		// For each orientation
 		#pragma omp for schedule(static,1)
-		for (r = 0 ; r < num_rot ; ++r) {
+		for (r = 0 ; r < quat->num_rot ; ++r) {
 			// Calculate rotation matrix
-			make_rot_quat(&quat[r*5], rot) ;
+			make_rot_quat(&quat->quat[r*5], rot) ;
 			
 			// Zero rotated model
 			for (x = 0 ; x < vol ; ++x)
@@ -140,7 +140,7 @@ void calc_corr(double *quat, double *m1, double *m2) {
 			}
 			
 			if (rank == 0)
-				fprintf(stderr, "\rFinished r = %d/%d", r, num_rot) ;
+				fprintf(stderr, "\rFinished r = %d/%d", r, quat->num_rot) ;
 		}
 		
 		#pragma omp critical(corr)
@@ -156,10 +156,10 @@ void calc_corr(double *quat, double *m1, double *m2) {
 	
 	printf("\nMax corr = %f for max_r = %d\n", max_corr, max_r) ;
 	printf("Orientation for max corr = %d: %.9f %.9f %.9f %.9f\n", 
-	       max_r, quat[max_r*5], quat[max_r*5+1], quat[max_r*5+2], quat[max_r*5+3]) ;
+	       max_r, quat->quat[max_r*5], quat->quat[max_r*5+1], quat->quat[max_r*5+2], quat->quat[max_r*5+3]) ;
 }
 
-void calc_radial_corr(double *quat, double *m1, double *m2, char *fname) {
+void calc_radial_corr(struct rotation *quat, double *m1, double *m2, char *fname) {
 	int x, y, z, i, j, bin, vol = s*s*s, vox[3] ;
 	double fx, fy, fz, cx, cy, cz, dist ;
 	double *i1i2r, *i1i1r, *i2i2r, *corr ;
@@ -168,7 +168,7 @@ void calc_radial_corr(double *quat, double *m1, double *m2, char *fname) {
 	FILE *fp ;
 	
 	// Calculate rotation matrix
-	make_rot_quat(&quat[max_r*5], rot) ;
+	make_rot_quat(&quat->quat[max_r*5], rot) ;
 	
 	// Calculate rotated model
 	for (vox[0] = -c ; vox[0] < s-c-1 ; ++vox[0])
@@ -246,7 +246,7 @@ void calc_radial_corr(double *quat, double *m1, double *m2, char *fname) {
 	free(rotmodel) ;
 }
 
-void save_rotmodel(double *quat, double *m1, char *fname) {
+void save_rotmodel(struct rotation *quat, double *m1, char *fname) {
 	int x, y, z, i, j, vol = s*s*s, vox[3] ;
 	double fx, fy, fz, cx, cy, cz ;
 	double rot[3][3], rot_vox[3] ;
@@ -255,7 +255,7 @@ void save_rotmodel(double *quat, double *m1, char *fname) {
 	FILE *fp ;
 	
 	// Calculate rotation matrix
-	make_rot_quat(&quat[max_r*5], rot) ;
+	make_rot_quat(&quat->quat[max_r*5], rot) ;
 	
 	// Calculate rotated model
 	for (vox[0] = -c ; vox[0] < s-c-1 ; ++vox[0])
@@ -349,33 +349,34 @@ void subtract_radial_average(double *model1, double *model2, double *model1_rad,
 	free(mean2) ;
 }
 
-void gen_subset(double **quaternion, int num_div, double dmax) {
+void gen_subset(struct rotation *quat, int num_div, double dmax) {
 	int t, r, full_num_rot ;
 	double dist, max_quat[4] ;
 	
 	for (t = 0 ; t < 4 ; ++t)
-		max_quat[t] = (*quaternion)[max_r*5 + t] ;
-	free(*quaternion) ;
-	full_num_rot = quat_gen(num_div, quaternion, 0) ;
+		max_quat[t] = quat->quat[max_r*5 + t] ;
+	free(quat->quat) ;
+	full_num_rot = quat_gen(num_div, quat) ;
 	
-	num_rot = 0 ;
+	quat->num_rot = 0 ;
 	for (r = 0 ; r < full_num_rot ; ++r) {
 		dist = 0. ;
 		for (t = 0 ; t < 4 ; ++t)
-			dist += ((*quaternion)[r*5 + t] - max_quat[t]) * ((*quaternion)[r*5 + t] - max_quat[t]) ;
+			dist += (quat->quat[r*5 + t] - max_quat[t]) * (quat->quat[r*5 + t] - max_quat[t]) ;
 		
 		if (dist < dmax) {
 			for (t = 0 ; t < 5 ; ++t)
-				(*quaternion)[num_rot*5 + t] = (*quaternion)[r*5 + t] ;
-			num_rot++ ;
+				quat->quat[quat->num_rot*5 + t] = quat->quat[r*5 + t] ;
+			quat->num_rot++ ;
 		}
 	}
-	printf("\nNew num_rot = %d\n", num_rot) ;
+	printf("\nNew num_rot = %d\n", quat->num_rot) ;
 }
 
 int main(int argc, char *argv[]) {
 	long vol, t ;
-	double *model1, *model2, *quat, *model1_rad, *model2_rad ;
+	double *model1, *model2, *model1_rad, *model2_rad ;
+	struct rotation *quat ;
 	FILE *fp ;
 	char intens_fname1[999], intens_fname2[999] ;
 	char output_fname[999] ;
@@ -453,16 +454,17 @@ int main(int argc, char *argv[]) {
 		i2i2 += model2_rad[t] * model2_rad[t] ;
 	
 	// Parse quaternion and calculate max_corr
-	num_rot = quat_gen(4, &quat, 0) ;
+	quat = calloc(1, sizeof(struct rotation)) ;
+	quat_gen(4, quat) ;
 	calc_corr(quat, model1_rad, model2_rad) ;
 	
 	// Generate subset and recalculate max_corr
-	gen_subset(&quat, 30, 0.06) ;
+	gen_subset(quat, 30, 0.06) ;
 	max_corr = -DBL_MAX ;
 	calc_corr(quat, model1_rad, model2_rad) ;
 	
 	// Generate subset and recalculate max_corr
-	gen_subset(&quat, 50, 0.02) ;
+	gen_subset(quat, 50, 0.02) ;
 	max_corr = -DBL_MAX ;
 	calc_corr(quat, model1_rad, model2_rad) ;
 	
@@ -484,6 +486,7 @@ int main(int argc, char *argv[]) {
 	free(model2) ;
 	free(model1_rad) ;
 	free(model2_rad) ;
+	free(quat->quat) ;
 	free(quat) ;
 	
 	return 0 ;

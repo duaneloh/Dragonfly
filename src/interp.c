@@ -5,9 +5,7 @@
 #include <float.h>
 #include <math.h>
 #include <omp.h>
-
-extern int size, center, num_pix ;
-extern uint8_t *mask ;
+#include "interp.h"
 
 void make_rot_quat(double *quaternion, double rot[3][3]) {
 	double q0, q1, q2, q3, q01, q02, q03, q11, q12, q13, q22, q23, q33 ;
@@ -44,18 +42,18 @@ The locations of the pixels in slice[t] are given by detector[t]
 Global variables required:
 	size, center, num_pix ;
 */
-void slice_gen(double *quaternion, double rescale, double slice[], double model3d[], double detector[]) {
+void slice_gen(double *quaternion, double rescale, double slice[], double model3d[], struct detector *det) {
 	int t, i, j, x, y, z ;
 	double tx, ty, tz, fx, fy, fz, cx, cy, cz ;
 	double rot_pix[3], rot[3][3] = {{0}} ;
 	
 	make_rot_quat(quaternion, rot) ;
 	
-	for (t = 0 ; t < num_pix ; ++t) {
+	for (t = 0 ; t < det->num_pix ; ++t) {
 		for (i = 0 ; i < 3 ; ++i) {
 			rot_pix[i] = 0. ;
 			for (j = 0 ; j < 3 ; ++j) 
-				rot_pix[i] += rot[i][j] * detector[t*4 + j] ;
+				rot_pix[i] += rot[i][j] * det->pixels[t*4 + j] ;
 			rot_pix[i] += center ;
 		}
 		
@@ -89,7 +87,7 @@ void slice_gen(double *quaternion, double rescale, double slice[], double model3
 		           fx*fy*fz*model3d[((x+1)%size)*size*size + ((y+1)%size)*size + ((z+1)%size)] ;
 		
 		// Correct for solid angle and polarization
-		slice[t] *= detector[t*4 + 3] ;
+		slice[t] *= det->pixels[t*4 + 3] ;
 		
 		if (slice[t] <= 0.)
 			slice[t] = DBL_MIN ;
@@ -107,21 +105,21 @@ The locations of the pixels in slice[t] are given by detector[t]
 Global variables required:
 	size, center, num_pix ;
 */
-void slice_merge(double *quaternion, double slice[], double model3d[], double weight[], double detector[]) {
+void slice_merge(double *quaternion, double slice[], double model3d[], double weight[], struct detector *det) {
 	int t, i, j, x, y, z ;
 	double tx, ty, tz, fx, fy, fz, cx, cy, cz, w, f ;
 	double rot_pix[3], rot[3][3] = {{0}} ;
 	
 	make_rot_quat(quaternion, rot) ;
 	
-	for (t = 0 ; t < num_pix ; ++t) {
-		if (mask[t] > 1)
+	for (t = 0 ; t < det->num_pix ; ++t) {
+		if (det->mask[t] > 1)
 			continue ;
 		
 		for (i = 0 ; i < 3 ; ++i) {
 			rot_pix[i] = 0. ;
 			for (j = 0 ; j < 3 ; ++j)
-				rot_pix[i] += rot[i][j] * detector[t*4 + j] ;
+				rot_pix[i] += rot[i][j] * det->pixels[t*4 + j] ;
 			rot_pix[i] += center ;
 		}
 		
@@ -144,7 +142,7 @@ void slice_merge(double *quaternion, double slice[], double model3d[], double we
 		cz = 1. - fz ;
 		
 		// Correct for solid angle and polarization
-		slice[t] /= detector[t*4 + 3] ;
+		slice[t] /= det->pixels[t*4 + 3] ;
 		w = slice[t] ;
 		
 		f = cx*cy*cz ;

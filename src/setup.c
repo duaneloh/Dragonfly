@@ -1,169 +1,5 @@
 #include "emc.h"
 
-int parse_det(char *fname, double **detector, uint8_t **pixmask) {
-	int t, d ;
-	double mean_pol = 0. ;
-	
-	rel_num_pix = 0 ;
-	
-	FILE *fp = fopen(fname, "r") ;
-	if (fp == NULL) {
-		fprintf(stderr, "det_fname %s not found. Exiting...1\n", fname) ;
-		return 1 ;
-	}
-	fscanf(fp, "%d", &num_pix) ;
-	(*detector) = malloc(4 * num_pix * sizeof(double)) ;
-	(*pixmask) = malloc(num_pix * sizeof(uint8_t)) ;
-	for (t = 0 ; t < num_pix ; ++t) {
-		for (d = 0 ; d < 4 ; ++d)
-			fscanf(fp, "%lf", &(*detector)[t*4 + d]) ;
-		fscanf(fp, "%" SCNu8, &(*pixmask)[t]) ;
-		if ((*pixmask)[t] < 1)
-			rel_num_pix++ ;
-		mean_pol += (*detector)[t*4 + 3] ;
-	}
-	
-	mean_pol /= num_pix ;
-	for (t = 0 ; t < num_pix ; ++t)
-		(*detector)[t*4 + 3] /= mean_pol ;
-	
-	fclose(fp) ;
-	
-	return 0 ;
-}
-
-int parse_quat(char *fname, double **quaternions) {
-	int r, t ;
-	
-	FILE *fp = fopen(fname, "r") ;
-	if (fp == NULL) {
-		fprintf(stderr, "quaternion file %s not found. Exiting.\n", fname) ;
-		return 1 ;
-	}
-	double total_weight = 0. ;
-	fscanf(fp, "%d", &num_rot) ;
-	(*quaternions) = malloc(num_rot * 5 * sizeof(double)) ;
-	for (r = 0 ; r < num_rot ; ++r) {
-		for (t = 0 ; t < 5 ; ++t)
-			fscanf(fp, "%lf", &(*quaternions)[r*5 + t]) ;
-		total_weight += (*quaternions)[r*5 + 4] ;
-	}
-	total_weight = 1. / total_weight ;
-	for (r = 0 ; r < num_rot ; ++r)
-		(*quaternions)[r*5 + 4] *= total_weight ;
-	fclose(fp) ;
-	
-	return 0 ;
-}
-
-int parse_dataset(char *fname, struct dataset *current) {
-	int d ;
-	current->ones_total = 0, current->multi_total = 0 ;
-	
-	strcpy(current->filename, fname) ;
-	
-	FILE *fp = fopen(fname, "r") ;
-	if (fp == NULL) {
-		fprintf(stderr, "data_fname %s not found. Exiting.\n", fname) ;
-		return 1 ;
-	}
-	
-	fread(&(current->num_data), sizeof(int), 1, fp) ;
-	fread(&(current->num_pix), sizeof(int) , 1, fp) ;
-	if (current->num_pix != num_pix)
-		fprintf(stderr, "WARNING! The detector file and photons file %s do not"
-		                "have the same number of pixels\n", current->filename) ;
-	fseek(fp, 1016, SEEK_CUR) ;
-	
-	current->ones = malloc(current->num_data * sizeof(int)) ;
-	current->multi = malloc(current->num_data * sizeof(int)) ;
-	fread(current->ones, sizeof(int), current->num_data, fp) ;
-	fread(current->multi, sizeof(int), current->num_data, fp) ;
-	
-	for (d = 0 ; d < current->num_data ; ++d) {
-		current->ones_total += current->ones[d] ;
-		current->multi_total += current->multi[d] ;
-	}
-	
-	current->place_ones = malloc(current->ones_total * sizeof(int)) ;
-	current->place_multi = malloc(current->multi_total * sizeof(int)) ;
-	current->count_multi = malloc(current->multi_total * sizeof(int)) ;
-	fread(current->place_ones, sizeof(int), current->ones_total, fp) ;
-	fread(current->place_multi, sizeof(int), current->multi_total, fp) ;
-	fread(current->count_multi, sizeof(int), current->multi_total, fp) ;
-	
-	fclose(fp) ;
-	
-	// Calculate mean count in the presence of mask
-	long t, ones_counter = 0, multi_counter = 0 ;
-	current->mean_count = 0. ;
-	for (d = 0 ; d < current->num_data ; ++d) {
-		for (t = 0 ; t < current->ones[d] ; ++t)
-		if (mask[current->place_ones[ones_counter + t]] < 1)
-			current->mean_count += 1. ;
-		
-		for (t = 0 ; t < current->multi[d] ; ++t)
-		if (mask[current->place_multi[multi_counter + t]] < 1)
-			current->mean_count += current->count_multi[multi_counter + t] ;
-		
-		ones_counter += current->ones[d] ;
-		multi_counter += current->multi[d] ;
-	}
-	
-	current->mean_count /= current->num_data ;
-	
-	return 0 ;
-}
-
-int parse_data(char *fname, struct dataset **frames_pointer) {
-	struct dataset *curr ;
-	char data_fname[999] ;
-	
-	FILE *fp = fopen(fname, "r") ;
-	if (fp == NULL) {
-		fprintf(stderr, "data_flist %s not found. Exiting.\n", fname) ;
-		return 1 ;
-	}
-	
-	frames = *frames_pointer ;
-	frames = malloc(sizeof(struct dataset)) ;
-	frames->next = NULL ;
-	
-	if (fscanf(fp, "%s\n", data_fname) == 1) {
-		if (parse_dataset(data_fname, frames))
-			return 1 ;
-	}
-	else {
-		fprintf(stderr, "No datasets found in %s\n", fname) ;
-		return 1 ;
-	}
-	
-	curr = frames ;
-	tot_num_data = frames->num_data ;
-	tot_mean_count = frames->num_data * frames->mean_count ;
-	int num_datasets = 1 ;
-	
-	while (fscanf(fp, "%s\n", data_fname) == 1) {
-		if (strlen(data_fname) == 0)
-			continue ;
-		curr->next = malloc(sizeof(struct dataset)) ;
-		curr = curr->next ;
-		curr->next = NULL ;
-		
-		if (parse_dataset(data_fname, curr))
-			return 1 ;
-		
-		tot_num_data += curr->num_data ;
-		tot_mean_count += curr->num_data * curr->mean_count ;
-		num_datasets++ ;
-	}
-	fclose(fp) ;
-	
-	tot_mean_count /= tot_num_data ;
-	
-	return 0 ;
-}
-
 void parse_input(char *fname) {
 	long x ;
 	double model_mean ;
@@ -185,7 +21,7 @@ void parse_input(char *fname) {
 			gettimeofday(&t, NULL) ;
 			gsl_rng_set(rng, t.tv_sec + t.tv_usec) ;
 			
-			model_mean = tot_mean_count / rel_num_pix * 2. ;
+			model_mean = frames->tot_mean_count / det->rel_num_pix * 2. ;
 			for (x = 0 ; x < size * size * size ; ++x)
 				model1[x] = gsl_rng_uniform(rng) * model_mean ;
 			
@@ -217,8 +53,8 @@ void calc_scale() {
 	FILE *fp ;
 	char fname[999] ;
 	
-	scale = calloc(tot_num_data, sizeof(double)) ;
-	count = calloc(tot_num_data, sizeof(int)) ;
+	scale = calloc(frames->tot_num_data, sizeof(double)) ;
+	count = calloc(frames->tot_num_data, sizeof(int)) ;
 	
 	while (curr != NULL) {
 		ones_counter = 0 ;
@@ -226,11 +62,11 @@ void calc_scale() {
 		for (d = 0 ; d < curr->num_data ; ++d) {
 			scale[d_counter + d] = 1. ;
 			for (t = 0 ; t < curr->ones[d] ; ++t)
-			if (mask[curr->place_ones[ones_counter + t]] < 1)
+			if (det->mask[curr->place_ones[ones_counter + t]] < 1)
 				count[d_counter + d]++ ;
 			
 			for (t = 0 ; t < curr->multi[d] ; ++t)
-			if (mask[curr->place_multi[multi_counter + t]] < 1)
+			if (det->mask[curr->place_multi[multi_counter + t]] < 1)
 				count[d_counter + d] += curr->count_multi[multi_counter + t] ;
 			
 			ones_counter += curr->ones[d] ;
@@ -244,7 +80,7 @@ void calc_scale() {
 	if (!rank && start_iter == 1) {
 		sprintf(fname, "%s/scale/scale_000.dat", output_folder) ;
 		fp = fopen(fname, "w") ;
-		for (d = 0 ; d < tot_num_data ; ++d)
+		for (d = 0 ; d < frames->tot_num_data ; ++d)
 			fprintf(fp, "%.6e\n", scale[d]) ;
 		fclose(fp) ;
 	}
@@ -255,14 +91,14 @@ void calc_sum_fact() {
 	long multi_counter ;
 	struct dataset *curr = frames ;
 	
-	sum_fact = calloc(tot_num_data, sizeof(double)) ;
+	sum_fact = calloc(frames->tot_num_data, sizeof(double)) ;
 	
 	while (curr != NULL) {
 		multi_counter = 0 ;
 		
 		for (d = d_counter ; d < d_counter + curr->num_data ; ++d) {
 			for (t = 0 ; t < curr->multi[d - d_counter] ; ++t)
-			if (mask[curr->place_multi[multi_counter + t]] < 1)
+			if (det->mask[curr->place_multi[multi_counter + t]] < 1)
 				sum_fact[d] += gsl_sf_lnfact(curr->count_multi[multi_counter + t]) ;
 			multi_counter += curr->multi[d - d_counter] ;
 		}
@@ -275,13 +111,13 @@ void calc_sum_fact() {
 void gen_blacklist(char *fname, int flag) {
 	int d, current = flag%2 ;
 	num_blacklist = 0 ;
-	blacklist = calloc(tot_num_data, sizeof(uint8_t)) ;
+	blacklist = calloc(frames->tot_num_data, sizeof(uint8_t)) ;
 	
 	FILE *fp = fopen(fname, "r") ;
 	if (fp != NULL) {
 		if (!rank)
 			fprintf(stderr, "Blacklisting frames according to %s\n", fname) ;
-		for (d = 0 ; d < tot_num_data ; ++d) {
+		for (d = 0 ; d < frames->tot_num_data ; ++d) {
 			fscanf(fp, "%" SCNu8 "\n", &blacklist[d]) ;
 			if (blacklist[d])
 				num_blacklist++ ;
@@ -290,7 +126,7 @@ void gen_blacklist(char *fname, int flag) {
 	}
 	
 	if (flag > 0) {
-		for (d = 0 ; d < tot_num_data ; ++d)
+		for (d = 0 ; d < frames->tot_num_data ; ++d)
 		if (!blacklist[d]) {
 			blacklist[d] = current ;
 			num_blacklist += current ;
@@ -299,7 +135,7 @@ void gen_blacklist(char *fname, int flag) {
 	}
 	
 	if (!rank)
-		fprintf(stderr, "%d/%d blacklisted frames\n", num_blacklist, tot_num_data) ;
+		fprintf(stderr, "%d/%d blacklisted frames\n", num_blacklist, frames->tot_num_data) ;
 }
 
 void parse_scale(char *fname) {
@@ -313,7 +149,7 @@ void parse_scale(char *fname) {
 			fprintf(stderr, "Using scale factors from %s\n", fname) ;
 		known_scale = 1 ;
 		int d ;
-		for (d = 0 ; d < tot_num_data ; ++d)
+		for (d = 0 ; d < frames->tot_num_data ; ++d)
 			fscanf(fp, "%lf", &scale[d]) ;
 		fclose(fp) ;
 	}
@@ -327,7 +163,7 @@ int setup(char *config_fname, int continue_flag) {
 	char data_fname[999], out_data_fname[999] ;
 	char merge_flist[999], merge_fname[999] ;
 	char out_det_fname[999], sel_string[999] ;
-	int good_section ;
+	int num, good_section, sym_icosahedral ;
 	double qmax, qmin, detd, pixsize, ewald_rad ;
 	int dets_x, dets_y, detsize, num_div ;
 	
@@ -356,7 +192,7 @@ int setup(char *config_fname, int continue_flag) {
 	alpha = 0. ;
 	beta = 1. ;
 	ewald_rad = -1. ;
-	icosahedral_flag = 0 ;
+	sym_icosahedral = 0 ;
 	
 	char line[999], *token ;
 	fp = fopen(config_fname, "r") ;
@@ -447,7 +283,7 @@ int setup(char *config_fname, int continue_flag) {
 		else if (strcmp(token, "selection") == 0)
 			strcpy(sel_string, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "sym_icosahedral") == 0)
-			icosahedral_flag = atoi(strtok(NULL, " =\n")) ;
+			sym_icosahedral = atoi(strtok(NULL, " =\n")) ;
 	}
 	fclose(fp) ;
 
@@ -485,40 +321,39 @@ int setup(char *config_fname, int continue_flag) {
 	center = size / 2 ;
 	fprintf(stderr, "Generating 3D volume of size %d\n", size) ;
 	
-	if (parse_det(det_fname, &det, &mask))
+	// Generate detector
+	det = malloc(sizeof(struct detector)) ;
+	if (parse_detector(det_fname, &det))
 		return 1 ;
 
+	// Generate quaternions
+	quat = malloc(sizeof(struct rotation)) ;
+	quat->icosahedral_flag = sym_icosahedral ;
 	if (num_div > 0 && quat_fname[0] != '\0') {
 		fprintf(stderr, "Config file contains both num_div as well as in_quat_file. Pick one.\n") ;
 		return 1 ;
 	}
 	else if (num_div > 0)
-		num_rot = quat_gen(num_div, &quat, icosahedral_flag) ;
-	else if (parse_quat(quat_fname, &quat))
+		num = quat_gen(num_div, quat) ;
+	else
+		num = parse_quat(quat_fname, quat) ;
+	if (num < 0)
 		return 1 ;
 	
-	num_rot_p = num_rot / num_proc ;
-	if (rank < (num_rot % num_proc))
-		num_rot_p++ ;
-	if (num_proc > 1) {
-		char hname[99] ;
-		gethostname(hname, 99) ;
-		fprintf(stderr, "%d: %s: num_rot_p = %d\n", rank, hname, num_rot_p) ;
-	}
+	divide_quat(rank, num_proc, quat) ;
 	
+	// Generate data
+	frames = malloc(sizeof(struct dataset)) ;
+	frames->next = NULL ;
 	if (data_flist[0] != '\0' && data_fname[0] != '\0') {
 		fprintf(stderr, "Config file contains both in_photons_file and in_photons_list. Pick one.\n") ;
 		return 1 ;
 	}
 	else if (data_flist[0] == '\0') {
-		frames = malloc(sizeof(struct dataset)) ;
-		frames->next = NULL ;
-		if (parse_dataset(data_fname, frames))
+		if (parse_dataset(data_fname, det, frames))
 			return 1 ;
-		tot_num_data = frames->num_data ;
-		tot_mean_count = frames->mean_count ;
 	}
-	else if (parse_data(data_flist, &frames))
+	else if (parse_data(data_flist, det, frames))
 		return 1 ;
 	
 	if (merge_flist[0] != '\0' && merge_fname[0] != '\0') {
@@ -530,15 +365,19 @@ int setup(char *config_fname, int continue_flag) {
 			fprintf(stderr, "Parsing merge file %s\n", merge_fname) ;
 		merge_frames = malloc(sizeof(struct dataset)) ;
 		merge_frames->next = NULL ;
-		if (parse_dataset(merge_fname, merge_frames))
+		if (parse_dataset(merge_fname, det, merge_frames))
 			return 1 ;
 	}
 	else if (merge_flist[0] != '\0') {
-		if (parse_data(merge_flist, &merge_frames))
+		merge_frames = malloc(sizeof(struct dataset)) ;
+		merge_frames->next = NULL ;
+		if (parse_data(merge_flist, det, merge_frames))
 			return 1 ;
 	}
 	
 	calc_sum_fact() ;
+	
+	// Generate blacklist
 	if (sel_string[0] == '\0')
 		gen_blacklist(blacklist_fname, 0) ;
 	else if (strcmp(sel_string, "odd_only") == 0) {
@@ -556,6 +395,7 @@ int setup(char *config_fname, int continue_flag) {
 		gen_blacklist(blacklist_fname, 0) ;
 	}
 	
+	// Generate iterate
 	if (continue_flag) {
 		fp = fopen(log_fname, "r") ;
 		if (fp == NULL) {
@@ -588,20 +428,12 @@ int setup(char *config_fname, int continue_flag) {
 }
 
 void free_mem() {
-	free(det) ;
-	free(quat) ;
-//	free(model1) ;
+	free(model1) ;
 	free(model2) ;
 	free(inter_weight) ;
 	if (need_scaling) {
 		free(scale) ;
 		free(count) ;
 	}
-	
-	free(frames->ones) ;
-	free(frames->multi) ;
-	free(frames->place_ones) ;
-	free(frames->place_multi) ;
-	free(frames->count_multi) ;
 }
 
