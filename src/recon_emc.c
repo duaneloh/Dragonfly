@@ -1,12 +1,17 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <mpi.h>
+#include <sys/time.h>
 #include "emc.h"
 
-void sym_intens(double*, int) ;
 int parse_arguments(int, char**, int*, int*, char*, int*) ;
 void write_log_file_header(int) ;
 
 int main(int argc, char *argv[]) {
 	int x, continue_flag = 0, num_iter = 0 ;
 	int num_threads = omp_get_max_threads() ;
+	long vol ;
 	double change, norm, diff, likelihood ;
 	struct timeval t1, t2, t3 ;
 	char fname[999], config_fname[999] ;
@@ -29,6 +34,7 @@ int main(int argc, char *argv[]) {
 		MPI_Finalize() ;
 		return 1 ;
 	}
+	vol = iter->size * iter->size * iter->size ;
 	
 	if (!rank && !continue_flag)
 		write_log_file_header(num_threads) ;
@@ -38,11 +44,11 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "Completed setup: %f s\n", (double)(t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.) ;
 	}
 
-	for (iteration = start_iter ; iteration <= num_iter + start_iter - 1 ; ++iteration) {
-		if (!isnan(rms_change)) {
+	for (param.iteration = param.start_iter ; param.iteration <= param.num_iter + param.start_iter - 1 ; ++param.iteration) {
+		if (!isnan(iter->rms_change)) {
 			gettimeofday(&t1, NULL) ;
 			
-			MPI_Bcast(model1, size*size*size, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
+			MPI_Bcast(iter->model1, vol, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
 			
 			likelihood = maximize() ;
 			if (!rank) {
@@ -57,12 +63,12 @@ int main(int argc, char *argv[]) {
 			}
 			
 			if (rank) {
-				MPI_Reduce(model2, model2, size*size*size, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
-				MPI_Reduce(inter_weight, inter_weight, size*size*size, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
+				MPI_Reduce(iter->model2, iter->model2, vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
+				MPI_Reduce(iter->inter_weight, iter->inter_weight, vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
 			}
 			else {
-				MPI_Reduce(MPI_IN_PLACE, model2, size*size*size, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
-				MPI_Reduce(MPI_IN_PLACE, inter_weight, size*size*size, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
+				MPI_Reduce(MPI_IN_PLACE, iter->model2, vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
+				MPI_Reduce(MPI_IN_PLACE, iter->inter_weight, vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
 			}
 			
 			if (!rank) {
@@ -70,42 +76,42 @@ int main(int argc, char *argv[]) {
 				//norm = 1. / frames->tot_mean_count ;
 				norm = 1. ;
 				
-				for (x = 0 ; x < size*size*size ; ++x)
-					if (inter_weight[x] > 0.)
-						model2[x] *= norm / inter_weight[x] ;
+				for (x = 0 ; x < vol ; ++x)
+					if (iter->inter_weight[x] > 0.)
+						iter->model2[x] *= norm / iter->inter_weight[x] ;
 				
 				if (quat->icosahedral_flag)
-					symmetrize_icosahedral(model2, size) ;
+					symmetrize_icosahedral(iter->model2, iter->size) ;
 				else
-					sym_intens(model2, size) ;
+					symmetrize_friedel(iter->model2, iter->size) ;
 				
-				for (x = 0 ; x < size*size*size ; ++x) {
-					diff = model2[x] - model1[x] ;
+				for (x = 0 ; x < vol ; ++x) {
+					diff = iter->model2[x] - iter->model1[x] ;
 					change += diff * diff ;
-					model1[x] = model2[x] ;
+					iter->model1[x] = iter->model2[x] ;
 				}
 				
-				sprintf(fname, "%s/output/intens_%.3d.bin", output_folder, iteration) ;
+				sprintf(fname, "%s/output/intens_%.3d.bin", param.output_folder, param.iteration) ;
 				fp = fopen(fname, "w") ;
-				fwrite(model1, sizeof(double), size * size * size, fp) ;
+				fwrite(iter->model1, sizeof(double), vol, fp) ;
 				fclose(fp) ;
 				
-				sprintf(fname, "%s/weights/weights_%.3d.bin", output_folder, iteration) ;
+				sprintf(fname, "%s/weights/weights_%.3d.bin", param.output_folder, param.iteration) ;
 				fp = fopen(fname, "w") ;
-				fwrite(inter_weight, sizeof(double), size * size * size, fp) ;
+				fwrite(iter->inter_weight, sizeof(double), vol, fp) ;
 				fclose(fp) ;
 				
-				rms_change = sqrt(change / size / size / size) ;
+				iter->rms_change = sqrt(change / vol) ;
 				
 				gettimeofday(&t3, NULL) ;
 				fprintf(stderr, "Finished iteration: %f s\n", (double)(t3.tv_sec - t2.tv_sec) + (t3.tv_usec - t2.tv_usec) / 1000000.) ;
 				
 				gettimeofday(&t2, NULL) ;
 				
-				fp = fopen(log_fname, "a") ;
-				fprintf(fp, "%d\t", iteration) ;
+				fp = fopen(param.log_fname, "a") ;
+				fprintf(fp, "%d\t", param.iteration) ;
 				fprintf(fp, "%4.2f\t", (double)(t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.) ;
-				fprintf(fp, "%1.4e\t%f\t%.6e\t%-7d\t%f\n", rms_change, mutual_info, likelihood, quat->num_rot, beta) ;
+				fprintf(fp, "%1.4e\t%f\t%.6e\t%-7d\t%f\n", iter->rms_change, iter->mutual_info, likelihood, quat->num_rot, param.beta) ;
 				fclose(fp) ;
 			}
 			
@@ -115,12 +121,12 @@ int main(int argc, char *argv[]) {
 			for (d = 0 ; d < frames->tot_num_data ; ++d)
 				mean_scale += scale[d] ;
 			mean_scale /= frames->tot_num_data ;
-			for (x = 0 ; x < size*size*size ; ++x)
-				model1[x] *= mean_scale ;
+			for (x = 0 ; x < vol ; ++x)
+				iter->model1[x] *= mean_scale ;
 			for (d = 0 ; d < frames->tot_num_data ; ++d)
 				scale[d] /= mean_scale ;
 */				
-			MPI_Bcast(&rms_change, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
+			MPI_Bcast(&iter->rms_change, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
 		}
 		else
 			break ;
@@ -129,26 +135,11 @@ int main(int argc, char *argv[]) {
 	if (!rank)
 		fprintf(stderr, "Finished all iterations\n") ;
 	
-//	free_mem() ;
+	free_mem() ;
 	
 	MPI_Finalize() ;
 	
 	return 0 ;
-}
-
-void sym_intens(double *array, int size) {
-	int x, y, z, min = 0, center = size/2 ;
-	double ave_intens ;
-	if (size % 2 == 0)
-		min = 1 ;
-	
-	for (x = min ; x < size ; ++x)
-	for (y = min ; y < size ; ++y)
-	for (z = min ; z <= center ; ++z) {
-		ave_intens = .5 * (array[x*size*size + y*size + z] + array[(2*center-x)*size*size + (2*center-y)*size + (2*center-z)]) ;
-		array[x*size*size + y*size + z] = ave_intens ;
-		array[(2*center-x)*size*size + (2*center-y)*size +  (2*center-z)] = ave_intens ;
-	}
 }
 
 int parse_arguments(int argc, char *argv[], int *continue_flag, int *num_threads, char *config_fname, int *num_iter) {
@@ -189,7 +180,7 @@ int parse_arguments(int argc, char *argv[], int *continue_flag, int *num_threads
 }
 
 void write_log_file_header(int num_threads) {
-	FILE *fp = fopen(log_fname, "w") ;
+	FILE *fp = fopen(param.log_fname, "w") ;
 	fprintf(fp, "Cryptotomography with the EMC algorithm using MPI+OpenMP\n\n") ;
 	fprintf(fp, "Data parameters:\n") ;
 	if (num_blacklist == 0)
@@ -197,17 +188,17 @@ void write_log_file_header(int num_threads) {
 	else
 		fprintf(fp, "\tnum_data = %d/%d\n\tmean_count = %f\n\n", frames->tot_num_data-num_blacklist, frames->tot_num_data, frames->tot_mean_count) ;
 	fprintf(fp, "System size:\n") ;
-	fprintf(fp, "\tnum_rot = %d\n\tnum_pix = %d/%d\n\tsystem_volume = %d X %d X %d\n\n", 
+	fprintf(fp, "\tnum_rot = %d\n\tnum_pix = %d/%d\n\tsystem_volume = %ld X %ld X %ld\n\n", 
 			quat->num_rot, 
 			det->rel_num_pix, det->num_pix, 
-			size, size, size) ;
+			iter->size, iter->size, iter->size) ;
 	fprintf(fp, "Reconstruction parameters:\n") ;
 	fprintf(fp, "\tnum_threads = %d\n\tnum_proc = %d\n\talpha = %.6f\n\tbeta = %.6f\n\tneed_scaling = %s", 
 			num_threads, 
 			num_proc, 
-			alpha, 
-			beta, 
-			need_scaling?"yes":"no") ;
+			param.alpha, 
+			param.beta, 
+			param.need_scaling?"yes":"no") ;
 	fprintf(fp, "\n\nIter\ttime\trms_change\tinfo_rate\tlog-likelihood\tnum_rot\tbeta\n") ;
 	fclose(fp) ;
 }

@@ -1,10 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
-#include <float.h>
-#include <math.h>
-#include <omp.h>
 #include "interp.h"
 
 void make_rot_quat(double *quaternion, double rot[3][3]) {
@@ -36,14 +29,13 @@ void make_rot_quat(double *quaternion, double rot[3][3]) {
 	rot[2][2] = (1. - 2.*(q11 + q22)) ;
 }
 
-/*
-Generates slice[t] from model3d[x] by interpolation at angle theta
-The locations of the pixels in slice[t] are given by detector[t]
-Global variables required:
-	size, center, num_pix ;
-*/
-void slice_gen(double *quaternion, double rescale, double slice[], double model3d[], struct detector *det) {
-	int t, i, j, x, y, z ;
+/* Linear interpolation:
+ * Generates slice[t] from model3d[x] by interpolation using given quaternion
+ * The locations of the pixels in slice[t] are given by det->pixels[t]
+ * The logartihm of the rescaled slice is outputted unless rescale is set to 0.
+ */
+void slice_gen(double *quaternion, double rescale, double *slice, double *model3d, long size, struct detector *det) {
+	long t, i, j, x, y, z, center = size / 2 ;
 	double tx, ty, tz, fx, fy, fz, cx, cy, cz ;
 	double rot_pix[3], rot[3][3] = {{0}} ;
 	
@@ -98,15 +90,14 @@ void slice_gen(double *quaternion, double rescale, double slice[], double model3
 	}
 }
 
-/* 
-Merges slice[t] into model3d[x] at the given angle
-Also adds to weight[x] containing the interpolation weights
-The locations of the pixels in slice[t] are given by detector[t]
-Global variables required:
-	size, center, num_pix ;
-*/
-void slice_merge(double *quaternion, double slice[], double model3d[], double weight[], struct detector *det) {
-	int t, i, j, x, y, z ;
+/* Tri-linear merging:
+ * Merges slice[t] into model3d[x] using given quaternion
+ * Also adds to weight[x] containing the interpolation weights
+ * The locations of the pixels in slice[t] are given by det->pixels[t]
+ * Only pixels with a mask value < 2 are merged
+ */
+void slice_merge(double *quaternion, double *slice, double *model3d, double *weight, long size, struct detector *det) {
+	long t, i, j, x, y, z, center = size/2 ;
 	double tx, ty, tz, fx, fy, fz, cx, cy, cz, w, f ;
 	double rot_pix[3], rot[3][3] = {{0}} ;
 	
@@ -181,6 +172,7 @@ void slice_merge(double *quaternion, double slice[], double model3d[], double we
 
 /* Rotates cubic model according to given rotation matrix
  * 	Adds to rotated model. Does not zero output model.
+ * 	Note that this function uses OpenMP so it should not be put in a parallel block
  * 	Arguments:
  * 		rot[3][3] - Rotation matrix
  * 		m - Pointer to model to rotate
@@ -231,7 +223,25 @@ void rotate_model(double rot[3][3], double *m, int s, double *rotmodel) {
 	}
 }
 
-static double icos_list[60][3][3] = {
+/* In-place Friedel symmetrization:
+ * I(q) and I(-q) are replaced by their average
+ */
+void symmetrize_friedel(double *array, int size) {
+	int x, y, z, min = 0, center = size/2 ;
+	double ave_intens ;
+	if (size % 2 == 0)
+		min = 1 ;
+	
+	for (x = min ; x < size ; ++x)
+	for (y = min ; y < size ; ++y)
+	for (z = min ; z <= center ; ++z) {
+		ave_intens = .5 * (array[x*size*size + y*size + z] + array[(2*center-x)*size*size + (2*center-y)*size + (2*center-z)]) ;
+		array[x*size*size + y*size + z] = ave_intens ;
+		array[(2*center-x)*size*size + (2*center-y)*size +  (2*center-z)] = ave_intens ;
+	}
+}
+
+double icos_list[60][3][3] = {
 	{{1., 0., 0.}, {0., 1., 0.}, {0., 0., 1.}},
 	{{-1., 0., 0.}, {0., -1., 0.}, {0., 0., 1.}},
 	{{0., 0., 1.}, {1., 0., 0.}, {0., 1., 0.}},

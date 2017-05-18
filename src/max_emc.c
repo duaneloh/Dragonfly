@@ -1,17 +1,27 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <float.h>
+#include <math.h>
+#include <sys/time.h>
+#include <omp.h>
+#include <mpi.h>
+#include <gsl/gsl_sf_bessel.h>
 #include "emc.h"
 
 double maximize() {
 	int d, r, t, x ;
+	long vol = iter->size * iter->size * iter->size ;
 	double total = 0., rescale, avg_likelihood = 0. ;
 	struct timeval t1, t2 ;
 	
-	// Increasing beta by a factor of 'beta_jump' every 'beta_period' iterations
-	if (iteration % beta_period == 1 && iteration > 1)
-		beta *= beta_jump ;
+	// Increasing beta by a factor of 'beta_jump' every 'beta_period' param.iterations
+	if (param.iteration % param.beta_period == 1 && param.iteration > 1)
+		param.beta *= param.beta_jump ;
 	
 	gettimeofday(&t1, NULL) ;
 	
-	mutual_info = 0. ;
+	iter->mutual_info = 0. ;
 	
 	// Allocate memory
 	double **probab = malloc(quat->num_rot_p * sizeof(double*)) ;
@@ -27,14 +37,14 @@ double maximize() {
 	for (d = 0 ; d < frames->tot_num_data ; ++d) {
 		max_exp_p[d] = -DBL_MAX ;
 		p_sum[d] = 0. ;
-		if (need_scaling)
-			likelihood[d] = count[d]*log(scale[d]) - sum_fact[d] ;
+		if (param.need_scaling)
+			likelihood[d] = frames->count[d]*log(iter->scale[d]) - sum_fact[d] ;
 		else
 			likelihood[d] = -sum_fact[d] ;
 	}
 	
-	memset(model2, 0, size*size*size*sizeof(double)) ;
-	memset(inter_weight, 0, size*size*size*sizeof(double)) ;
+	memset(iter->model2, 0, vol*sizeof(double)) ;
+	memset(iter->inter_weight, 0, vol*sizeof(double)) ;
 	
 	if (rank == 0) {
 		gettimeofday(&t2, NULL) ;
@@ -54,7 +64,7 @@ double maximize() {
 				fprintf(stderr, "Unable to allocate probab[%d]\n", r) ;
 			
 			// Second argument being 0. tells slice_gen to generate un-rescaled tomograms
-			slice_gen(&quat->quat[(r*num_proc + rank)*5], 0., view, model1, det) ;
+			slice_gen(&quat->quat[(r*num_proc + rank)*5], 0., view, iter->model1, iter->size, det) ;
 			
 			for (t = 0 ; t < det->num_pix ; ++t)
 			if (det->mask[t] < 1)
@@ -90,8 +100,8 @@ double maximize() {
 		int *priv_rmax = calloc(frames->tot_num_data, sizeof(int)) ;
 		double *priv_max = malloc(frames->tot_num_data * sizeof(double)) ;
 		double *priv_sum = malloc(frames->tot_num_data * sizeof(double)) ;
-		double *priv_model = calloc(size*size*size, sizeof(double)) ;
-		double *priv_weight = calloc(size*size*size, sizeof(double)) ;
+		double *priv_model = calloc(vol, sizeof(double)) ;
+		double *priv_weight = calloc(vol, sizeof(double)) ;
 		double *priv_info = calloc(frames->tot_num_data, sizeof(double)) ;
 		double *priv_likelihood = calloc(frames->tot_num_data, sizeof(double)) ;
 		for (d = 0 ; d < frames->tot_num_data ; ++d) {
@@ -100,7 +110,7 @@ double maximize() {
 		}
 		struct dataset *curr ;
 		
-		if (need_scaling)
+		if (param.need_scaling)
 			priv_scale = calloc(frames->tot_num_data, sizeof(double)) ;
 		
 		double *prob = NULL ;
@@ -110,7 +120,7 @@ double maximize() {
 		#pragma omp for schedule(static,1)
 		for (r = 0 ; r < quat->num_rot_p ; ++r) {
 			// Calculate rescaled log-tomogram (rescale !=0)
-			slice_gen(&quat->quat[(r*num_proc + rank)*5], 1., view, model1, det) ;
+			slice_gen(&quat->quat[(r*num_proc + rank)*5], 1., view, iter->model1, iter->size, det) ;
 			
 			prob = probab[r] ;
 			d_counter = 0 ;
@@ -131,8 +141,8 @@ double maximize() {
 					}
 					
 					// need_scaling is for if we want to assume variable incident intensity
-					if (need_scaling && (iteration > 1 || known_scale))
-						prob[d_counter+d] = u[r] * scale[d_counter+d] ;
+					if (param.need_scaling && (param.iteration > 1 || param.known_scale))
+						prob[d_counter+d] = u[r] * iter->scale[d_counter+d] ;
 					else
 						prob[d_counter+d] = u[r] * rescale ;
 					
@@ -197,7 +207,7 @@ double maximize() {
 			
 			if (rank == 0) {
 				char fnamermax[999] ;
-				sprintf(fnamermax, "%s/orientations/orientations_%.3d.bin", output_folder, iteration) ;
+				sprintf(fnamermax, "%s/orientations/orientations_%.3d.bin", param.output_folder, param.iteration) ;
 				FILE *fprmax = fopen(fnamermax, "w") ;
 				fwrite(rmax, sizeof(int), frames->tot_num_data, fprmax) ;
 				fclose(fprmax) ;
@@ -212,7 +222,7 @@ double maximize() {
 			prob = probab[r] ;
 			
 			for (d = 0 ; d < frames->tot_num_data ; ++d)
-				priv_sum[d] += exp(beta * (prob[d] - max_exp[d])) ;
+				priv_sum[d] += exp(param.beta * (prob[d] - max_exp[d])) ;
 		}
 		
 		// Combine information among all OMP ranks
@@ -263,15 +273,15 @@ double maximize() {
 					
 					// Exponentiate log-likelihood and normalize to get probabilities
 					temp = prob[d_counter+d] ;
-					prob[d_counter+d] = exp(beta*(prob[d_counter+d] - max_exp[d_counter+d])) / p_sum[d_counter+d] ; 
-//					priv_likelihood[d_counter+d] += prob[d_counter+d] * (temp - sum_fact[d_counter+d] + count[d_counter+d]*log(scale[d_counter+d])) ;
+					prob[d_counter+d] = exp(param.beta*(prob[d_counter+d] - max_exp[d_counter+d])) / p_sum[d_counter+d] ; 
+//					priv_likelihood[d_counter+d] += prob[d_counter+d] * (temp - sum_fact[d_counter+d] + frames->count[d_counter+d]*log(iter->scale[d_counter+d])) ;
 					priv_likelihood[d_counter+d] += prob[d_counter+d] * temp ;
 					
 					// Calculate denominator for update rule
-					if (need_scaling) {
-						sum += prob[d_counter+d] * scale[d_counter+d] ;
+					if (param.need_scaling) {
+						sum += prob[d_counter+d] * iter->scale[d_counter+d] ;
 						// Calculate denominator for scale factor update rule
-						if (iteration > 1)
+						if (param.iteration > 1)
 							priv_scale[d_counter+d] -= prob[d_counter+d] * u[r] ;
 						else
 							priv_scale[d_counter+d] -= prob[d_counter+d] * u[r] * rescale ;
@@ -310,8 +320,8 @@ double maximize() {
 				curr = curr->next ;
 			}
 			
-			if (alpha > 0.)
-				slice_gen(&quat->quat[(r*num_proc + rank)*5], rescale, old_view, model1, det) ;
+			if (param.alpha > 0.)
+				slice_gen(&quat->quat[(r*num_proc + rank)*5], rescale, old_view, iter->model1, iter->size, det) ;
 			
 			// If no data frame has any probability for this orientation, don't merge
 			// Otherwise divide the updated tomogram by the sum over all probabilities and merge
@@ -319,8 +329,8 @@ double maximize() {
 				for (t = 0 ; t < det->num_pix ; ++t) {
 					view[t] /= sum ;
 					
-					if (alpha > 0.)
-						old_view[t] = (1.-alpha) * view[t] + alpha * old_view[t] ;
+					if (param.alpha > 0.)
+						old_view[t] = (1.-param.alpha) * view[t] + param.alpha * old_view[t] ;
 				}
 				
 				/*
@@ -330,12 +340,12 @@ double maximize() {
 						priv_likelihood[d] -= prob[d] * log(gsl_sf_bessel_I0_scaled(2.*view[t]*scale[d])) ;
 				*/
 				
-				if (alpha == 0.)
-					slice_merge(&quat->quat[(r*num_proc + rank)*5], view, priv_model, priv_weight, det) ;
+				if (param.alpha == 0.)
+					slice_merge(&quat->quat[(r*num_proc + rank)*5], view, priv_model, priv_weight, iter->size, det) ;
 			}
 			
-			if (alpha > 0.)
-				slice_merge(&quat->quat[(r*num_proc + rank)*5], old_view, priv_model, priv_weight, det) ;
+			if (param.alpha > 0.)
+				slice_merge(&quat->quat[(r*num_proc + rank)*5], old_view, priv_model, priv_weight, iter->size, det) ;
 			
 			free(probab[r]) ;
 		}
@@ -343,9 +353,9 @@ double maximize() {
 		// Combine merges from different OMP ranks (MPI ranks are combined in recon.c)
 		#pragma omp critical(model)
 		{
-			for (x = 0 ; x < size * size * size ; ++x) {
-				model2[x] += priv_model[x] ;
-				inter_weight[x] += priv_weight[x] ;
+			for (x = 0 ; x < vol ; ++x) {
+				iter->model2[x] += priv_model[x] ;
+				iter->inter_weight[x] += priv_weight[x] ;
 			}
 		}
 		
@@ -359,9 +369,9 @@ double maximize() {
 		}
 		#pragma omp barrier
 		
-		if (need_scaling) {
+		if (param.need_scaling) {
 			if (omp_rank == 0)
-				memset(scale, 0, frames->tot_num_data * sizeof(double)) ;
+				memset(iter->scale, 0, frames->tot_num_data * sizeof(double)) ;
 			
 			// Combine information for scale factors from each OMP rank
 			#pragma omp barrier
@@ -369,7 +379,7 @@ double maximize() {
 			{
 				for (d = 0 ; d < frames->tot_num_data ; ++d)
 				if (!blacklist[d])
-					scale[d] += priv_scale[d] ;
+					iter->scale[d] += priv_scale[d] ;
 			}
 			#pragma omp barrier
 			
@@ -377,7 +387,7 @@ double maximize() {
 			
 			// Combine information for scale factors from all MPI ranks
 			if (omp_rank == 0)
-				MPI_Allreduce(MPI_IN_PLACE, scale, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
+				MPI_Allreduce(MPI_IN_PLACE, iter->scale, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 		}
 		
 		free(priv_model) ;
@@ -409,17 +419,17 @@ double maximize() {
 	MPI_Allreduce(MPI_IN_PLACE, info, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 	
 	// Calculate updated scale factor using count[d] (total photons in frame d)
-	if (need_scaling) {
+	if (param.need_scaling) {
 		for (d = 0 ; d < frames->tot_num_data ; ++d)
 		if (!blacklist[d])
-			scale[d] = count[d] / scale[d] ;
+			iter->scale[d] = frames->count[d] / iter->scale[d] ;
 		
 		if (rank == 0) {
 			char fname[100] ;
-			sprintf(fname, "%s/scale/scale_%.3d.dat", output_folder, iteration) ;
+			sprintf(fname, "%s/scale/scale_%.3d.dat", param.output_folder, param.iteration) ;
 			FILE *fp_scale = fopen(fname, "w") ;
 			for (d = 0 ; d < frames->tot_num_data ; ++d)
-				fprintf(fp_scale, "%.6e\n", scale[d]) ;
+				fprintf(fp_scale, "%.6e\n", iter->scale[d]) ;
 			fclose(fp_scale) ;
 		}
 	}
@@ -427,15 +437,15 @@ double maximize() {
 	// Print frame-by-frame mutual information and likelihood to file
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
 	if (!blacklist[d]) {
-		mutual_info += info[d] ;
+		iter->mutual_info += info[d] ;
 		avg_likelihood += likelihood[d] ;
 	}
 	
 	if (rank == 0) {
 		char fname[999] ;
-		sprintf(fname, "%s/mutualInfo/info_%.3d.dat", output_folder, iteration) ;
+		sprintf(fname, "%s/mutualInfo/info_%.3d.dat", param.output_folder, param.iteration) ;
 		FILE *fp_info = fopen(fname, "w") ;
-		sprintf(fname, "%s/likelihood/likelihood_%.3d.dat", output_folder, iteration) ;
+		sprintf(fname, "%s/likelihood/likelihood_%.3d.dat", param.output_folder, param.iteration) ;
 		FILE *fp_likelihood = fopen(fname, "w") ;
 		
 		for (d = 0 ; d < frames->tot_num_data ; ++d) {
@@ -447,7 +457,7 @@ double maximize() {
 		fclose(fp_likelihood) ;
 	}
 	
-	mutual_info /= (frames->tot_num_data - num_blacklist) ;
+	iter->mutual_info /= (frames->tot_num_data - num_blacklist) ;
 	avg_likelihood /= (frames->tot_num_data - num_blacklist) ;
 	free(info) ;
 	free(likelihood) ;

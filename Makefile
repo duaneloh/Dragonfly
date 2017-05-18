@@ -7,6 +7,7 @@ CFLAGS = $(shell gsl-config --cflags) -Wno-unused-result -O3 -Wall -fopenmp
 LIBS = $(shell gsl-config --libs) -fopenmp
 
 OMPI_CC = $(CC)
+EMC_HEADER = $(wildcard src/*.h)
 EMC_SRC = $(wildcard src/*.c)
 EMC_OBJ = $(patsubst src/%.c, bin/%.o, $(EMC_SRC))
 UTILS_SRC = $(wildcard utils/src/*.c)
@@ -34,16 +35,17 @@ else
 	`export OMPI_CC=$(OMPI_CC); $(MPICC) -c $< -o $@ $(CFLAGS)`
 endif
 
-bin/recon.o bin/setup.o bin/max.o: src/emc.h src/detector.h src/dataset.h
+bin/recon.o bin/setup.o bin/max.o: $(EMC_HEADER)
 bin/detector.o: src/detector.h
-bin/dataset.o: src/dataset.h
-bin/interp.o: src/interp.h
+bin/dataset.o: src/dataset.h src/detector.h
+bin/interp.o: src/interp.h src/detector.h
 bin/quat.o: src/quat.h
+bin/iterate.o: src/iterate.h src/dataset.h src/detector.h
 
 $(UTILS): utils/%: utils/src/%.c
 	$(CC) -o $@ $< $(CFLAGS) $(LIBS)
 
-utils/compare: utils/src/compare.c bin/quat.o
+utils/compare: utils/src/compare.c bin/quat.o bin/interp.o
 	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
 
 clean:

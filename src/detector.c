@@ -1,12 +1,8 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <inttypes.h>
 #include "detector.h"
 
-int parse_detector(char *fname, struct detector **det_pointer) {
+int parse_detector(char *fname, struct detector *det) {
 	int t, d ;
 	double mean_pol = 0. ;
-	struct detector *det = *det_pointer ;
 	
 	det->rel_num_pix = 0 ;
 	
@@ -36,4 +32,7 @@ int parse_detector(char *fname, struct detector **det_pointer) {
 	return 0 ;
 }
 
-
+void free_detector(struct detector *det) {
+	free(det->pixels) ;
+	free(det->mask) ;
+}

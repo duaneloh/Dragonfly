@@ -1,90 +1,10 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <string.h>
+#include <inttypes.h>
+#include <gsl/gsl_sf_gamma.h>
 #include "emc.h"
-
-void parse_input(char *fname) {
-	long x ;
-	double model_mean ;
-	
-	model1 = malloc(size * size * size * sizeof(double)) ;
-	model2 = malloc(size * size * size * sizeof(double)) ;
-	inter_weight = malloc(size * size * size * sizeof(double)) ;
-	
-	if (rank == 0) {
-		FILE *fp = fopen(fname, "r") ;
-		if (fp == NULL) {
-			if (!rank)
-				fprintf(stderr, "Random start\n") ;
-			struct timeval t ;
-			const gsl_rng_type *T ;
-			gsl_rng_env_setup() ;
-			T = gsl_rng_default ;
-			gsl_rng *rng = gsl_rng_alloc(T) ;
-			gettimeofday(&t, NULL) ;
-			gsl_rng_set(rng, t.tv_sec + t.tv_usec) ;
-			
-			model_mean = frames->tot_mean_count / det->rel_num_pix * 2. ;
-			for (x = 0 ; x < size * size * size ; ++x)
-				model1[x] = gsl_rng_uniform(rng) * model_mean ;
-			
-			gsl_rng_free(rng) ;
-		}
-		else {
-			if (!rank)
-				fprintf(stderr, "Starting from %s\n", fname) ;
-			
-			fread(model1, sizeof(double), size * size * size, fp) ;
-			fclose(fp) ;
-		}
-	}
-	
-	if (!rank && start_iter == 1) {
-		char fname0[999] ;
-		sprintf(fname0, "%s/output/intens_000.bin", output_folder) ;
-		FILE *fp0 = fopen(fname0, "wb") ;
-		fwrite(model1, sizeof(double), size*size*size, fp0) ;
-		fclose(fp0) ;
-	}
-}
-
-void calc_scale() {
-	long d_counter = 0, ones_counter, multi_counter ;
-	int d, t ;
-	struct dataset *curr ;
-	curr = frames ;
-	FILE *fp ;
-	char fname[999] ;
-	
-	scale = calloc(frames->tot_num_data, sizeof(double)) ;
-	count = calloc(frames->tot_num_data, sizeof(int)) ;
-	
-	while (curr != NULL) {
-		ones_counter = 0 ;
-		multi_counter = 0 ;
-		for (d = 0 ; d < curr->num_data ; ++d) {
-			scale[d_counter + d] = 1. ;
-			for (t = 0 ; t < curr->ones[d] ; ++t)
-			if (det->mask[curr->place_ones[ones_counter + t]] < 1)
-				count[d_counter + d]++ ;
-			
-			for (t = 0 ; t < curr->multi[d] ; ++t)
-			if (det->mask[curr->place_multi[multi_counter + t]] < 1)
-				count[d_counter + d] += curr->count_multi[multi_counter + t] ;
-			
-			ones_counter += curr->ones[d] ;
-			multi_counter += curr->multi[d] ;
-		}
-		
-		d_counter += curr->num_data ;
-		curr = curr->next ;
-	}
-	
-	if (!rank && start_iter == 1) {
-		sprintf(fname, "%s/scale/scale_000.dat", output_folder) ;
-		fp = fopen(fname, "w") ;
-		for (d = 0 ; d < frames->tot_num_data ; ++d)
-			fprintf(fp, "%.6e\n", scale[d]) ;
-		fclose(fp) ;
-	}
-}
 
 void calc_sum_fact() {
 	int d, t, d_counter = 0 ;
@@ -138,23 +58,6 @@ void gen_blacklist(char *fname, int flag) {
 		fprintf(stderr, "%d/%d blacklisted frames\n", num_blacklist, frames->tot_num_data) ;
 }
 
-void parse_scale(char *fname) {
-	FILE *fp = fopen(fname, "r") ;
-	if (fp == NULL) {
-		if (!rank)
-			fprintf(stderr, "Using uniform scale factors\n") ;
-	}
-	else {
-		if (!rank)
-			fprintf(stderr, "Using scale factors from %s\n", fname) ;
-		known_scale = 1 ;
-		int d ;
-		for (d = 0 ; d < frames->tot_num_data ; ++d)
-			fscanf(fp, "%lf", &scale[d]) ;
-		fclose(fp) ;
-	}
-}
-
 int setup(char *config_fname, int continue_flag) {
 	FILE *fp ;
 	char det_fname[999], quat_fname[999] ;
@@ -163,37 +66,32 @@ int setup(char *config_fname, int continue_flag) {
 	char data_fname[999], out_data_fname[999] ;
 	char merge_flist[999], merge_fname[999] ;
 	char out_det_fname[999], sel_string[999] ;
-	int num, good_section, sym_icosahedral ;
-	double qmax, qmin, detd, pixsize, ewald_rad ;
-	int dets_x, dets_y, detsize, num_div ;
-	
-	good_section = 0 ;
-	known_scale = 0 ;
-	start_iter = 1 ;
-	strcpy(log_fname, "EMC.log") ;
-	strcpy(output_folder, "data/") ;
+	int num, good_section = 0, sym_icosahedral = 0 ;
+	double qmax, qmin, detd = 0., pixsize = 0., ewald_rad = -1. ;
+	int dets_x = 0, dets_y = 0, detsize = 0, num_div = -1 ;
+
+	// Set default values of
+	// 	... local variables
 	data_flist[0] = '\0' ;
 	data_fname[0] = '\0' ;
 	merge_flist[0] = '\0' ;
 	merge_fname[0] = '\0' ;
 	quat_fname[0] = '\0' ;
 	sel_string[0] = '\0' ;
+	//	... structured variables
+	param.known_scale = 0 ;
+	param.start_iter = 1 ;
+	strcpy(param.log_fname, "EMC.log") ;
+	strcpy(param.output_folder, "data/") ;
 	merge_frames = NULL ;
-	detd = 0. ;
-	pixsize = 0. ;
-	detsize = 0 ;
-	dets_x = 0 ;
-	dets_y = 0 ;
-	size = -1 ;
-	beta_period = 100 ;
-	beta_jump = 1. ;
-	num_div = -1 ;
-	need_scaling = 0 ;
-	alpha = 0. ;
-	beta = 1. ;
-	ewald_rad = -1. ;
-	sym_icosahedral = 0 ;
-	
+	param.beta_period = 100 ;
+	param.beta_jump = 1. ;
+	param.need_scaling = 0 ;
+	param.alpha = 0. ;
+	param.beta = 1. ;
+	iter->size = -1 ;
+
+	// Parse config file options
 	char line[999], *token ;
 	fp = fopen(config_fname, "r") ;
 	if (fp == NULL) {
@@ -236,11 +134,11 @@ int setup(char *config_fname, int continue_flag) {
 		else if (strcmp(token, "pixsize") == 0)
 			pixsize = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "need_scaling") == 0)
-			need_scaling = atoi(strtok(NULL, " =\n")) ;
+			param.need_scaling = atoi(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "alpha") == 0)
-			alpha = atof(strtok(NULL, " =\n")) ;
+			param.alpha = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "beta") == 0)
-			beta = atof(strtok(NULL, " =\n")) ;
+			param.beta = atof(strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "ewald_rad") == 0)
 			ewald_rad = atof(strtok(NULL, " =\n")) ;
 		// [make_detector]
@@ -261,9 +159,9 @@ int setup(char *config_fname, int continue_flag) {
 		else if (strcmp(token, "merge_photons_list") == 0)
 			strcpy(merge_flist, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "output_folder") == 0)
-			strcpy(output_folder, strtok(NULL, " =\n")) ;
+			strcpy(param.output_folder, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "log_file") == 0)
-			strcpy(log_fname, strtok(NULL, " =\n")) ;
+			strcpy(param.log_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "start_model_file") == 0)
 			strcpy(input_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "in_detector_file") == 0)
@@ -277,8 +175,8 @@ int setup(char *config_fname, int continue_flag) {
 		else if (strcmp(token, "scale_file") == 0)
 			strcpy(scale_fname, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "beta_schedule") == 0) {
-			beta_jump = atof(strtok(NULL, " =\n")) ;
-			beta_period = atoi(strtok(NULL, " =\n")) ;
+			param.beta_jump = atof(strtok(NULL, " =\n")) ;
+			param.beta_period = atoi(strtok(NULL, " =\n")) ;
 		}
 		else if (strcmp(token, "selection") == 0)
 			strcpy(sel_string, strtok(NULL, " =\n")) ;
@@ -287,43 +185,47 @@ int setup(char *config_fname, int continue_flag) {
 	}
 	fclose(fp) ;
 
+	// Check for referenced arguments
 	if (strcmp(det_fname, "make_detector:::out_detector_file") == 0)
 		strcpy(det_fname, out_det_fname) ;
 	if (strcmp(data_fname, "make_data:::out_photons_file") == 0)
 		strcpy(data_fname, out_data_fname) ;
-	
+
+	// Check for compulsory parameter options
 	if (detsize == 0 || pixsize == 0. || detd == 0.) {
 		fprintf(stderr, "Need detector parameters, detd, detsize, pixsize\n") ;
 		return 1 ;
 	}
-	
-	sprintf(line, "%s/output", output_folder) ;
+
+	// Create output subdirectories
+	sprintf(line, "%s/output", param.output_folder) ;
 	mkdir(line, 0750) ;
-	sprintf(line, "%s/weights", output_folder) ;
+	sprintf(line, "%s/weights", param.output_folder) ;
 	mkdir(line, 0750) ;
-	sprintf(line, "%s/mutualInfo", output_folder) ;
+	sprintf(line, "%s/mutualInfo", param.output_folder) ;
 	mkdir(line, 0750) ;
-	sprintf(line, "%s/scale", output_folder) ;
+	sprintf(line, "%s/scale", param.output_folder) ;
 	mkdir(line, 0750) ;
-	sprintf(line, "%s/orientations", output_folder) ;
+	sprintf(line, "%s/orientations", param.output_folder) ;
 	mkdir(line, 0750) ;
-	sprintf(line, "%s/likelihood", output_folder) ;
+	sprintf(line, "%s/likelihood", param.output_folder) ;
 	mkdir(line, 0750) ;
-	
+
+	// Calculate size and center
 	double hx = (dets_x - 1) / 2 * pixsize ;
 	double hy = (dets_y - 1) / 2 * pixsize ;
 	qmax = 2. * sin(0.5 * atan(sqrt(hx*hx + hy*hy)/detd)) ;
 	qmin = 2. * sin(0.5 * atan(pixsize/detd)) ;
 	if (ewald_rad == -1.)
-		size = 2 * ceil(qmax / qmin) + 3 ;
+		iter->size = 2 * ceil(qmax / qmin) + 3 ;
 	else
-		size = 2 * ceil(qmax / qmin * ewald_rad * pixsize / detd) + 3 ;
-	center = size / 2 ;
-	fprintf(stderr, "Generating 3D volume of size %d\n", size) ;
-	
+		iter->size = 2 * ceil(qmax / qmin * ewald_rad * pixsize / detd) + 3 ;
+	iter->center = iter->size / 2 ;
+	fprintf(stderr, "Generating 3D volume of size %ld\n", iter->size) ;
+
 	// Generate detector
 	det = malloc(sizeof(struct detector)) ;
-	if (parse_detector(det_fname, &det))
+	if (parse_detector(det_fname, det))
 		return 1 ;
 
 	// Generate quaternions
@@ -341,7 +243,7 @@ int setup(char *config_fname, int continue_flag) {
 		return 1 ;
 	
 	divide_quat(rank, num_proc, quat) ;
-	
+
 	// Generate data
 	frames = malloc(sizeof(struct dataset)) ;
 	frames->next = NULL ;
@@ -376,7 +278,7 @@ int setup(char *config_fname, int continue_flag) {
 	}
 	
 	calc_sum_fact() ;
-	
+
 	// Generate blacklist
 	if (sel_string[0] == '\0')
 		gen_blacklist(blacklist_fname, 0) ;
@@ -394,10 +296,10 @@ int setup(char *config_fname, int continue_flag) {
 		fprintf(stderr, "Did not understand selection keyword: %s. Will process all frames\n", sel_string) ;
 		gen_blacklist(blacklist_fname, 0) ;
 	}
-	
+
 	// Generate iterate
 	if (continue_flag) {
-		fp = fopen(log_fname, "r") ;
+		fp = fopen(param.log_fname, "r") ;
 		if (fp == NULL) {
 			fprintf(stderr, "No log file found to continue run\n") ;
 			return 1 ;
@@ -405,35 +307,46 @@ int setup(char *config_fname, int continue_flag) {
 		else {
 			while (!feof(fp))
 				fgets(line, 500, fp) ;
-			sscanf(line, "%d", &start_iter) ;
+			sscanf(line, "%d", &param.start_iter) ;
 			fclose(fp) ;
 			
-			sprintf(input_fname, "%s/output/intens_%.3d.bin", output_folder, start_iter) ;
-			if (need_scaling)
-				sprintf(scale_fname, "%s/scale/scale_%.3d.dat", output_folder, start_iter) ;
-			start_iter += 1 ;
+			sprintf(input_fname, "%s/output/intens_%.3d.bin", param.output_folder, param.start_iter) ;
+			if (param.need_scaling)
+				sprintf(scale_fname, "%s/scale/scale_%.3d.dat", param.output_folder, param.start_iter) ;
+			param.start_iter += 1 ;
 			if (!rank)
-				fprintf(stderr, "Continuing from previous run starting from iteration %d.\n", start_iter) ;
+				fprintf(stderr, "Continuing from previous run starting from iteration %d.\n", param.start_iter) ;
 		}
 	}
 	
-	if (need_scaling) {
-		calc_scale() ;
-		parse_scale(scale_fname) ;
+	if (param.need_scaling) {
+		if (!rank && param.start_iter == 1) {
+			sprintf(line, "%s/scale/scale_000.dat", param.output_folder) ;
+			calc_scale(frames, det, line, iter) ;
+		}
+		else {
+			calc_scale(frames, det, NULL, iter) ;
+		}
+		parse_scale(scale_fname, frames, iter) ;
 	}
 	
-	parse_input(input_fname) ;
+	if (!rank && param.start_iter == 1) {
+		sprintf(line, "%s/output/intens_000.bin", param.output_folder) ;
+		parse_input(input_fname, frames->tot_mean_count / det->rel_num_pix * 2., line, iter) ;
+	}
+	else {
+		parse_input(input_fname, frames->tot_mean_count / det->rel_num_pix * 2., NULL, iter) ;
+	}
 	
 	return 0 ;
 }
 
 void free_mem() {
-	free(model1) ;
-	free(model2) ;
-	free(inter_weight) ;
-	if (need_scaling) {
-		free(scale) ;
-		free(count) ;
-	}
+	free_iterate(param.need_scaling, iter) ;
+	free_data(param.need_scaling, frames) ;
+	if (merge_frames != NULL)
+		free_data(param.need_scaling, merge_frames) ;
+	free_quat(quat) ;
+	free_detector(det) ;
 }
 

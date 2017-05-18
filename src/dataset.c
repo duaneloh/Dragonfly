@@ -1,7 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include "detector.h"
 #include "dataset.h"
 
 int parse_dataset(char *fname, struct detector *det_pointer, struct dataset *current) {
@@ -109,5 +105,20 @@ int parse_data(char *fname, struct detector *det_pointer, struct dataset *frames
 	frames->tot_mean_count /= frames->tot_num_data ;
 	
 	return 0 ;
+}
+
+void free_data(int scale_flag, struct dataset *frames) {
+	struct dataset *curr = frames ;
+	while (curr != NULL) {
+		free(curr->ones) ;
+		free(curr->place_ones) ;
+		free(curr->multi) ;
+		free(curr->place_multi) ;
+		free(curr->count_multi) ;
+		curr = curr->next ;
+	}
+	
+	if (scale_flag)
+		free(frames->count) ;
 }
 

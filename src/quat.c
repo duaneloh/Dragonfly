@@ -1,7 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <unistd.h>
 #include "quat.h"
 
 #define num_vert 120 
@@ -815,3 +811,6 @@ void divide_quat(int rank, int num_proc, struct rotation *quat) {
 	}
 }
 
+void free_quat(struct rotation *quat) {
+	free(quat->quat) ;
+}
