@@ -13,7 +13,7 @@ struct dataset {
 	long ones_total, multi_total ;
 	double mean_count ;
 	int *ones, *multi, *place_ones, *place_multi, *count_multi ;
-	char filename[999] ;
+	char filename[1024] ;
 
 	// Pointer to next dataset
 	struct dataset *next ;

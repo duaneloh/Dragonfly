@@ -6,12 +6,12 @@
 
 int setup(char *config_fname, int continue_flag) {
 	FILE *fp ;
-	char det_fname[999], quat_fname[999] ;
-	char data_flist[999], input_fname[999] ;
-	char scale_fname[999], blacklist_fname[999] ;
-	char data_fname[999], out_data_fname[999] ;
-	char merge_flist[999], merge_fname[999] ;
-	char out_det_fname[999], sel_string[999] ;
+	char det_fname[1024], quat_fname[1024] ;
+	char data_flist[1024], input_fname[1024] ;
+	char scale_fname[1024], blacklist_fname[1024] ;
+	char data_fname[1024], out_data_fname[1024] ;
+	char merge_flist[1024], merge_fname[1024] ;
+	char out_det_fname[1024], sel_string[1024] ;
 	int num, good_section = 0, sym_icosahedral = 0 ;
 	double qmax, qmin, detd = 0., pixsize = 0., ewald_rad = -1. ;
 	int dets_x = 0, dets_y = 0, detsize = 0, num_div = -1 ;
@@ -41,13 +41,13 @@ int setup(char *config_fname, int continue_flag) {
 	merge_frames = NULL ;
 
 	// Parse config file options
-	char line[999], *token ;
+	char line[1024], *token ;
 	fp = fopen(config_fname, "r") ;
 	if (fp == NULL) {
 		fprintf(stderr, "Config file %s not found.\n", config_fname) ;
 		return 1 ;
 	}
-	while (fgets(line, 999, fp) != NULL) {
+	while (fgets(line, 1024, fp) != NULL) {
 		token = strtok(line, " =") ;
 		if (token[0] == '#' || token[0] == '\n') {
 			continue ;

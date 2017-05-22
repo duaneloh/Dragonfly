@@ -14,7 +14,7 @@ int main(int argc, char *argv[]) {
 	long vol ;
 	double change, norm, diff, likelihood ;
 	struct timeval t1, t2, t3 ;
-	char fname[999], config_fname[999] ;
+	char fname[1024], config_fname[1024] ;
 	FILE *fp ;
 	
 	gettimeofday(&t1, NULL) ;

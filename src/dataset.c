@@ -85,7 +85,7 @@ int parse_dataset(char *fname, struct detector *det, struct dataset *current) {
 
 int parse_data(char *fname, struct detector *det, struct dataset *frames) {
 	struct dataset *curr ;
-	char data_fname[999] ;
+	char data_fname[1024] ;
 	
 	FILE *fp = fopen(fname, "r") ;
 	if (fp == NULL) {

@@ -127,7 +127,7 @@ double maximize() {
 	
 	// Print frame-by-frame mutual information, likelihood, and most likely orientations to file
 	if (rank == 0) {
-		char fname[999] ;
+		char fname[1024] ;
 		sprintf(fname, "%s/mutualInfo/info_%.3d.dat", param.output_folder, param.iteration) ;
 		FILE *fp_info = fopen(fname, "w") ;
 		sprintf(fname, "%s/likelihood/likelihood_%.3d.dat", param.output_folder, param.iteration) ;
