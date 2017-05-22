@@ -35,7 +35,7 @@ else
 	`export OMPI_CC=$(OMPI_CC); $(MPICC) -c $< -o $@ $(CFLAGS)`
 endif
 
-bin/recon.o bin/setup.o bin/max.o: $(EMC_HEADER)
+bin/recon_emc.o bin/setup_emc.o bin/max_emc.o: $(EMC_HEADER)
 bin/detector.o: src/detector.h
 bin/dataset.o: src/dataset.h src/detector.h
 bin/interp.o: src/interp.h src/detector.h
