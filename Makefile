@@ -13,9 +13,10 @@ EMC_OBJ = $(patsubst src/%.c, bin/%.o, $(EMC_SRC))
 UTILS_SRC = $(wildcard utils/src/*.c)
 UTILS = $(patsubst utils/src/%.c, utils/%, $(UTILS_SRC))
 UTILS := $(filter-out utils/compare, $(UTILS))
+UTILS := $(filter-out utils/make_quaternion, $(UTILS))
 DIRECTORIES = data bin images data/output data/orientations data/mutualInfo data/weights data/scale data/likelihood
 
-all: mkdir emc $(UTILS) utils/compare
+all: mkdir emc $(UTILS) utils/compare utils/make_quaternion
 
 mkdir: $(DIRECTORIES)
 $(DIRECTORIES):
@@ -46,6 +47,9 @@ $(UTILS): utils/%: utils/src/%.c
 	$(CC) -o $@ $< $(CFLAGS) $(LIBS)
 
 utils/compare: utils/src/compare.c bin/quat.o bin/interp.o
+	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
+
+utils/make_quaternion: utils/src/make_quaternion.c bin/quat.o
 	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
 
 clean:
