@@ -2,61 +2,7 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <string.h>
-#include <inttypes.h>
-#include <gsl/gsl_sf_gamma.h>
 #include "emc.h"
-
-void calc_sum_fact() {
-	int d, t, d_counter = 0 ;
-	long multi_counter ;
-	struct dataset *curr = frames ;
-	
-	sum_fact = calloc(frames->tot_num_data, sizeof(double)) ;
-	
-	while (curr != NULL) {
-		multi_counter = 0 ;
-		
-		for (d = d_counter ; d < d_counter + curr->num_data ; ++d) {
-			for (t = 0 ; t < curr->multi[d - d_counter] ; ++t)
-			if (det->mask[curr->place_multi[multi_counter + t]] < 1)
-				sum_fact[d] += gsl_sf_lnfact(curr->count_multi[multi_counter + t]) ;
-			multi_counter += curr->multi[d - d_counter] ;
-		}
-		
-		d_counter += curr->num_data ;
-		curr = curr->next ;
-	}
-}
-
-void gen_blacklist(char *fname, int flag) {
-	int d, current = flag%2 ;
-	num_blacklist = 0 ;
-	blacklist = calloc(frames->tot_num_data, sizeof(uint8_t)) ;
-	
-	FILE *fp = fopen(fname, "r") ;
-	if (fp != NULL) {
-		if (!rank)
-			fprintf(stderr, "Blacklisting frames according to %s\n", fname) ;
-		for (d = 0 ; d < frames->tot_num_data ; ++d) {
-			fscanf(fp, "%" SCNu8 "\n", &blacklist[d]) ;
-			if (blacklist[d])
-				num_blacklist++ ;
-		}
-		fclose(fp) ;
-	}
-	
-	if (flag > 0) {
-		for (d = 0 ; d < frames->tot_num_data ; ++d)
-		if (!blacklist[d]) {
-			blacklist[d] = current ;
-			num_blacklist += current ;
-			current = 1 - current ;
-		}
-	}
-	
-	if (!rank)
-		fprintf(stderr, "%d/%d blacklisted frames\n", num_blacklist, frames->tot_num_data) ;
-}
 
 int setup(char *config_fname, int continue_flag) {
 	FILE *fp ;
@@ -83,13 +29,16 @@ int setup(char *config_fname, int continue_flag) {
 	param.start_iter = 1 ;
 	strcpy(param.log_fname, "EMC.log") ;
 	strcpy(param.output_folder, "data/") ;
-	merge_frames = NULL ;
 	param.beta_period = 100 ;
 	param.beta_jump = 1. ;
 	param.need_scaling = 0 ;
 	param.alpha = 0. ;
 	param.beta = 1. ;
-	iter->size = -1 ;
+	iter = malloc(sizeof(struct iterate)) ;
+	det = malloc(sizeof(struct detector)) ;
+	quat = malloc(sizeof(struct rotation)) ;
+	frames = malloc(sizeof(struct dataset)) ;
+	merge_frames = NULL ;
 
 	// Parse config file options
 	char line[999], *token ;
@@ -184,6 +133,7 @@ int setup(char *config_fname, int continue_flag) {
 			sym_icosahedral = atoi(strtok(NULL, " =\n")) ;
 	}
 	fclose(fp) ;
+	fprintf(stderr, "Parsed config file\n") ;
 
 	// Check for referenced arguments
 	if (strcmp(det_fname, "make_detector:::out_detector_file") == 0)
@@ -224,12 +174,10 @@ int setup(char *config_fname, int continue_flag) {
 	fprintf(stderr, "Generating 3D volume of size %ld\n", iter->size) ;
 
 	// Generate detector
-	det = malloc(sizeof(struct detector)) ;
 	if (parse_detector(det_fname, det))
 		return 1 ;
 
 	// Generate quaternions
-	quat = malloc(sizeof(struct rotation)) ;
 	quat->icosahedral_flag = sym_icosahedral ;
 	if (num_div > 0 && quat_fname[0] != '\0') {
 		fprintf(stderr, "Config file contains both num_div as well as in_quat_file. Pick one.\n") ;
@@ -245,7 +193,6 @@ int setup(char *config_fname, int continue_flag) {
 	divide_quat(rank, num_proc, quat) ;
 
 	// Generate data
-	frames = malloc(sizeof(struct dataset)) ;
 	frames->next = NULL ;
 	if (data_flist[0] != '\0' && data_fname[0] != '\0') {
 		fprintf(stderr, "Config file contains both in_photons_file and in_photons_list. Pick one.\n") ;
@@ -277,25 +224,29 @@ int setup(char *config_fname, int continue_flag) {
 			return 1 ;
 	}
 	
-	calc_sum_fact() ;
+	calc_sum_fact(det, frames) ;
 
 	// Generate blacklist
-	if (sel_string[0] == '\0')
-		gen_blacklist(blacklist_fname, 0) ;
+	if (sel_string[0] == '\0') {
+		gen_blacklist(blacklist_fname, 0, frames) ;
+	}
 	else if (strcmp(sel_string, "odd_only") == 0) {
 		if (!rank)
 			fprintf(stderr, "Only processing 'odd' frames\n") ;
-		gen_blacklist(blacklist_fname, 1) ;
+		gen_blacklist(blacklist_fname, 1, frames) ;
 	}
 	else if (strcmp(sel_string, "even_only") == 0) {
 		if (!rank)
 			fprintf(stderr, "Only processing 'even' frames\n") ;
-		gen_blacklist(blacklist_fname, 2) ;
+		gen_blacklist(blacklist_fname, 2, frames) ;
 	}
 	else {
 		fprintf(stderr, "Did not understand selection keyword: %s. Will process all frames\n", sel_string) ;
-		gen_blacklist(blacklist_fname, 0) ;
+		gen_blacklist(blacklist_fname, 0, frames) ;
 	}
+	
+	if (!rank)
+		fprintf(stderr, "%d/%d blacklisted frames\n", frames->num_blacklist, frames->tot_num_data) ;
 
 	// Generate iterate
 	if (continue_flag) {
@@ -343,10 +294,16 @@ int setup(char *config_fname, int continue_flag) {
 
 void free_mem() {
 	free_iterate(param.need_scaling, iter) ;
-	free_data(param.need_scaling, frames) ;
-	if (merge_frames != NULL)
+	free(iter) ;
+	if (merge_frames != NULL) {
 		free_data(param.need_scaling, merge_frames) ;
+		free(merge_frames) ;
+	}
+	free_data(param.need_scaling, frames) ;
+	free(frames) ;
 	free_quat(quat) ;
+	free(quat) ;
 	free_detector(det) ;
+	free(det) ;
 }
 

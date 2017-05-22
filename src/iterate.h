@@ -20,6 +20,7 @@ struct iterate {
 
 int parse_scale(char*, struct dataset*, struct iterate*) ;
 void calc_scale(struct dataset*, struct detector*, char*, struct iterate*) ;
+void normalize_scale(struct dataset*, struct iterate*) ;
 void parse_input(char*, double, char*, struct iterate*) ;
 void free_iterate(int, struct iterate*) ;
 

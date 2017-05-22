@@ -59,6 +59,19 @@ void calc_scale(struct dataset *frames, struct detector *det, char* print_fname,
 	}
 }
 
+void normalize_scale(struct dataset *frames, struct iterate *iter) {
+	double mean_scale = 0. ;
+	long d, x, vol = iter->size*iter->size*iter->size ;
+	
+	for (d = 0 ; d < frames->tot_num_data ; ++d)
+		mean_scale += iter->scale[d] ;
+	mean_scale /= frames->tot_num_data ;
+	for (x = 0 ; x < vol ; ++x)
+		iter->model1[x] *= mean_scale ;
+	for (d = 0 ; d < frames->tot_num_data ; ++d)
+		iter->scale[d] /= mean_scale ;
+}
+
 void parse_input(char *fname, double mean, char *print_fname, struct iterate *iter) {
 	long vol = iter->size * iter->size * iter->size ;
 	iter->model1 = malloc(vol * sizeof(double)) ;

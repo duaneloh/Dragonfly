@@ -5,11 +5,11 @@
 #include <sys/time.h>
 #include "emc.h"
 
-int parse_arguments(int, char**, int*, int*, char*, int*) ;
+int parse_arguments(int, char**, int*, int*, char*) ;
 void write_log_file_header(int) ;
 
 int main(int argc, char *argv[]) {
-	int x, continue_flag = 0, num_iter = 0 ;
+	int x, continue_flag = 0 ;
 	int num_threads = omp_get_max_threads() ;
 	long vol ;
 	double change, norm, diff, likelihood ;
@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
 	system("ls > /dev/null") ;
 	system("ls .. > /dev/null") ;
 	
-	if (parse_arguments(argc, argv, &continue_flag, &num_threads, config_fname, &num_iter))
+	if (parse_arguments(argc, argv, &continue_flag, &num_threads, config_fname))
 		return 1 ;
 	omp_set_num_threads(num_threads) ;
 	
@@ -50,6 +50,10 @@ int main(int argc, char *argv[]) {
 			
 			MPI_Bcast(iter->model1, vol, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
 			
+			// Increasing beta by a factor of 'beta_jump' every 'beta_period' param.iterations
+			if (param.iteration % param.beta_period == 1 && param.iteration > 1)
+				param.beta *= param.beta_jump ;
+			
 			likelihood = maximize() ;
 			if (!rank) {
 				gettimeofday(&t2, NULL) ;
@@ -60,15 +64,6 @@ int main(int argc, char *argv[]) {
 				fprintf(stderr, "Error in maximize\n") ;
 				MPI_Finalize() ;
 				return 2 ;
-			}
-			
-			if (rank) {
-				MPI_Reduce(iter->model2, iter->model2, vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
-				MPI_Reduce(iter->inter_weight, iter->inter_weight, vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
-			}
-			else {
-				MPI_Reduce(MPI_IN_PLACE, iter->model2, vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
-				MPI_Reduce(MPI_IN_PLACE, iter->inter_weight, vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
 			}
 			
 			if (!rank) {
@@ -115,17 +110,7 @@ int main(int argc, char *argv[]) {
 				fclose(fp) ;
 			}
 			
-/*			// Rescaling model and scale factors
-			double mean_scale = 0. ;
-			long d ;
-			for (d = 0 ; d < frames->tot_num_data ; ++d)
-				mean_scale += scale[d] ;
-			mean_scale /= frames->tot_num_data ;
-			for (x = 0 ; x < vol ; ++x)
-				iter->model1[x] *= mean_scale ;
-			for (d = 0 ; d < frames->tot_num_data ; ++d)
-				scale[d] /= mean_scale ;
-*/				
+			normalize_scale(frames, iter) ;
 			MPI_Bcast(&iter->rms_change, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
 		}
 		else
@@ -142,10 +127,11 @@ int main(int argc, char *argv[]) {
 	return 0 ;
 }
 
-int parse_arguments(int argc, char *argv[], int *continue_flag, int *num_threads, char *config_fname, int *num_iter) {
+int parse_arguments(int argc, char *argv[], int *continue_flag, int *num_threads, char *config_fname) {
 	int c ;
 	extern char *optarg ;
 	extern int optind ;
+	param.num_iter = 0 ;
 	
 	while (optind < argc) {
 		if ((c = getopt(argc, argv, "rc:t:")) != -1) {
@@ -162,19 +148,19 @@ int parse_arguments(int argc, char *argv[], int *continue_flag, int *num_threads
 			}
 		}
 		else {
-			*num_iter = atoi(argv[optind]) ;
+			param.num_iter = atoi(argv[optind]) ;
 			optind++ ;
 		}
 	}
 	
-	if (num_iter == 0) {
+	if (param.num_iter == 0) {
 		fprintf(stderr, "Format: %s [-c config_fname] [-t num_threads] [-r] num_iter\n", argv[0]) ;
 		fprintf(stderr, "Default: -c config.ini -t %d\n", omp_get_max_threads()) ;
 		fprintf(stderr, "Missing <num_iter>\n") ;
 		return 1 ;
 	}
 	if (!rank)
-		fprintf(stderr, "Doing %d iteration(s) using %s\n", *num_iter, config_fname) ;
+		fprintf(stderr, "Doing %d iteration(s) using %s\n", param.num_iter, config_fname) ;
 	
 	return 0 ;
 }
@@ -183,10 +169,10 @@ void write_log_file_header(int num_threads) {
 	FILE *fp = fopen(param.log_fname, "w") ;
 	fprintf(fp, "Cryptotomography with the EMC algorithm using MPI+OpenMP\n\n") ;
 	fprintf(fp, "Data parameters:\n") ;
-	if (num_blacklist == 0)
+	if (frames->num_blacklist == 0)
 		fprintf(fp, "\tnum_data = %d\n\tmean_count = %f\n\n", frames->tot_num_data, frames->tot_mean_count) ;
 	else
-		fprintf(fp, "\tnum_data = %d/%d\n\tmean_count = %f\n\n", frames->tot_num_data-num_blacklist, frames->tot_num_data, frames->tot_mean_count) ;
+		fprintf(fp, "\tnum_data = %d/%d\n\tmean_count = %f\n\n", frames->tot_num_data-frames->num_blacklist, frames->tot_num_data, frames->tot_mean_count) ;
 	fprintf(fp, "System size:\n") ;
 	fprintf(fp, "\tnum_rot = %d\n\tnum_pix = %d/%d\n\tsystem_volume = %ld X %ld X %ld\n\n", 
 			quat->num_rot, 

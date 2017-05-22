@@ -1,8 +1,29 @@
 #include "dataset.h"
 
-int parse_dataset(char *fname, struct detector *det_pointer, struct dataset *current) {
+void calc_sum_fact(struct detector *det, struct dataset *frames) {
+	int d, t, d_counter = 0 ;
+	long multi_counter ;
+	struct dataset *curr = frames ;
+	
+	frames->sum_fact = calloc(frames->tot_num_data, sizeof(double)) ;
+	
+	while (curr != NULL) {
+		multi_counter = 0 ;
+		
+		for (d = d_counter ; d < d_counter + curr->num_data ; ++d) {
+			for (t = 0 ; t < curr->multi[d - d_counter] ; ++t)
+			if (det->mask[curr->place_multi[multi_counter + t]] < 1)
+				frames->sum_fact[d] += gsl_sf_lnfact(curr->count_multi[multi_counter + t]) ;
+			multi_counter += curr->multi[d - d_counter] ;
+		}
+		
+		d_counter += curr->num_data ;
+		curr = curr->next ;
+	}
+}
+
+int parse_dataset(char *fname, struct detector *det, struct dataset *current) {
 	int d ;
-	struct detector det = *det_pointer ;
 	current->ones_total = 0, current->multi_total = 0 ;
 	
 	strcpy(current->filename, fname) ;
@@ -16,7 +37,7 @@ int parse_dataset(char *fname, struct detector *det_pointer, struct dataset *cur
 	fread(&(current->num_data), sizeof(int), 1, fp) ;
 	fread(&(current->num_pix), sizeof(int) , 1, fp) ;
 	current->tot_num_data = current->num_data ;
-	if (current->num_pix != det.num_pix)
+	if (current->num_pix != det->num_pix)
 		fprintf(stderr, "WARNING! The detector file and photons file %s do not"
 		                "have the same number of pixels\n", current->filename) ;
 	fseek(fp, 1016, SEEK_CUR) ;
@@ -45,11 +66,11 @@ int parse_dataset(char *fname, struct detector *det_pointer, struct dataset *cur
 	current->mean_count = 0. ;
 	for (d = 0 ; d < current->num_data ; ++d) {
 		for (t = 0 ; t < current->ones[d] ; ++t)
-		if (det.mask[current->place_ones[ones_counter + t]] < 1)
+		if (det->mask[current->place_ones[ones_counter + t]] < 1)
 			current->mean_count += 1. ;
 		
 		for (t = 0 ; t < current->multi[d] ; ++t)
-		if (det.mask[current->place_multi[multi_counter + t]] < 1)
+		if (det->mask[current->place_multi[multi_counter + t]] < 1)
 			current->mean_count += current->count_multi[multi_counter + t] ;
 		
 		ones_counter += current->ones[d] ;
@@ -62,7 +83,7 @@ int parse_dataset(char *fname, struct detector *det_pointer, struct dataset *cur
 	return 0 ;
 }
 
-int parse_data(char *fname, struct detector *det_pointer, struct dataset *frames) {
+int parse_data(char *fname, struct detector *det, struct dataset *frames) {
 	struct dataset *curr ;
 	char data_fname[999] ;
 	
@@ -73,7 +94,7 @@ int parse_data(char *fname, struct detector *det_pointer, struct dataset *frames
 	}
 	
 	if (fscanf(fp, "%s\n", data_fname) == 1) {
-		if (parse_dataset(data_fname, det_pointer, frames))
+		if (parse_dataset(data_fname, det, frames))
 			return 1 ;
 	}
 	else {
@@ -93,7 +114,7 @@ int parse_data(char *fname, struct detector *det_pointer, struct dataset *frames
 		curr = curr->next ;
 		curr->next = NULL ;
 		
-		if (parse_dataset(data_fname, det_pointer, curr))
+		if (parse_dataset(data_fname, det, curr))
 			return 1 ;
 		
 		frames->tot_num_data += curr->num_data ;
@@ -103,8 +124,34 @@ int parse_data(char *fname, struct detector *det_pointer, struct dataset *frames
 	fclose(fp) ;
 	
 	frames->tot_mean_count /= frames->tot_num_data ;
+	calc_sum_fact(det, frames) ;
 	
 	return 0 ;
+}
+
+void gen_blacklist(char *fname, int flag, struct dataset *frames) {
+	int d, current = flag%2 ;
+	frames->num_blacklist = 0 ;
+	frames->blacklist = calloc(frames->tot_num_data, sizeof(uint8_t)) ;
+	
+	FILE *fp = fopen(fname, "r") ;
+	if (fp != NULL) {
+		for (d = 0 ; d < frames->tot_num_data ; ++d) {
+			fscanf(fp, "%" SCNu8 "\n", &frames->blacklist[d]) ;
+			if (frames->blacklist[d])
+				frames->num_blacklist++ ;
+		}
+		fclose(fp) ;
+	}
+	
+	if (flag > 0) {
+		for (d = 0 ; d < frames->tot_num_data ; ++d)
+		if (!frames->blacklist[d]) {
+			frames->blacklist[d] = current ;
+			frames->num_blacklist += current ;
+			current = 1 - current ;
+		}
+	}
 }
 
 void free_data(int scale_flag, struct dataset *frames) {
@@ -120,5 +167,7 @@ void free_data(int scale_flag, struct dataset *frames) {
 	
 	if (scale_flag)
 		free(frames->count) ;
+	free(frames->blacklist) ;
+	free(frames->sum_fact) ;
 }
 

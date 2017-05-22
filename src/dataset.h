@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <gsl/gsl_sf_gamma.h>
+#include <inttypes.h>
 #include "detector.h"
 
 struct dataset {
@@ -17,13 +19,17 @@ struct dataset {
 	struct dataset *next ;
 	
 	// Need only be defined for head dataset
-	int tot_num_data ;
+	int tot_num_data, num_blacklist ;
 	double tot_mean_count ;
 	int *count ;
+	double *sum_fact ;
+	uint8_t *blacklist ;
 } ;
 
+void calc_sum_fact(struct detector*, struct dataset*) ;
 int parse_dataset(char*, struct detector*, struct dataset*) ;
 int parse_data(char*, struct detector*, struct dataset*) ;
+void gen_blacklist(char*, int, struct dataset*) ;
 void free_data(int, struct dataset*) ;
 
 #endif //DATASET_H

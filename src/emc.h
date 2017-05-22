@@ -1,7 +1,6 @@
 #ifndef EMC_H
 #define EMC_H
 
-#include <stdint.h>
 #include "detector.h"
 #include "dataset.h"
 #include "interp.h"
@@ -18,11 +17,6 @@ struct iterate *iter ;
 struct params param ;
 
 int rank, num_proc ;
-
-int *count ;
-double *sum_fact ;
-uint8_t *blacklist ;
-int num_blacklist ;
 
 // setup.c
 int setup(char*, int) ;
