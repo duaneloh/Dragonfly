@@ -14,9 +14,10 @@ UTILS_SRC = $(wildcard utils/src/*.c)
 UTILS = $(patsubst utils/src/%.c, utils/%, $(UTILS_SRC))
 UTILS := $(filter-out utils/compare, $(UTILS))
 UTILS := $(filter-out utils/make_quaternion, $(UTILS))
+UTILS := $(filter-out utils/make_data, $(UTILS))
 DIRECTORIES = data bin images data/output data/orientations data/mutualInfo data/weights data/scale data/likelihood
 
-all: mkdir emc $(UTILS) utils/compare utils/make_quaternion
+all: mkdir emc $(UTILS) utils/compare utils/make_quaternion utils/make_data
 
 mkdir: $(DIRECTORIES)
 $(DIRECTORIES):
@@ -50,6 +51,9 @@ utils/compare: utils/src/compare.c bin/quat.o bin/interp.o
 	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
 
 utils/make_quaternion: utils/src/make_quaternion.c bin/quat.o
+	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
+
+utils/make_data: utils/src/make_data.c bin/detector.o bin/interp.o
 	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
 
 clean:

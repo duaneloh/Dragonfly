@@ -12,6 +12,8 @@
 #include <float.h>
 #include <stdint.h>
 #include <libgen.h>
+#include "../../src/detector.h"
+#include "../../src/interp.h"
 
 #define NUM_AVE 5000
 #define FLUENCE 0
@@ -21,16 +23,15 @@ double rot[2][2] ;
 int size, num_data, num_data_p, num_pix, scale_method, num_rot, do_gamma ;
 int **place_ones, **place_multi, *ones, *multi, **count_multi ;
 double fluence, rescale, mean_count, detd, back, center ;
-double *intens, *det, *likelihood, *quat_list ;
+double *intens, *likelihood, *quat_list ;
 char output_fname[999], likelihood_fname[999] ;
-uint8_t *mask ;
+struct detector *det ;
 
 int setup(char *) ;
 void rand_quat(double[4], gsl_rng*) ;
 int poisson(double, gsl_rng*) ;
 double rand_scale() ;
 void free_mem() ;
-void slice_gen(double*, double*, double*, double*) ;
 
 int main(int argc, char *argv[]) {
 	int c, d, x ;
@@ -87,14 +88,14 @@ int main(int argc, char *argv[]) {
 		for (d = 0 ; d < NUM_AVE ; ++d) {
 			if (num_rot == 0) {
 				rand_quat(quat, rng) ;
-				slice_gen(quat, view, intens, det) ;
+				slice_gen(quat, 0., view, intens, size, det) ;
 			}
 			else {
-				slice_gen(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], view, intens, det) ;
+				slice_gen(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], 0., view, intens, size, det) ;
 			}
             
 			for (t = 0 ; t < num_pix ; ++t){
-				if (mask[t] > 1)
+				if (det->mask[t] > 1)
 					continue ;
 				intens_ave += view[t] ;
             }
@@ -144,10 +145,10 @@ int main(int argc, char *argv[]) {
 		for (d = 0 ; d < num_data ; ++d) {
 			if (num_rot == 0) {
 				rand_quat(quat, rng) ;
-				slice_gen(quat, view, intens, det) ;
+				slice_gen(quat, 0., view, intens, size, det) ;
 			}
 			else {
-				slice_gen(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], view, intens, det) ;
+				slice_gen(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], 0., view, intens, size, det) ;
 			}
 			
 			if (do_gamma)
@@ -155,7 +156,7 @@ int main(int argc, char *argv[]) {
 			
 			if (scale > 0.) {
 				for (t = 0 ; t < num_pix ; ++t) {
-					if (mask[t] > 1)
+					if (det->mask[t] > 1)
 						continue ;
 					
 					val = view[t]*scale + back ;
@@ -223,7 +224,7 @@ int main(int argc, char *argv[]) {
 }
 
 int setup(char *config_fname) {
-	int t, d ;
+	int t ;
 	FILE *fp ;
 	char line[999], *token ;
 	char det_fname[999], model_fname[999] ;
@@ -374,20 +375,8 @@ int setup(char *config_fname) {
 	fread(intens, sizeof(double), size*size*size, fp) ;
 	fclose(fp) ;
 	
-	fp = fopen(det_fname, "r") ;
-	if (fp == NULL) {
-		fprintf(stderr, "det_fname: %s not found. Exiting...\n", det_fname) ;
-		return 1 ;
-	}
-	fscanf(fp, "%d", &num_pix) ;
-	det = malloc(num_pix * 4 * sizeof(double)) ;
-	mask = malloc(num_pix * sizeof(uint8_t)) ;
-	for (t = 0 ; t < num_pix ; ++t) {
-		for (d = 0 ; d < 4 ; ++d)
-			fscanf(fp, "%lf", &det[t*4 + d]) ;
-		fscanf(fp, "%" SCNu8, &mask[t]) ;
-	}
-	fclose(fp) ;
+	det = malloc(sizeof(struct detector)) ;
+	parse_detector(det_fname, det) ;
 	
 	if (quat_fname[0] != '\0') {
 		fprintf(stderr, "Picking discrete orientations from %s\n", quat_fname) ;
@@ -415,8 +404,7 @@ void free_mem() {
 	int d ;
 	
 	free(intens) ;
-	free(det) ;
-	free(mask) ;
+	free_detector(det) ;
 	free(likelihood) ;
 	
 	free(ones) ;
@@ -448,82 +436,5 @@ void rand_quat(double quat[4], gsl_rng *rng) {
 	qq = sqrt(qq) ;
 	for (i = 0 ; i < 4 ; ++i)
 		quat[i] /= qq ;
-}
-
-void make_rot_quat(double *quaternion, double rot[3][3]) {
-	double q0, q1, q2, q3, q01, q02, q03, q11, q12, q13, q22, q23, q33 ;
-	
-	q0 = quaternion[0] ;
-	q1 = quaternion[1] ;
-	q2 = quaternion[2] ;
-	q3 = quaternion[3] ;
-	
-	q01 = q0*q1 ;
-	q02 = q0*q2 ;
-	q03 = q0*q3 ;
-	q11 = q1*q1 ;
-	q12 = q1*q2 ;
-	q13 = q1*q3 ;
-	q22 = q2*q2 ;
-	q23 = q2*q3 ;
-	q33 = q3*q3 ;
-	
-	rot[0][0] = (1. - 2.*(q22 + q33)) ;
-	rot[0][1] = 2.*(q12 + q03) ;
-	rot[0][2] = 2.*(q13 - q02) ;
-	rot[1][0] = 2.*(q12 - q03) ;
-	rot[1][1] = (1. - 2.*(q11 + q33)) ;
-	rot[1][2] = 2.*(q01 + q23) ;
-	rot[2][0] = 2.*(q02 + q13) ;
-	rot[2][1] = 2.*(q23 - q01) ;
-	rot[2][2] = (1. - 2.*(q11 + q22)) ;
-}
-
-void slice_gen(double *quaternion, double slice[], double model3d[], double detector[]) {
-	int t, i, j, x, y, z ;
-	double tx, ty, tz, fx, fy, fz, cx, cy, cz ;
-	double rot_pix[3], rot[3][3] = {{0}} ;
-	
-	make_rot_quat(quaternion, rot) ;
-	
-	for (t = 0 ; t < num_pix ; ++t) {
-		for (i = 0 ; i < 3 ; ++i) {
-			rot_pix[i] = 0. ;
-			for (j = 0 ; j < 3 ; ++j) 
-				rot_pix[i] += rot[i][j] * detector[t*4 + j] ;
-			rot_pix[i] += center ;
-		}
-		
-		tx = rot_pix[0] ;
-		ty = rot_pix[1] ;
-		tz = rot_pix[2] ;
-		
-		if (tx < 0 || tx > size-2 || ty < 0 || ty > size-2 || tz < 0 || tz > size-2) {
-			slice[t] = 1.e-10 ;
-			continue ;
-		}
-		
-		x = (int) tx ;
-		y = (int) ty ;
-		z = (int) tz ;
-		fx = tx - x ;
-		fy = ty - y ;
-		fz = tz - z ;
-		cx = 1. - fx ;
-		cy = 1. - fy ;
-		cz = 1. - fz ;
-		
-		slice[t] =	cx*cy*cz*model3d[x*size*size + y*size + z] +
-				cx*cy*fz*model3d[x*size*size + y*size + ((z+1)%size)] +
-				cx*fy*cz*model3d[x*size*size + ((y+1)%size)*size + z] +
-				cx*fy*fz*model3d[x*size*size + ((y+1)%size)*size + ((z+1)%size)] +
-				fx*cy*cz*model3d[((x+1)%size)*size*size + y*size + z] +
-				fx*cy*fz*model3d[((x+1)%size)*size*size + y*size + ((z+1)%size)] + 
-				fx*fy*cz*model3d[((x+1)%size)*size*size + ((y+1)%size)*size + z] + 
-				fx*fy*fz*model3d[((x+1)%size)*size*size + ((y+1)%size)*size + ((z+1)%size)] ;
-		
-		// Correct for solid angle and polarization
-		slice[t] *= detector[t*4 + 3] ;
-	}
 }
 
