@@ -224,8 +224,6 @@ int setup(char *config_fname, int continue_flag) {
 			return 1 ;
 	}
 	
-	calc_sum_fact(det, frames) ;
-
 	// Generate blacklist
 	if (sel_string[0] == '\0') {
 		gen_blacklist(blacklist_fname, 0, frames) ;
