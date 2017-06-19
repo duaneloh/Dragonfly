@@ -110,7 +110,8 @@ int main(int argc, char *argv[]) {
 				fclose(fp) ;
 			}
 			
-			normalize_scale(frames, iter) ;
+			if (param.need_scaling)
+				normalize_scale(frames, iter) ;
 			MPI_Bcast(&iter->rms_change, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
 		}
 		else
