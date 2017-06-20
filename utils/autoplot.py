@@ -86,6 +86,12 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.logfname = QtWidgets.QLineEdit(self.logfname, self)
         self.logfname.setMinimumWidth(160)
         hbox.addWidget(self.logfname)
+        label = QtWidgets.QLabel('PlotMin:', self)
+        hbox.addWidget(label)
+        self.rangemin = QtWidgets.QLineEdit('0', self)
+        self.rangemin.setFixedWidth(48)
+        self.rangemin.returnPressed.connect(self.range_changed)
+        hbox.addWidget(self.rangemin)
         label = QtWidgets.QLabel('PlotMax:', self)
         hbox.addWidget(label)
         self.rangestr = QtWidgets.QLineEdit('1', self)
@@ -247,6 +253,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
 
     def plot_vol(self, num):
         self.imagename.setText('images/' + os.path.splitext(os.path.basename(self.fname.text()))[0] + '.png')
+        rangemin = float(self.rangemin.text())
         rangemax = float(self.rangestr.text())
         exponent = float(self.expstr.text())
 
@@ -257,17 +264,17 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.fig.clf()
 
         s1 = self.fig.add_subplot(131)
-        s1.imshow(a, vmin=0, vmax=rangemax, cmap='CMRmap', interpolation='none')
+        s1.imshow(a, vmin=rangemin, vmax=rangemax, cmap='CMRmap', interpolation='none')
         s1.set_title("YZ plane", y=1.01)
         s1.axis('off')
 
         s2 = self.fig.add_subplot(132)
-        s2.matshow(b, vmin=0, vmax=rangemax, cmap='CMRmap', interpolation='none')
+        s2.matshow(b, vmin=rangemin, vmax=rangemax, cmap='CMRmap', interpolation='none')
         s2.set_title("XZ plane", y=1.01)
         s2.axis('off')
 
         s3 = self.fig.add_subplot(133)
-        s3.matshow(c, vmin=0, vmax=rangemax, cmap='CMRmap', interpolation='none')
+        s3.matshow(c, vmin=rangemin, vmax=rangemax, cmap='CMRmap', interpolation='none')
         s3.set_title("XY plane", y=1.01)
         s3.axis('off')
 
