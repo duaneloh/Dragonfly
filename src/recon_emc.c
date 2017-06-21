@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
 				fprintf(stderr, "Completed maximize: %f s\n", (double)(t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.) ;
 			}
 			
-			if (likelihood == 0.) {
+			if (likelihood == DBL_MAX) {
 				fprintf(stderr, "Error in maximize\n") ;
 				MPI_Finalize() ;
 				return 2 ;
@@ -83,7 +83,10 @@ int main(int argc, char *argv[]) {
 				for (x = 0 ; x < vol ; ++x) {
 					diff = iter->model2[x] - iter->model1[x] ;
 					change += diff * diff ;
-					iter->model1[x] = iter->model2[x] ;
+					if (param.alpha > 0.)
+						iter->model1[x] = param.alpha * param.rescale * iter->model1[x] + (1. - param.alpha) * iter->model2[x] ;
+					else
+						iter->model1[x] = iter->model2[x] ;
 				}
 				
 				sprintf(fname, "%s/output/intens_%.3d.bin", param.output_folder, param.iteration) ;
