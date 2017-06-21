@@ -9,7 +9,6 @@
 #include <gsl/gsl_sf_bessel.h>
 #include "emc.h"
 
-static double rescale ;
 static double *u, *max_exp_p, *max_exp, *p_sum, *info, *likelihood ;
 static int *rmax ;
 static struct timeval t1, t2 ;
@@ -19,7 +18,7 @@ static double calculate_rescale() ;
 static void calculate_prob(int, double*, int*, double*) ;
 static void normalize_prob(double**, double*, int*) ;
 static double update_tomogram(int, double*, double*, double*) ;
-static void merge_tomogram(int, double, double*, double*, double*, double*) ;
+static void merge_tomogram(int, double, double*, double*, double*) ;
 static void combine_information(double*, double*, double*) ;
 static void print_time(char*, int) ;
 static void free_memory(double**) ;
@@ -34,14 +33,15 @@ double maximize() {
 	allocate_memory(&probab) ;
 
 	// Sum over all pixels of model tomogram (data-independent part of probability)
-	rescale = calculate_rescale() ;
+	param.rescale = calculate_rescale() ;
+	fprintf(stderr, "\trescale = %.6e\n", param.rescale) ;
 
 	// Main loop: Calculate probabilities and update tomograms
 	#pragma omp parallel default(shared) private(r,d)
 	{
 		int omp_rank = omp_get_thread_num() ;
 		// priv_data = {priv_likelihood, priv_info, priv_scale}
-		double sum, *priv_data = NULL, *old_view = NULL ;
+		double sum, *priv_data = NULL ;
 		double *view = malloc(det->num_pix * sizeof(double)) ;
 		int *priv_rmax = calloc(frames->tot_num_data, sizeof(int)) ;
 		double *priv_max = malloc(frames->tot_num_data * sizeof(double)) ;
@@ -54,8 +54,6 @@ double maximize() {
 			priv_data = calloc(3 * frames->tot_num_data, sizeof(double)) ;
 		else
 			priv_data = calloc(2 * frames->tot_num_data, sizeof(double)) ;
-		if (param.alpha > 0.)
-			old_view = malloc(det->num_pix * sizeof(double)) ;
 
 		#pragma omp for schedule(static,1)
 		for (r = 0 ; r < quat->num_rot_p ; ++r) {
@@ -70,7 +68,7 @@ double maximize() {
 		#pragma omp for schedule(static,1)
 		for (r = 0 ; r < quat->num_rot_p ; ++r) {
 			sum = update_tomogram(r, probab[r], priv_data, view) ;
-			merge_tomogram(r, sum, view, old_view, priv_model, priv_weight) ;
+			merge_tomogram(r, sum, view, priv_model, priv_weight) ;
 			
 			free(probab[r]) ;
 		}
@@ -81,8 +79,6 @@ double maximize() {
 		combine_information(priv_data, priv_model, priv_weight) ;
 		
 		free(view) ;
-		if (param.alpha > 0.)
-			free(old_view) ;
 	}
 	print_time("Update", rank == 0) ;
 
@@ -134,7 +130,9 @@ double maximize() {
 		FILE *fp_likelihood = fopen(fname, "w") ;
 		sprintf(fname, "%s/orientations/orientations_%.3d.bin", param.output_folder, param.iteration) ;
 		FILE *fp_rmax = fopen(fname, "w") ;
+		FILE *fp_sum = fopen("data/psum.bin", "wb") ;
 		
+		fwrite(p_sum, sizeof(double), frames->tot_num_data, fp_sum) ;
 		fwrite(rmax, sizeof(int), frames->tot_num_data, fp_rmax) ;
 		for (d = 0 ; d < frames->tot_num_data ; ++d) {
 			fprintf(fp_info, "%.6e\n", info[d]) ;
@@ -144,6 +142,7 @@ double maximize() {
 		fclose(fp_rmax) ;
 		fclose(fp_info) ;
 		fclose(fp_likelihood) ;
+		fclose(fp_sum) ;
 	}
 	
 	iter->mutual_info /= (frames->tot_num_data - frames->num_blacklist) ;
@@ -234,29 +233,48 @@ void calculate_prob(int r, double *max, int *rmax, double *prob) {
 		for (d = 0 ; d < curr->num_data ; ++d) {
 			// check if frame is blacklisted
 			if (frames->blacklist[d_counter+d]) {
-				ones_counter += curr->ones[d] ;
-				multi_counter += curr->multi[d] ;
+				if (curr->type == 0) {
+					ones_counter += curr->ones[d] ;
+					multi_counter += curr->multi[d] ;
+				}
 				continue ;
 			}
 			
-			// need_scaling is for if we want to assume variable incident intensity
-			if (param.need_scaling && (param.iteration > 1 || param.known_scale))
-				prob[d_counter+d] = u[r] * iter->scale[d_counter+d] ;
-			else
-				prob[d_counter+d] = u[r] * rescale ;
-			
-			// For each pixel with one photon
-			for (t = 0 ; t < curr->ones[d] ; ++t) {
-				pixel = curr->place_ones[ones_counter + t] ;
-				if (det->mask[pixel] < 1)
-					prob[d_counter+d] += view[pixel] ;
+			if (curr->type < 2) {
+				// need_scaling is for if we want to assume variable incident intensity
+				if (param.need_scaling && (param.iteration > 1 || param.known_scale))
+					prob[d_counter+d] = u[r] * iter->scale[d_counter+d] ;
+				else
+					prob[d_counter+d] = u[r] * param.rescale ;
+			}
+			else {
+				prob[d_counter+d] = 0. ;
 			}
 			
-			// For each pixel with count_multi photons
-			for (t = 0 ; t < curr->multi[d] ; ++t) {
-				pixel = curr->place_multi[multi_counter + t] ;
-				if (det->mask[pixel] < 1)
-					prob[d_counter+d] += curr->count_multi[multi_counter + t] * view[pixel] ;
+			if (curr->type == 0) {
+				// For each pixel with one photon
+				for (t = 0 ; t < curr->ones[d] ; ++t) {
+					pixel = curr->place_ones[ones_counter + t] ;
+					if (det->mask[pixel] < 1)
+						prob[d_counter+d] += view[pixel] ;
+				}
+				
+				// For each pixel with count_multi photons
+				for (t = 0 ; t < curr->multi[d] ; ++t) {
+					pixel = curr->place_multi[multi_counter + t] ;
+					if (det->mask[pixel] < 1)
+						prob[d_counter+d] += curr->count_multi[multi_counter + t] * view[pixel] ;
+				}
+			}
+			else if (curr->type == 1) {
+				for (t = 0 ; t < det->num_pix ; ++t)
+				if (det->mask[t] < 1)
+					prob[d_counter+d] += curr->int_frames[d*curr->num_pix + t] * view[t] ;
+			}
+			else if (curr->type == 2) { // Gaussian EMC for double precision data without scaling
+				for (t = 0 ; t < det->num_pix ; ++t)
+				if (det->mask[t] < 1)
+					prob[d_counter+d] -= pow(curr->frames[d*curr->num_pix + t] - view[t]*param.rescale, 2.) ;
 			}
 			
 			// Note maximum log-likelihood for each frame among 'r's tested by this MPI rank and OMP rank
@@ -265,8 +283,10 @@ void calculate_prob(int r, double *max, int *rmax, double *prob) {
 				rmax[d_counter+d] = r*num_proc + rank ;
 			}
 			
-			ones_counter += curr->ones[d] ;
-			multi_counter += curr->multi[d] ;
+			if (curr->type == 0) {
+				ones_counter += curr->ones[d] ;
+				multi_counter += curr->multi[d] ;
+			}
 		}
 		
 		d_counter += curr->num_data ;
@@ -308,7 +328,10 @@ void normalize_prob(double **prob, double *priv_max, int *priv_rmax) {
 	#pragma omp for schedule(static,1)
 	for (r = 0 ; r < quat->num_rot_p ; ++r)
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
+	if (frames->type < 2)
 		priv_sum[d] += exp(param.beta * (prob[r][d] - max_exp[d])) ;
+	else
+		priv_sum[d] += exp(param.beta * (prob[r][d] - max_exp[d]) / 2. / param.sigmasq) ;
 	
 	#pragma omp critical(psum)
 	{
@@ -349,14 +372,19 @@ double update_tomogram(int r, double *prob, double *priv_data, double *view) {
 		for (d = 0 ; d < curr->num_data ; ++d) {
 			// check if frame is blacklisted
 			if (frames->blacklist[d_counter+d]) {
-				ones_counter += curr->ones[d] ;
-				multi_counter += curr->multi[d] ;
+				if (curr->type == 0) {
+					ones_counter += curr->ones[d] ;
+					multi_counter += curr->multi[d] ;
+				}
 				continue ;
 			}
 			
 			// Exponentiate log-likelihood and normalize to get probabilities
 			temp = prob[d_counter+d] ;
-			prob[d_counter+d] = exp(param.beta*(prob[d_counter+d] - max_exp[d_counter+d])) / p_sum[d_counter+d] ; 
+			if (frames->type < 2)
+				prob[d_counter+d] = exp(param.beta*(prob[d_counter+d] - max_exp[d_counter+d])) / p_sum[d_counter+d] ; 
+			else
+				prob[d_counter+d] = exp(param.beta * (prob[d_counter+d] - max_exp[d_counter+d]) / 2. / param.sigmasq) / p_sum[d_counter+d] ;
 //			priv_data[d_counter+d] += prob[d_counter+d] * (temp - frames->sum_fact[d_counter+d] + frames->count[d_counter+d]*log(iter->scale[d_counter+d])) ;
 			priv_data[d_counter+d] += prob[d_counter+d] * temp ;
 			
@@ -367,37 +395,52 @@ double update_tomogram(int r, double *prob, double *priv_data, double *view) {
 				if (param.iteration > 1)
 					priv_data[2*frames->tot_num_data + d_counter+d] -= prob[d_counter+d] * u[r] ;
 				else
-					priv_data[2*frames->tot_num_data + d_counter+d] -= prob[d_counter+d] * u[r] * rescale ;
+					priv_data[2*frames->tot_num_data + d_counter+d] -= prob[d_counter+d] * u[r] * param.rescale ;
 			}
 			else
 				sum += prob[d_counter+d] ; 
 			
 			// Skip if probability is very low (saves time)
 			if (!(prob[d_counter+d] > PROB_MIN)) {
-				ones_counter += curr->ones[d] ;
-				multi_counter += curr->multi[d] ;
+				if (curr->type == 0) {
+					ones_counter += curr->ones[d] ;
+					multi_counter += curr->multi[d] ;
+				}
 				continue ;
 			}
 			
 			// Calculate mutual information of probability distribution
 			priv_data[frames->tot_num_data + d_counter+d] += prob[d_counter+d] * log(prob[d_counter+d] / quat->quat[(r*num_proc + rank)*5 + 4]) ;
 			
-			// For all pixels with one photon
-			for (t = 0 ; t < curr->ones[d] ; ++t) {
-				pixel = curr->place_ones[ones_counter + t] ;
-				if (det->mask[pixel] < 2)
-					view[pixel] += prob[d_counter+d] ;
+			if (curr->type == 0) {
+				// For all pixels with one photon
+				for (t = 0 ; t < curr->ones[d] ; ++t) {
+					pixel = curr->place_ones[ones_counter + t] ;
+					if (det->mask[pixel] < 2)
+						view[pixel] += prob[d_counter+d] ;
+				}
+				
+				// For all pixels with count_multi photons
+				for (t = 0 ; t < curr->multi[d] ; ++t) {
+					pixel = curr->place_multi[multi_counter + t] ;
+					if (det->mask[pixel] < 2)
+						view[pixel] += curr->count_multi[multi_counter + t] * prob[d_counter+d] ;
+				}
+			}
+			else if (curr->type == 1) {
+				for (t = 0 ; t < curr->num_pix ; ++t)
+					view[t] += curr->int_frames[d*curr->num_pix + t] * prob[d_counter+d] ;
+			}
+			else if (curr->type == 2) { // Gaussian EMC update without scaling
+				for (t = 0 ; t < curr->num_pix ; ++t)
+				if (det->mask[t] < 2)
+					view[t] += curr->frames[d*curr->num_pix + t] * prob[d_counter+d] ;
 			}
 			
-			// For all pixels with count_multi photons
-			for (t = 0 ; t < curr->multi[d] ; ++t) {
-				pixel = curr->place_multi[multi_counter + t] ;
-				if (det->mask[pixel] < 2)
-					view[pixel] += curr->count_multi[multi_counter + t] * prob[d_counter+d] ;
+			if (curr->type == 0) {
+				ones_counter += curr->ones[d] ;
+				multi_counter += curr->multi[d] ;
 			}
-			
-			ones_counter += curr->ones[d] ;
-			multi_counter += curr->multi[d] ;
 		}
 		
 		d_counter += curr->num_data ;
@@ -407,28 +450,17 @@ double update_tomogram(int r, double *prob, double *priv_data, double *view) {
 	return sum ;
 }
 
-void merge_tomogram(int r, double sum, double *view, double *old_view, double *model, double *weight) {
+void merge_tomogram(int r, double sum, double *view, double *model, double *weight) {
 	int t ;
-	
-	if (param.alpha > 0.)
-		slice_gen(&quat->quat[(r*num_proc + rank)*5], rescale, old_view, iter->model1, iter->size, det) ;
 	
 	// If no data frame has any probability for this orientation, don't merge
 	// Otherwise divide the updated tomogram by the sum over all probabilities and merge
 	if (sum > 0.) {
-		for (t = 0 ; t < det->num_pix ; ++t) {
+		for (t = 0 ; t < det->num_pix ; ++t)
 			view[t] /= sum ;
-			
-			if (param.alpha > 0.)
-				old_view[t] = (1.-param.alpha) * view[t] + param.alpha * old_view[t] ;
-		}
 		
-		if (param.alpha == 0.)
-			slice_merge(&quat->quat[(r*num_proc + rank)*5], view, model, weight, iter->size, det) ;
+		slice_merge(&quat->quat[(r*num_proc + rank)*5], view, model, weight, iter->size, det) ;
 	}
-	
-	if (param.alpha > 0.)
-		slice_merge(&quat->quat[(r*num_proc + rank)*5], old_view, model, weight, iter->size, det) ;
 }
 
 void combine_information(double *priv_data, double *priv_model, double *priv_weight) {
