@@ -9,12 +9,20 @@
 #include "detector.h"
 
 struct dataset {
+	// Data set type (0=sparse, 1=dense integer, 2=dense double)
+	int type ;
 	int num_data, num_pix ;
-	long ones_total, multi_total ;
 	double mean_count ;
-	int *ones, *multi, *place_ones, *place_multi, *count_multi ;
 	char filename[1024] ;
-
+	
+	// Sparse dataset
+	long ones_total, multi_total ;
+	int *ones, *multi, *place_ones, *place_multi, *count_multi ;
+	
+	// Dense dataset
+	double *frames ;
+	int *int_frames ;
+	
 	// Pointer to next dataset
 	struct dataset *next ;
 	

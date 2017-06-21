@@ -8,17 +8,53 @@ void calc_sum_fact(struct detector *det, struct dataset *frames) {
 	frames->sum_fact = calloc(frames->tot_num_data, sizeof(double)) ;
 	
 	while (curr != NULL) {
-		multi_counter = 0 ;
-		
-		for (d = d_counter ; d < d_counter + curr->num_data ; ++d) {
-			for (t = 0 ; t < curr->multi[d - d_counter] ; ++t)
-			if (det->mask[curr->place_multi[multi_counter + t]] < 1)
-				frames->sum_fact[d] += gsl_sf_lnfact(curr->count_multi[multi_counter + t]) ;
-			multi_counter += curr->multi[d - d_counter] ;
+		if (curr->type == 0) {
+			multi_counter = 0 ;
+			
+			for (d = d_counter ; d < d_counter + curr->num_data ; ++d) {
+				for (t = 0 ; t < curr->multi[d - d_counter] ; ++t)
+				if (det->mask[curr->place_multi[multi_counter + t]] < 1)
+					frames->sum_fact[d] += gsl_sf_lnfact(curr->count_multi[multi_counter + t]) ;
+				multi_counter += curr->multi[d - d_counter] ;
+			}
 		}
-		
+		else if (curr->type == 1) {
+			for (d = d_counter ; d < d_counter + curr->num_data ; ++d)
+			for (t = 0 ; t < curr->num_pix ; ++t)
+				frames->sum_fact[d] += gsl_sf_lnfact(curr->int_frames[(d-d_counter)*curr->num_pix + t]) ;
+		}
+		else if (curr->type == 2) {
+			for (d = d_counter ; d < d_counter + curr->num_data ; ++d)
+				frames->sum_fact[d] = 0. ;
+		}
+			
 		d_counter += curr->num_data ;
 		curr = curr->next ;
+	}
+}
+
+void gen_blacklist(char *fname, int flag, struct dataset *frames) {
+	int d, current = flag%2 ;
+	frames->num_blacklist = 0 ;
+	frames->blacklist = calloc(frames->tot_num_data, sizeof(uint8_t)) ;
+	
+	FILE *fp = fopen(fname, "r") ;
+	if (fp != NULL) {
+		for (d = 0 ; d < frames->tot_num_data ; ++d) {
+			fscanf(fp, "%" SCNu8 "\n", &frames->blacklist[d]) ;
+			if (frames->blacklist[d])
+				frames->num_blacklist++ ;
+		}
+		fclose(fp) ;
+	}
+	
+	if (flag > 0) {
+		for (d = 0 ; d < frames->tot_num_data ; ++d)
+		if (!frames->blacklist[d]) {
+			frames->blacklist[d] = current ;
+			frames->num_blacklist += current ;
+			current = 1 - current ;
+		}
 	}
 }
 
@@ -40,41 +76,68 @@ int parse_dataset(char *fname, struct detector *det, struct dataset *current) {
 	if (current->num_pix != det->num_pix)
 		fprintf(stderr, "WARNING! The detector file and photons file %s do not"
 		                "have the same number of pixels\n", current->filename) ;
-	fseek(fp, 1016, SEEK_CUR) ;
-	
-	current->ones = malloc(current->num_data * sizeof(int)) ;
-	current->multi = malloc(current->num_data * sizeof(int)) ;
-	fread(current->ones, sizeof(int), current->num_data, fp) ;
-	fread(current->multi, sizeof(int), current->num_data, fp) ;
-	
-	for (d = 0 ; d < current->num_data ; ++d) {
-		current->ones_total += current->ones[d] ;
-		current->multi_total += current->multi[d] ;
+	fread(&(current->type), sizeof(int), 1, fp) ;
+	fseek(fp, 1024, SEEK_SET) ;
+	if (current->type == 0) { // Sparse
+		current->ones = malloc(current->num_data * sizeof(int)) ;
+		current->multi = malloc(current->num_data * sizeof(int)) ;
+		fread(current->ones, sizeof(int), current->num_data, fp) ;
+		fread(current->multi, sizeof(int), current->num_data, fp) ;
+		
+		for (d = 0 ; d < current->num_data ; ++d) {
+			current->ones_total += current->ones[d] ;
+			current->multi_total += current->multi[d] ;
+		}
+		
+		current->place_ones = malloc(current->ones_total * sizeof(int)) ;
+		current->place_multi = malloc(current->multi_total * sizeof(int)) ;
+		current->count_multi = malloc(current->multi_total * sizeof(int)) ;
+		fread(current->place_ones, sizeof(int), current->ones_total, fp) ;
+		fread(current->place_multi, sizeof(int), current->multi_total, fp) ;
+		fread(current->count_multi, sizeof(int), current->multi_total, fp) ;
 	}
-	
-	current->place_ones = malloc(current->ones_total * sizeof(int)) ;
-	current->place_multi = malloc(current->multi_total * sizeof(int)) ;
-	current->count_multi = malloc(current->multi_total * sizeof(int)) ;
-	fread(current->place_ones, sizeof(int), current->ones_total, fp) ;
-	fread(current->place_multi, sizeof(int), current->multi_total, fp) ;
-	fread(current->count_multi, sizeof(int), current->multi_total, fp) ;
-	
+	else if (current->type == 1) { // Dense integer
+		fprintf(stderr, "%s is a dense integer emc file\n", current->filename) ;
+		current->int_frames = malloc(current->num_pix * current->num_data * sizeof(int)) ;
+		fread(current->int_frames, sizeof(int), current->num_pix * current->num_data, fp) ;
+	}
+	else if (current->type == 2) { // Dense double
+		fprintf(stderr, "%s is a dense double precision emc file\n", current->filename) ;
+		current->frames = malloc(current->num_pix * current->num_data * sizeof(double)) ;
+		fread(current->frames, sizeof(double), current->num_pix * current->num_data, fp) ;
+	}
+	else {
+		fprintf(stderr, "Unknown dataset type %d\n", current->type) ;
+		return 1 ;
+	}
 	fclose(fp) ;
-	
+
 	// Calculate mean count in the presence of mask
 	long t, ones_counter = 0, multi_counter = 0 ;
 	current->mean_count = 0. ;
 	for (d = 0 ; d < current->num_data ; ++d) {
-		for (t = 0 ; t < current->ones[d] ; ++t)
-		if (det->mask[current->place_ones[ones_counter + t]] < 1)
-			current->mean_count += 1. ;
-		
-		for (t = 0 ; t < current->multi[d] ; ++t)
-		if (det->mask[current->place_multi[multi_counter + t]] < 1)
-			current->mean_count += current->count_multi[multi_counter + t] ;
-		
-		ones_counter += current->ones[d] ;
-		multi_counter += current->multi[d] ;
+		if (current->type == 0) {
+			for (t = 0 ; t < current->ones[d] ; ++t)
+			if (det->mask[current->place_ones[ones_counter + t]] < 1)
+				current->mean_count += 1. ;
+			
+			for (t = 0 ; t < current->multi[d] ; ++t)
+			if (det->mask[current->place_multi[multi_counter + t]] < 1)
+				current->mean_count += current->count_multi[multi_counter + t] ;
+			
+			ones_counter += current->ones[d] ;
+			multi_counter += current->multi[d] ;
+		}
+		else if (current->type == 1) {
+			for (t = 0 ; t < current->num_pix ; ++t)
+			if (det->mask[t] < 1)
+				current->mean_count += current->int_frames[d*current->num_pix + t] ;
+		}
+		else if (current->type == 2) {
+			for (t = 0 ; t < current->num_pix ; ++t)
+			if (det->mask[t] < 1)
+				current->mean_count += current->frames[d*current->num_pix + t] ;
+		}
 	}
 	
 	current->mean_count /= current->num_data ;
@@ -125,43 +188,28 @@ int parse_data(char *fname, struct detector *det, struct dataset *frames) {
 	
 	frames->tot_mean_count /= frames->tot_num_data ;
 	calc_sum_fact(det, frames) ;
+	fprintf(stderr, "sum_fact[0] = ") ;
+	fprintf(stderr, "%f\n", frames->sum_fact[0]) ;
 	
 	return 0 ;
-}
-
-void gen_blacklist(char *fname, int flag, struct dataset *frames) {
-	int d, current = flag%2 ;
-	frames->num_blacklist = 0 ;
-	frames->blacklist = calloc(frames->tot_num_data, sizeof(uint8_t)) ;
-	
-	FILE *fp = fopen(fname, "r") ;
-	if (fp != NULL) {
-		for (d = 0 ; d < frames->tot_num_data ; ++d) {
-			fscanf(fp, "%" SCNu8 "\n", &frames->blacklist[d]) ;
-			if (frames->blacklist[d])
-				frames->num_blacklist++ ;
-		}
-		fclose(fp) ;
-	}
-	
-	if (flag > 0) {
-		for (d = 0 ; d < frames->tot_num_data ; ++d)
-		if (!frames->blacklist[d]) {
-			frames->blacklist[d] = current ;
-			frames->num_blacklist += current ;
-			current = 1 - current ;
-		}
-	}
 }
 
 void free_data(int scale_flag, struct dataset *frames) {
 	struct dataset *curr = frames ;
 	while (curr != NULL) {
-		free(curr->ones) ;
-		free(curr->place_ones) ;
-		free(curr->multi) ;
-		free(curr->place_multi) ;
-		free(curr->count_multi) ;
+		if (curr->type == 0) {
+			free(curr->ones) ;
+			free(curr->place_ones) ;
+			free(curr->multi) ;
+			free(curr->place_multi) ;
+			free(curr->count_multi) ;
+		}
+		else if (curr->type == 1) {
+			free(curr->int_frames) ;
+		}
+		else if (curr->type == 2) {
+			free(curr->frames) ;
+		}
 		curr = curr->next ;
 	}
 	
