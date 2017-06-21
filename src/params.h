@@ -9,6 +9,9 @@ struct params {
 	// Algorithm parameters
 	int beta_period, need_scaling, known_scale ;
 	double alpha, beta, beta_jump ;
+	
+	// Gaussian EMC parameter
+	double sigmasq ;
 } ;
 
 #endif //PARAMS_H

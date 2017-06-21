@@ -34,6 +34,7 @@ int setup(char *config_fname, int continue_flag) {
 	param.need_scaling = 0 ;
 	param.alpha = 0. ;
 	param.beta = 1. ;
+	param.sigmasq = 0. ;
 	iter = malloc(sizeof(struct iterate)) ;
 	det = malloc(sizeof(struct detector)) ;
 	quat = malloc(sizeof(struct rotation)) ;
@@ -131,6 +132,11 @@ int setup(char *config_fname, int continue_flag) {
 			strcpy(sel_string, strtok(NULL, " =\n")) ;
 		else if (strcmp(token, "sym_icosahedral") == 0)
 			sym_icosahedral = atoi(strtok(NULL, " =\n")) ;
+		else if (strcmp(token, "gaussian_sigma") == 0) {
+			param.sigmasq = atof(strtok(NULL, " =\n")) ;
+			param.sigmasq *= param.sigmasq ;
+			fprintf(stderr, "sigma_squared = %f\n", param.sigmasq) ;
+		}
 	}
 	fclose(fp) ;
 	fprintf(stderr, "Parsed config file\n") ;
@@ -201,6 +207,7 @@ int setup(char *config_fname, int continue_flag) {
 	else if (data_flist[0] == '\0') {
 		if (parse_dataset(data_fname, det, frames))
 			return 1 ;
+		calc_sum_fact(det, frames) ;
 	}
 	else if (parse_data(data_flist, det, frames))
 		return 1 ;
