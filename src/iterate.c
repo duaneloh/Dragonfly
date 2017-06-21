@@ -31,20 +31,36 @@ void calc_scale(struct dataset *frames, struct detector *det, char* print_fname,
 	frames->count = calloc(frames->tot_num_data, sizeof(int)) ;
 	
 	while (curr != NULL) {
-		ones_counter = 0 ;
-		multi_counter = 0 ;
-		for (d = 0 ; d < curr->num_data ; ++d) {
-			iter->scale[d_counter + d] = 1. ;
-			for (t = 0 ; t < curr->ones[d] ; ++t)
-			if (det->mask[curr->place_ones[ones_counter + t]] < 1)
-				frames->count[d_counter + d]++ ;
-			
-			for (t = 0 ; t < curr->multi[d] ; ++t)
-			if (det->mask[curr->place_multi[multi_counter + t]] < 1)
-				frames->count[d_counter + d] += curr->count_multi[multi_counter + t] ;
-			
-			ones_counter += curr->ones[d] ;
-			multi_counter += curr->multi[d] ;
+		if (curr->type == 0) {
+			ones_counter = 0 ;
+			multi_counter = 0 ;
+			for (d = 0 ; d < curr->num_data ; ++d) {
+				iter->scale[d_counter + d] = 1. ;
+				for (t = 0 ; t < curr->ones[d] ; ++t)
+				if (det->mask[curr->place_ones[ones_counter + t]] < 1)
+					frames->count[d_counter + d]++ ;
+				
+				for (t = 0 ; t < curr->multi[d] ; ++t)
+				if (det->mask[curr->place_multi[multi_counter + t]] < 1)
+					frames->count[d_counter + d] += curr->count_multi[multi_counter + t] ;
+				
+				ones_counter += curr->ones[d] ;
+				multi_counter += curr->multi[d] ;
+			}
+		}
+		else if (curr->type == 1) {
+			for (d = 0 ; d < curr->num_data ; ++d) {
+				iter->scale[d_counter + d] = 1. ;
+				for (t = 0 ; t < curr->num_pix ; ++t)
+					frames->count[d_counter+d] += curr->int_frames[d*curr->num_pix + t] ;
+			}
+		}
+		else if (curr->type == 2) {
+			for (d = 0 ; d < curr->num_data ; ++d) {
+				iter->scale[d_counter + d] = 1. ;
+				for (t = 0 ; t < curr->num_pix ; ++t)
+					frames->count[d_counter+d] += curr->frames[d*curr->num_pix + t] ;
+			}
 		}
 		
 		d_counter += curr->num_data ;
