@@ -19,7 +19,7 @@ static double calculate_rescale() ;
 static void calculate_prob(int, double*, int*, double*) ;
 static void normalize_prob(double**, double*, int*) ;
 static double update_tomogram(int, double*, double*, double*) ;
-static void merge_tomogram(int, double, double*, double*, double*, double*) ;
+static void merge_tomogram(int, double, double*, double*, double*) ;
 static void combine_information(double*, double*, double*) ;
 static void print_time(char*, int) ;
 static void free_memory(double**) ;
@@ -41,7 +41,7 @@ double maximize() {
 	{
 		int omp_rank = omp_get_thread_num() ;
 		// priv_data = {priv_likelihood, priv_info, priv_scale}
-		double sum, *priv_data = NULL, *old_view = NULL ;
+		double sum, *priv_data = NULL ;
 		double *view = malloc(det->num_pix * sizeof(double)) ;
 		int *priv_rmax = calloc(frames->tot_num_data, sizeof(int)) ;
 		double *priv_max = malloc(frames->tot_num_data * sizeof(double)) ;
@@ -54,8 +54,6 @@ double maximize() {
 			priv_data = calloc(3 * frames->tot_num_data, sizeof(double)) ;
 		else
 			priv_data = calloc(2 * frames->tot_num_data, sizeof(double)) ;
-		if (param.alpha > 0.)
-			old_view = malloc(det->num_pix * sizeof(double)) ;
 
 		#pragma omp for schedule(static,1)
 		for (r = 0 ; r < quat->num_rot_p ; ++r) {
@@ -70,7 +68,7 @@ double maximize() {
 		#pragma omp for schedule(static,1)
 		for (r = 0 ; r < quat->num_rot_p ; ++r) {
 			sum = update_tomogram(r, probab[r], priv_data, view) ;
-			merge_tomogram(r, sum, view, old_view, priv_model, priv_weight) ;
+			merge_tomogram(r, sum, view, priv_model, priv_weight) ;
 			
 			free(probab[r]) ;
 		}
@@ -81,8 +79,6 @@ double maximize() {
 		combine_information(priv_data, priv_model, priv_weight) ;
 		
 		free(view) ;
-		if (param.alpha > 0.)
-			free(old_view) ;
 	}
 	print_time("Update", rank == 0) ;
 
@@ -407,28 +403,17 @@ double update_tomogram(int r, double *prob, double *priv_data, double *view) {
 	return sum ;
 }
 
-void merge_tomogram(int r, double sum, double *view, double *old_view, double *model, double *weight) {
+void merge_tomogram(int r, double sum, double *view, double *model, double *weight) {
 	int t ;
-	
-	if (param.alpha > 0.)
-		slice_gen(&quat->quat[(r*num_proc + rank)*5], rescale, old_view, iter->model1, iter->size, det) ;
 	
 	// If no data frame has any probability for this orientation, don't merge
 	// Otherwise divide the updated tomogram by the sum over all probabilities and merge
 	if (sum > 0.) {
-		for (t = 0 ; t < det->num_pix ; ++t) {
+		for (t = 0 ; t < det->num_pix ; ++t)
 			view[t] /= sum ;
-			
-			if (param.alpha > 0.)
-				old_view[t] = (1.-param.alpha) * view[t] + param.alpha * old_view[t] ;
-		}
 		
-		if (param.alpha == 0.)
-			slice_merge(&quat->quat[(r*num_proc + rank)*5], view, model, weight, iter->size, det) ;
+		slice_merge(&quat->quat[(r*num_proc + rank)*5], view, model, weight, iter->size, det) ;
 	}
-	
-	if (param.alpha > 0.)
-		slice_merge(&quat->quat[(r*num_proc + rank)*5], old_view, model, weight, iter->size, det) ;
 }
 
 void combine_information(double *priv_data, double *priv_model, double *priv_weight) {
