@@ -410,7 +410,8 @@ double update_tomogram(int r, double *prob, double *priv_data, double *view) {
 			}
 			
 			// Calculate mutual information of probability distribution
-			priv_data[frames->tot_num_data + d_counter+d] += prob[d_counter+d] * log(prob[d_counter+d] / quat->quat[(r*num_proc + rank)*5 + 4]) ;
+			//priv_data[frames->tot_num_data + d_counter+d] += prob[d_counter+d] * log(prob[d_counter+d] / quat->quat[(r*num_proc + rank)*5 + 4]) ;
+			priv_data[frames->tot_num_data + d_counter+d] -= prob[d_counter+d] * log(prob[d_counter+d]) ;
 			
 			if (curr->type == 0) {
 				// For all pixels with one photon
