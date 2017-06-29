@@ -54,7 +54,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
 
     def init_UI(self):
         self.setWindowTitle('Dragonfly Progress Viewer')
-        self.setGeometry(100, 100, 1500, 800)
+        self.setGeometry(100, 100, 1600, 800)
         overall = QtWidgets.QWidget()
         self.setCentralWidget(overall)
         self.grid = QtWidgets.QGridLayout(overall)
