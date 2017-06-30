@@ -4,7 +4,6 @@
 struct params {
 	int iteration, current_iter, start_iter, num_iter ;
 	char output_folder[1024], log_fname[1024] ;
-	double rescale ;
 	
 	// Algorithm parameters
 	int beta_period, need_scaling, known_scale ;

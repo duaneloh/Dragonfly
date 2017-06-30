@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
 					diff = iter->model2[x] - iter->model1[x] ;
 					change += diff * diff ;
 					if (param.alpha > 0.)
-						iter->model1[x] = param.alpha * param.rescale * iter->model1[x] + (1. - param.alpha) * iter->model2[x] ;
+						iter->model1[x] = param.alpha * iter->rescale * iter->model1[x] + (1. - param.alpha) * iter->model2[x] ;
 					else
 						iter->model1[x] = iter->model2[x] ;
 				}

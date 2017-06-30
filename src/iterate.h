@@ -15,7 +15,7 @@ struct iterate {
 	double *model1, *model2, *inter_weight ;
 	double *scale ;
 	
-	double mutual_info, rms_change ;
+	double rescale, mutual_info, rms_change ;
 } ;
 
 int parse_scale(char*, struct dataset*, struct iterate*) ;
