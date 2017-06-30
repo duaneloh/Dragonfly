@@ -20,7 +20,7 @@ static void normalize_prob(double**, double*, int*) ;
 static double update_tomogram(int, double*, double*, double*) ;
 static void merge_tomogram(int, double, double*, double*, double*) ;
 static void combine_information(double*, double*, double*) ;
-static void print_time(char*, int) ;
+static void print_time(char*, char*, int) ;
 static void free_memory(double**) ;
 
 double maximize() {
@@ -33,8 +33,8 @@ double maximize() {
 	allocate_memory(&probab) ;
 
 	// Sum over all pixels of model tomogram (data-independent part of probability)
-	param.rescale = calculate_rescale() ;
-	fprintf(stderr, "\trescale = %.6e\n", param.rescale) ;
+	iter->rescale = calculate_rescale() ;
+	fprintf(stderr, "\trescale = %.6e\n", iter->rescale) ;
 
 	// Main loop: Calculate probabilities and update tomograms
 	#pragma omp parallel default(shared) private(r,d)
@@ -60,10 +60,10 @@ double maximize() {
 			probab[r] = malloc(frames->tot_num_data * sizeof(double)) ;
 			calculate_prob(r, priv_max, priv_rmax, probab[r]) ;
 		}
-		print_time("prob", rank == 0 && omp_rank == 0) ;
+		print_time("prob", "", rank == 0 && omp_rank == 0) ;
 		
 		normalize_prob(probab, priv_max, priv_rmax) ;
-		print_time("psum", rank == 0 && omp_rank == 0) ;
+		print_time("psum", "", rank == 0 && omp_rank == 0) ;
 
 		#pragma omp for schedule(static,1)
 		for (r = 0 ; r < quat->num_rot_p ; ++r) {
@@ -80,7 +80,7 @@ double maximize() {
 		
 		free(view) ;
 	}
-	print_time("Update", rank == 0) ;
+	print_time("Update", "", rank == 0) ;
 
 	// Combine 3D volumes from all MPI ranks
 	if (rank) {
@@ -176,7 +176,7 @@ void allocate_memory(double ***probab) {
 	
 	memset(iter->model2, 0, vol*sizeof(double)) ;
 	memset(iter->inter_weight, 0, vol*sizeof(double)) ;
-	print_time("Alloc", rank == 0) ;
+	print_time("Alloc", "", rank == 0) ;
 }
 
 double calculate_rescale() {
@@ -212,7 +212,10 @@ double calculate_rescale() {
 		u[r] = log(quat->quat[(r*num_proc + rank)*5 + 4]) - u[r] ;
 	}
 	
-	print_time("rescale", rank == 0) ;
+	char res_string[1024] ;
+	sprintf(res_string, "(= %.6e)", frames->tot_mean_count / total) ;
+	print_time("rescale", res_string, rank == 0) ;
+	
 	return frames->tot_mean_count / total ;
 }
 
@@ -245,7 +248,7 @@ void calculate_prob(int r, double *max, int *rmax, double *prob) {
 				if (param.need_scaling && (param.iteration > 1 || param.known_scale))
 					prob[d_counter+d] = u[r] * iter->scale[d_counter+d] ;
 				else
-					prob[d_counter+d] = u[r] * param.rescale ;
+					prob[d_counter+d] = u[r] * iter->rescale ;
 			}
 			else {
 				prob[d_counter+d] = 0. ;
@@ -274,7 +277,7 @@ void calculate_prob(int r, double *max, int *rmax, double *prob) {
 			else if (curr->type == 2) { // Gaussian EMC for double precision data without scaling
 				for (t = 0 ; t < det->num_pix ; ++t)
 				if (det->mask[t] < 1)
-					prob[d_counter+d] -= pow(curr->frames[d*curr->num_pix + t] - view[t]*param.rescale, 2.) ;
+					prob[d_counter+d] -= pow(curr->frames[d*curr->num_pix + t] - view[t]*iter->rescale, 2.) ;
 			}
 			
 			// Note maximum log-likelihood for each frame among 'r's tested by this MPI rank and OMP rank
@@ -395,7 +398,7 @@ double update_tomogram(int r, double *prob, double *priv_data, double *view) {
 				if (param.iteration > 1)
 					priv_data[2*frames->tot_num_data + d_counter+d] -= prob[d_counter+d] * u[r] ;
 				else
-					priv_data[2*frames->tot_num_data + d_counter+d] -= prob[d_counter+d] * u[r] * param.rescale ;
+					priv_data[2*frames->tot_num_data + d_counter+d] -= prob[d_counter+d] * u[r] * iter->rescale ;
 			}
 			else
 				sum += prob[d_counter+d] ; 
@@ -514,7 +517,7 @@ void free_memory(double **probab) {
 	free(rmax) ;
 }
 
-void print_time(char *tag, int flag) {
+void print_time(char *pre_tag, char *post_tag, int flag) {
 	if (!flag)
 		return ;
 	
@@ -531,6 +534,6 @@ void print_time(char *tag, int flag) {
 		diff = t1.tv_sec + t1.tv_usec*1.e-6 - time_2 ;
 	}
 	
-	fprintf(stderr, "\t%s\t%f\n", tag, diff) ;
+	fprintf(stderr, "\t%s\t%f %s\n", pre_tag, diff, post_tag) ;
 }
 
