@@ -81,14 +81,14 @@ int parse_dataset(char *fname, struct detector *det, struct dataset *current) {
 		
 		current->ones_accum = malloc(current->num_data * sizeof(long)) ;
 		current->multi_accum = malloc(current->num_data * sizeof(long)) ;
-		current->ones_accum[0] = current->ones[0] ;
-		current->multi_accum[0] = current->multi[0] ;
+		current->ones_accum[0] = 0 ;
+		current->multi_accum[0] = 0 ;
 		for (d = 1 ; d < current->num_data ; ++d) {
-			current->ones_accum[d] = current->ones_accum[d-1] + current->ones[d] ;
-			current->multi_accum[d] = current->multi_accum[d-1] + current->multi[d] ;
+			current->ones_accum[d] = current->ones_accum[d-1] + current->ones[d-1] ;
+			current->multi_accum[d] = current->multi_accum[d-1] + current->multi[d-1] ;
 		}
-		current->ones_total = current->ones_accum[current->num_data - 1] ;
-		current->multi_total = current->multi_accum[current->num_data - 1] ;
+		current->ones_total = current->ones_accum[current->num_data-1] + current->ones[current->num_data-1] ;
+		current->multi_total = current->multi_accum[current->num_data-1] + current->multi[current->num_data-1] ;
 		
 		current->place_ones = malloc(current->ones_total * sizeof(int)) ;
 		current->place_multi = malloc(current->multi_total * sizeof(int)) ;
