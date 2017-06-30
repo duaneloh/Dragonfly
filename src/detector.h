@@ -12,7 +12,7 @@ struct detector {
 	uint8_t *mask ;
 } ;
 
-int parse_detector(char*, struct detector*) ;
+int parse_detector(char*, struct detector*, int) ;
 void free_detector(struct detector*) ;
 
 #endif //DETECTOR_H

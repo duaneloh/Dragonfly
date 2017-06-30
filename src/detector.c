@@ -1,6 +1,6 @@
 #include "detector.h"
 
-int parse_detector(char *fname, struct detector *det) {
+int parse_detector(char *fname, struct detector *det, int norm_flag) {
 	int t, d ;
 	double mean_pol = 0. ;
 	
@@ -23,9 +23,11 @@ int parse_detector(char *fname, struct detector *det) {
 		mean_pol += det->pixels[t*4 + 3] ;
 	}
 	
-	mean_pol /= det->num_pix ;
-	for (t = 0 ; t < det->num_pix ; ++t)
-		det->pixels[t*4 + 3] /= mean_pol ;
+	if (norm_flag == 1) {
+		mean_pol /= det->num_pix ;
+		for (t = 0 ; t < det->num_pix ; ++t)
+			det->pixels[t*4 + 3] /= mean_pol ;
+	}
 	
 	fclose(fp) ;
 	
