@@ -12,7 +12,8 @@ int setup(char *config_fname, int continue_flag) {
 	char data_fname[1024], out_data_fname[1024] ;
 	char merge_flist[1024], merge_fname[1024] ;
 	char out_det_fname[1024], sel_string[1024] ;
-	int num, good_section = 0, sym_icosahedral = 0 ;
+	char section_name[1024] ;
+	int num, sym_icosahedral = 0 ;
 	double qmax, qmin, detd = 0., pixsize = 0., ewald_rad = -1. ;
 	int dets_x = 0, dets_y = 0, detsize = 0, num_div = -1 ;
 
@@ -55,91 +56,84 @@ int setup(char *config_fname, int continue_flag) {
 		}
 		else if (token[0] == '[') {
 			token = strtok(token, "[]") ;
-			if (strcmp(token, "emc") == 0 ||
-			    strcmp(token, "parameters") == 0 ||
-			    strcmp(token, "make_detector") == 0 ||
-			    strcmp(token, "make_data") == 0)
-				good_section = 1 ;
-			else
-				good_section = 0 ;
-			continue ;
+			strcpy(section_name, token) ;
 		}
-		if (!good_section)
-			continue ;
 		
-		// [parameters]
-		if (strcmp(token, "detd") == 0)
-			detd = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "detsize") == 0) {
-			dets_x = atoi(strtok(NULL, " =\n")) ;
-			dets_y = dets_x ;
-			token = strtok(NULL, " =\n") ;
-			if (token == NULL)
-				detsize = dets_x ;
-			else {
-				dets_y = atoi(token) ;
-				detsize = dets_x > dets_y ? dets_x : dets_y ;
+		if (strcmp(section_name, "parameters") == 0) {
+			if (strcmp(token, "detd") == 0)
+				detd = atof(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "detsize") == 0) {
+				dets_x = atoi(strtok(NULL, " =\n")) ;
+				dets_y = dets_x ;
+				token = strtok(NULL, " =\n") ;
+				if (token == NULL)
+					detsize = dets_x ;
+				else {
+					dets_y = atoi(token) ;
+					detsize = dets_x > dets_y ? dets_x : dets_y ;
+				}
 			}
+			else if (strcmp(token, "pixsize") == 0)
+				pixsize = atof(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "ewald_rad") == 0)
+				ewald_rad = atof(strtok(NULL, " =\n")) ;
 		}
-		else if (strcmp(token, "pixsize") == 0)
-			pixsize = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "need_scaling") == 0)
-			param.need_scaling = atoi(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "alpha") == 0)
-			param.alpha = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "beta") == 0)
-			param.beta = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "ewald_rad") == 0)
-			ewald_rad = atof(strtok(NULL, " =\n")) ;
-		// [make_detector]
-		else if (strcmp(token, "out_detector_file") == 0)
-			strcpy(out_det_fname, strtok(NULL, " =\n")) ;
-		// [make_data]
-		else if (strcmp(token, "out_photons_file") == 0)
-			strcpy(out_data_fname, strtok(NULL, " =\n")) ;
-		// [emc]
-		else if (strcmp(token, "in_photons_file") == 0)
-			strcpy(data_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "in_photons_file") == 0)
-			strcpy(data_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "in_photons_list") == 0)
-			strcpy(data_flist, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "merge_photons_file") == 0)
-			strcpy(merge_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "merge_photons_list") == 0)
-			strcpy(merge_flist, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "output_folder") == 0)
-			strcpy(param.output_folder, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "log_file") == 0)
-			strcpy(param.log_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "start_model_file") == 0)
-			strcpy(input_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "in_detector_file") == 0)
-			strcpy(det_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "num_div") == 0)
-			num_div = atoi(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "in_quat_file") == 0)
-			strcpy(quat_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "blacklist_file") == 0)
-			strcpy(blacklist_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "scale_file") == 0)
-			strcpy(scale_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "beta_schedule") == 0) {
-			param.beta_jump = atof(strtok(NULL, " =\n")) ;
-			param.beta_period = atoi(strtok(NULL, " =\n")) ;
+		else if (strcmp(section_name, "make_detector") == 0) {
+			if (strcmp(token, "out_detector_file") == 0)
+				strcpy(out_det_fname, strtok(NULL, " =\n")) ;
 		}
-		else if (strcmp(token, "selection") == 0)
-			strcpy(sel_string, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "sym_icosahedral") == 0)
-			sym_icosahedral = atoi(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "gaussian_sigma") == 0) {
-			param.sigmasq = atof(strtok(NULL, " =\n")) ;
-			param.sigmasq *= param.sigmasq ;
-			fprintf(stderr, "sigma_squared = %f\n", param.sigmasq) ;
+		else if (strcmp(section_name, "make_data") == 0) {
+			if (strcmp(token, "out_photons_file") == 0)
+				strcpy(out_data_fname, strtok(NULL, " =\n")) ;
+		}
+		else if (strcmp(section_name, "emc") == 0) {
+			if (strcmp(token, "in_photons_file") == 0)
+				strcpy(data_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "in_photons_list") == 0)
+				strcpy(data_flist, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "merge_photons_file") == 0)
+				strcpy(merge_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "merge_photons_list") == 0)
+				strcpy(merge_flist, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "output_folder") == 0)
+				strcpy(param.output_folder, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "log_file") == 0)
+				strcpy(param.log_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "start_model_file") == 0)
+				strcpy(input_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "in_detector_file") == 0)
+				strcpy(det_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "num_div") == 0)
+				num_div = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "in_quat_file") == 0)
+				strcpy(quat_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "blacklist_file") == 0)
+				strcpy(blacklist_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "scale_file") == 0)
+				strcpy(scale_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "need_scaling") == 0)
+				param.need_scaling = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "alpha") == 0)
+				param.alpha = atof(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "beta") == 0)
+				param.beta = atof(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "beta_schedule") == 0) {
+				param.beta_jump = atof(strtok(NULL, " =\n")) ;
+				param.beta_period = atoi(strtok(NULL, " =\n")) ;
+			}
+			else if (strcmp(token, "selection") == 0)
+				strcpy(sel_string, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "sym_icosahedral") == 0)
+				sym_icosahedral = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "gaussian_sigma") == 0) {
+				param.sigmasq = atof(strtok(NULL, " =\n")) ;
+				param.sigmasq *= param.sigmasq ;
+				fprintf(stderr, "sigma_squared = %f\n", param.sigmasq) ;
+			}
 		}
 	}
 	fclose(fp) ;
-	fprintf(stderr, "Parsed config file\n") ;
+	fprintf(stderr, "Parsed config file %s\n", config_fname) ;
 
 	// Check for referenced arguments
 	if (strcmp(det_fname, "make_detector:::out_detector_file") == 0)
