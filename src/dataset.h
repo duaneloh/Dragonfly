@@ -11,13 +11,14 @@
 struct dataset {
 	// Data set type (0=sparse, 1=dense integer, 2=dense double)
 	int type ;
-	int num_data, num_pix ;
+	int num_data, num_pix, num_data_prev ;
 	double mean_count ;
 	char filename[1024] ;
 	
 	// Sparse dataset
 	long ones_total, multi_total ;
 	int *ones, *multi, *place_ones, *place_multi, *count_multi ;
+	long *ones_accum, *multi_accum ;
 	
 	// Dense dataset
 	double *frames ;

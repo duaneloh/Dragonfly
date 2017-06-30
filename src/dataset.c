@@ -84,10 +84,16 @@ int parse_dataset(char *fname, struct detector *det, struct dataset *current) {
 		fread(current->ones, sizeof(int), current->num_data, fp) ;
 		fread(current->multi, sizeof(int), current->num_data, fp) ;
 		
-		for (d = 0 ; d < current->num_data ; ++d) {
-			current->ones_total += current->ones[d] ;
-			current->multi_total += current->multi[d] ;
+		current->ones_accum = malloc(current->num_data * sizeof(long)) ;
+		current->multi_accum = malloc(current->num_data * sizeof(long)) ;
+		current->ones_accum[0] = current->ones[0] ;
+		current->multi_accum[0] = current->multi[0] ;
+		for (d = 1 ; d < current->num_data ; ++d) {
+			current->ones_accum[d] = current->ones_accum[d-1] + current->ones[d] ;
+			current->multi_accum[d] = current->multi_accum[d-1] + current->multi[d] ;
 		}
+		current->ones_total = current->ones_accum[current->num_data - 1] ;
+		current->multi_total = current->multi_accum[current->num_data - 1] ;
 		
 		current->place_ones = malloc(current->ones_total * sizeof(int)) ;
 		current->place_multi = malloc(current->multi_total * sizeof(int)) ;
@@ -113,20 +119,17 @@ int parse_dataset(char *fname, struct detector *det, struct dataset *current) {
 	fclose(fp) ;
 
 	// Calculate mean count in the presence of mask
-	long t, ones_counter = 0, multi_counter = 0 ;
+	long t ;
 	current->mean_count = 0. ;
 	for (d = 0 ; d < current->num_data ; ++d) {
 		if (current->type == 0) {
 			for (t = 0 ; t < current->ones[d] ; ++t)
-			if (det->mask[current->place_ones[ones_counter + t]] < 1)
+			if (det->mask[current->place_ones[current->ones_accum[d] + t]] < 1)
 				current->mean_count += 1. ;
 			
 			for (t = 0 ; t < current->multi[d] ; ++t)
-			if (det->mask[current->place_multi[multi_counter + t]] < 1)
-				current->mean_count += current->count_multi[multi_counter + t] ;
-			
-			ones_counter += current->ones[d] ;
-			multi_counter += current->multi[d] ;
+			if (det->mask[current->place_multi[current->multi_accum[d] + t]] < 1)
+				current->mean_count += current->count_multi[current->multi_accum[d] + t] ;
 		}
 		else if (current->type == 1) {
 			for (t = 0 ; t < current->num_pix ; ++t)
@@ -168,6 +171,7 @@ int parse_data(char *fname, struct detector *det, struct dataset *frames) {
 	curr = frames ;
 	frames->tot_num_data = frames->num_data ;
 	frames->tot_mean_count = frames->num_data * frames->mean_count ;
+	frames->num_data_prev = 0 ;
 	int num_datasets = 1 ;
 	
 	while (fscanf(fp, "%s\n", data_fname) == 1) {
@@ -180,6 +184,7 @@ int parse_data(char *fname, struct detector *det, struct dataset *frames) {
 		if (parse_dataset(data_fname, det, curr))
 			return 1 ;
 		
+		curr->num_data_prev = frames->tot_num_data ;
 		frames->tot_num_data += curr->num_data ;
 		frames->tot_mean_count += curr->num_data * curr->mean_count ;
 		num_datasets++ ;
@@ -188,8 +193,6 @@ int parse_data(char *fname, struct detector *det, struct dataset *frames) {
 	
 	frames->tot_mean_count /= frames->tot_num_data ;
 	calc_sum_fact(det, frames) ;
-	fprintf(stderr, "sum_fact[0] = ") ;
-	fprintf(stderr, "%f\n", frames->sum_fact[0]) ;
 	
 	return 0 ;
 }
