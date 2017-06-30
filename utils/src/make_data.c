@@ -376,11 +376,9 @@ int setup(char *config_fname) {
 	intens = malloc(size * size * size * sizeof(double)) ;
 	fread(intens, sizeof(double), size*size*size, fp) ;
 	fclose(fp) ;
-	fprintf(stderr, "intens = %e\n", intens[size*size*size-1]) ;
 	
 	det = malloc(sizeof(struct detector)) ;
 	parse_detector(det_fname, det, 0) ;
-	fprintf(stderr, "pol = %e\n", det->pixels[det->num_pix*4 - 1]) ;
 	
 	if (quat_fname[0] != '\0') {
 		fprintf(stderr, "Picking discrete orientations from %s\n", quat_fname) ;
