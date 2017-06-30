@@ -34,7 +34,6 @@ double maximize() {
 
 	// Sum over all pixels of model tomogram (data-independent part of probability)
 	iter->rescale = calculate_rescale() ;
-	fprintf(stderr, "\trescale = %.6e\n", iter->rescale) ;
 
 	// Main loop: Calculate probabilities and update tomograms
 	#pragma omp parallel default(shared) private(r,d)
@@ -220,8 +219,7 @@ double calculate_rescale() {
 }
 
 void calculate_prob(int r, double *max, int *rmax, double *prob) {
-	int t, d, d_counter = 0, pixel ;
-	long ones_counter, multi_counter ;
+	int t, d, pixel ;
 	struct dataset *curr = frames ;
 	double *view = malloc(det->num_pix * sizeof(double)) ;
 	
@@ -229,70 +227,56 @@ void calculate_prob(int r, double *max, int *rmax, double *prob) {
 	
 	// Linked list of data sets from different files
 	while (curr != NULL) {
-		ones_counter = 0 ;
-		multi_counter = 0 ;
-		
 		// For each frame in data set
 		for (d = 0 ; d < curr->num_data ; ++d) {
 			// check if frame is blacklisted
-			if (frames->blacklist[d_counter+d]) {
-				if (curr->type == 0) {
-					ones_counter += curr->ones[d] ;
-					multi_counter += curr->multi[d] ;
-				}
+			if (frames->blacklist[curr->num_data_prev+d])
 				continue ;
-			}
 			
 			if (curr->type < 2) {
 				// need_scaling is for if we want to assume variable incident intensity
 				if (param.need_scaling && (param.iteration > 1 || param.known_scale))
-					prob[d_counter+d] = u[r] * iter->scale[d_counter+d] ;
+					prob[curr->num_data_prev+d] = u[r] * iter->scale[curr->num_data_prev+d] ;
 				else
-					prob[d_counter+d] = u[r] * iter->rescale ;
+					prob[curr->num_data_prev+d] = u[r] * iter->rescale ;
 			}
 			else {
-				prob[d_counter+d] = 0. ;
+				prob[curr->num_data_prev+d] = 0. ;
 			}
 			
 			if (curr->type == 0) {
 				// For each pixel with one photon
 				for (t = 0 ; t < curr->ones[d] ; ++t) {
-					pixel = curr->place_ones[ones_counter + t] ;
+					pixel = curr->place_ones[curr->ones_accum[d] + t] ;
 					if (det->mask[pixel] < 1)
-						prob[d_counter+d] += view[pixel] ;
+						prob[curr->num_data_prev+d] += view[pixel] ;
 				}
 				
 				// For each pixel with count_multi photons
 				for (t = 0 ; t < curr->multi[d] ; ++t) {
-					pixel = curr->place_multi[multi_counter + t] ;
+					pixel = curr->place_multi[curr->multi_accum[d] + t] ;
 					if (det->mask[pixel] < 1)
-						prob[d_counter+d] += curr->count_multi[multi_counter + t] * view[pixel] ;
+						prob[curr->num_data_prev+d] += curr->count_multi[curr->multi_accum[d] + t] * view[pixel] ;
 				}
 			}
 			else if (curr->type == 1) {
 				for (t = 0 ; t < det->num_pix ; ++t)
 				if (det->mask[t] < 1)
-					prob[d_counter+d] += curr->int_frames[d*curr->num_pix + t] * view[t] ;
+					prob[curr->num_data_prev+d] += curr->int_frames[d*curr->num_pix + t] * view[t] ;
 			}
 			else if (curr->type == 2) { // Gaussian EMC for double precision data without scaling
 				for (t = 0 ; t < det->num_pix ; ++t)
 				if (det->mask[t] < 1)
-					prob[d_counter+d] -= pow(curr->frames[d*curr->num_pix + t] - view[t]*iter->rescale, 2.) ;
+					prob[curr->num_data_prev+d] -= pow(curr->frames[d*curr->num_pix + t] - view[t]*iter->rescale, 2.) ;
 			}
 			
 			// Note maximum log-likelihood for each frame among 'r's tested by this MPI rank and OMP rank
-			if (prob[d_counter+d] > max[d_counter+d]) {
-				max[d_counter+d] = prob[d_counter+d] ;
-				rmax[d_counter+d] = r*num_proc + rank ;
-			}
-			
-			if (curr->type == 0) {
-				ones_counter += curr->ones[d] ;
-				multi_counter += curr->multi[d] ;
+			if (prob[curr->num_data_prev+d] > max[curr->num_data_prev+d]) {
+				max[curr->num_data_prev+d] = prob[curr->num_data_prev+d] ;
+				rmax[curr->num_data_prev+d] = r*num_proc + rank ;
 			}
 		}
 		
-		d_counter += curr->num_data ;
 		curr = curr->next ;
 	}
 	
@@ -353,9 +337,8 @@ void normalize_prob(double **prob, double *priv_max, int *priv_rmax) {
 }
 
 double update_tomogram(int r, double *prob, double *priv_data, double *view) {
-	int t, d, d_counter = 0, pixel ;
+	int t, d, pixel ;
 	double temp, sum = 0. ;
-	long ones_counter, multi_counter ;
 	struct dataset *curr ;
 	
 	if (merge_frames != NULL) {
@@ -369,85 +352,66 @@ double update_tomogram(int r, double *prob, double *priv_data, double *view) {
 	memset(view, 0, det->num_pix*sizeof(double)) ;
 	
 	while (curr != NULL) {
-		ones_counter = 0 ;
-		multi_counter = 0 ;
-		
 		for (d = 0 ; d < curr->num_data ; ++d) {
 			// check if frame is blacklisted
-			if (frames->blacklist[d_counter+d]) {
-				if (curr->type == 0) {
-					ones_counter += curr->ones[d] ;
-					multi_counter += curr->multi[d] ;
-				}
+			if (frames->blacklist[curr->num_data_prev+d])
 				continue ;
-			}
 			
 			// Exponentiate log-likelihood and normalize to get probabilities
-			temp = prob[d_counter+d] ;
+			temp = prob[curr->num_data_prev+d] ;
 			if (frames->type < 2)
-				prob[d_counter+d] = exp(param.beta*(prob[d_counter+d] - max_exp[d_counter+d])) / p_sum[d_counter+d] ; 
+				prob[curr->num_data_prev+d] = exp(param.beta*(prob[curr->num_data_prev+d] - max_exp[curr->num_data_prev+d])) / p_sum[curr->num_data_prev+d] ; 
 			else
-				prob[d_counter+d] = exp(param.beta * (prob[d_counter+d] - max_exp[d_counter+d]) / 2. / param.sigmasq) / p_sum[d_counter+d] ;
-//			priv_data[d_counter+d] += prob[d_counter+d] * (temp - frames->sum_fact[d_counter+d] + frames->count[d_counter+d]*log(iter->scale[d_counter+d])) ;
-			priv_data[d_counter+d] += prob[d_counter+d] * temp ;
+				prob[curr->num_data_prev+d] = exp(param.beta * (prob[curr->num_data_prev+d] - max_exp[curr->num_data_prev+d]) / 2. / param.sigmasq) / p_sum[curr->num_data_prev+d] ;
+//			priv_data[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * (temp - frames->sum_fact[curr->num_data_prev+d] + frames->count[curr->num_data_prev+d]*log(iter->scale[curr->num_data_prev+d])) ;
+			priv_data[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * temp ;
 			
 			// Calculate denominator for update rule
 			if (param.need_scaling) {
-				sum += prob[d_counter+d] * iter->scale[d_counter+d] ;
+				sum += prob[curr->num_data_prev+d] * iter->scale[curr->num_data_prev+d] ;
 				// Calculate denominator for scale factor update rule
 				if (param.iteration > 1)
-					priv_data[2*frames->tot_num_data + d_counter+d] -= prob[d_counter+d] * u[r] ;
+					priv_data[2*frames->tot_num_data + curr->num_data_prev+d] -= prob[curr->num_data_prev+d] * u[r] ;
 				else
-					priv_data[2*frames->tot_num_data + d_counter+d] -= prob[d_counter+d] * u[r] * iter->rescale ;
+					priv_data[2*frames->tot_num_data + curr->num_data_prev+d] -= prob[curr->num_data_prev+d] * u[r] * iter->rescale ;
 			}
 			else
-				sum += prob[d_counter+d] ; 
+				sum += prob[curr->num_data_prev+d] ; 
 			
 			// Skip if probability is very low (saves time)
-			if (!(prob[d_counter+d] > PROB_MIN)) {
-				if (curr->type == 0) {
-					ones_counter += curr->ones[d] ;
-					multi_counter += curr->multi[d] ;
-				}
+			if (!(prob[curr->num_data_prev+d] > PROB_MIN))
 				continue ;
-			}
 			
 			// Calculate mutual information of probability distribution
-			priv_data[frames->tot_num_data + d_counter+d] += prob[d_counter+d] * log(prob[d_counter+d] / quat->quat[(r*num_proc + rank)*5 + 4]) ;
-			//priv_data[frames->tot_num_data + d_counter+d] -= prob[d_counter+d] * log(prob[d_counter+d]) ;
+			priv_data[frames->tot_num_data + curr->num_data_prev+d] += prob[curr->num_data_prev+d] * log(prob[curr->num_data_prev+d] / quat->quat[(r*num_proc + rank)*5 + 4]) ;
+			//priv_data[frames->tot_num_data + curr->num_data_prev+d] -= prob[curr->num_data_prev+d] * log(prob[curr->num_data_prev+d]) ;
 			
 			if (curr->type == 0) {
 				// For all pixels with one photon
 				for (t = 0 ; t < curr->ones[d] ; ++t) {
-					pixel = curr->place_ones[ones_counter + t] ;
+					pixel = curr->place_ones[curr->ones_accum[d] + t] ;
 					if (det->mask[pixel] < 2)
-						view[pixel] += prob[d_counter+d] ;
+						view[pixel] += prob[curr->num_data_prev+d] ;
 				}
 				
 				// For all pixels with count_multi photons
 				for (t = 0 ; t < curr->multi[d] ; ++t) {
-					pixel = curr->place_multi[multi_counter + t] ;
+					pixel = curr->place_multi[curr->multi_accum[d] + t] ;
 					if (det->mask[pixel] < 2)
-						view[pixel] += curr->count_multi[multi_counter + t] * prob[d_counter+d] ;
+						view[pixel] += curr->count_multi[curr->multi_accum[d] + t] * prob[curr->num_data_prev+d] ;
 				}
 			}
 			else if (curr->type == 1) {
 				for (t = 0 ; t < curr->num_pix ; ++t)
-					view[t] += curr->int_frames[d*curr->num_pix + t] * prob[d_counter+d] ;
+					view[t] += curr->int_frames[d*curr->num_pix + t] * prob[curr->num_data_prev+d] ;
 			}
 			else if (curr->type == 2) { // Gaussian EMC update without scaling
 				for (t = 0 ; t < curr->num_pix ; ++t)
 				if (det->mask[t] < 2)
-					view[t] += curr->frames[d*curr->num_pix + t] * prob[d_counter+d] ;
-			}
-			
-			if (curr->type == 0) {
-				ones_counter += curr->ones[d] ;
-				multi_counter += curr->multi[d] ;
+					view[t] += curr->frames[d*curr->num_pix + t] * prob[curr->num_data_prev+d] ;
 			}
 		}
 		
-		d_counter += curr->num_data ;
 		curr = curr->next ;
 	}
 	

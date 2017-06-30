@@ -180,7 +180,7 @@ int setup(char *config_fname, int continue_flag) {
 	fprintf(stderr, "Generating 3D volume of size %ld\n", iter->size) ;
 
 	// Generate detector
-	if (parse_detector(det_fname, det))
+	if (parse_detector(det_fname, det, 1))
 		return 1 ;
 
 	// Generate quaternions
@@ -207,6 +207,7 @@ int setup(char *config_fname, int continue_flag) {
 	else if (data_flist[0] == '\0') {
 		if (parse_dataset(data_fname, det, frames))
 			return 1 ;
+		frames->num_data_prev = 0 ;
 		calc_sum_fact(det, frames) ;
 	}
 	else if (parse_data(data_flist, det, frames))
@@ -221,6 +222,7 @@ int setup(char *config_fname, int continue_flag) {
 			fprintf(stderr, "Parsing merge file %s\n", merge_fname) ;
 		merge_frames = malloc(sizeof(struct dataset)) ;
 		merge_frames->next = NULL ;
+		merge_frames->num_data_prev = 0 ;
 		if (parse_dataset(merge_fname, det, merge_frames))
 			return 1 ;
 	}

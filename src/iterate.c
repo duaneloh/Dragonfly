@@ -22,7 +22,6 @@ int parse_scale(char *fname, struct dataset *frames, struct iterate *iter) {
 }
 
 void calc_scale(struct dataset *frames, struct detector *det, char* print_fname, struct iterate *iter) {
-	long d_counter = 0, ones_counter, multi_counter ;
 	int d, t ;
 	struct dataset *curr ;
 	curr = frames ;
@@ -32,38 +31,32 @@ void calc_scale(struct dataset *frames, struct detector *det, char* print_fname,
 	
 	while (curr != NULL) {
 		if (curr->type == 0) {
-			ones_counter = 0 ;
-			multi_counter = 0 ;
 			for (d = 0 ; d < curr->num_data ; ++d) {
-				iter->scale[d_counter + d] = 1. ;
+				iter->scale[curr->num_data_prev + d] = 1. ;
 				for (t = 0 ; t < curr->ones[d] ; ++t)
-				if (det->mask[curr->place_ones[ones_counter + t]] < 1)
-					frames->count[d_counter + d]++ ;
+				if (det->mask[curr->place_ones[curr->ones_accum[d] + t]] < 1)
+					frames->count[curr->num_data_prev + d]++ ;
 				
 				for (t = 0 ; t < curr->multi[d] ; ++t)
-				if (det->mask[curr->place_multi[multi_counter + t]] < 1)
-					frames->count[d_counter + d] += curr->count_multi[multi_counter + t] ;
-				
-				ones_counter += curr->ones[d] ;
-				multi_counter += curr->multi[d] ;
+				if (det->mask[curr->place_multi[curr->multi_accum[d] + t]] < 1)
+					frames->count[curr->num_data_prev + d] += curr->count_multi[curr->multi_accum[d] + t] ;
 			}
 		}
 		else if (curr->type == 1) {
 			for (d = 0 ; d < curr->num_data ; ++d) {
-				iter->scale[d_counter + d] = 1. ;
+				iter->scale[curr->num_data_prev + d] = 1. ;
 				for (t = 0 ; t < curr->num_pix ; ++t)
-					frames->count[d_counter+d] += curr->int_frames[d*curr->num_pix + t] ;
+					frames->count[curr->num_data_prev+d] += curr->int_frames[d*curr->num_pix + t] ;
 			}
 		}
 		else if (curr->type == 2) {
 			for (d = 0 ; d < curr->num_data ; ++d) {
-				iter->scale[d_counter + d] = 1. ;
+				iter->scale[curr->num_data_prev + d] = 1. ;
 				for (t = 0 ; t < curr->num_pix ; ++t)
-					frames->count[d_counter+d] += curr->frames[d*curr->num_pix + t] ;
+					frames->count[curr->num_data_prev+d] += curr->frames[d*curr->num_pix + t] ;
 			}
 		}
 		
-		d_counter += curr->num_data ;
 		curr = curr->next ;
 	}
 	

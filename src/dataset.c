@@ -1,34 +1,29 @@
 #include "dataset.h"
 
 void calc_sum_fact(struct detector *det, struct dataset *frames) {
-	int d, t, d_counter = 0 ;
-	long multi_counter ;
+	int d, t ;
 	struct dataset *curr = frames ;
 	
 	frames->sum_fact = calloc(frames->tot_num_data, sizeof(double)) ;
 	
 	while (curr != NULL) {
 		if (curr->type == 0) {
-			multi_counter = 0 ;
-			
-			for (d = d_counter ; d < d_counter + curr->num_data ; ++d) {
-				for (t = 0 ; t < curr->multi[d - d_counter] ; ++t)
-				if (det->mask[curr->place_multi[multi_counter + t]] < 1)
-					frames->sum_fact[d] += gsl_sf_lnfact(curr->count_multi[multi_counter + t]) ;
-				multi_counter += curr->multi[d - d_counter] ;
-			}
+			for (d = 0 ; d < curr->num_data ; ++d)
+			for (t = 0 ; t < curr->multi[d] ; ++t)
+			if (det->mask[curr->place_multi[curr->multi_accum[d] + t]] < 1)
+				frames->sum_fact[curr->num_data_prev+d] += gsl_sf_lnfact(curr->count_multi[curr->multi_accum[d] + t]) ;
 		}
 		else if (curr->type == 1) {
-			for (d = d_counter ; d < d_counter + curr->num_data ; ++d)
+			for (d = 0 ; d < curr->num_data ; ++d)
 			for (t = 0 ; t < curr->num_pix ; ++t)
-				frames->sum_fact[d] += gsl_sf_lnfact(curr->int_frames[(d-d_counter)*curr->num_pix + t]) ;
+			if (det->mask[t] < 1)
+				frames->sum_fact[curr->num_data_prev+d] += gsl_sf_lnfact(curr->int_frames[d*curr->num_pix + t]) ;
 		}
 		else if (curr->type == 2) {
-			for (d = d_counter ; d < d_counter + curr->num_data ; ++d)
-				frames->sum_fact[d] = 0. ;
+			for (d = 0 ; d < curr->num_data ; ++d)
+				frames->sum_fact[curr->num_data_prev+d] = 0. ;
 		}
 			
-		d_counter += curr->num_data ;
 		curr = curr->next ;
 	}
 }
