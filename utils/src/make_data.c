@@ -20,7 +20,7 @@
 #define COUNTS 1
 
 double rot[2][2] ;
-int size, num_data, num_data_p, num_pix, scale_method, num_rot, do_gamma ;
+int size, num_data, num_data_p, scale_method, num_rot, do_gamma ;
 int **place_ones, **place_multi, *ones, *multi, **count_multi ;
 double fluence, rescale, mean_count, detd, back, center ;
 double *intens, *likelihood, *quat_list ;
@@ -64,6 +64,7 @@ int main(int argc, char *argv[]) {
 	
 	if (setup(config_fname))
 		return 2 ;
+	fprintf(stderr, "Completed setup()\n") ;
 	
 	gettimeofday(&t1, NULL) ;
 	intens_ave = 0. ;
@@ -77,7 +78,7 @@ int main(int argc, char *argv[]) {
 		int rank = omp_get_thread_num() ;
 		double quat[4] ;
 		int d, t ;
-		double *view = malloc(num_pix * sizeof(double)) ;
+		double *view = malloc(det->num_pix * sizeof(double)) ;
 		gsl_rng *rng ;
 		
 		gettimeofday(&t2, NULL) ;
@@ -94,7 +95,7 @@ int main(int argc, char *argv[]) {
 				slice_gen(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], 0., view, intens, size, det) ;
 			}
             
-			for (t = 0 ; t < num_pix ; ++t){
+			for (t = 0 ; t < det->num_pix ; ++t){
 				if (det->mask[t] > 1)
 					continue ;
 				intens_ave += view[t] ;
@@ -104,6 +105,7 @@ int main(int argc, char *argv[]) {
 		free(view) ;
 		gsl_rng_free(rng) ;
 	}
+	fprintf(stderr, "Calculated average\n") ;
 	
 	intens_ave /= NUM_AVE ;
     if (scale_method == FLUENCE) {
@@ -114,10 +116,10 @@ int main(int argc, char *argv[]) {
 	else if (scale_method == COUNTS)
 		rescale = mean_count / intens_ave ;
 	
-	long num_multi = (mean_count + back*num_pix) > num_pix ?
-	                 num_pix :
-	                 (mean_count + back*num_pix) ;
-	long num_ones = 10*num_multi > num_pix ? num_pix : 10*num_multi ;
+	long num_multi = (mean_count + back*det->num_pix) > det->num_pix ?
+	                 det->num_pix :
+	                 (mean_count + back*det->num_pix) ;
+	long num_ones = 10*num_multi > det->num_pix ? det->num_pix : 10*num_multi ;
 	fprintf(stderr, "Assuming maximum of %ld and %ld ones and multi pixels respectively.\n", num_ones, num_multi) ;
 	
 	for (d = 0 ; d < num_data ; ++d) {
@@ -134,7 +136,7 @@ int main(int argc, char *argv[]) {
 		int rank = omp_get_thread_num() ;
 		int photons, d, t ;
 		double scale = 1., quat[4], val ;
-		double *view = malloc(num_pix * sizeof(double)) ;
+		double *view = malloc(det->num_pix * sizeof(double)) ;
 		gsl_rng *rng ;
 		
 		gettimeofday(&t2, NULL) ;
@@ -155,7 +157,7 @@ int main(int argc, char *argv[]) {
 				scale = gsl_ran_gamma(rng, 2., 0.5) ;
 			
 			if (scale > 0.) {
-				for (t = 0 ; t < num_pix ; ++t) {
+				for (t = 0 ; t < det->num_pix ; ++t) {
 					if (det->mask[t] > 1)
 						continue ;
 					
@@ -195,7 +197,7 @@ int main(int argc, char *argv[]) {
 	
 	fp = fopen(output_fname, "wb") ;
 	fwrite(&num_data, sizeof(int), 1, fp) ;
-	fwrite(&num_pix, sizeof(int), 1, fp) ;
+	fwrite(&det->num_pix, sizeof(int), 1, fp) ;
 	char buffer[1016] = {0} ;
 	fwrite(buffer, sizeof(char), 1016, fp) ;
 	fwrite(ones, sizeof(int), num_data, fp) ;
@@ -374,9 +376,11 @@ int setup(char *config_fname) {
 	intens = malloc(size * size * size * sizeof(double)) ;
 	fread(intens, sizeof(double), size*size*size, fp) ;
 	fclose(fp) ;
+	fprintf(stderr, "intens = %e\n", intens[size*size*size-1]) ;
 	
 	det = malloc(sizeof(struct detector)) ;
-	parse_detector(det_fname, det) ;
+	parse_detector(det_fname, det, 0) ;
+	fprintf(stderr, "pol = %e\n", det->pixels[det->num_pix*4 - 1]) ;
 	
 	if (quat_fname[0] != '\0') {
 		fprintf(stderr, "Picking discrete orientations from %s\n", quat_fname) ;
@@ -388,7 +392,7 @@ int setup(char *config_fname) {
 		fclose(fp) ;
 	}
 	
-	back /= num_pix ;
+	back /= det->num_pix ;
 	
 	ones = calloc(num_data, sizeof(int)) ;
 	multi = calloc(num_data, sizeof(int)) ;
