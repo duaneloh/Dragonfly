@@ -19,19 +19,21 @@ static void calculate_prob(int, double*, int*, double*) ;
 static void normalize_prob(double**, double*, int*) ;
 static double update_tomogram(int, double*, double*, double*) ;
 static void merge_tomogram(int, double, double*, double*, double*) ;
-static void combine_information(double*, double*, double*) ;
+static void combine_information_omp(double*, double*, double*) ;
+static double combine_information_mpi() ;
+static void save_output() ;
 static void print_time(char*, char*, int) ;
 static void free_memory(double**) ;
 
 double maximize() {
 	int d, r ;
 	long vol = iter->size * iter->size * iter->size ;
-	double **probab, avg_likelihood = 0. ;
+	double **probab, avg_likelihood ;
 	gettimeofday(&t1, NULL) ;
 	iter->mutual_info = 0. ;
-
+	
 	allocate_memory(&probab) ;
-
+	
 	// Sum over all pixels of model tomogram (data-independent part of probability)
 	iter->rescale = calculate_rescale() ;
 
@@ -75,78 +77,15 @@ double maximize() {
 		// Combine information from different OpenMP ranks
 		// This function (and the associated private arrays) will be unnecessary with
 		// OpenMP 4.5 support available in GCC 6.1+ or ICC 17.0+
-		combine_information(priv_data, priv_model, priv_weight) ;
+		combine_information_omp(priv_data, priv_model, priv_weight) ;
 		
 		free(view) ;
 	}
 	print_time("Update", "", rank == 0) ;
 
-	// Combine 3D volumes from all MPI ranks
-	if (rank) {
-		MPI_Reduce(iter->model2, iter->model2, vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
-		MPI_Reduce(iter->inter_weight, iter->inter_weight, vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
-	}
-	else {
-		MPI_Reduce(MPI_IN_PLACE, iter->model2, vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
-		MPI_Reduce(MPI_IN_PLACE, iter->inter_weight, vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
-	}
-	
-	// Combine mutual info and likelihood from all MPI ranks
-	MPI_Allreduce(MPI_IN_PLACE, likelihood, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
-	MPI_Allreduce(MPI_IN_PLACE, info, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
-
-	// Calculate updated scale factor using count[d] (total photons in frame d)
-	if (param.need_scaling) {
-		// Combine scale factor information from all MPI ranks
-		MPI_Allreduce(MPI_IN_PLACE, iter->scale, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
-		
-		for (d = 0 ; d < frames->tot_num_data ; ++d)
-		if (!frames->blacklist[d])
-			iter->scale[d] = frames->count[d] / iter->scale[d] ;
-		
-		if (rank == 0) {
-			char fname[100] ;
-			sprintf(fname, "%s/scale/scale_%.3d.dat", param.output_folder, param.iteration) ;
-			FILE *fp_scale = fopen(fname, "w") ;
-			for (d = 0 ; d < frames->tot_num_data ; ++d)
-				fprintf(fp_scale, "%.6e\n", iter->scale[d]) ;
-			fclose(fp_scale) ;
-		}
-	}
-
-	for (d = 0 ; d < frames->tot_num_data ; ++d)
-	if (!frames->blacklist[d]) {
-		iter->mutual_info += info[d] ;
-		avg_likelihood += likelihood[d] ;
-	}
-	
-	// Print frame-by-frame mutual information, likelihood, and most likely orientations to file
-	if (rank == 0) {
-		char fname[1024] ;
-		sprintf(fname, "%s/mutualInfo/info_%.3d.dat", param.output_folder, param.iteration) ;
-		FILE *fp_info = fopen(fname, "w") ;
-		sprintf(fname, "%s/likelihood/likelihood_%.3d.dat", param.output_folder, param.iteration) ;
-		FILE *fp_likelihood = fopen(fname, "w") ;
-		sprintf(fname, "%s/orientations/orientations_%.3d.bin", param.output_folder, param.iteration) ;
-		FILE *fp_rmax = fopen(fname, "w") ;
-		FILE *fp_sum = fopen("data/psum.bin", "wb") ;
-		
-		fwrite(p_sum, sizeof(double), frames->tot_num_data, fp_sum) ;
-		fwrite(rmax, sizeof(int), frames->tot_num_data, fp_rmax) ;
-		for (d = 0 ; d < frames->tot_num_data ; ++d) {
-			fprintf(fp_info, "%.6e\n", info[d]) ;
-			fprintf(fp_likelihood, "%.6e\n", likelihood[d]) ;
-		}
-		
-		fclose(fp_rmax) ;
-		fclose(fp_info) ;
-		fclose(fp_likelihood) ;
-		fclose(fp_sum) ;
-	}
-	
-	iter->mutual_info /= (frames->tot_num_data - frames->num_blacklist) ;
-	avg_likelihood /= (frames->tot_num_data - frames->num_blacklist) ;
-	
+	avg_likelihood = combine_information_mpi() ;
+	if (!rank)
+		save_output() ;
 	free_memory(probab) ;
 	
 	return avg_likelihood ;
@@ -431,7 +370,7 @@ void merge_tomogram(int r, double sum, double *view, double *model, double *weig
 	}
 }
 
-void combine_information(double *priv_data, double *priv_model, double *priv_weight) {
+void combine_information_omp(double *priv_data, double *priv_model, double *priv_weight) {
 	int d, omp_rank = omp_get_thread_num() ;
 	long x, vol = iter->size * iter->size * iter->size ;
 	
@@ -467,6 +406,82 @@ void combine_information(double *priv_data, double *priv_model, double *priv_wei
 	free(priv_model) ;
 	free(priv_weight) ;
 	free(priv_data) ;
+}
+
+double combine_information_mpi() {
+	int d ;
+	long vol = iter->size * iter->size * iter->size ;
+	double avg_likelihood = 0. ;
+	
+	// Combine 3D volumes from all MPI ranks
+	if (rank) {
+		MPI_Reduce(iter->model2, iter->model2, vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
+		MPI_Reduce(iter->inter_weight, iter->inter_weight, vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
+	}
+	else {
+		MPI_Reduce(MPI_IN_PLACE, iter->model2, vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
+		MPI_Reduce(MPI_IN_PLACE, iter->inter_weight, vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
+	}
+	
+	// Combine mutual info and likelihood from all MPI ranks
+	MPI_Allreduce(MPI_IN_PLACE, likelihood, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
+	MPI_Allreduce(MPI_IN_PLACE, info, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
+	
+	for (d = 0 ; d < frames->tot_num_data ; ++d)
+	if (!frames->blacklist[d]) {
+		iter->mutual_info += info[d] ;
+		avg_likelihood += likelihood[d] ;
+	}
+	
+	// Calculate updated scale factor using count[d] (total photons in frame d)
+	if (param.need_scaling) {
+		// Combine scale factor information from all MPI ranks
+		MPI_Allreduce(MPI_IN_PLACE, iter->scale, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
+		
+		for (d = 0 ; d < frames->tot_num_data ; ++d)
+		if (!frames->blacklist[d])
+			iter->scale[d] = frames->count[d] / iter->scale[d] ;
+	}
+	
+	iter->mutual_info /= (frames->tot_num_data - frames->num_blacklist) ;
+	avg_likelihood /= (frames->tot_num_data - frames->num_blacklist) ;
+	
+	return avg_likelihood ;
+}
+
+void save_output() {
+	int d ;
+	
+	if (param.need_scaling) {	
+		char fname[100] ;
+		sprintf(fname, "%s/scale/scale_%.3d.dat", param.output_folder, param.iteration) ;
+		FILE *fp_scale = fopen(fname, "w") ;
+		for (d = 0 ; d < frames->tot_num_data ; ++d)
+			fprintf(fp_scale, "%.6e\n", iter->scale[d]) ;
+		fclose(fp_scale) ;
+	}
+	
+	// Print frame-by-frame mutual information, likelihood, and most likely orientations to file
+	char fname[1024] ;
+	sprintf(fname, "%s/mutualInfo/info_%.3d.dat", param.output_folder, param.iteration) ;
+	FILE *fp_info = fopen(fname, "w") ;
+	sprintf(fname, "%s/likelihood/likelihood_%.3d.dat", param.output_folder, param.iteration) ;
+	FILE *fp_likelihood = fopen(fname, "w") ;
+	sprintf(fname, "%s/orientations/orientations_%.3d.bin", param.output_folder, param.iteration) ;
+	FILE *fp_rmax = fopen(fname, "w") ;
+	FILE *fp_sum = fopen("data/psum.bin", "wb") ;
+	
+	fwrite(p_sum, sizeof(double), frames->tot_num_data, fp_sum) ;
+	fwrite(rmax, sizeof(int), frames->tot_num_data, fp_rmax) ;
+	for (d = 0 ; d < frames->tot_num_data ; ++d) {
+		fprintf(fp_info, "%.6e\n", info[d]) ;
+		fprintf(fp_likelihood, "%.6e\n", likelihood[d]) ;
+	}
+	
+	fclose(fp_rmax) ;
+	fclose(fp_info) ;
+	fclose(fp_likelihood) ;
+	fclose(fp_sum) ;
 }
 
 void free_memory(double **probab) {
