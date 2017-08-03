@@ -333,6 +333,8 @@ class Progress_viewer(QtWidgets.QMainWindow):
             fn = os.path.split(p)[-1]
             with open(p, 'r') as f:
                 self.orient.append(np.fromfile(f, '=i4'))
+        olengths = np.array([len(o) for o in self.orient])
+        max_length = olengths.max()
 
         iternum = loglines[:,0].astype(np.int32)
         change = loglines[:,2].astype(np.float64)
@@ -344,7 +346,8 @@ class Progress_viewer(QtWidgets.QMainWindow):
         beta_change = np.where(np.diff(beta)>0.)[0]
 
         # Sort o_array by the last iteration which has the same number of orientations
-        o_array = np.asarray(self.orient, dtype='f8')
+        o_array = np.array([np.pad(o, ((max_length-len(o),0)), 'constant', constant_values=-1) for o in self.orient]).astype('f8')
+        #o_array = np.asarray(self.orient, dtype='f8')
         istart = 0
         for i in range(len(num_rot_change)):
             istop = num_rot_change[i]
