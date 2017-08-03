@@ -7,11 +7,11 @@ class EMC_reader():
         self.photons_list = photons_list
         self.x = x
         self.y = y
-        self.raw_mask = mask
+        self.unassembled_mask = mask
         
         self.frame_shape = (self.x.max()+1, self.y.max()+1)
         self.mask = 2*np.ones(self.frame_shape, dtype='u1')
-        self.mask[self.x, self.y] = self.raw_mask
+        self.mask[self.x, self.y] = self.unassembled_mask
         
         self.parse_headers()
 
@@ -109,7 +109,7 @@ class EMC_reader():
         np.add.at(frame, place_ones, 1)
         np.add.at(frame, place_multi, count_multi)
         
-        return frame * self.raw_mask
+        return frame * self.unassembled_mask
 
     def get_powder(self, raw=False):
         if raw:
@@ -135,7 +135,7 @@ class EMC_reader():
                 np.add.at(powder, (self.x[place_multi], self.y[place_multi]), count_multi)
         
         if raw:
-            return powder * self.raw_mask
+            return powder * self.unassembled_mask
         else:
             return powder * self.mask
 

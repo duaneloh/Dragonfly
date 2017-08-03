@@ -13,13 +13,15 @@ class Det_reader():
         sys.stderr.write('Reading detector file...')
         if mask_flag:
             sys.stderr.write('with mask...')
-            self.qx, self.qy, self.qz, mask = np.loadtxt(self.det_fname, usecols=(0,1,2,4), skiprows=1, unpack=True)
+            self.qx, self.qy, self.qz, self.corr, raw_mask = np.loadtxt(self.det_fname, skiprows=1, unpack=True)
             #mask[mask==2] = 1 # To keep only mask==0
+            mask = np.copy(raw_mask)
             mask[mask==1] = 0 # To keep both 0 and 1
             mask = mask / 2 # To keep both 0 and 1
             mask = 1 - mask
         else:
-            self.qx, self.qy, self.qz = np.loadtxt(self.det_fname, usecols=(0,1,2), skiprows=1, unpack=True)
+            self.qx, self.qy, self.qz, self.corr = np.loadtxt(self.det_fname, usecols=(0,1,2,3), skiprows=1, unpack=True)
+            raw_mask = np.zeros(self.qx.shape)
             mask = np.ones(self.qx.shape)
         sys.stderr.write('done\n')
         
@@ -31,5 +33,6 @@ class Det_reader():
         self.frame_shape = (self.x.max()+1, self.y.max()+1)
         self.mask = np.ones(self.frame_shape)
         self.mask[self.x, self.y] = mask.flatten()
-        self.raw_mask = mask
+        self.unassembled_mask = mask
+        self.raw_mask = raw_mask
 

@@ -108,7 +108,7 @@ class Conversion_panel(QtWidgets.QWidget):
     def remake_converter(self, replot=True, event=None):
         self.polar = polar.Polar_converter(self.parent.geom.cx, 
                                            self.parent.geom.cy, 
-                                           self.parent.geom.raw_mask,
+                                           self.parent.geom.unassembled_mask,
                                            r_min = float(self.r_min.text()),
                                            r_max = float(self.r_max.text()),
                                            delta_r = float(self.delta_r.text()),
