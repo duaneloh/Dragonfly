@@ -140,6 +140,8 @@ int parse_dataset(char *fname, struct detector *det, struct dataset *current) {
 	
 	current->mean_count /= current->num_data ;
 	current->tot_mean_count = current->mean_count ;
+	current->blacklist = NULL ;
+	current->sum_fact = NULL ;
 	
 	return 0 ;
 }
@@ -213,7 +215,9 @@ void free_data(int scale_flag, struct dataset *frames) {
 	
 	if (scale_flag)
 		free(frames->count) ;
-	free(frames->blacklist) ;
-	free(frames->sum_fact) ;
+	if (frames->blacklist != NULL)
+		free(frames->blacklist) ;
+	if (frames->sum_fact != NULL)
+		free(frames->sum_fact) ;
 }
 
