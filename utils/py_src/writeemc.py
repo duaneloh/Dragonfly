@@ -42,11 +42,18 @@ class EMC_writer():
             os.system('cat ' + fp.name + ' >> ' + self.out_fname)
             os.system('rm ' + fp.name)
 
-    def write_frame(self, frame):
+    def write_frame(self, frame, fraction=1.):
         place_ones = np.where(frame == 1)[0]
         place_multi = np.where(frame > 1)[0]
         count_multi = frame[place_multi]
         
+        if fraction < 1.:
+            sel = (np.random.random(len(place_ones)) < fraction)
+            place_ones = place_ones[sel]
+            sel = (np.random.random(count_multi.sum()) < fraction)
+            count_multi = np.array([a.sum() for a in np.split(sel, count_multi.cumsum())])[:-1]
+            place_multi = place_multi[count_multi>0]
+            count_multi = count_multi[count_multi>0]
         self.num_data += 1
         self.mean_count += len(place_ones) + count_multi.sum()
         self.ones.append(len(place_ones))
