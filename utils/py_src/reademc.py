@@ -3,19 +3,33 @@ import os
 import numpy as np
 
 class EMC_reader():
-    def __init__(self, photons_list, x, y, mask):
+    """EMC file reader class
+    Provides access to assembled or raw frames given a list of emc filenames
+    
+    __init__ arguments:
+        photons_list (list of strings) - List of paths to emc files. If single
+                                         file, pass as [fname]
+        x, y (array) - Integer coordinates of each pixel in the plane
+        unassembled_mask (array) - Flag for good (1) and bad (0) pixels
+    The pixel-wise information can be obtained from the Det_reader class.
+    
+    Methods:
+        get_frame(num, raw=False)
+        get_powder(raw=False)
+    """
+    def __init__(self, photons_list, x, y, unassembled_mask):
         self.photons_list = photons_list
         self.x = x
         self.y = y
-        self.unassembled_mask = mask
+        self.unassembled_mask = unassembled_mask
         
         self.frame_shape = (self.x.max()+1, self.y.max()+1)
         self.mask = 2*np.ones(self.frame_shape, dtype='u1')
         self.mask[self.x, self.y] = self.unassembled_mask
         
-        self.parse_headers()
+        self._parse_headers()
 
-    def parse_headers(self):
+    def _parse_headers(self):
         self.num_data_list = []
         self.ones_accum_list = []
         self.multi_accum_list = []
@@ -38,6 +52,16 @@ class EMC_reader():
         self.num_frames = self.num_data_list[-1]
 
     def get_frame(self, num, raw=False):
+        """Get particular frame from file list
+        The method determines the file with that frame number and reads it
+        
+        Arguments:
+            num (int) - Frame number 
+            raw (bool, optional) - Whether to get unassembled frame
+        
+        Returns:
+            Assembled or unassembled frame as a dense array
+        """
         file_num = np.where(num < self.num_data_list)[0][0]
         if file_num == 0:
             frame_num = num
@@ -45,11 +69,11 @@ class EMC_reader():
             frame_num = num - self.num_data_list[file_num-1]
         
         if raw:
-            return self.read_raw_frame(file_num, frame_num)
+            return self._read_raw_frame(file_num, frame_num)
         else:
-            return self.read_frame(file_num, frame_num)
+            return self._read_frame(file_num, frame_num)
 
-    def read_frame(self, file_num, frame_num):
+    def _read_frame(self, file_num, frame_num):
         with open(self.photons_list[file_num], 'rb') as f:
             num_data = np.fromfile(f, dtype='i4', count=1)[0]
             
@@ -80,7 +104,7 @@ class EMC_reader():
         
         return frame * self.mask
 
-    def read_raw_frame(self, file_num, frame_num):
+    def _read_raw_frame(self, file_num, frame_num):
         with open(self.photons_list[file_num], 'rb') as f:
             num_data = np.fromfile(f, dtype='i4', count=1)[0]
             
@@ -112,6 +136,14 @@ class EMC_reader():
         return frame * self.unassembled_mask
 
     def get_powder(self, raw=False):
+        """Get virtual powder sum of all frames in file list
+        
+        Arguments:
+            raw (bool, optional) - Whether to return unassembled powder sum
+        
+        Returns:
+            Assembled or unassembled powder sum as a dense array
+        """
         if raw:
             powder = np.zeros((self.num_pix[0],), dtype='f8')
         else:
