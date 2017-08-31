@@ -12,13 +12,9 @@ EMC_SRC = $(wildcard src/*.c)
 EMC_OBJ = $(patsubst src/%.c, bin/%.o, $(EMC_SRC))
 UTILS_SRC = $(wildcard utils/src/*.c)
 UTILS = $(patsubst utils/src/%.c, utils/%, $(UTILS_SRC))
-UTILS := $(filter-out utils/compare, $(UTILS))
-UTILS := $(filter-out utils/make_quaternion, $(UTILS))
-UTILS := $(filter-out utils/make_data, $(UTILS))
-UTILS := $(filter-out utils/merge, $(UTILS))
-DIRECTORIES = data bin images data/output data/orientations data/mutualInfo data/weights data/scale data/likelihood
+DIRECTORIES = data bin images
 
-all: mkdir emc $(UTILS) utils/compare utils/make_quaternion utils/make_data utils/merge
+all: mkdir emc $(UTILS)
 
 mkdir: $(DIRECTORIES)
 $(DIRECTORIES):
@@ -31,13 +27,6 @@ else
 	`export OMPI_CC=$(OMPI_CC); $(MPICC) -o $@ $^ $(LIBS)`
 endif
 
-$(EMC_OBJ): bin/%.o: src/%.c
-ifeq ($(OMPI_CC), gcc)
-	$(MPICC) -c $< -o $@ $(CFLAGS)
-else
-	`export OMPI_CC=$(OMPI_CC); $(MPICC) -c $< -o $@ $(CFLAGS)`
-endif
-
 bin/recon_emc.o bin/setup_emc.o bin/max_emc.o: $(EMC_HEADER)
 bin/detector.o: src/detector.h
 bin/dataset.o: src/dataset.h src/detector.h
@@ -45,19 +34,20 @@ bin/interp.o: src/interp.h src/detector.h
 bin/quat.o: src/quat.h
 bin/iterate.o: src/iterate.h src/dataset.h src/detector.h
 
+$(EMC_OBJ): bin/%.o: src/%.c
+ifeq ($(OMPI_CC), gcc)
+	$(MPICC) -c $< -o $@ $(CFLAGS)
+else
+	`export OMPI_CC=$(OMPI_CC); $(MPICC) -c $< -o $@ $(CFLAGS)`
+endif
+
+utils/compare: bin/quat.o bin/interp.o
+utils/make_quaternion: bin/quat.o
+utils/make_data: bin/detector.o bin/interp.o
+utils/merge: bin/detector.o bin/dataset.o bin/interp.o
+utils/fiberize: bin/detector.o bin/interp.o
+
 $(UTILS): utils/%: utils/src/%.c
-	$(CC) -o $@ $< $(CFLAGS) $(LIBS)
-
-utils/compare: utils/src/compare.c bin/quat.o bin/interp.o
-	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
-
-utils/make_quaternion: utils/src/make_quaternion.c bin/quat.o
-	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
-
-utils/make_data: utils/src/make_data.c bin/detector.o bin/interp.o
-	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
-
-utils/merge: utils/src/merge.c bin/detector.o bin/dataset.o bin/interp.o
 	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
 
 clean:
