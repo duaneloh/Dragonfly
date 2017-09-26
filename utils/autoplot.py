@@ -59,6 +59,27 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.setCentralWidget(overall)
         self.grid = QtWidgets.QGridLayout(overall)
 
+        # Menu items
+        menubar = self.menuBar()
+        # Theme picker
+        thememenu = menubar.addMenu('&Theme')
+        self.theme = QtWidgets.QActionGroup(self, exclusive=True)
+        for i, s in enumerate(map(str, list(QtWidgets.QStyleFactory.keys()))):
+            a = self.theme.addAction(QtWidgets.QAction(s, self, checkable=True))
+            if i == 0:
+                a.setChecked(True)
+            a.triggered.connect(self.theme_changed)
+            thememenu.addAction(a)
+        # Color map picker
+        cmapmenu = menubar.addMenu('&Color Map')
+        self.color_map = QtWidgets.QActionGroup(self, exclusive=True)
+        for i, s in enumerate(['cubehelix', 'CMRmap', 'gray', 'gray_r', 'jet']):
+            a = self.color_map.addAction(QtWidgets.QAction(s, self, checkable=True))
+            if i == 0:
+                a.setChecked(True)
+            a.triggered.connect(self.cmap_changed)
+            cmapmenu.addAction(a)
+
         # Volume slices figure
         self.fig = matplotlib.figure.Figure(figsize=(14,5))
         self.fig.subplots_adjust(left=0.0, bottom=0.00, right=0.99, wspace=0.0)
@@ -256,6 +277,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
         rangemin = float(self.rangemin.text())
         rangemax = float(self.rangestr.text())
         exponent = float(self.expstr.text())
+        cmap = self.color_map.checkedAction().text()
 
         a = self.vol[num,:,:]**exponent
         b = self.vol[:,num,:]**exponent
@@ -264,17 +286,17 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.fig.clf()
 
         s1 = self.fig.add_subplot(131)
-        s1.imshow(a, vmin=rangemin, vmax=rangemax, cmap='CMRmap', interpolation='none')
+        s1.imshow(a, vmin=rangemin, vmax=rangemax, cmap=cmap, interpolation='none')
         s1.set_title("YZ plane", y=1.01)
         s1.axis('off')
 
         s2 = self.fig.add_subplot(132)
-        s2.matshow(b, vmin=rangemin, vmax=rangemax, cmap='CMRmap', interpolation='none')
+        s2.matshow(b, vmin=rangemin, vmax=rangemax, cmap=cmap, interpolation='none')
         s2.set_title("XZ plane", y=1.01)
         s2.axis('off')
 
         s3 = self.fig.add_subplot(133)
-        s3.matshow(c, vmin=rangemin, vmax=rangemax, cmap='CMRmap', interpolation='none')
+        s3.matshow(c, vmin=rangemin, vmax=rangemax, cmap=cmap, interpolation='none')
         s3.set_title("XY plane", y=1.01)
         s3.axis('off')
 
@@ -460,6 +482,13 @@ class Progress_viewer(QtWidgets.QMainWindow):
     def save_log_plot(self, event=None):
         self.log_fig.savefig(self.log_imagename.text(), bbox_inches='tight')
         sys.stderr.write("Saved to %s\n"%self.log_imagename.text())
+
+    def theme_changed(self, event=None):
+        QtWidgets.QApplication.instance().setStyle(self.theme.checkedAction().text())
+
+    def cmap_changed(self, event=None):
+        self.need_replot = True
+        self.parse_and_plot()
 
     def keyPressEvent(self, event):
         k = event.key()
