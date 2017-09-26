@@ -38,14 +38,14 @@ class Det_reader():
             sys.stderr.write('with mask...')
             self.qx, self.qy, self.qz, self.corr, raw_mask = np.loadtxt(self.det_fname, skiprows=1, unpack=True)
             #mask[mask==2] = 1 # To keep only mask==0
-            mask = np.copy(raw_mask)
+            mask = np.copy(raw_mask).astype('u1')
             mask[mask==1] = 0 # To keep both 0 and 1
             mask = mask / 2 # To keep both 0 and 1
             mask = 1 - mask
         else:
             self.qx, self.qy, self.qz, self.corr = np.loadtxt(self.det_fname, usecols=(0,1,2,3), skiprows=1, unpack=True)
             raw_mask = np.zeros(self.qx.shape)
-            mask = np.ones(self.qx.shape)
+            mask = np.ones(self.qx.shape, dtype='u1')
         sys.stderr.write('done\n')
         
         self.cx = self.qx*self.detd/(self.qz+self.ewald_rad)
@@ -54,8 +54,8 @@ class Det_reader():
         self.y = np.round(self.cy - self.cy.min()).astype('i4')
         
         self.frame_shape = (self.x.max()+1, self.y.max()+1)
-        self.mask = np.ones(self.frame_shape)
+        self.mask = np.ones(self.frame_shape, dtype='u1')
         self.mask[self.x, self.y] = mask.flatten()
         self.unassembled_mask = mask
-        self.raw_mask = raw_mask
+        self.raw_mask = raw_mask.astype('u1')
 
