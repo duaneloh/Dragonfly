@@ -23,6 +23,7 @@ class EMC_writer():
         emc.write_frame(frame[i].flatten())
     emc.finish_write()
     """
+
     def __init__(self, out_fname, num_pix):
         out_folder = os.path.dirname(out_fname)
         temp_fnames = [os.path.join(out_folder, fname) for fname in ['temp.po', 'temp.pm', 'temp.cm']]
@@ -78,6 +79,9 @@ class EMC_writer():
         the probability = fraction. by default, all photons are written. This
         option is useful for performing tests with lower photons/frame.
         """
+        if len(frame.shape) != 1 or not np.issubdtype(frame.dtype, np.integer):
+            raise ValueError('write_frame needs 1D array of integers: '+str(frame.shape)+' '+str(frame.dtype))
+        
         place_ones = np.where(frame == 1)[0]
         place_multi = np.where(frame > 1)[0]
         count_multi = frame[place_multi]
@@ -94,9 +98,6 @@ class EMC_writer():
         self.ones.append(len(place_ones))
         self.multi.append(len(place_multi))
         
-        #self.f[0].write(place_ones.astype(np.int32).tostring())
-        #self.f[1].write(place_multi.astype(np.int32).tostring())
-        #self.f[2].write(count_multi.astype(np.int32).tostring())
         place_ones.astype(np.int32).tofile(self.f[0])
         place_multi.astype(np.int32).tofile(self.f[1])
         count_multi.astype(np.int32).tofile(self.f[2])
