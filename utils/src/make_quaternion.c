@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) {
 	
 	fp = fopen(line, "w") ;
 	fprintf(fp, "%d\n", quat->num_rot) ;
-	for (r = 0 ; r < 4*quat->num_rot ; ++r) {
+	for (r = 0 ; r < 5*quat->num_rot ; ++r) {
 		fprintf(fp, "%+17.15f ", quat->quat[r]) ;
 		if ((r+1) % 5 == 0)
 			fprintf(fp, "\n") ;
