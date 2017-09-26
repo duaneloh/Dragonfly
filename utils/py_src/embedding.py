@@ -41,8 +41,16 @@ class Embedding_panel(QtWidgets.QWidget):
     def init_UI(self):
         self.vbox = QtWidgets.QVBoxLayout(self)
         
-        label = QtWidgets.QLabel('Spectral manifold embedding', self)
-        self.vbox.addWidget(label)
+        #label = QtWidgets.QLabel('Spectral manifold embedding', self)
+        #self.vbox.addWidget(label)
+        self.method = QtWidgets.QComboBox(self)
+        self.vbox.addWidget(self.method)
+        self.method.addItem('Spectral Embedding')
+        self.method.addItem('Isomap')
+        self.method.addItem('Modified LLE')
+        self.method.addItem('Hessian LLE')
+        self.method.addItem('Multi-dimensional Scaling')
+        self.method.addItem('t-Stochastic Neighbor Embedding')
         
         hbox = QtWidgets.QHBoxLayout()
         self.vbox.addLayout(hbox)
@@ -80,9 +88,22 @@ class Embedding_panel(QtWidgets.QWidget):
             self.parent.ang_corr = np.load(self.parent.output_folder+'/ang_corr.npy') #FIXME For debugging
             ang_corr = self.parent.ang_corr
         
-        self.spectral = manifold.SpectralEmbedding(n_components=4, n_jobs=-1)
-        self.spectral.fit(ang_corr)
-        self.embed = self.spectral.embedding_
+        method_ind = self.method.currentIndex()
+        print('Doing %s' % self.method.currentText())
+        if method_ind == 0:
+            self.embedder = manifold.SpectralEmbedding(n_components=4, n_jobs=-1)
+        elif method_ind == 1:
+            self.embedder = manifold.Isomap(n_components=4, n_jobs=-1)
+        elif method_ind == 2:
+            self.embedder = manifold.LocallyLinearEmbedding(n_components=4, n_jobs=-1, n_neighbors=20, method='modified')
+        elif method_ind == 3:
+            self.embedder = manifold.LocallyLinearEmbedding(n_components=4, n_jobs=-1, n_neighbors=20, method='hessian', eigen_solver='dense')
+        elif method_ind == 4:
+            self.embedder = manifold.MDS(n_components=4, n_jobs=-1)
+        elif method_ind == 5:
+            self.embedder = manifold.TSNE(n_components=4, init='pca')
+        self.embedder.fit(ang_corr)
+        self.embed = self.embedder.embedding_
         self.embed_plot = self.embed
         
         self.gen_hist()
