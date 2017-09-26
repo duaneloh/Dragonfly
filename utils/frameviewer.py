@@ -63,6 +63,7 @@ class Frameviewer(QtWidgets.QMainWindow):
         self.num_files = len(self.photons_list)
         self.frame_shape = (pm['dets_x'], pm['dets_y'])
         self.det_fname = read_config.get_filename(self.config_file, 'emc', 'in_detector_file')
+        self.log_fname = read_config.get_filename(self.config_file, 'emc', 'log_file')
         try:
             output_folder = read_config.get_filename(self.config_file, 'emc', 'output_folder')
         except read_config.ConfigParser.NoOptionError:

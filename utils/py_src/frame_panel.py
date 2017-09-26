@@ -153,7 +153,7 @@ class Frame_panel(QtWidgets.QWidget):
         else:
             self.fig.clear()
             if self.do_compare and self.compare_flag.isChecked():
-                with open('EMC.log', 'r') as f:
+                with open(self.parent.log_fname, 'r') as f:
                     line = f.readlines()[-1]
                     try:
                         self.iteration = int(line.split()[0])
@@ -178,7 +178,7 @@ class Frame_panel(QtWidgets.QWidget):
                 title += ' (%s)' % self.parent.classes.clist[num]
             if mode == 4 and self.parent.mlp_panel.predictions is not None:
                 title += ' [%s]' % self.parent.mlp_panel.predictions[num]
-            if self.parent.mode_val is None and self.parent.blacklist is not None and self.parent.blacklist[num] == 1:
+            if self.parent.mode_val is None and not self.do_powder and self.parent.blacklist is not None and self.parent.blacklist[num] == 1:
                 title += ' (bad frame)'
             s.set_title(title)
             self.fig.add_subplot(s)
