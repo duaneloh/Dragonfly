@@ -61,6 +61,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
 
         # Menu items
         menubar = self.menuBar()
+        menubar.setNativeMenuBar(False)
         # Theme picker
         thememenu = menubar.addMenu('&Theme')
         self.theme = QtWidgets.QActionGroup(self, exclusive=True)
