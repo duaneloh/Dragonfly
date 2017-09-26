@@ -4,10 +4,10 @@ import os
 import string
 
 class Frame_classes():
-    def __init__(self, num_frames):
+    def __init__(self, num_frames, fname='my_classes.dat'):
         self.num_frames = num_frames
         self.unsaved = False
-        self.fname = 'my_classes.dat'
+        self.fname = fname
         self.init_list()
 
     def init_list(self):

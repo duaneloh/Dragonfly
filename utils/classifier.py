@@ -22,7 +22,7 @@ from py_src import read_config
 from py_src import frame_panel
 
 class Classifier(QtWidgets.QMainWindow):
-    def __init__(self, config_file, cmap='CMRmap', mask=False):
+    def __init__(self, config_file, cmap='CMRmap', mask=False, class_fname='my_classes.dat'):
         super(Classifier, self).__init__()
         if cmap is None:
             self.cmap = 'CMRmap'
@@ -43,7 +43,7 @@ class Classifier(QtWidgets.QMainWindow):
         self.geom = readdet.Det_reader(self.det_fname, self.detd, self.ewald_rad, mask_flag=mask)
         self.emc_reader = reademc.EMC_reader(self.photons_list, self.geom.x, self.geom.y, self.geom.unassembled_mask)
         self.num_frames = self.emc_reader.num_frames
-        self.classes = classes.Frame_classes(self.num_frames)
+        self.classes = classes.Frame_classes(self.num_frames, fname=class_fname)
         
         self.init_UI()
 
@@ -151,12 +151,13 @@ class Classifier(QtWidgets.QMainWindow):
                 event.ignore()
 
 if __name__ == '__main__':
-    parser = py_utils.my_argparser(description='Utility for viewing frames of the emc file (list)')
+    parser = py_utils.my_argparser(description='Data classifier')
     parser.add_argument('--cmap', help='Matplotlib color map (default: CMRmap)')
     parser.add_argument('-M', '--mask', help='Whether to zero out masked pixels (default False)', action='store_true', default=False)
+    parser.add_argument('-C', '--class_fname', help='File containing classes for each frame', default='my_classes.dat')
     args = parser.special_parse_args()
     
     app = QtWidgets.QApplication(sys.argv)
     app.setStyle('Fusion')
-    Classifier(args.config_file, cmap=args.cmap, mask=args.mask)
+    Classifier(args.config_file, cmap=args.cmap, mask=args.mask, class_fname=args.class_fname)
     sys.exit(app.exec_())
