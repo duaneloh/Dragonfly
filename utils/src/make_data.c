@@ -219,15 +219,29 @@ int setup(char *config_fname) {
 		}
 	}
 
+	// Parse detector
+	det = malloc(sizeof(struct detector)) ;
+	qmax = parse_detector(det_fname, det, 0) ;
+	if (qmax < 0.)
+		return 1 ;
+	background /= det->num_pix ;
+
 	// Calculate volume size
-	double hx = (dets_x - 1) / 2 * pixsize ;
-	double hy = (dets_y - 1) / 2 * pixsize ;
+	if (det->detd > 0.)
+		detd = det->detd ;
+	else
+		detd /= pixsize ;
+	if (det->ewald_rad > 0.)
+		ewald_rad = det->ewald_rad ;
+	double hx = (dets_x - 1) / 2 ;
+	double hy = (dets_y - 1) / 2 ;
 	qmax = 2. * sin(0.5 * atan(sqrt(hx*hx + hy*hy)/detd)) ;
-	qmin = 2. * sin(0.5 * atan(pixsize/detd)) ;
+	qmin = 2. * sin(0.5 * atan(1./detd)) ;
 	if (ewald_rad == -1.)
 		size = 2 * ceil(qmax / qmin) + 3 ;
 	else
-		size = 2 * ceil(qmax / qmin * ewald_rad * pixsize / detd) + 3 ;
+		size = 2 * ceil(qmax / qmin * ewald_rad / detd) + 3 ;
+	fprintf(stderr, "Assuming %s has size %d\n", model_fname, size) ;
 	
 	if (likelihood_fname[0] != '\0')
 		fprintf(stderr, "Saving frame-by-frame likelihoods to %s\n", likelihood_fname) ;
@@ -243,11 +257,6 @@ int setup(char *config_fname) {
 	intens = malloc(size * size * size * sizeof(double)) ;
 	fread(intens, sizeof(double), size*size*size, fp) ;
 	fclose(fp) ;
-
-	// Parse detector
-	det = malloc(sizeof(struct detector)) ;
-	parse_detector(det_fname, det, 0) ;
-	background /= det->num_pix ;
 
 	// Parse quaternion if provided
 	if (quat_fname[0] != '\0') {
