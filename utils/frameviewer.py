@@ -29,8 +29,15 @@ class Frameviewer(QtWidgets.QMainWindow):
         self.mode_val = None
         
         self.get_config_params()
-        self.geom = readdet.Det_reader(self.det_fname, self.detd, self.ewald_rad, mask_flag=mask)
-        self.emc_reader = reademc.EMC_reader(self.photons_list, self.geom.x, self.geom.y, self.geom.unassembled_mask)
+        if len(set(self.det_list)) == 1:
+            geom_list = [readdet.Det_reader(self.det_list[0], self.detd, self.ewald_rad, mask_flag=mask)]
+            geom_mapping = None
+        else:
+            uniq = sorted(set(self.det_list))
+            geom_list = [readdet.Det_reader(fname, self.detd, self.ewald_rad, mask_flag=mask) for fname in uniq]
+            geom_mapping = [uniq.index(fname) for fname in self.det_list]
+        self.geom = geom_list[0]
+        self.emc_reader = reademc.EMC_reader(self.photons_list, geom_list, geom_mapping) 
         self.num_frames = self.emc_reader.num_frames
         self.init_UI()
 
@@ -57,26 +64,35 @@ class Frameviewer(QtWidgets.QMainWindow):
             print 'Using in_photons_list: %s' % plist
             with open(plist, 'r') as f:
                 self.photons_list = map(lambda x: x.rstrip(), f.readlines())
-        
-        pm = read_config.get_detector_config(self.config_file)
-        
         self.num_files = len(self.photons_list)
-        self.frame_shape = (pm['dets_x'], pm['dets_y'])
-        self.det_fname = read_config.get_filename(self.config_file, 'emc', 'in_detector_file')
+        try:
+            dfile = read_config.get_filename(self.config_file, 'emc', 'in_detector_file')
+            print 'Using in_detector_file: %s' % dfile
+            self.det_list = [dfile]
+        except read_config.ConfigParser.NoOptionError:
+            dlist = read_config.get_filename(self.config_file, 'emc', 'in_detector_list')
+            print 'Using in_detector_list: %s' % dlist
+            with open(dlist, 'r') as f:
+                self.det_list = map(lambda x: x.rstrip(), f.readlines())
+        if len(self.det_list) > 1 and len(self.det_list) != len(self.photons_list):
+            raise ValueError('Different number of detector and photon files')
+        
+        # Only used with old detector file
+        pm = read_config.get_detector_config(self.config_file)
+        self.ewald_rad = pm['ewald_rad']
+        self.detd = pm['detd']/pm['pixsize']
+        
         self.log_fname = read_config.get_filename(self.config_file, 'emc', 'log_file')
         try:
             output_folder = read_config.get_filename(self.config_file, 'emc', 'output_folder')
         except read_config.ConfigParser.NoOptionError:
             output_folder = 'data/'
+        self.output_folder = os.path.realpath(output_folder)
         
         try:
             self.blacklist = np.loadtxt(read_config.get_filename(args.config_file, 'emc', 'blacklist_file'), dtype='u1')
         except read_config.ConfigParser.NoOptionError:
             self.blacklist = None
-        
-        self.output_folder = os.path.realpath(output_folder)
-        self.ewald_rad = pm['ewald_rad']
-        self.detd = pm['detd']/pm['pixsize']
 
     def keyPressEvent(self, event):
         k = event.key()
