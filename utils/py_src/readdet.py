@@ -10,9 +10,11 @@ class Det_reader():
     
     __init__ arguments:
         det_fname (string) - Path to detector file
-        detd_pix (float) - Detector distance in pixels (detd/pixsize)
-        ewald_rad (float) - Ewald sphere radius in voxels. If in doubt, = detd_pix
+        detd_pix (float, optional) - Detector distance in pixels (detd/pixsize)
+        ewald_rad (float, optional) - Ewald sphere radius in voxels. If in doubt, = detd_pix
         mask_flag (bool, optional) - Whether to read the mask column for each pixel
+    For the new detector file, detd_pix and ewald_rad numbers are read from the file
+    but for the old file, they are required.
 
     On initialization, it produces the following numpy arrays (each of length num_pix)
         self.qx, self.qy, self.qz - Voxel space coordinates (origin at (0,0,0))
@@ -22,18 +24,31 @@ class Det_reader():
         self.raw_mask - Unassembled mask as stored in detector file
         self.unassembled_mask - Unassembled mask (1=good, 0=bad)
     """
-    def __init__(self, det_fname, detd_pix, ewald_rad, mask_flag=False):
+    def __init__(self, det_fname, detd_pix=None, ewald_rad=None, mask_flag=False):
         self.det_fname = det_fname
         self.detd = detd_pix
         self.ewald_rad = ewald_rad
+        self._check_header()
         self._init_geom(mask_flag)
+
+    def _check_header(self):
+        with open(self.det_fname, 'r') as f:
+            line = f.readline().rstrip().split()
+        if len(line) > 1:
+            self.detd = float(line[1])
+            self.ewald_rad = float(line[2])
+        else:
+            if self.detd is None:
+                raise TypeError('Old type detector file. Need detd_pix')
+            if self.ewald_rad is None:
+                raise TypeError('Old type detector file. Need ewald_rad')
 
     def _init_geom(self, mask_flag):
         """ (Internal) Detector file parser
         Arguments:
             mask_flag (bool, optional) - Whether to read the mask column
         """
-        sys.stderr.write('Reading detector file...')
+        sys.stderr.write('Reading %s...'%self.det_fname)
         if mask_flag:
             sys.stderr.write('with mask...')
             self.qx, self.qy, self.qz, self.corr, raw_mask = np.loadtxt(self.det_fname, skiprows=1, unpack=True)
