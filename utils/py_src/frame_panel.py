@@ -128,7 +128,7 @@ class Frame_panel(QtWidgets.QWidget):
             
             s = self.fig.add_subplot(122)
             raw_frame = self.emc_reader.get_frame(num, raw=True)
-            pframe = self.parent.conversion_panel.polar.convert(raw_frame)
+            pframe = self.parent.conversion_panel.polar.compute_polar(raw_frame)
             s.imshow(pframe, vmin=0, vmax=float(self.rangestr.text()), interpolation='none', cmap=self.cmap, aspect=float(pframe.shape[1])/pframe.shape[0])
             title = 'Polar representation'
             self.fig.add_subplot(s)

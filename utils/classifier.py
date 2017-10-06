@@ -104,7 +104,7 @@ class Classifier(QtWidgets.QMainWindow):
         self.frame_shape = (pm['dets_x'], pm['dets_y'])
         self.det_fname = read_config.get_filename(self.config_file, 'classifier', 'in_detector_file')
         output_folder = read_config.get_filename(self.config_file, 'classifier', 'output_folder')
-        self.output_folder = os.path.realpath(output_folder)
+        self.output_folder = os.path.abspath(output_folder)
         self.ewald_rad = pm['ewald_rad']
         self.detd = pm['detd']/pm['pixsize']
         self.blacklist = None

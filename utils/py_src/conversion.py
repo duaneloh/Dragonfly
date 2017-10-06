@@ -93,15 +93,25 @@ class Conversion_panel(QtWidgets.QWidget):
         button.clicked.connect(self.convert_frames)
         hbox.addWidget(button)
         self.num_proc = QtWidgets.QLineEdit('1', self)
-        self.num_proc.setFixedWidth(24)
+        self.num_proc.setFixedWidth(30)
         hbox.addWidget(self.num_proc)
         hbox.addStretch(1)
+        self.method = QtWidgets.QComboBox(self)
+        hbox.addWidget(self.method)
+        self.method.addItem('ang_corr_normed')
+        self.method.addItem('ang_corr')
+        self.method.addItem('polar')
+        self.method.addItem('polar_normed')
+        self.method.addItem('raw')
+        
+        hbox = QtWidgets.QHBoxLayout()
+        vbox.addLayout(hbox)
         self.save_flag = QtWidgets.QCheckBox('Save', self)
         self.save_flag.setChecked(True)
         hbox.addWidget(self.save_flag)
-        self.normed_flag = QtWidgets.QCheckBox('Normed', self)
-        self.normed_flag.setChecked(True)
-        hbox.addWidget(self.normed_flag)
+        fname = os.path.relpath(self.parent.output_folder + '/ang_corr.npy')
+        self.save_fname = QtWidgets.QLineEdit(fname, self)
+        hbox.addWidget(self.save_fname)
         
         vbox.addStretch(1)
 
@@ -140,12 +150,11 @@ class Conversion_panel(QtWidgets.QWidget):
         
         self.parent.ang_corr = np.frombuffer(ang_corr.get_obj()).reshape(end-start, -1)
         if self.save_flag.isChecked():
-            fname = self.parent.output_folder + '/ang_corr.npy'
-            sys.stderr.write('Saving angular correlations to %s\n'%fname)
-            np.save(fname, self.parent.ang_corr)
+            sys.stderr.write('Saving angular correlations to %s\n'%self.save_fname.text())
+            np.save(self.save_fname.text(), self.parent.ang_corr)
 
     def get_and_convert(self, num):
-        return self.polar.compute_ang_corr(self.polar.convert(self.emc_reader.get_frame(num, raw=True)), normed=self.normed_flag.isChecked())
+        return self.polar.convert(self.emc_reader.get_frame(num, raw=True), method=self.method.currentText())
 
     def convert_worker(self, rank, num_proc, indices, size, ang_corr):
         my_ind = indices[rank::num_proc]
