@@ -44,8 +44,8 @@ int parse_quat(char *fname, int invert_quat) {
 }
 
 int setup(char *fname) {
-	int detsize, dets_x, dets_y, invert_quat ;
-	double detd, pixsize, ewald_rad, qmin, qmax ;
+	int invert_quat ;
+	double qmax ;
 	FILE *fp ;
 	char line[999], *token ;
 	char det_fname[999], out_det_fname[999] ;
@@ -53,12 +53,6 @@ int setup(char *fname) {
 	char out_data_fname[999], data_flist[999] ;
 	char section_name[1024] ;
 
-	detsize = 0 ;
-	dets_x = 0 ;
-	dets_y = 0 ;
-	pixsize = 0. ;
-	detd = 0. ;
-	ewald_rad = -1. ;
 	invert_quat = 0 ;
 	det_fname[0] = '\0' ;
 	out_det_fname[0] = '\0' ;
@@ -83,26 +77,7 @@ int setup(char *fname) {
 			continue ;
 		}
 		
-		if (strcmp(section_name, "parameters") == 0) {
-			if (strcmp(token, "detd") == 0)
-				detd = atof(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "detsize") == 0) {
-				dets_x = atoi(strtok(NULL, " =\n")) ;
-				dets_y = dets_x ;
-				token = strtok(NULL, " =\n") ;
-				if (token == NULL)
-					detsize = dets_x ;
-				else {
-					dets_y = atoi(token) ;
-					detsize = dets_x > dets_y ? dets_x : dets_y ;
-				}
-			}
-			else if (strcmp(token, "pixsize") == 0)
-				pixsize = atof(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "ewald_rad") == 0)
-				ewald_rad = atof(strtok(NULL, " =\n")) ;
-		}
-		else if (strcmp(section_name, "merge") == 0) {
+		if (strcmp(section_name, "merge") == 0) {
 			if (strcmp(token, "in_photons_file") == 0)
 				strcpy(data_fname, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "out_photons_file") == 0)
@@ -129,24 +104,12 @@ int setup(char *fname) {
 	if (strcmp(data_fname, "make_data:::out_photons_file") == 0)
 		strcpy(data_fname, out_data_fname) ;
 	
-	if (detsize == 0 || pixsize == 0. || detd == 0.) {
-		fprintf(stderr, "Need detector parameters: detd, detsize, pixsize\n") ;
-		return 1 ;
-	}
-
-	double hx = (dets_x - 1) / 2 * pixsize ;
-	double hy = (dets_y - 1) / 2 * pixsize ;
-	qmax = 2. * sin(0.5 * atan(sqrt(hx*hx + hy*hy)/detd)) ;
-	qmin = 2. * sin(0.5 * atan(pixsize/detd)) ;
-	if (ewald_rad == -1.)
-		size = 2 * ceil(qmax / qmin) + 3 ;
-	else
-		size = 2 * ceil(qmax / qmin * ewald_rad * pixsize / detd) + 3 ;
-	center = size / 2 ;
-
 	det = malloc(sizeof(struct detector)) ;
-	if (parse_detector(det_fname, det, 1))
+	qmax = parse_detector(det_fname, det, 1) ;
+	if (qmax < 0.)
 		return 1 ;
+	size = 2 * ceil(qmax) + 3 ;
+	center = size / 2 ;
 
 	frames = malloc(sizeof(struct dataset)) ;
 	frames->next = NULL ;
