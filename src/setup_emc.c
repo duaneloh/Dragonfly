@@ -14,8 +14,8 @@ int setup(char *config_fname, int continue_flag) {
 	char out_det_fname[1024], sel_string[1024] ;
 	char section_name[1024] ;
 	int num, sym_icosahedral = 0 ;
-	double qmax, qmin, detd = 0., pixsize = 0., ewald_rad = -1. ;
-	int dets_x = 0, dets_y = 0, detsize = 0, num_div = -1 ;
+	double qmax ; 
+	int num_div = -1 ;
 
 	// Set default values of
 	// 	... local variables
@@ -41,6 +41,7 @@ int setup(char *config_fname, int continue_flag) {
 	quat = malloc(sizeof(struct rotation)) ;
 	frames = malloc(sizeof(struct dataset)) ;
 	merge_frames = NULL ;
+	iter->size = -1 ;
 
 	// Parse config file options
 	char line[1024], *token ;
@@ -59,26 +60,7 @@ int setup(char *config_fname, int continue_flag) {
 			strcpy(section_name, token) ;
 		}
 		
-		if (strcmp(section_name, "parameters") == 0) {
-			if (strcmp(token, "detd") == 0)
-				detd = atof(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "detsize") == 0) {
-				dets_x = atoi(strtok(NULL, " =\n")) ;
-				dets_y = dets_x ;
-				token = strtok(NULL, " =\n") ;
-				if (token == NULL)
-					detsize = dets_x ;
-				else {
-					dets_y = atoi(token) ;
-					detsize = dets_x > dets_y ? dets_x : dets_y ;
-				}
-			}
-			else if (strcmp(token, "pixsize") == 0)
-				pixsize = atof(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "ewald_rad") == 0)
-				ewald_rad = atof(strtok(NULL, " =\n")) ;
-		}
-		else if (strcmp(section_name, "make_detector") == 0) {
+		if (strcmp(section_name, "make_detector") == 0) {
 			if (strcmp(token, "out_detector_file") == 0)
 				strcpy(out_det_fname, strtok(NULL, " =\n")) ;
 		}
@@ -105,6 +87,8 @@ int setup(char *config_fname, int continue_flag) {
 				strcpy(det_fname, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "num_div") == 0)
 				num_div = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "size") == 0)
+				iter->size = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "in_quat_file") == 0)
 				strcpy(quat_fname, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "blacklist_file") == 0)
@@ -141,12 +125,6 @@ int setup(char *config_fname, int continue_flag) {
 	if (strcmp(data_fname, "make_data:::out_photons_file") == 0)
 		strcpy(data_fname, out_data_fname) ;
 
-	// Check for compulsory parameter options
-	if (detsize == 0 || pixsize == 0. || detd == 0.) {
-		fprintf(stderr, "Need detector parameters, detd, detsize, pixsize\n") ;
-		return 1 ;
-	}
-
 	// Create output subdirectories
 	sprintf(line, "%s/output", param.output_folder) ;
 	mkdir(line, 0750) ;
@@ -161,21 +139,20 @@ int setup(char *config_fname, int continue_flag) {
 	sprintf(line, "%s/likelihood", param.output_folder) ;
 	mkdir(line, 0750) ;
 
-	// Calculate size and center
-	double hx = (dets_x - 1) / 2 * pixsize ;
-	double hy = (dets_y - 1) / 2 * pixsize ;
-	qmax = 2. * sin(0.5 * atan(sqrt(hx*hx + hy*hy)/detd)) ;
-	qmin = 2. * sin(0.5 * atan(pixsize/detd)) ;
-	if (ewald_rad == -1.)
-		iter->size = 2 * ceil(qmax / qmin) + 3 ;
-	else
-		iter->size = 2 * ceil(qmax / qmin * ewald_rad * pixsize / detd) + 3 ;
-	iter->center = iter->size / 2 ;
-	fprintf(stderr, "Generating 3D volume of size %ld\n", iter->size) ;
-
 	// Generate detector
-	if (parse_detector(det_fname, det, 1))
+	qmax = parse_detector(det_fname, det, 1) ;
+	if (qmax < 0.)
 		return 1 ;
+
+	// Calculate size and center
+	if (iter->size < 0) {
+		iter->size = 2*ceil(qmax) + 3 ;
+		fprintf(stderr, "Calculated 3D volume size = %ld\n", iter->size) ;
+	}
+	else {
+		fprintf(stderr, "Provided 3D volume size = %ld\n", iter->size) ;
+	}
+	iter->center = iter->size / 2 ;
 
 	// Generate quaternions
 	quat->icosahedral_flag = sym_icosahedral ;
