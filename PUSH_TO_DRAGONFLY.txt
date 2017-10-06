@@ -48,4 +48,25 @@ Pull request method:
 6. Now on the main Dragonfly webpage, open a pull request (across forks) and
    describe your changes in detail. You can then notify people to review if you
    want and then squash the commits and accept the changes.
+
 --------------------------------------------------------------------------------
+Pull from duaneloh/EMC, push to duaneloh/Dragonfly method:
+
+1. Clone Dragonfly repository and add EMC as a secondary remote
+	$ git clone git@github.com:duaneloh/Dragonfly.git temp_repo
+	$ cd temp_repo
+	$ git remote add emc git@github.com:duaneloh/EMC.git
+
+2. Do a squashed pull fixing all conflicts in favor of the EMC repository.
+   Unstage this file so it does not end up in the public repo.
+	$ git pull emc qt5 --allow-unrelated-histories -Xtheirs --squash
+	$ git reset HEAD PUSH_TO_DRAGONFLY.txt
+
+3. The new files will be staged but not committed. Commit with a message,
+   preferably referring to a pull request on github.com.
+	$ git commit -m "Version x.x.x (#n)
+	$ git push origin master
+
+4. Clean up.
+	$ cd ..
+	$ rm -rf temp_repo

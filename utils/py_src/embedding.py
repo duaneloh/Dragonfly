@@ -101,7 +101,7 @@ class Embedding_panel(QtWidgets.QWidget):
         elif method_ind == 4:
             self.embedder = manifold.MDS(n_components=4, n_jobs=-1)
         elif method_ind == 5:
-            self.embedder = manifold.TSNE(n_components=4, init='pca')
+            self.embedder = manifold.TSNE(n_components=3, init='pca')
         self.embedder.fit(ang_corr)
         self.embed = self.embedder.embedding_
         self.embed_plot = self.embed

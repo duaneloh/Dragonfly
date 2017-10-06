@@ -68,6 +68,7 @@ class Classifier(QtWidgets.QMainWindow):
         self.mlp_panel = mlp.MLP_panel(self)
 
         menubar = self.menuBar()
+        menubar.setNativeMenuBar(False)
         thememenu = menubar.addMenu('&Theme')
         self.theme = QtWidgets.QActionGroup(self, exclusive=True)
         for i, s in enumerate(map(str, list(QtWidgets.QStyleFactory.keys()))):
