@@ -107,6 +107,7 @@ class Classifier(QtWidgets.QMainWindow):
             print 'Using in_photons_list: %s' % plist
             with open(plist, 'r') as f:
                 self.photons_list = map(lambda x: x.rstrip(), f.readlines())
+                self.photons_list = [line for line in self.photons_list if line]
         try:
             dfile = read_config.get_filename(self.config_file, 'classifier', 'in_detector_file')
             print 'Using in_detector_file: %s' % dfile
@@ -116,6 +117,7 @@ class Classifier(QtWidgets.QMainWindow):
             print 'Using in_detector_list: %s' % dlist
             with open(dlist, 'r') as f:
                 self.det_list = map(lambda x: x.rstrip(), f.readlines())
+                self.det_list = [line for line in self.det_list if line]
         if len(self.det_list) > 1 and len(self.det_list) != len(self.photons_list):
             raise ValueError('Different number of detector and photon files')
         
