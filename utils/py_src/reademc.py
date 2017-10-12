@@ -82,7 +82,7 @@ class EMC_reader():
         
         powder *= self.geom_list[0].unassembled_mask
         if not raw:
-            powder *= self._assemble_frame(powder, 0)
+            powder = self._assemble_frame(powder, self.geom_list[0])
         return powder
 
     def _parse_headers(self):
