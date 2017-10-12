@@ -51,7 +51,7 @@ double parse_detector_list(char *fname, struct detector **det_ptr, int norm_flag
 	FILE *fp = fopen(fname, "r") ;
 	if (fp == NULL) {
 		fprintf(stderr, "Unable to open in_detector_list %s\n", fname) ;
-		return 1 ;
+		return -1. ;
 	}
 	for (num_dfiles = 0 ; num_dfiles < 1024 ; ++num_dfiles) {
 		if (feof(fp) || fscanf(fp, "%s\n", name_list[num_det]) != 1)
@@ -74,11 +74,12 @@ double parse_detector_list(char *fname, struct detector **det_ptr, int norm_flag
 	det = *det_ptr ;
 	memcpy(det[0].mapping, det_mapping, 1024*sizeof(int)) ;
 	det[0].num_det = num_det ;
+	det[0].num_dfiles = num_dfiles ;
 	//fprintf(stderr, "mapping: %d, %d, ...\n", det[0].mapping[0], det[0].mapping[1]) ;
 	for (j = 0 ; j < num_det ; ++j) {
 		det_qmax = parse_detector(name_list[j], &det[j], 1) ;
 		if (det_qmax < 0.)
-			return 1 ;
+			return -1. ;
 		if (det_qmax > qmax)
 			qmax = det_qmax ;
 	}

@@ -15,7 +15,7 @@ struct detector {
 	uint8_t *mask ;
 	
 	// Only relevant for first detector in list
-	int num_det, mapping[1024] ;
+	int num_det, num_dfiles, mapping[1024] ;
 } ;
 
 double parse_detector(char*, struct detector*, int) ;
