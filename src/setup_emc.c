@@ -162,7 +162,8 @@ int setup(char *config_fname, int continue_flag) {
 		fprintf(stderr, "Need either in_detector_file or in_detector_list.\n") ;
 		return 1 ;
 	}
-	fprintf(stderr, "num_det = %d\n", det[0].num_det) ;
+	fprintf(stderr, "Number of unique detectors = %d\n", det[0].num_det) ;
+	fprintf(stderr, "Number of detector files = %d\n", det[0].num_dfiles) ;
 
 	// Calculate size and center
 	if (iter->size < 0) {
@@ -211,10 +212,11 @@ int setup(char *config_fname, int continue_flag) {
 		fprintf(stderr, "Need either in_photons_file or in_photons_list.\n") ;
 		return 1 ;
 	}
-	if (det[0].num_det != num_datasets) {
-		fprintf(stderr, "Number of detector files and emc files don't match (%d vs %d)\n", det[0].num_det, num_datasets) ;
+	if (det[0].num_dfiles != num_datasets) {
+		fprintf(stderr, "Number of detector files and emc files don't match (%d vs %d)\n", det[0].num_dfiles, num_datasets) ;
 		return 1 ;
 	}
+	fprintf(stderr, "Number of dataset files = %d\n", num_datasets) ;
 	
 	if (merge_flist[0] != '\0' && merge_fname[0] != '\0') {
 		fprintf(stderr, "Config file contains both merge_photons_file and merge_photons_list. Pick one.\n") ;
