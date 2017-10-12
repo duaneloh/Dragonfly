@@ -69,7 +69,7 @@ int parse_dataset(char *fname, struct detector *det, struct dataset *current) {
 	fread(&(current->num_pix), sizeof(int) , 1, fp) ;
 	current->tot_num_data = current->num_data ;
 	if (current->num_pix != det->num_pix)
-		fprintf(stderr, "WARNING! The detector file and photons file %s do not"
+		fprintf(stderr, "WARNING! The detector file and photons file %s do not "
 		                "have the same number of pixels\n", current->filename) ;
 	fread(&(current->type), sizeof(int), 1, fp) ;
 	fseek(fp, 1024, SEEK_SET) ;
@@ -153,16 +153,16 @@ int parse_data(char *fname, struct detector *det, struct dataset *frames) {
 	FILE *fp = fopen(fname, "r") ;
 	if (fp == NULL) {
 		fprintf(stderr, "data_flist %s not found. Exiting.\n", fname) ;
-		return 1 ;
+		return -1 ;
 	}
 	
 	if (fscanf(fp, "%s\n", data_fname) == 1) {
 		if (parse_dataset(data_fname, det, frames))
-			return 1 ;
+			return -1 ;
 	}
 	else {
 		fprintf(stderr, "No datasets found in %s\n", fname) ;
-		return 1 ;
+		return -1 ;
 	}
 	
 	curr = frames ;
@@ -178,8 +178,9 @@ int parse_data(char *fname, struct detector *det, struct dataset *frames) {
 		curr = curr->next ;
 		curr->next = NULL ;
 		
-		if (parse_dataset(data_fname, det, curr))
-			return 1 ;
+		//fprintf(stderr, "%s[%d]: %d\n", data_fname, num_datasets, det[0].mapping[num_datasets]) ;
+		if (parse_dataset(data_fname, &(det[det[0].mapping[num_datasets]]), curr))
+			return -1 ;
 		
 		curr->num_data_prev = frames->tot_num_data ;
 		frames->tot_num_data += curr->num_data ;
@@ -191,7 +192,7 @@ int parse_data(char *fname, struct detector *det, struct dataset *frames) {
 	frames->tot_mean_count /= frames->tot_num_data ;
 	calc_sum_fact(det, frames) ;
 	
-	return 0 ;
+	return num_datasets ;
 }
 
 void free_data(int scale_flag, struct dataset *frames) {
