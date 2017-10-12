@@ -41,7 +41,56 @@ double parse_detector(char *fname, struct detector *det, int norm_flag) {
 	return sqrt(qmax) ;
 }
 
+double parse_detector_list(char *fname, struct detector **det_ptr, int norm_flag) {
+	int j, num_det = 0, num_dfiles, new_det ;
+	double det_qmax, qmax = -1. ;
+	char name_list[1024][1024] ;
+	int det_mapping[1024] = {0} ;
+	struct detector *det ;
+	
+	FILE *fp = fopen(fname, "r") ;
+	if (fp == NULL) {
+		fprintf(stderr, "Unable to open in_detector_list %s\n", fname) ;
+		return 1 ;
+	}
+	for (num_dfiles = 0 ; num_dfiles < 1024 ; ++num_dfiles) {
+		if (feof(fp) || fscanf(fp, "%s\n", name_list[num_det]) != 1)
+			break ;
+		new_det = 1 ;
+		for (j = 0 ; j < num_det ; ++j)
+		if (strcmp(name_list[num_det], name_list[j]) == 0) {
+			new_det = 0 ;
+			det_mapping[num_dfiles] = j ;
+			break ;
+		}
+		if (new_det) {
+			det_mapping[num_dfiles] = num_det ;
+			num_det++ ;
+		}
+		//fprintf(stderr, "mapping[%d] = %d/%d, %s\n", num_dfiles, det_mapping[num_dfiles], num_det, name_list[det_mapping[num_dfiles]]) ;
+	}
+	
+	*det_ptr = malloc(num_det * sizeof(struct detector)) ;
+	det = *det_ptr ;
+	memcpy(det[0].mapping, det_mapping, 1024*sizeof(int)) ;
+	det[0].num_det = num_det ;
+	//fprintf(stderr, "mapping: %d, %d, ...\n", det[0].mapping[0], det[0].mapping[1]) ;
+	for (j = 0 ; j < num_det ; ++j) {
+		det_qmax = parse_detector(name_list[j], &det[j], 1) ;
+		if (det_qmax < 0.)
+			return 1 ;
+		if (det_qmax > qmax)
+			qmax = det_qmax ;
+	}
+	
+	return qmax ;
+}
+
 void free_detector(struct detector *det) {
-	free(det->pixels) ;
-	free(det->mask) ;
+	int detn ;
+	for (detn = 0 ; detn < det[0].num_det ; ++detn) {
+		free(det[detn].pixels) ;
+		free(det[detn].mask) ;
+	}
+	free(det) ;
 }

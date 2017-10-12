@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <inttypes.h>
 #include <stdint.h>
 #include <math.h>
@@ -12,9 +13,13 @@ struct detector {
 	double detd, ewald_rad ;
 	double *pixels ;
 	uint8_t *mask ;
+	
+	// Only relevant for first detector in list
+	int num_det, mapping[1024] ;
 } ;
 
 double parse_detector(char*, struct detector*, int) ;
+double parse_detector_list(char*, struct detector**, int) ;
 void free_detector(struct detector*) ;
 
 #endif //DETECTOR_H
