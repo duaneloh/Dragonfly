@@ -11,16 +11,18 @@ int setup(char *config_fname, int continue_flag) {
 	char scale_fname[1024], blacklist_fname[1024] ;
 	char data_fname[1024], out_data_fname[1024] ;
 	char merge_flist[1024], merge_fname[1024] ;
-	char out_det_fname[1024], sel_string[1024] ;
-	char section_name[1024] ;
+	char out_det_fname[1024], det_flist[1024] ; 
+	char section_name[1024], sel_string[1024] ;
 	int num, sym_icosahedral = 0 ;
-	double qmax ; 
+	double qmax = -1. ;
 	int num_div = -1 ;
 
 	// Set default values of
 	// 	... local variables
 	data_flist[0] = '\0' ;
 	data_fname[0] = '\0' ;
+	det_flist[0] = '\0' ;
+	det_fname[0] = '\0' ;
 	merge_flist[0] = '\0' ;
 	merge_fname[0] = '\0' ;
 	quat_fname[0] = '\0' ;
@@ -37,7 +39,6 @@ int setup(char *config_fname, int continue_flag) {
 	param.beta = 1. ;
 	param.sigmasq = 0. ;
 	iter = malloc(sizeof(struct iterate)) ;
-	det = malloc(sizeof(struct detector)) ;
 	quat = malloc(sizeof(struct rotation)) ;
 	frames = malloc(sizeof(struct dataset)) ;
 	merge_frames = NULL ;
@@ -77,14 +78,16 @@ int setup(char *config_fname, int continue_flag) {
 				strcpy(merge_fname, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "merge_photons_list") == 0)
 				strcpy(merge_flist, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "in_detector_file") == 0)
+				strcpy(det_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "in_detector_list") == 0)
+				strcpy(det_flist, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "output_folder") == 0)
 				strcpy(param.output_folder, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "log_file") == 0)
 				strcpy(param.log_fname, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "start_model_file") == 0)
 				strcpy(input_fname, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "in_detector_file") == 0)
-				strcpy(det_fname, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "num_div") == 0)
 				num_div = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "size") == 0)
@@ -139,10 +142,27 @@ int setup(char *config_fname, int continue_flag) {
 	sprintf(line, "%s/likelihood", param.output_folder) ;
 	mkdir(line, 0750) ;
 
-	// Generate detector
-	qmax = parse_detector(det_fname, det, 1) ;
-	if (qmax < 0.)
+	// Generate detector(s)
+	if (det_flist[0] != '\0' && det_fname[0] != '\0') {
+		fprintf(stderr, "Both in_detector_file and in_detector_list specified. Pick one.\n") ;
 		return 1 ;
+	}
+	else if (det_fname[0] != '\0') {
+		det = malloc(sizeof(struct detector)) ;
+		det[0].num_det = 1 ;
+		memset(det[0].mapping, 0, 1024*sizeof(int)) ;
+		if ((qmax = parse_detector(det_fname, det, 1)) < 0.)
+			return 1 ;
+	}
+	else if (det_flist[0] != '\0') {
+		if ((qmax = parse_detector_list(det_flist, &det, 1)) < 0.)
+			return 1 ;
+	}
+	else {
+		fprintf(stderr, "Need either in_detector_file or in_detector_list.\n") ;
+		return 1 ;
+	}
+	fprintf(stderr, "num_det = %d\n", det[0].num_det) ;
 
 	// Calculate size and center
 	if (iter->size < 0) {
@@ -170,19 +190,31 @@ int setup(char *config_fname, int continue_flag) {
 	divide_quat(rank, num_proc, quat) ;
 
 	// Generate data
+	int num_datasets ;
 	frames->next = NULL ;
 	if (data_flist[0] != '\0' && data_fname[0] != '\0') {
 		fprintf(stderr, "Config file contains both in_photons_file and in_photons_list. Pick one.\n") ;
 		return 1 ;
 	}
-	else if (data_flist[0] == '\0') {
+	else if (data_fname[0] != '\0') {
 		if (parse_dataset(data_fname, det, frames))
 			return 1 ;
 		frames->num_data_prev = 0 ;
 		calc_sum_fact(det, frames) ;
+		num_datasets = 1 ;
 	}
-	else if (parse_data(data_flist, det, frames))
+	else if (data_flist[0] != '\0') {
+		if ((num_datasets = parse_data(data_flist, det, frames)) < 0)
+			return 1 ;
+	}
+	else {
+		fprintf(stderr, "Need either in_photons_file or in_photons_list.\n") ;
 		return 1 ;
+	}
+	if (det[0].num_det != num_datasets) {
+		fprintf(stderr, "Number of detector files and emc files don't match (%d vs %d)\n", det[0].num_det, num_datasets) ;
+		return 1 ;
+	}
 	
 	if (merge_flist[0] != '\0' && merge_fname[0] != '\0') {
 		fprintf(stderr, "Config file contains both merge_photons_file and merge_photons_list. Pick one.\n") ;
@@ -203,7 +235,7 @@ int setup(char *config_fname, int continue_flag) {
 		if (parse_data(merge_flist, det, merge_frames))
 			return 1 ;
 	}
-	
+
 	// Generate blacklist
 	if (sel_string[0] == '\0') {
 		gen_blacklist(blacklist_fname, 0, frames) ;
@@ -261,10 +293,12 @@ int setup(char *config_fname, int continue_flag) {
 	
 	if (!rank && param.start_iter == 1) {
 		sprintf(line, "%s/output/intens_000.bin", param.output_folder) ;
-		parse_input(input_fname, frames->tot_mean_count / det->rel_num_pix * 2., line, iter) ;
+		//parse_input(input_fname, frames->tot_mean_count / det->rel_num_pix * 2., line, iter) ;
+		parse_input(input_fname, frames[0].mean_count / det[0].rel_num_pix * 2., line, iter) ;
 	}
 	else {
-		parse_input(input_fname, frames->tot_mean_count / det->rel_num_pix * 2., NULL, iter) ;
+		//parse_input(input_fname, frames->tot_mean_count / det->rel_num_pix * 2., NULL, iter) ;
+		parse_input(input_fname, frames[0].mean_count / det[0].rel_num_pix * 2., NULL, iter) ;
 	}
 	
 	return 0 ;
