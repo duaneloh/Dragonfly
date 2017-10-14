@@ -70,7 +70,7 @@ class Polar_converter():
         elif method == 'polar_normed':
             return self.compute_polar(input_frame, normed=True)
         elif method == 'raw':
-            return self.get_pixels(input_frame)
+            return self.compute_raw(input_frame)
         else:
             print('Unknown method string: %s'%method)
 
@@ -118,7 +118,7 @@ class Polar_converter():
         Returns:
             ang_corr (array) - Angular correlations for each input bin
         """
-        polar_arr = compute_polar(input_frame)
+        polar_arr = self.compute_polar(input_frame)
         ang_corr = np.array([a - a.mean() for a in polar_arr])
         temp = []
         for a in ang_corr:

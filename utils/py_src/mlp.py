@@ -166,7 +166,7 @@ class MLP_panel(QtWidgets.QWidget):
         self.gen_predict_summary()
 
     def get_and_convert(self, num):
-        return self.conversion.polar.compute_ang_corr(self.conversion.polar.convert(self.emc_reader.get_frame(num))).flatten()
+        return self.conversion.polar.convert(self.emc_reader.get_frame(num, raw=True), method=self.conversion.method.currentText()).flatten()
 
     def predict_worker(self, rank, num_proc, indices, predictions):
         my_ind = indices[rank::num_proc]
