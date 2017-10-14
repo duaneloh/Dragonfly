@@ -80,9 +80,13 @@ class Frameviewer(QtWidgets.QMainWindow):
             raise ValueError('Different number of detector and photon files')
         
         # Only used with old detector file
-        pm = read_config.get_detector_config(self.config_file)
-        self.ewald_rad = pm['ewald_rad']
-        self.detd = pm['detd']/pm['pixsize']
+        try:
+            pm = read_config.get_detector_config(self.config_file)
+            self.ewald_rad = pm['ewald_rad']
+            self.detd = pm['detd']/pm['pixsize']
+        except (read_config.ConfigParser.NoOptionError, read_config.ConfigParser.NoSectionError):
+            self.ewald_rad = None
+            self.detd = None
         
         self.log_fname = read_config.get_filename(self.config_file, 'emc', 'log_file')
         try:
