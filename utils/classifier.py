@@ -25,7 +25,7 @@ class Classifier(QtWidgets.QMainWindow):
     def __init__(self, config_file, cmap='CMRmap', mask=False, class_fname='my_classes.dat'):
         super(Classifier, self).__init__()
         if cmap is None:
-            self.cmap = 'CMRmap'
+            self.cmap = 'cubehelix'
         else:
             self.cmap = cmap
         self.config_file = config_file
@@ -76,16 +76,27 @@ class Classifier(QtWidgets.QMainWindow):
         self.embedding_panel = embedding.Embedding_panel(self)
         self.mlp_panel = mlp.MLP_panel(self)
 
+        # Menu items
         menubar = self.menuBar()
         menubar.setNativeMenuBar(False)
+        # Theme picker
         thememenu = menubar.addMenu('&Theme')
         self.theme = QtWidgets.QActionGroup(self, exclusive=True)
         for i, s in enumerate(map(str, list(QtWidgets.QStyleFactory.keys()))):
             a = self.theme.addAction(QtWidgets.QAction(s, self, checkable=True))
             if i == 0:
                 a.setChecked(True)
-            a.triggered.connect(self.switch_theme)
+            a.triggered.connect(self.theme_changed)
             thememenu.addAction(a)
+        # Color map picker
+        cmapmenu = menubar.addMenu('&Color Map')
+        self.color_map = QtWidgets.QActionGroup(self, exclusive=True)
+        for i, s in enumerate(['cubehelix', 'CMRmap', 'gray', 'gray_r', 'jet']):
+            a = self.color_map.addAction(QtWidgets.QAction(s, self, checkable=True))
+            if i == 0:
+                a.setChecked(True)
+            a.triggered.connect(self.cmap_changed)
+            cmapmenu.addAction(a)
 
         toolbox = QtWidgets.QToolBox(self)
         hbox.addWidget(toolbox)
@@ -135,8 +146,12 @@ class Classifier(QtWidgets.QMainWindow):
         self.mode_val = index
         self.frame_panel.plot_frame()
 
-    def switch_theme(self, event=None):
+    def theme_changed(self, event=None):
         QtWidgets.QApplication.instance().setStyle(self.theme.checkedAction().text())
+
+    def cmap_changed(self, event=None):
+        self.cmap = self.color_map.checkedAction().text()
+        self.frame_panel.plot_frame()
 
     def keyPressEvent(self, event):
         k = event.key()
