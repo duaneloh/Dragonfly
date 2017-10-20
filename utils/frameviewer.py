@@ -23,7 +23,7 @@ class Frameviewer(QtWidgets.QMainWindow):
         self.do_powder = do_powder
         self.do_compare = do_compare
         if cmap is None:
-            self.cmap = 'CMRmap'
+            self.cmap = 'cubehelix'
         else:
             self.cmap = cmap
         self.mode_val = None
@@ -45,11 +45,33 @@ class Frameviewer(QtWidgets.QMainWindow):
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setWindowTitle('Dragonfly Frame Viewer')
         window = QtWidgets.QWidget()
+
         self.hbox = QtWidgets.QHBoxLayout()
-        
         self.frame_panel = frame_panel.Frame_panel(self, powder=self.do_powder, compare=self.do_compare)
         self.hbox.addWidget(self.frame_panel)
-        
+
+        # Menu items
+        menubar = self.menuBar()
+        menubar.setNativeMenuBar(False)
+        # Theme picker
+        thememenu = menubar.addMenu('&Theme')
+        self.theme = QtWidgets.QActionGroup(self, exclusive=True)
+        for i, s in enumerate(map(str, list(QtWidgets.QStyleFactory.keys()))):
+            a = self.theme.addAction(QtWidgets.QAction(s, self, checkable=True))
+            if i == 0:
+                a.setChecked(True)
+            a.triggered.connect(self.theme_changed)
+            thememenu.addAction(a)
+        # Color map picker
+        cmapmenu = menubar.addMenu('&Color Map')
+        self.color_map = QtWidgets.QActionGroup(self, exclusive=True)
+        for i, s in enumerate(['cubehelix', 'CMRmap', 'gray', 'gray_r', 'jet']):
+            a = self.color_map.addAction(QtWidgets.QAction(s, self, checkable=True))
+            if i == 0:
+                a.setChecked(True)
+            a.triggered.connect(self.cmap_changed)
+            cmapmenu.addAction(a)
+
         window.setLayout(self.hbox)
         self.setCentralWidget(window)
         self.show()
@@ -99,6 +121,13 @@ class Frameviewer(QtWidgets.QMainWindow):
             self.blacklist = np.loadtxt(read_config.get_filename(args.config_file, 'emc', 'blacklist_file'), dtype='u1')
         except read_config.ConfigParser.NoOptionError:
             self.blacklist = None
+
+    def theme_changed(self, event=None):
+        QtWidgets.QApplication.instance().setStyle(self.theme.checkedAction().text())
+
+    def cmap_changed(self, event=None):
+        self.cmap = self.color_map.checkedAction().text()
+        self.frame_panel.plot_frame()
 
     def keyPressEvent(self, event):
         k = event.key()
