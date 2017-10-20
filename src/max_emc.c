@@ -316,8 +316,8 @@ void update_tomogram(int r, double *prob, double *priv_data, double **view, doub
 				prob[curr->num_data_prev+d] = exp(param.beta*(prob[curr->num_data_prev+d] - max_exp[curr->num_data_prev+d])) / p_sum[curr->num_data_prev+d] ; 
 			else
 				prob[curr->num_data_prev+d] = exp(param.beta * (prob[curr->num_data_prev+d] - max_exp[curr->num_data_prev+d]) / 2. / param.sigmasq) / p_sum[curr->num_data_prev+d] ;
-//			priv_data[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * (temp - frames->sum_fact[curr->num_data_prev+d] + frames->count[curr->num_data_prev+d]*log(iter->scale[curr->num_data_prev+d])) ;
-			priv_data[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * temp ;
+			priv_data[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * (temp - frames->sum_fact[curr->num_data_prev+d] + frames->count[curr->num_data_prev+d]*log(iter->scale[curr->num_data_prev+d])) ;
+			//priv_data[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * temp ;
 			
 			// Calculate denominator for update rule
 			if (param.need_scaling) {
@@ -405,7 +405,7 @@ void combine_information_omp(double *priv_data, double *priv_model, double *priv
 		}
 	}
 	
-	if (param.need_scaling) {
+	if (param.need_scaling && (!param.known_scale)) {
 		if (omp_rank == 0)
 			memset(iter->scale, 0, frames->tot_num_data * sizeof(double)) ;
 		#pragma omp barrier
@@ -449,7 +449,7 @@ double combine_information_mpi() {
 	}
 	
 	// Calculate updated scale factor using count[d] (total photons in frame d)
-	if (param.need_scaling) {
+	if (param.need_scaling && (!param.known_scale)) {
 		// Combine scale factor information from all MPI ranks
 		MPI_Allreduce(MPI_IN_PLACE, iter->scale, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 		

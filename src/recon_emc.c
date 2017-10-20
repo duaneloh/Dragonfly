@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
 	if (!rank)
 		fprintf(stderr, "Finished all iterations\n") ;
 	
-	free_mem() ;
+	//free_mem() ;
 	
 	MPI_Finalize() ;
 	

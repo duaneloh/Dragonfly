@@ -100,6 +100,8 @@ int setup(char *config_fname, int continue_flag) {
 				strcpy(scale_fname, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "need_scaling") == 0)
 				param.need_scaling = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "known_scale") == 0)
+				param.known_scale = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "alpha") == 0)
 				param.alpha = atof(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "beta") == 0)
