@@ -19,8 +19,8 @@ class Conversion_panel(QtWidgets.QWidget):
         
         self.setFixedWidth(280)
         self.parent = parent
+        self.frame = self.parent.frame_panel
         self.emc_reader = self.parent.emc_reader
-        self.plot_frame = self.parent.frame_panel.plot_frame
         
         self.polar = None
         self.init_UI()
@@ -124,7 +124,7 @@ class Conversion_panel(QtWidgets.QWidget):
                                            delta_r = float(self.delta_r.text()),
                                            delta_ang = float(self.delta_ang.text()))
         if replot:
-            self.plot_frame()
+            self.frame.plot_frame()
 
     def convert_frames(self, event=None):
         ang_corr = []
@@ -164,6 +164,18 @@ class Conversion_panel(QtWidgets.QWidget):
             np_ang_corr[size*ang_ind:size*(ang_ind+1)] = self.get_and_convert(i).flatten()
             if rank == 0:
                 sys.stderr.write('\r%d/%d'%(i, indices[-1]))
+
+    def plot_converted_frame(self, event=None):
+        pframe = self.polar.compute_polar(self.emc_reader.get_frame(self.frame.get_num(), raw=True))
+        
+        fig = self.frame.fig
+        s = fig.add_subplot(121)
+        sc = fig.add_subplot(122)
+        sc.imshow(pframe, vmin=0, vmax=float(self.frame.rangestr.text()), interpolation='none', cmap=self.parent.cmap, aspect=float(pframe.shape[1])/pframe.shape[0])
+        sc.set_title('Polar representation')
+        fig.add_subplot(sc)
+        
+        return s
 
     def custom_hide(self):
         r = self.parent.geometry()

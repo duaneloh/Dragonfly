@@ -21,7 +21,6 @@ class Frame_panel(QtWidgets.QWidget):
         self.parent = parent
         self.emc_reader = self.parent.emc_reader
         self.num_frames = self.parent.num_frames
-        self.cmap = self.parent.cmap
         self.do_compare = compare
         self.do_powder = powder
         if self.do_compare:
@@ -31,7 +30,6 @@ class Frame_panel(QtWidgets.QWidget):
         
         self.numstr = '0'
         self.rangestr = '10'
-        self.iteration = None
         
         self.init_UI()
 
@@ -93,23 +91,18 @@ class Frame_panel(QtWidgets.QWidget):
         if not self.do_compare:
             self.plot_frame()
 
-    def plot_frame(self, event=None, embed=None, force_frame=False):
+    def plot_frame(self, event=None, frame=None):
         if self.parent.mode_val is not None:
             mode = self.parent.mode_val
         else:
-            mode = 0
+            mode = None
         
-        if self.do_powder:
+        if frame is not None:
+            pass
+        elif self.do_powder:
             frame = self.powder_sum
         else:
-            try:
-                num = int(self.numstr.text())
-            except ValueError:
-                sys.stderr.write('Frame number must be integer\n')
-                return
-            if num < 0 or num >= self.num_frames:
-                sys.stderr.write('Frame number %d out of range!\n' % num)
-                return
+            num = self.get_num()
             frame = self.emc_reader.get_frame(num)
         
         try:
@@ -118,71 +111,56 @@ class Frame_panel(QtWidgets.QWidget):
         except (ValueError, AttributeError):
             pass
         
+        self.fig.clear()
         if mode == 2:
-            # Conversion panel
-            self.fig.clear()
-            s = self.fig.add_subplot(121)
-            s.imshow(frame, vmin=0, vmax=float(self.rangestr.text()), interpolation='none', cmap=self.cmap)
-            s.set_title("%d photons" % frame.sum())
-            self.fig.add_subplot(s)
-            
-            s = self.fig.add_subplot(122)
-            raw_frame = self.emc_reader.get_frame(num, raw=True)
-            pframe = self.parent.conversion_panel.polar.compute_polar(raw_frame)
-            s.imshow(pframe, vmin=0, vmax=float(self.rangestr.text()), interpolation='none', cmap=self.cmap, aspect=float(pframe.shape[1])/pframe.shape[0])
-            title = 'Polar representation'
-            self.fig.add_subplot(s)
-        elif (not force_frame) and mode == 3 and self.parent.embedding_panel.embed is not None:
-            # Embedding 
-            ep = self.parent.embedding_panel
-            
-            self.fig.clear()
-            s = self.fig.add_subplot(111)
-            e = ep.embed_plot
-            try:
-                xnum = int(ep.x_axis_num.text())
-                ynum = int(ep.y_axis_num.text())
-            except ValueError:
-                sys.stderr.write('Need axes numbers to be integers\n')
-                return
-            s.hist2d(e[:,xnum], e[:,ynum], bins=[ep.binx, ep.biny], vmax=float(self.rangestr.text()), cmap=self.cmap)
-            title = 'Spectral embedding'
-            for p in ep.roi_list:
-                s.add_artist(p)
-            self.fig.add_subplot(s)
+            s = self.parent.conversion_panel.plot_converted_frame()
+        elif self.do_compare and self.compare_flag.isChecked():
+            s = self.plot_slice(num)
         else:
-            self.fig.clear()
-            if self.do_compare and self.compare_flag.isChecked():
-                with open(self.parent.log_fname, 'r') as f:
-                    line = f.readlines()[-1]
-                    try:
-                        self.iteration = int(line.split()[0])
-                    except (IndexError, ValueError):
-                        sys.stderr.write('Unable to determine iteration number from EMC.log\n')
-                        sys.stderr.write('%s\n' % line)
-                        self.iteration = None
-
-                if self.iteration > 0:
-                    s = self.fig.add_subplot(121)
-                    sc = self.fig.add_subplot(122)
-                    tomo = self.slices.get_slice(self.iteration, num)
-                    sc.imshow(tomo, cmap=self.cmap, vmin=0, vmax=float(self.rangestr.text()), interpolation='none')
-                    self.fig.add_subplot(sc)
-                else:
-                    s = self.fig.add_subplot(111)
-            else:
-                s = self.fig.add_subplot(111)
-            s.imshow(frame, vmin=0, vmax=float(self.rangestr.text()), interpolation='none', cmap=self.cmap)
-            title = '%d photons' % frame.sum()
-            if mode == 1:
-                title += ' (%s)' % self.parent.classes.clist[num]
-            if mode == 4 and self.parent.mlp_panel.predictions is not None:
-                title += ' [%s]' % self.parent.mlp_panel.predictions[num]
-            if self.parent.mode_val is None and not self.do_powder and self.parent.blacklist is not None and self.parent.blacklist[num] == 1:
-                title += ' (bad frame)'
-            s.set_title(title)
-            self.fig.add_subplot(s)
+            s = self.fig.add_subplot(111)
+        s.imshow(frame, vmin=0, vmax=float(self.rangestr.text()), interpolation='none', cmap=self.parent.cmap)
+        title = '%d photons' % frame.sum()
+        if frame is None and (mode == 1 or mode == 3):
+            title += ' (%s)' % self.parent.classes.clist[num]
+        if mode == 4 and self.parent.mlp_panel.predictions is not None:
+            title += ' [%s]' % self.parent.mlp_panel.predictions[num]
+        if mode is None and not self.do_powder and self.parent.blacklist is not None and self.parent.blacklist[num] == 1:
+            title += ' (bad frame)'
+        s.set_title(title)
+        self.fig.add_subplot(s)
         self.canvas.draw()
+
+    def get_num(self, raw=False, event=None):
+        try:
+            num = int(self.numstr.text())
+        except ValueError:
+            sys.stderr.write('Frame number must be integer\n')
+            return
+        if num < 0 or num >= self.num_frames:
+            sys.stderr.write('Frame number %d out of range!\n' % num)
+            return
+        return num
+
+    def plot_slice(self, num, event=None):
+        with open(self.parent.log_fname, 'r') as f:
+            line = f.readlines()[-1]
+            try:
+                iteration = int(line.split()[0])
+            except (IndexError, ValueError):
+                sys.stderr.write('Unable to determine iteration number from %s\n' % self.parent.log_fname)
+                sys.stderr.write('%s\n' % line)
+                iteration = None
+        
+        if iteration > 0:
+            s = self.fig.add_subplot(121)
+            sc = self.fig.add_subplot(122)
+            tomo = self.slices.get_slice(iteration, num)
+            sc.imshow(tomo, cmap=self.parent.cmap, vmin=0, vmax=float(self.rangestr.text()), interpolation='none')
+            self.fig.add_subplot(sc)
+        else:
+            s = self.fig.add_subplot(111)
+        
+        return s
 
     def next_frame(self, event=None):
         num = int(self.numstr.text()) + 1

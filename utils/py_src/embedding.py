@@ -107,10 +107,34 @@ class Embedding_panel(QtWidgets.QWidget):
         self.embed_plot = self.embed
         
         self.gen_hist()
-        self.plot_frame()
+        self.plot_embedding()
         if not self.embedded:
             self.add_classes_frame()
         self.embedded = True
+
+    def plot_embedding(self, event=None):
+        try:
+            for p in self.roi_list:
+                p.remove()
+        except (ValueError, AttributeError) as e:
+            pass
+        
+        fig = self.frame.fig
+        fig.clear()
+        s = fig.add_subplot(111)
+        e = self.embed_plot
+        try:
+            xnum = int(self.x_axis_num.text())
+            ynum = int(self.y_axis_num.text())
+        except ValueError:
+            sys.stderr.write('Need axes numbers to be integers\n')
+            return
+        s.hist2d(e[:,xnum], e[:,ynum], bins=[self.binx, self.biny], vmax=float(self.frame.rangestr.text()), cmap=self.parent.cmap)
+        s.set_title(self.method.currentText())
+        for p in self.roi_list:
+            s.add_artist(p)
+        fig.add_subplot(s)
+        self.frame.canvas.draw()
 
     def gen_hist(self, event=None):
         try:
@@ -160,11 +184,11 @@ class Embedding_panel(QtWidgets.QWidget):
         key_pos = np.where(self.classes.key_pos == self.class_num.checkedId())[0]
         key_pos = key_pos[(key_pos>=first) & (key_pos<last)] - first
         self.embed_plot = self.embed[key_pos]
-        self.plot_frame()
+        self.plot_embedding()
 
     def show_all_classes(self, event=None):
         self.embed_plot = self.embed
-        self.plot_frame()
+        self.plot_embedding()
 
     def refresh_classes(self,event=None):
         for i in reversed(range(self.class_line.count())):
