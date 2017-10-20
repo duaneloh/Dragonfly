@@ -9,6 +9,8 @@ except ImportError:
     sip.setapi('QString', 2)
     from PyQt4 import QtCore, QtGui
     from PyQt4 import QtGui as QtWidgets
+import multiprocessing
+import ctypes
 
 class Manual_panel(QtWidgets.QWidget):
     def __init__(self, parent, *args, **kwargs):
@@ -17,18 +19,19 @@ class Manual_panel(QtWidgets.QWidget):
         self.setFixedWidth(280)
         self.parent = parent
         self.classes = self.parent.classes
+        self.emc_reader = self.parent.emc_reader
         self.numstr = self.parent.frame_panel.numstr
         self.plot_frame = self.parent.frame_panel.plot_frame
         self.original_key_press = self.parent.keyPressEvent
+        self.old_cnum = None
         
         self.init_UI()
 
     def init_UI(self):
         vbox = QtWidgets.QVBoxLayout(self)
-        
         label = QtWidgets.QLabel('Press any [a-z] key to assign label to frame', self)
         vbox.addWidget(label)
-        
+
         hbox = QtWidgets.QHBoxLayout()
         vbox.addLayout(hbox)
         self.classify_flag = QtWidgets.QCheckBox('Classify', self)
@@ -39,7 +42,7 @@ class Manual_panel(QtWidgets.QWidget):
         button.clicked.connect(self.unassign_class)
         hbox.addWidget(button)
         hbox.addStretch(1)
-        
+
         hbox = QtWidgets.QHBoxLayout()
         vbox.addLayout(hbox)
         self.class_fname = QtWidgets.QLineEdit(self.classes.fname, self)
@@ -49,20 +52,20 @@ class Manual_panel(QtWidgets.QWidget):
         button.clicked.connect(self.classes.save)
         hbox.addWidget(button)
         hbox.addStretch(1)
-        
+
         label = QtWidgets.QLabel('Classification Summary:', self)
         vbox.addWidget(label)
         self.class_list_summary = QtWidgets.QLabel('', self)
         self.class_list_summary.setText(self.classes.gen_summary())
         vbox.addWidget(self.class_list_summary)
-        
+
         hbox = QtWidgets.QHBoxLayout()
         vbox.addLayout(hbox)
         self.class_line = QtWidgets.QGridLayout()
         hbox.addLayout(self.class_line)
         self.refresh_class_line()
         hbox.addStretch(1)
-        
+
         hbox = QtWidgets.QHBoxLayout()
         vbox.addLayout(hbox)
         button = QtWidgets.QPushButton('Prev', self)
@@ -78,7 +81,16 @@ class Manual_panel(QtWidgets.QWidget):
         button.clicked.connect(self.refresh_class_line)
         hbox.addWidget(button)
         hbox.addStretch(1)
-        
+
+        hbox = QtWidgets.QHBoxLayout()
+        vbox.addLayout(hbox)
+        button = QtWidgets.QPushButton('Class powder', self)
+        button.clicked.connect(self.class_powder)
+        hbox.addWidget(button)
+        self.num_proc = QtWidgets.QLineEdit('4', self)
+        self.num_proc.setFixedWidth(30)
+        hbox.addWidget(self.num_proc)
+
         vbox.addStretch(1)
 
     def refresh_class_line(self):
@@ -99,6 +111,7 @@ class Manual_panel(QtWidgets.QWidget):
             button = QtWidgets.QRadioButton(text, self)
             self.class_num.addButton(button, i+1)
             self.class_line.addWidget(button, (i+1)/5, (i+1)%5)
+        self.class_list_summary.setText(self.classes.gen_summary())
 
     def assign_class(self, char):
         num = int(self.numstr.text())
@@ -174,6 +187,40 @@ class Manual_panel(QtWidgets.QWidget):
             num = points[np.random.randint(len(points))]
         self.numstr.setText(str(num))
         self.plot_frame()
+
+    def class_powder(self, event=None):
+        cnum = self.class_num.checkedId() - 1
+        if cnum == self.old_cnum:
+            powder = self.class_powder
+        elif cnum == -1:
+            powder = self.emc_reader.get_powder()
+            self.class_powder = powder
+            self.old_cnum = cnum
+        else:
+            points = np.where(self.classes.key_pos == cnum)[0]
+            num_proc = int(self.num_proc.text())
+            powders = multiprocessing.Array(ctypes.c_double, num_proc*self.parent.geom.mask.size)
+            pshape = (num_proc,) + self.parent.geom.mask.shape 
+            print 'Calculating powder sum for class %s using %d threads' % (self.class_num.checkedButton().text(), num_proc)
+            jobs = []
+            for i in range(num_proc):
+                p = multiprocessing.Process(target=self.powder_worker, args=(i, points[i::num_proc], pshape, powders))
+                jobs.append(p)
+                p.start()
+            for j in jobs:
+                j.join()
+            sys.stderr.write('\r%d/%d\n'%(len(points), len(points)))
+            powder = np.frombuffer(powders.get_obj()).reshape(pshape).sum(0)
+            self.class_powder = powder
+            self.old_cnum = cnum
+        self.plot_frame(frame=powder)
+
+    def powder_worker(self, rank, my_points, pshape, powders):
+        np_powder = np.frombuffer(powders.get_obj()).reshape(pshape)[rank]
+        for i, p in enumerate(my_points):
+            np_powder += self.emc_reader.get_frame(p)
+            if rank == 0:
+                sys.stderr.write('\r%d/%d'%(i,len(my_points)))
 
     def custom_hide(self):
         self.classify_flag.setChecked(False)
