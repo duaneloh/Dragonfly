@@ -5,7 +5,9 @@ import os
 import time
 from collections import OrderedDict
 from scipy.interpolate import interp1d
+from scipy.interpolate import griddata
 import urllib
+import pyfftw
 
 def fetch_pdb(pdb_code):
     print pdb_code
@@ -22,7 +24,7 @@ def find_atom_types(pdb_file):
         for line in fin:
             line = line.strip()
             if line[0:4] == "ATOM" or line[0:6] == "HETATM":
-                atom_label = line[-2:].lstrip()
+                atom_label = line[76:78].lstrip()
                 if atom_label not in atoms:
                     atoms.append(atom_label)
     return atoms
@@ -70,11 +72,11 @@ def get_atom_coords(pdb_file, scatt):
                 # occupany > 50 % || one of either if occupany = 50 %
                 (occ, tag) = (float(line[56:60]), line[16])
                 if ((occ > 0.5) | ((occ == 0.5) & (tag != "B"))):
-                    atom_label = line[-2:].lstrip()
+                    atom_label = line[76:78].lstrip()
                     if atom_label in scatt:
                         append_atom(tmp_atoms, scatt[atom_label], line)
                     else:
-                        s = line[-2:] + " not in the current atom list"
+                        s = line[76:78] + " not in the current atom list"
                         logging.info(s)
     return np.asarray(tmp_atoms)
 
@@ -96,6 +98,8 @@ def read_symmetry(pdb_file):
     return (sym_arr, trans_arr)
 
 def apply_symmetry(atoms, sym_list, trans_list):
+    if len(sym_list) == 0:
+        return atoms
     num_atoms = len(atoms)
     org_atoms = atoms[:,1:4].T.copy()
     f0s = np.asarray([atoms[:,0]]).T.copy()
@@ -136,16 +140,35 @@ def atoms_to_density_map(atoms, voxelSZ):
     bins = np.arange(R+1)
     all_bins = np.vstack((bins,bins,bins))
     coords = np.asarray([x,y,z]).T
-    (h, h_edges) = np.histogramdd(coords, bins=all_bins, weights=elec_den)
-    return h
+    #(h, h_edges) = np.histogramdd(coords, bins=all_bins, weights=elec_den)
+    #return h
+    #return griddata(coords, elec_den, np.mgrid[0:R,0:R,0:R].T, method='linear', fill_value=0.).T
+    integ = np.floor(coords)
+    frac = coords - integ
+    ix = integ[:,0]; iy = integ[:,1]; iz = integ[:,2]
+    fx = frac[:,0]; fy = frac[:,1]; fz = frac[:,2]
+    cx = 1. - fx; cy = 1. - fy; cz = 1. - fz
+    h_total = np.histogramdd(np.asarray([ix,iy,iz]).T, weights=elec_den*cx*cy*cz, bins=all_bins)[0]
+    h_total += np.histogramdd(np.asarray([ix,iy,iz+1]).T, weights=elec_den*cx*cy*fz, bins=all_bins)[0]
+    h_total += np.histogramdd(np.asarray([ix,iy+1,iz]).T, weights=elec_den*cx*fy*cz, bins=all_bins)[0]
+    h_total += np.histogramdd(np.asarray([ix,iy+1,iz+1]).T, weights=elec_den*cx*fy*fz, bins=all_bins)[0]
+    h_total += np.histogramdd(np.asarray([ix+1,iy,iz]).T, weights=elec_den*fx*cy*cz, bins=all_bins)[0]
+    h_total += np.histogramdd(np.asarray([ix+1,iy,iz+1]).T, weights=elec_den*fx*cy*fz, bins=all_bins)[0]
+    h_total += np.histogramdd(np.asarray([ix+1,iy+1,iz]).T, weights=elec_den*fx*fy*cz, bins=all_bins)[0]
+    h_total += np.histogramdd(np.asarray([ix+1,iy+1,iz+1]).T, weights=elec_den*fx*fy*fz, bins=all_bins)[0]
+    return h_total
 
-def low_pass_filter_density_map(in_arr, damping=-1., thr=1.E-3, num_cycles=2):
+def low_pass_filter_density_map(in_arr, damping=-1., thr=1.E-3, num_cycles=2, threads=4):
     (xl,yl,zl) = in_arr.shape
     (xx,yy,zz) = np.mgrid[-1:1:xl*1j, -1:1:yl*1j, -1:1:zl*1j]
     fil = np.fft.ifftshift(np.exp(damping*(xx*xx + yy*yy + zz*zz)))
     out_arr = in_arr.copy()
     for i in range(num_cycles):
-        ft = fil*np.fft.fftn(out_arr)
-        out_arr = np.real(np.fft.ifftn(ft))
+        ft = fil * pyfftw.interfaces.numpy_fft.fftn(out_arr, 
+                                                    planner_effort='FFTW_ESTIMATE', 
+                                                    threads=threads)
+        out_arr = np.real(pyfftw.interfaces.numpy_fft.ifftn(ft, 
+                                                            planner_effort='FFTW_ESTIMATE', 
+                                                            threads=threads))
         out_arr *= (out_arr > thr)
     return out_arr.copy()

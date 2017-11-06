@@ -57,7 +57,7 @@ if __name__ == '__main__':
         mask[radius>rmax] = 1
     else:
         with h5py.File(args.mask, 'r') as f:
-            mask = f[args.mask_dset][:].astype('u1')
+            mask = f[args.mask_dset][:].astype('u1').flatten()
     
     det_file = output_folder + '/' + os.path.splitext(os.path.basename(args.h5_name))[0] + '.dat'
     logging.info('Writing detector file to %s'%det_file)

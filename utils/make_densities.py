@@ -22,6 +22,10 @@ if __name__ == "__main__":
     except read_config.ConfigParser.NoOptionError:
         pdb_code    = read_config.get_filename(args.config_file, 'make_densities', 'pdb_code')
         pdb_file    = 'aux/%s.pdb' % pdb_code.upper()
+    try:
+        num_threads = int(read_config.get_param(args.config_file, 'make_densities', "num_threads"))
+    except read_config.ConfigParser.NoOptionError:
+        num_threads = 4
     aux_dir     = os.path.join(args.main_dir, read_config.get_filename(args.config_file, 'make_densities', "scatt_dir"))
     den_file    = os.path.join(args.main_dir, read_config.get_filename(args.config_file, 'make_densities', "out_density_file"))
     to_write    = py_utils.check_to_overwrite(den_file)
@@ -45,7 +49,7 @@ if __name__ == "__main__":
         timer.reset_and_report("Reading PDB") if args.vb else timer.reset()
 
         den         = process_pdb.atoms_to_density_map(all_atoms, q_pm['half_p_res'])
-        lp_den      = process_pdb.low_pass_filter_density_map(den)
+        lp_den      = process_pdb.low_pass_filter_density_map(den, threads=num_threads)
         timer.reset_and_report("Creating density map") if args.vb else timer.reset()
 
         py_utils.write_density(den_file, lp_den, binary=True)
