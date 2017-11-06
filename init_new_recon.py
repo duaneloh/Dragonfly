@@ -68,6 +68,7 @@ if __name__ == "__main__":
                                                              "autoplot.py",
                                                              "frameviewer.py",
                                                              "powder.py", 
+                                                             "classifier.py",
                                                              "convert"])
 
     os.chdir(new_recon_dir)

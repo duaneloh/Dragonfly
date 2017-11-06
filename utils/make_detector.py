@@ -49,7 +49,8 @@ if __name__ == "__main__":
         timer.reset_and_report("Creating detector") if args.vb else timer.reset()
 
         with open(det_file, "w") as fp:
-            fp.write(str(pm['dets_x']*pm['dets_y']) + "\n")
+            #fp.write(str(pm['dets_x']*pm['dets_y']) + "\n")
+            fp.write("%d %.6f %.6f\n" % (pm['dets_x']*pm['dets_y'], pm['detd']/pm['pixsize'], pm['ewald_rad']))
             for t0,t1,t2,t3,t4 in zip(qx,qy,qz,solid_angle,mask):
                 #txt = "{:21.15e} {:21.15e} {:21.15e} {:21.15e} {:d}\n".format(t0, t1, t2, t3, t4)
                 txt = "%21.15e %21.15e %21.15e %21.15e %d\n"%(t0, t1, t2, t3, t4)

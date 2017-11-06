@@ -157,7 +157,7 @@ def use_last_recon_as_starting_model(config_fname, output_subdir="output"):
             max_file = f
     logging.info("Setting start_model_file to " + max_file)
     config.set("emc", "start_model_file", max_file)
-    with open("config.ini", "w") as fp:
+    with open(config_fname, "w") as fp:
         config.write(fp)
 
 def increment_quat_file_sensibly(config_fname, incr):
@@ -170,5 +170,5 @@ def increment_quat_file_sensibly(config_fname, incr):
     quat_num_div += incr
     config.set("emc", "num_div", quat_num_div)
 
-    with open("config.ini", "w") as fp:
+    with open(config_fname, "w") as fp:
         config.write(fp)
