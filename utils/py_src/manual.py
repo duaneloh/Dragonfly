@@ -104,7 +104,7 @@ class Manual_panel(QtWidgets.QWidget):
         self.class_num.addButton(button, 0)
         self.class_line.addWidget(button, 0, 0)
         for i, k in enumerate(self.classes.key):
-            if k == '':
+            if k == ' ':
                 text = '  '
             else:
                 text = k
@@ -124,7 +124,7 @@ class Manual_panel(QtWidgets.QWidget):
 
     def unassign_class(self, event=None):
         num = int(self.numstr.text())
-        self.classes.clist[num] = ''
+        self.classes.clist[num] = ' '
         self.classes.unsaved = True
         self.class_list_summary.setText(self.classes.gen_summary())
         if self.class_line.count() != len(self.classes.key) + 1:

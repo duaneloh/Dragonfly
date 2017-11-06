@@ -21,6 +21,7 @@ class Conversion_panel(QtWidgets.QWidget):
         self.parent = parent
         self.frame = self.parent.frame_panel
         self.emc_reader = self.parent.emc_reader
+        self.indices = np.arange(0, 1000, dtype='i4')
         
         self.polar = None
         self.init_UI()
@@ -31,7 +32,7 @@ class Conversion_panel(QtWidgets.QWidget):
         
         label = QtWidgets.QLabel('Convert to angular correlations', self)
         vbox.addWidget(label)
-        
+
         hbox = QtWidgets.QHBoxLayout()
         vbox.addLayout(hbox)
         label = QtWidgets.QLabel('R_min:', self)
@@ -47,7 +48,7 @@ class Conversion_panel(QtWidgets.QWidget):
         self.r_max.editingFinished.connect(self.remake_converter)
         hbox.addWidget(self.r_max)
         hbox.addStretch(1)
-        
+
         hbox = QtWidgets.QHBoxLayout()
         vbox.addLayout(hbox)
         label = QtWidgets.QLabel('dR:', self)
@@ -65,28 +66,33 @@ class Conversion_panel(QtWidgets.QWidget):
         label = QtWidgets.QLabel('deg', self)
         hbox.addWidget(label)
         hbox.addStretch(1)
-        
+
         button = QtWidgets.QPushButton('Update', self)
         button.clicked.connect(self.remake_converter)
         vbox.addWidget(button)
-        
+
         label = QtWidgets.QLabel('Batch processing', self)
         vbox.addWidget(label)
-        
+
         hbox = QtWidgets.QHBoxLayout()
         vbox.addLayout(hbox)
-        label = QtWidgets.QLabel('Frame range:', self)
+        label = QtWidgets.QLabel('Frames:', self)
         hbox.addWidget(label)
         self.first_frame = QtWidgets.QLineEdit('0', self)
-        self.first_frame.setFixedWidth(64)
+        self.first_frame.setFixedWidth(60)
         hbox.addWidget(self.first_frame)
         label = QtWidgets.QLabel('-', self)
         hbox.addWidget(label)
         self.last_frame = QtWidgets.QLineEdit('1000', self)
-        self.last_frame.setFixedWidth(64)
+        self.last_frame.setFixedWidth(60)
         hbox.addWidget(self.last_frame)
+        label = QtWidgets.QLabel('Class:')
+        hbox.addWidget(label)
+        self.class_chars = QtWidgets.QLineEdit('', self)
+        self.class_chars.setFixedWidth(20)
+        hbox.addWidget(self.class_chars)
         hbox.addStretch(1)
-        
+
         hbox = QtWidgets.QHBoxLayout()
         vbox.addLayout(hbox)
         button = QtWidgets.QPushButton('Process', self)
@@ -103,13 +109,13 @@ class Conversion_panel(QtWidgets.QWidget):
         self.method.addItem('polar')
         self.method.addItem('polar_normed')
         self.method.addItem('raw')
-        
+
         hbox = QtWidgets.QHBoxLayout()
         vbox.addLayout(hbox)
         self.save_flag = QtWidgets.QCheckBox('Save', self)
         self.save_flag.setChecked(True)
         hbox.addWidget(self.save_flag)
-        fname = os.path.relpath(self.parent.output_folder + '/ang_corr.npy')
+        fname = os.path.relpath(self.parent.output_folder + '/converted.npy')
         self.save_fname = QtWidgets.QLineEdit(fname, self)
         hbox.addWidget(self.save_fname)
         
@@ -127,43 +133,52 @@ class Conversion_panel(QtWidgets.QWidget):
             self.frame.plot_frame()
 
     def convert_frames(self, event=None):
-        ang_corr = []
         try:
             start = int(self.first_frame.text())
             end = int(self.last_frame.text())
             num_proc = int(self.num_proc.text())
         except ValueError:
-            sys.stderr.write('Integers only\n')
+            sys.stderr.write('Integers only for frame range and number of processors\n')
             return
         
-        sys.stderr.write('Converting from %d to %d with %d processors\n' % (start, end, num_proc))
+        self.indices = np.arange(start, end, dtype='i4')
+        clist = self.parent.classes.clist[start:end]
+        if self.class_chars.text() != '':
+            sel = np.array([clist==c for c in self.class_chars.text()]).any(axis=0)
+            self.indices = self.indices[sel]
+        if len(self.indices) == 0:
+            sys.stderr.write('No frames of class %s in frame range\n'%self.class_chars.text())
+            return
+        else:
+            sys.stderr.write('Converting %d frames with %d processors\n' % (len(self.indices), num_proc))
+        
         arr = self.get_and_convert(0)
-        ang_corr = multiprocessing.Array(ctypes.c_double, arr.size*(end-start))
+        converted = multiprocessing.Array(ctypes.c_double, arr.size*len(self.indices))
         jobs = []
         for i in range(num_proc):
-            p = multiprocessing.Process(target=self.convert_worker, args=(i, num_proc, np.arange(start, end, dtype='i4'), arr.size, ang_corr))
+            p = multiprocessing.Process(target=self.convert_worker, args=(i, num_proc, self.indices, arr.size, converted))
             jobs.append(p)
             p.start()
         for j in jobs:
             j.join()
-        sys.stderr.write('\r%d/%d\n' % (end, end))
+        sys.stderr.write('\r%d/%d\n' % (len(self.indices), len(self.indices)))
         
-        self.parent.ang_corr = np.frombuffer(ang_corr.get_obj()).reshape(end-start, -1)
+        self.parent.converted = np.frombuffer(converted.get_obj()).reshape(len(self.indices), -1)
         if self.save_flag.isChecked():
             sys.stderr.write('Saving angular correlations to %s\n'%self.save_fname.text())
-            np.save(self.save_fname.text(), self.parent.ang_corr)
+            np.save(self.save_fname.text(), self.parent.converted)
 
     def get_and_convert(self, num):
         return self.polar.convert(self.emc_reader.get_frame(num, raw=True), method=self.method.currentText())
 
-    def convert_worker(self, rank, num_proc, indices, size, ang_corr):
+    def convert_worker(self, rank, num_proc, indices, size, converted):
         my_ind = indices[rank::num_proc]
-        np_ang_corr = np.frombuffer(ang_corr.get_obj())
-        for i in my_ind:
-            ang_ind = np.where(indices==i)[0][0]
-            np_ang_corr[size*ang_ind:size*(ang_ind+1)] = self.get_and_convert(i).flatten()
+        np_converted = np.frombuffer(converted.get_obj())
+        for i, ind in enumerate(my_ind):
+            ang_ind = np.where(indices==ind)[0][0]
+            np_converted[size*ang_ind:size*(ang_ind+1)] = self.get_and_convert(ind).flatten()
             if rank == 0:
-                sys.stderr.write('\r%d/%d'%(i, indices[-1]))
+                sys.stderr.write('\r%d/%d'%(i, len(indices)))
 
     def plot_converted_frame(self, event=None):
         pframe = self.polar.compute_polar(self.emc_reader.get_frame(self.frame.get_num(), raw=True))

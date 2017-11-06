@@ -24,12 +24,12 @@ class Det_reader():
         self.raw_mask - Unassembled mask as stored in detector file
         self.unassembled_mask - Unassembled mask (1=good, 0=bad)
     """
-    def __init__(self, det_fname, detd_pix=None, ewald_rad=None, mask_flag=False):
+    def __init__(self, det_fname, detd_pix=None, ewald_rad=None, mask_flag=False, keep_mask_1=True):
         self.det_fname = det_fname
         self.detd = detd_pix
         self.ewald_rad = ewald_rad
         self._check_header()
-        self._init_geom(mask_flag)
+        self._init_geom(mask_flag, keep_mask_1)
 
     def _check_header(self):
         with open(self.det_fname, 'r') as f:
@@ -43,7 +43,7 @@ class Det_reader():
             if self.ewald_rad is None:
                 raise TypeError('Old type detector file. Need ewald_rad')
 
-    def _init_geom(self, mask_flag):
+    def _init_geom(self, mask_flag, keep_mask_1):
         """ (Internal) Detector file parser
         Arguments:
             mask_flag (bool, optional) - Whether to read the mask column
@@ -52,10 +52,12 @@ class Det_reader():
         if mask_flag:
             sys.stderr.write('with mask...')
             self.qx, self.qy, self.qz, self.corr, raw_mask = np.loadtxt(self.det_fname, skiprows=1, unpack=True)
-            #mask[mask==2] = 1 # To keep only mask==0
             mask = np.copy(raw_mask).astype('u1')
-            mask[mask==1] = 0 # To keep both 0 and 1
-            mask = mask / 2 # To keep both 0 and 1
+            if keep_mask_1:
+                mask[mask==1] = 0 # To keep both 0 and 1
+                mask = mask / 2 # To keep both 0 and 1
+            else:
+                mask[mask==2] = 1 # To keep only mask==0
             mask = 1 - mask
         else:
             self.qx, self.qy, self.qz, self.corr = np.loadtxt(self.det_fname, usecols=(0,1,2,3), skiprows=1, unpack=True)

@@ -36,7 +36,7 @@ class Classifier(QtWidgets.QMainWindow):
             '&Embedding': 3,
             'M&LP': 4
         }
-        self.ang_corr = None
+        self.converted = None
         self.mode_val = 0
         
         self.get_config_params()

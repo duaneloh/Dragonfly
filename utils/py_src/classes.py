@@ -21,6 +21,7 @@ class Frame_classes():
     def load(self):
         with open(os.path.realpath(self.fname), 'r') as f:
             c = np.array([l.rstrip() for l in f.readlines()])
+            c[c==''] = ' '
         sys.stderr.write('Read class list from %s\n' % self.fname)
         self.unsaved = False
         return c
