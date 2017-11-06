@@ -82,11 +82,11 @@ class Embedding_panel(QtWidgets.QWidget):
         self.vbox.addStretch(1)
 
     def do_embedding(self, event=None):
-        ang_corr = self.parent.ang_corr
-        if ang_corr is None:
+        converted = self.parent.converted
+        if converted is None:
             #self.conversion.convert_frames()
-            self.parent.ang_corr = np.load(self.parent.output_folder+'/ang_corr.npy') #FIXME For debugging
-            ang_corr = self.parent.ang_corr
+            self.parent.converted = np.load(self.parent.output_folder+'/converted.npy') #FIXME For debugging
+            converted = self.parent.converted
         
         method_ind = self.method.currentIndex()
         print('Doing %s' % self.method.currentText())
@@ -102,7 +102,7 @@ class Embedding_panel(QtWidgets.QWidget):
             self.embedder = manifold.MDS(n_components=4, n_jobs=-1)
         elif method_ind == 5:
             self.embedder = manifold.TSNE(n_components=3, init='pca')
-        self.embedder.fit(ang_corr)
+        self.embedder.fit(converted)
         self.embed = self.embedder.embedding_
         self.embed_plot = self.embed
         
@@ -179,10 +179,8 @@ class Embedding_panel(QtWidgets.QWidget):
         self.vbox.addStretch(1)
 
     def show_selected_class(self, event=None):
-        first = int(self.conversion.first_frame.text())
-        last = int(self.conversion.last_frame.text())
-        key_pos = np.where(self.classes.key_pos == self.class_num.checkedId())[0]
-        key_pos = key_pos[(key_pos>=first) & (key_pos<last)] - first
+        ind = self.conversion.indices
+        key_pos = np.where(self.classes.key_pos[ind] == self.class_num.checkedId())[0]
         self.embed_plot = self.embed[key_pos]
         self.plot_embedding()
 
@@ -196,7 +194,7 @@ class Embedding_panel(QtWidgets.QWidget):
             self.class_line.removeWidget(w)
             w.setParent(None)
         for i, k in enumerate(self.classes.key):
-            if k == '':
+            if k == ' ':
                 text = '  '
             else:
                 text = k
@@ -236,7 +234,7 @@ class Embedding_panel(QtWidgets.QWidget):
         self.path_list.append(matplotlib.path.Path(pos, closed=True))
         points_inside = np.array([self.path_list[-1].contains_point((p[xnum], p[ynum])) for p in self.embed])
         sys.stderr.write('%d/%d frames inside ROI %d\n' % (points_inside.sum(), len(points_inside), len(self.points_inside_list)))
-        self.points_inside_list.append(np.where(points_inside)[0] + int(self.conversion.first_frame.text()))
+        self.points_inside_list.append(self.conversion.indices[np.where(points_inside)[0]])
         
         self.roi_list.append(
             matplotlib.patches.PathPatch(
@@ -359,7 +357,7 @@ class Embedding_panel(QtWidgets.QWidget):
         if index < 0:
             index = 0
         self.numstr.setText(str(points[index]))
-        self.plot_frame(force_frame=True)
+        self.plot_frame()
 
     def next_frame(self, event=None):
         num = int(self.numstr.text())
@@ -368,12 +366,12 @@ class Embedding_panel(QtWidgets.QWidget):
         if index > len(points) - 1:
             index = len(points) - 1
         self.numstr.setText(str(points[index]))
-        self.plot_frame(force_frame=True)
+        self.plot_frame()
 
     def rand_frame(self, event=None):
         points = self.points_inside_list[self.current_roi.checkedId()]
         self.numstr.setText(str(points[np.random.randint(len(points))]))
-        self.plot_frame(force_frame=True)
+        self.plot_frame()
 
     def apply_class(self, event=None):
         roi_num = self.current_roi.checkedId()

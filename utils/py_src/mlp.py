@@ -87,14 +87,14 @@ class MLP_panel(QtWidgets.QWidget):
         self.trained = True
 
     def get_training_data(self):
-        ang_corr = self.parent.ang_corr
-        if ang_corr is None:
+        converted = self.parent.converted
+        if converted is None:
             #self.conversion.convert_frames()
-            self.parent.ang_corr = np.load(self.parent.output_folder+'/ang_corr.npy') #FIXME For debugging
-            ang_corr = self.parent.ang_corr
+            self.parent.converted = np.load(self.parent.output_folder+'/converted.npy') #FIXME For debugging
+            converted = self.parent.converted
         
         key_pos = self.classes.key_pos[int(self.conversion.first_frame.text()):int(self.conversion.last_frame.text())]
-        self.train_data = ang_corr[key_pos>0]
+        self.train_data = converted[key_pos>0]
         self.train_labels = key_pos[key_pos>0]
 
     def add_predict_frame(self):
@@ -147,9 +147,9 @@ class MLP_panel(QtWidgets.QWidget):
         
         if last < 0:
             last = self.parent.num_frames
-        if self.get_and_convert(first).shape[0] != self.parent.ang_corr.shape[1]:
+        if self.get_and_convert(first).shape[0] != self.parent.converted.shape[1]:
             sys.stderr.write('Wrong length for converted image (expected %d, got %d). You may need to update converter.\n' %
-                (self.parent.ang_corr.shape[1], self.get_and_convert(first).shape[0]))
+                (self.parent.converted.shape[1], self.get_and_convert(first).shape[0]))
             return
         
         predictions = multiprocessing.Array(ctypes.c_char, self.parent.num_frames)
@@ -171,8 +171,8 @@ class MLP_panel(QtWidgets.QWidget):
     def predict_worker(self, rank, num_proc, indices, predictions):
         my_ind = indices[rank::num_proc]
         for i in my_ind:
-            ang_corr = np.expand_dims(self.get_and_convert(i), axis=0)
-            predictions[i] = self.classes.key[self.mlp.predict(ang_corr)[0]]
+            converted = np.expand_dims(self.get_and_convert(i), axis=0)
+            predictions[i] = self.classes.key[self.mlp.predict(converted)[0]]
             if rank == 0:
                 sys.stderr.write('\r%d/%d'%(i, indices[-1]))
 
