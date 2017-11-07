@@ -214,7 +214,7 @@ int setup(char *config_fname, int continue_flag) {
 		fprintf(stderr, "Need either in_photons_file or in_photons_list.\n") ;
 		return 1 ;
 	}
-	if (det[0].num_dfiles != num_datasets) {
+	if (det[0].num_dfiles > 0 && det[0].num_dfiles != num_datasets) {
 		fprintf(stderr, "Number of detector files and emc files don't match (%d vs %d)\n", det[0].num_dfiles, num_datasets) ;
 		return 1 ;
 	}
