@@ -405,7 +405,7 @@ void combine_information_omp(double *priv_data, double *priv_model, double *priv
 		}
 	}
 	
-	if (param.need_scaling && (!param.known_scale)) {
+	if (param.need_scaling) {
 		if (omp_rank == 0)
 			memset(iter->scale, 0, frames->tot_num_data * sizeof(double)) ;
 		#pragma omp barrier
@@ -449,7 +449,7 @@ double combine_information_mpi() {
 	}
 	
 	// Calculate updated scale factor using count[d] (total photons in frame d)
-	if (param.need_scaling && (!param.known_scale)) {
+	if (param.need_scaling) {
 		// Combine scale factor information from all MPI ranks
 		MPI_Allreduce(MPI_IN_PLACE, iter->scale, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 		
