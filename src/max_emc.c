@@ -317,7 +317,10 @@ void update_tomogram(int r, double *prob, double *priv_data, double **view, doub
 				prob[curr->num_data_prev+d] = exp(param.beta*(prob[curr->num_data_prev+d] - max_exp[curr->num_data_prev+d])) / p_sum[curr->num_data_prev+d] ; 
 			else
 				prob[curr->num_data_prev+d] = exp(param.beta * (prob[curr->num_data_prev+d] - max_exp[curr->num_data_prev+d]) / 2. / param.sigmasq) / p_sum[curr->num_data_prev+d] ;
-			priv_data[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * (temp - frames->sum_fact[curr->num_data_prev+d] + frames->count[curr->num_data_prev+d]*log(iter->scale[curr->num_data_prev+d])) ;
+			if (param.need_scaling)
+				priv_data[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * (temp - frames->sum_fact[curr->num_data_prev+d] + frames->count[curr->num_data_prev+d]*log(iter->scale[curr->num_data_prev+d])) ;
+			else
+				priv_data[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * (temp - frames->sum_fact[curr->num_data_prev+d]) ;
 			//priv_data[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * temp ;
 			
 			// Calculate denominator for update rule
