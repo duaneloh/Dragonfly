@@ -100,8 +100,6 @@ int setup(char *config_fname, int continue_flag) {
 				strcpy(scale_fname, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "need_scaling") == 0)
 				param.need_scaling = atoi(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "known_scale") == 0)
-				param.known_scale = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "alpha") == 0)
 				param.alpha = atof(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "beta") == 0)
@@ -164,8 +162,10 @@ int setup(char *config_fname, int continue_flag) {
 		fprintf(stderr, "Need either in_detector_file or in_detector_list.\n") ;
 		return 1 ;
 	}
-	fprintf(stderr, "Number of unique detectors = %d\n", det[0].num_det) ;
-	fprintf(stderr, "Number of detector files = %d\n", det[0].num_dfiles) ;
+	if (!rank) {
+		fprintf(stderr, "Number of unique detectors = %d\n", det[0].num_det) ;
+		fprintf(stderr, "Number of detector files = %d\n", det[0].num_dfiles) ;
+	}
 
 	// Calculate size and center
 	if (iter->size < 0) {
@@ -218,7 +218,8 @@ int setup(char *config_fname, int continue_flag) {
 		fprintf(stderr, "Number of detector files and emc files don't match (%d vs %d)\n", det[0].num_dfiles, num_datasets) ;
 		return 1 ;
 	}
-	fprintf(stderr, "Number of dataset files = %d\n", num_datasets) ;
+	if (!rank)
+		fprintf(stderr, "Number of dataset files = %d\n", num_datasets) ;
 	
 	if (merge_flist[0] != '\0' && merge_fname[0] != '\0') {
 		fprintf(stderr, "Config file contains both merge_photons_file and merge_photons_list. Pick one.\n") ;
@@ -292,7 +293,7 @@ int setup(char *config_fname, int continue_flag) {
 		else {
 			calc_scale(frames, det, NULL, iter) ;
 		}
-		parse_scale(scale_fname, frames, iter) ;
+		param.known_scale = parse_scale(scale_fname, frames, iter) ;
 	}
 	
 	if (!rank && param.start_iter == 1) {

@@ -43,9 +43,9 @@ double maximize() {
 		int omp_rank = omp_get_thread_num() ;
 		// priv_data = {priv_likelihood, priv_info, priv_scale}
 		double *priv_data = NULL ;
-		double *sum = malloc(det->num_det * sizeof(double)) ;
-		double **view = malloc(det->num_det * sizeof(double*)) ;
-		for (d = 0 ; d < det->num_det ; ++d)
+		double *sum = malloc(det[0].num_det * sizeof(double)) ;
+		double **view = malloc(det[0].num_det * sizeof(double*)) ;
+		for (d = 0 ; d < det[0].num_det ; ++d)
 			view[d] = malloc(det[d].num_pix * sizeof(double)) ;
 		int *priv_rmax = calloc(frames->tot_num_data, sizeof(int)) ;
 		double *priv_max = malloc(frames->tot_num_data * sizeof(double)) ;
@@ -82,7 +82,7 @@ double maximize() {
 		// OpenMP 4.5 support available in GCC 6.1+ or ICC 17.0+
 		combine_information_omp(priv_data, priv_model, priv_weight) ;
 		
-		for (d = 0 ; d < det->num_det ; ++d)
+		for (d = 0 ; d < det[0].num_det ; ++d)
 			free(view[d]) ;
 		free(view) ;
 		free(sum) ;
@@ -131,7 +131,7 @@ double calculate_rescale() {
 	// Only calculating based on first detector and dataset
 	#pragma omp parallel default(shared) private(r, t)
 	{
-		double *view = malloc(det->num_pix * sizeof(double)) ;
+		double *view = malloc(det[0].num_pix * sizeof(double)) ;
 		
 		#pragma omp for schedule(static,1) reduction(+:total)
 		for (r = 0 ; r < quat->num_rot_p ; ++r) {
@@ -140,8 +140,8 @@ double calculate_rescale() {
 			// Second argument being 0. tells slice_gen to generate un-rescaled tomograms
 			slice_gen(&quat->quat[(r*num_proc + rank)*5], 0., view, iter->model1, iter->size, det) ;
 			
-			for (t = 0 ; t < det->num_pix ; ++t)
-			if (det->mask[t] < 1)
+			for (t = 0 ; t < det[0].num_pix ; ++t)
+			if (det[0].mask[t] < 1)
 				u[r] += view[t] ;
 			
 			total += quat->quat[(r*num_proc + rank)*5 + 4] * u[r] ;
@@ -211,12 +211,12 @@ void calculate_prob(int r, double **view, double *max, int *rmax, double *prob) 
 				}
 			}
 			else if (curr->type == 1) {
-				for (t = 0 ; t < det->num_pix ; ++t)
+				for (t = 0 ; t < det[detn].num_pix ; ++t)
 				if (det[detn].mask[t] < 1)
 					prob[curr->num_data_prev+d] += curr->int_frames[d*curr->num_pix + t] * view[detn][t] ;
 			}
 			else if (curr->type == 2) { // Gaussian EMC for double precision data without scaling
-				for (t = 0 ; t < det->num_pix ; ++t)
+				for (t = 0 ; t < det[detn].num_pix ; ++t)
 				if (det[detn].mask[t] < 1)
 					prob[curr->num_data_prev+d] -= pow(curr->frames[d*curr->num_pix + t] - view[detn][t]*iter->rescale, 2.) ;
 			}
@@ -298,12 +298,13 @@ void update_tomogram(int r, double *prob, double *priv_data, double **view, doub
 	}
 	else
 		curr = frames ;
-	memset(sum, 0, det->num_det*sizeof(double)) ;
+	memset(sum, 0, (det[0].num_det)*sizeof(double)) ;
+	for (detn = 0 ; detn < det[0].num_det ; ++detn) 
+		memset(view[detn], 0, det[detn].num_pix*sizeof(double)) ;
 	
 	while (curr != NULL) {
 		//Calculate slice for current detector
 		detn = det[0].mapping[dset] ;
-		memset(view[detn], 0, det[detn].num_pix*sizeof(double)) ;
 		
 		for (d = 0 ; d < curr->num_data ; ++d) {
 			// check if frame is blacklisted
@@ -316,7 +317,10 @@ void update_tomogram(int r, double *prob, double *priv_data, double **view, doub
 				prob[curr->num_data_prev+d] = exp(param.beta*(prob[curr->num_data_prev+d] - max_exp[curr->num_data_prev+d])) / p_sum[curr->num_data_prev+d] ; 
 			else
 				prob[curr->num_data_prev+d] = exp(param.beta * (prob[curr->num_data_prev+d] - max_exp[curr->num_data_prev+d]) / 2. / param.sigmasq) / p_sum[curr->num_data_prev+d] ;
-			priv_data[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * (temp - frames->sum_fact[curr->num_data_prev+d] + frames->count[curr->num_data_prev+d]*log(iter->scale[curr->num_data_prev+d])) ;
+			if (param.need_scaling)
+				priv_data[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * (temp - frames->sum_fact[curr->num_data_prev+d] + frames->count[curr->num_data_prev+d]*log(iter->scale[curr->num_data_prev+d])) ;
+			else
+				priv_data[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * (temp - frames->sum_fact[curr->num_data_prev+d]) ;
 			//priv_data[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * temp ;
 			
 			// Calculate denominator for update rule
@@ -375,7 +379,7 @@ void merge_tomogram(int r, double *sum, double **view, double *model, double *we
 	
 	// If no data frame has any probability for this orientation, don't merge
 	// Otherwise divide the updated tomogram by the sum over all probabilities and merge
-	for (detn = 0 ; detn < det->num_det ; ++detn) {
+	for (detn = 0 ; detn < det[0].num_det ; ++detn) {
 		if (sum[detn] > 0.) {
 			for (t = 0 ; t < det[detn].num_pix ; ++t)
 				view[detn][t] /= sum[detn] ;
@@ -405,7 +409,7 @@ void combine_information_omp(double *priv_data, double *priv_model, double *priv
 		}
 	}
 	
-	if (param.need_scaling && (!param.known_scale)) {
+	if (param.need_scaling) {
 		if (omp_rank == 0)
 			memset(iter->scale, 0, frames->tot_num_data * sizeof(double)) ;
 		#pragma omp barrier
@@ -449,7 +453,7 @@ double combine_information_mpi() {
 	}
 	
 	// Calculate updated scale factor using count[d] (total photons in frame d)
-	if (param.need_scaling && (!param.known_scale)) {
+	if (param.need_scaling) {
 		// Combine scale factor information from all MPI ranks
 		MPI_Allreduce(MPI_IN_PLACE, iter->scale, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 		
