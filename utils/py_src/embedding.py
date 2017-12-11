@@ -67,15 +67,18 @@ class Embedding_panel(QtWidgets.QWidget):
         self.vbox.addLayout(hbox)
         label = QtWidgets.QLabel('X-axis:', self)
         hbox.addWidget(label)
-        self.x_axis_num = QtWidgets.QLineEdit('0', self)
-        self.x_axis_num.setFixedWidth(24)
-        self.x_axis_num.editingFinished.connect(self.gen_hist)
+        self.x_axis_num = QtWidgets.QComboBox(self)
+        for i in range(4):
+            self.x_axis_num.addItem(str(i))
+        self.x_axis_num.currentIndexChanged.connect(self.gen_hist)
         hbox.addWidget(self.x_axis_num)
         label = QtWidgets.QLabel('Y-axis:', self)
         hbox.addWidget(label)
-        self.y_axis_num = QtWidgets.QLineEdit('1', self)
-        self.y_axis_num.setFixedWidth(24)
-        self.y_axis_num.editingFinished.connect(self.gen_hist)
+        self.y_axis_num = QtWidgets.QComboBox(self)
+        for i in range(4):
+            self.y_axis_num.addItem(str(i))
+        self.y_axis_num.setCurrentIndex(1)
+        self.y_axis_num.currentIndexChanged.connect(self.gen_hist)
         hbox.addWidget(self.y_axis_num)
         hbox.addStretch(1)
         
@@ -123,12 +126,8 @@ class Embedding_panel(QtWidgets.QWidget):
         fig.clear()
         s = fig.add_subplot(111)
         e = self.embed_plot
-        try:
-            xnum = int(self.x_axis_num.text())
-            ynum = int(self.y_axis_num.text())
-        except ValueError:
-            sys.stderr.write('Need axes numbers to be integers\n')
-            return
+        xnum = int(self.x_axis_num.currentText())
+        ynum = int(self.y_axis_num.currentText())
         s.hist2d(e[:,xnum], e[:,ynum], bins=[self.binx, self.biny], vmax=float(self.frame.rangestr.text()), cmap=self.parent.cmap)
         s.set_title(self.method.currentText())
         for p in self.roi_list:
@@ -137,12 +136,8 @@ class Embedding_panel(QtWidgets.QWidget):
         self.frame.canvas.draw()
 
     def gen_hist(self, event=None):
-        try:
-            xnum = int(self.x_axis_num.text())
-            ynum = int(self.y_axis_num.text())
-        except ValueError:
-            sys.stderr.write('Need axes numbers to be integers\n')
-            return
+        xnum = int(self.x_axis_num.currentText())
+        ynum = int(self.y_axis_num.currentText())
         self.hist2d, self.binx, self.biny = np.histogram2d(self.embed[:,xnum], self.embed[:,ynum], bins=100)
         
         delx = self.binx[1] - self.binx[0]
@@ -224,12 +219,8 @@ class Embedding_panel(QtWidgets.QWidget):
         pos = np.array(self.positions)
         if pos.size == 0:
             return
-        try:
-            xnum = int(self.x_axis_num.text())
-            ynum = int(self.y_axis_num.text())
-        except ValueError:
-            sys.stderr.write('Need axes numbers to be integers\n')
-            return
+        xnum = int(self.x_axis_num.currentText())
+        ynum = int(self.y_axis_num.currentText())
         pos = np.append(pos, pos[-1]).reshape(-1,2)
         self.path_list.append(matplotlib.path.Path(pos, closed=True))
         points_inside = np.array([self.path_list[-1].contains_point((p[xnum], p[ynum])) for p in self.embed])
@@ -337,6 +328,7 @@ class Embedding_panel(QtWidgets.QWidget):
         self.roi_summary.setText(summary)
 
     def clear_roi(self):
+        self.plot_embedding()
         for p in self.roi_list:
             p.remove()
         self.frame.canvas.draw()
