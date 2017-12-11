@@ -91,7 +91,7 @@ class Classifier(QtWidgets.QMainWindow):
         # Color map picker
         cmapmenu = menubar.addMenu('&Color Map')
         self.color_map = QtWidgets.QActionGroup(self, exclusive=True)
-        for i, s in enumerate(['cubehelix', 'CMRmap', 'gray', 'gray_r', 'jet']):
+        for i, s in enumerate(['cubehelix', 'CMRmap', 'afmhot', 'gray', 'gray_r', 'jet']):
             a = self.color_map.addAction(QtWidgets.QAction(s, self, checkable=True))
             if i == 0:
                 a.setChecked(True)
@@ -137,6 +137,11 @@ class Classifier(QtWidgets.QMainWindow):
         self.ewald_rad = pm['ewald_rad']
         self.detd = pm['detd']/pm['pixsize']
         
+        try:
+            self.conv_params = read_config.get_param(self.config_file, 'classifier', 'conv_params')
+            self.conv_params = self.conv_params.split()
+        except read_config.ConfigParser.NoOptionError:
+            self.conv_params = ['16', '80', '2', '10']
         self.num_files = len(self.photons_list)
         output_folder = read_config.get_filename(self.config_file, 'classifier', 'output_folder')
         self.output_folder = os.path.abspath(output_folder)

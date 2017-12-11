@@ -33,7 +33,7 @@ class Polar_converter():
     def compute_indices(self):
         """Compute the angular and radial bins using the first encountered frame.
         """
-        ang = np.mod(np.arctan2(self.y, self.x), np.pi) / (np.pi*self.delta_ang/180.)
+        ang = np.mod(np.arctan2(self.x, self.y), np.pi) / (np.pi*self.delta_ang/180.)
         self.angs = (ang - ang.min()).astype('i4')
         self.raw_rads = np.sqrt(self.x*self.x + self.y*self.y)
         self.sel_pixels = (self.raw_rads <= self.r_max) & (self.raw_rads >= self.r_min)
@@ -71,10 +71,12 @@ class Polar_converter():
             return self.compute_polar(input_frame, normed=True)
         elif method == 'raw':
             return self.compute_raw(input_frame)
+        elif method == 'raw_normed':
+            return self.compute_raw(input_frame, normed=True)
         else:
             print('Unknown method string: %s'%method)
 
-    def compute_raw(self, input_frame):
+    def compute_raw(self, input_frame, normed=False):
         """Get pixels within supplied radius range
         
         Arguments:
@@ -85,7 +87,13 @@ class Polar_converter():
         """
         if self.first_pass:
             self.compute_indices()
-        return input_frame[self.sel_pixels]
+        data = input_frame[self.sel_pixels]
+        if not normed:
+            return data
+        elif data.mean() > 0:
+            return data/data.mean()
+        else:
+            return data
 
     def compute_polar(self, input_frame, normed=True):
         """Converts given input diffraction pattern into a polar representation
@@ -103,7 +111,7 @@ class Polar_converter():
         polar_arr[self.polar_count>0] /= self.polar_count[self.polar_count>0]
         polar_arr = polar_arr.reshape(self.rad_max, -1)[self.r_min:self.r_max]
         if normed:
-            return polar_arr / polar_arr.mean()
+            return polar_arr / polar_arr.ravel().mean()
         else:
             return polar_arr
 
