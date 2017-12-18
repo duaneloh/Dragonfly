@@ -38,7 +38,7 @@ struct dataset {
 void calc_sum_fact(struct detector*, struct dataset*) ;
 int parse_dataset(char*, struct detector*, struct dataset*) ;
 int parse_data(char*, struct detector*, struct dataset*) ;
-void gen_blacklist(char*, int, struct dataset*) ;
+void make_blacklist(char*, int, struct dataset*) ;
 void free_data(int, struct dataset*) ;
 
 #endif //DATASET_H

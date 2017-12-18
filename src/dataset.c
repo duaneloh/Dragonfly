@@ -28,7 +28,7 @@ void calc_sum_fact(struct detector *det, struct dataset *frames) {
 	}
 }
 
-void gen_blacklist(char *fname, int flag, struct dataset *frames) {
+void make_blacklist(char *fname, int flag, struct dataset *frames) {
 	int d, current = flag%2 ;
 	frames->num_blacklist = 0 ;
 	frames->blacklist = calloc(frames->tot_num_data, sizeof(uint8_t)) ;
