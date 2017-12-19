@@ -1,5 +1,84 @@
 #include "detector.h"
 
+static char *generate_token(char *line, char *section_name) {
+	char *token = strtok(line, " =") ;
+	if (token[0] == '#' || token[0] == '\n')
+		return NULL ;
+	
+	if (line[0] == '[') {
+		token = strtok(line, "[]") ;
+		strcpy(section_name, token) ;
+		return NULL ;
+	}
+	
+	return token ;
+}
+
+double generate_detectors(FILE *config_fp, struct detector **det_list) {
+	double qmax ;
+	char det_fname[1024] = {'\0'}, det_flist[1024] = {'\0'}, out_det_fname[1024] = {'\0'} ;
+	char line[1024], section_name[1024], *token ;
+	
+	rewind(config_fp) ;
+	while (fgets(line, 1024, config_fp) != NULL) {
+		if ((token = generate_token(line, section_name)) == NULL)
+			continue ;
+		
+		if (strcmp(section_name, "make_detector") == 0) {
+			if (strcmp(token, "out_detector_file") == 0)
+				strcpy(out_det_fname, strtok(NULL, " =\n")) ;
+		}
+		else if (strcmp(section_name, config_section) == 0) {
+			if (strcmp(token, "in_detector_file") == 0)
+				strcpy(det_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "in_detector_list") == 0)
+				strcpy(det_flist, strtok(NULL, " =\n")) ;
+		}
+	}
+	if (strcmp(det_fname, "make_detector:::out_detector_file") == 0)
+		strcpy(det_fname, out_det_fname) ;
+	
+	if (det_flist[0] != '\0' && det_fname[0] != '\0') {
+		fprintf(stderr, "Both in_detector_file and in_detector_list specified. Pick one.\n") ;
+		return -1. ;
+	}
+	else if (det_fname[0] != '\0') {
+		fprintf(stderr, "Parsing detector file: %s\n", det_fname) ;
+		*det_list = malloc(sizeof(struct detector)) ;
+		(*det_list)[0].num_det = 1 ;
+		memset((*det_list)[0].mapping, 0, 1024*sizeof(int)) ;
+		if ((qmax = parse_detector(det_fname, det_list[0], 1)) < 0.)
+			return qmax ;
+	}
+	else if (det_flist[0] != '\0') {
+		if ((qmax = parse_detector_list(det_flist, det_list, 1)) < 0.)
+			return qmax ;
+	}
+	else {
+		fprintf(stderr, "Need either in_detector_file or in_detector_list.\n") ;
+		return -1. ;
+	}
+	if (!rank) {
+		fprintf(stderr, "Number of unique detectors = %d\n", (*det_list)[0].num_det) ;
+		fprintf(stderr, "Number of detector files in list = %d\n", (*det_list)[0].num_dfiles) ;
+	}
+	
+	return qmax ;
+}
+
+void generate_size(double qmax, long *size_ptr, long *center_ptr) {
+	if (*size_ptr < 0) {
+		*size_ptr = 2*ceil(qmax) + 3 ;
+		if (!rank)
+			fprintf(stderr, "Calculated 3D volume size = %ld\n", *size_ptr) ;
+	}
+	else {
+		if (!rank)
+			fprintf(stderr, "Provided 3D volume size = %ld\n", *size_ptr) ;
+	}
+	*center_ptr = *size_ptr / 2 ;
+}
+
 double parse_detector(char *fname, struct detector *det, int norm_flag) {
 	int t, d ;
 	double q, qmax = -1., mean_pol = 0. ;

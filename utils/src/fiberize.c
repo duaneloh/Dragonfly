@@ -1,9 +1,11 @@
 #include "../../src/detector.h"
 #include "../../src/interp.h"
 
+int rank, num_proc ;
+char config_section[1024] ;
 int size, center, num_pix ;
 
-void detgen(struct detector *det) {
+void make_flat_detector(struct detector *det) {
 	int x, y, t ;
 	
 	det->num_pix = size*size ;
@@ -49,7 +51,7 @@ void rotate_slice(double *in, double angle, double weight, double *out) {
 }
 
 int main(int argc, char *argv[]) {
-	int t, num_angles = 720. ;
+	int t, num_angles = 720 ;
 	double a, c, s, w, sigma, quat[4] ;
 	double *volume, *slice, *temp_slice ;
 	FILE *fp ;
@@ -71,7 +73,7 @@ int main(int argc, char *argv[]) {
 	fclose(fp) ;
 	
 	det = malloc(sizeof(struct detector)) ;
-	detgen(det) ;
+	make_flat_detector(det) ;
 	
 	slice = calloc(num_pix, sizeof(double)) ;
 	temp_slice = malloc(num_pix * sizeof(double)) ;

@@ -814,3 +814,53 @@ void divide_quat(int rank, int num_proc, struct rotation *quat) {
 void free_quat(struct rotation *quat) {
 	free(quat->quat) ;
 }
+
+static char *generate_token(char *line, char *section_name) {
+	char *token = strtok(line, " =") ;
+	if (token[0] == '#' || token[0] == '\n')
+		return NULL ;
+	
+	if (line[0] == '[') {
+		token = strtok(line, "[]") ;
+		strcpy(section_name, token) ;
+		return NULL ;
+	}
+	
+	return token ;
+}
+
+int generate_quaternion(FILE *config_fp, struct rotation *quat_ptr) {
+	int num, num_div = -1 ;
+	char quat_fname[1024] = {'\0'} ;
+	char line[1024], section_name[1024], *token ;
+	
+	rewind(config_fp) ;
+	while (fgets(line, 1024, config_fp) != NULL) {
+		if ((token = generate_token(line, section_name)) == NULL)
+			continue ;
+		
+		if (strcmp(section_name, config_section) == 0) {
+			if (strcmp(token, "num_div") == 0)
+				num_div = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "in_quat_file") == 0)
+				strcpy(quat_fname, strtok(NULL, " =\n")) ;
+		}
+	}
+	
+	if (num_div > 0 && quat_fname[0] != '\0') {
+		fprintf(stderr, "Config file contains both num_div as well as in_quat_file. Pick one.\n") ;
+		return 1 ;
+	}
+	else if (num_div > 0)
+		num = quat_gen(num_div, quat_ptr) ;
+	else
+		num = parse_quat(quat_fname, quat_ptr) ;
+	
+	if (num < 0)
+		return 1 ;
+	
+	divide_quat(rank, num_proc, quat_ptr) ;
+	
+	return 0 ;
+}
+

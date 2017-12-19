@@ -4,25 +4,76 @@
 #include <string.h>
 #include "emc.h"
 
-void generate_globals() {
+char *generate_token(char *line, char *section_name) {
+	char *token = strtok(line, " =") ;
+	if (token[0] == '#' || token[0] == '\n')
+		return NULL ;
+	
+	if (line[0] == '[') {
+		token = strtok(line, "[]") ;
+		strcpy(section_name, token) ;
+		return NULL ;
+	}
+	
+	return token ;
+}
+
+void generate_globals(FILE *config_fp) {
+	char line[1024], section_name[1024], *token ;
+	
 	param.known_scale = 0 ;
 	param.start_iter = 1 ;
-	strcpy(param.log_fname, "EMC.log") ;
-	strcpy(param.output_folder, "data/") ;
 	param.beta_period = 100 ;
 	param.beta_jump = 1. ;
 	param.need_scaling = 0 ;
 	param.alpha = 0. ;
 	param.beta = 1. ;
 	param.sigmasq = 0. ;
+	strcpy(param.log_fname, "EMC.log") ;
+	strcpy(param.output_folder, "data/") ;
+	
 	iter = malloc(sizeof(struct iterate)) ;
 	quat = malloc(sizeof(struct rotation)) ;
 	frames = malloc(sizeof(struct dataset)) ;
 	merge_frames = NULL ;
 	iter->size = -1 ;
+	quat->icosahedral_flag = 0 ;
+	
+	while (fgets(line, 1024, config_fp) != NULL) {
+		if ((token = generate_token(line, section_name)) == NULL)
+			continue ;
+		
+		if (strcmp(section_name, "emc") == 0) {
+			if (strcmp(token, "output_folder") == 0)
+				strcpy(param.output_folder, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "log_file") == 0)
+				strcpy(param.log_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "size") == 0)
+				iter->size = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "need_scaling") == 0)
+				param.need_scaling = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "alpha") == 0)
+				param.alpha = atof(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "beta") == 0)
+				param.beta = atof(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "sym_icosahedral") == 0)
+				quat->icosahedral_flag = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "beta_schedule") == 0) {
+				param.beta_jump = atof(strtok(NULL, " =\n")) ;
+				param.beta_period = atoi(strtok(NULL, " =\n")) ;
+			}
+			else if (strcmp(token, "gaussian_sigma") == 0) {
+				param.sigmasq = atof(strtok(NULL, " =\n")) ;
+				param.sigmasq *= param.sigmasq ;
+				fprintf(stderr, "sigma_squared = %f\n", param.sigmasq) ;
+			}
+		}
+	}
+	if (!rank)
+		fprintf(stderr, "Parsed params from config file\n") ;
 }
 
-void generate_output_dir() {
+void generate_output_dirs() {
 	char line[1024] ;
 	
 	sprintf(line, "%s/output", param.output_folder) ;
@@ -39,102 +90,23 @@ void generate_output_dir() {
 	mkdir(line, 0750) ;
 }
 
-double generate_detectors(char *det_flist, char *det_fname) {
-	double qmax ;
+void generate_blacklist(FILE *config_fp) {
+	char blacklist_fname[1024] = {'\0'}, sel_string[1024] = {'\0'} ;
+	char line[1024], section_name[1024], *token ;
 	
-	if (det_flist[0] != '\0' && det_fname[0] != '\0') {
-		fprintf(stderr, "Both in_detector_file and in_detector_list specified. Pick one.\n") ;
-		return 1 ;
-	}
-	else if (det_fname[0] != '\0') {
-		det = malloc(sizeof(struct detector)) ;
-		det[0].num_det = 1 ;
-		memset(det[0].mapping, 0, 1024*sizeof(int)) ;
-		if ((qmax = parse_detector(det_fname, det, 1)) < 0.)
-			return qmax ;
-	}
-	else if (det_flist[0] != '\0') {
-		if ((qmax = parse_detector_list(det_flist, &det, 1)) < 0.)
-			return qmax ;
-	}
-	else {
-		fprintf(stderr, "Need either in_detector_file or in_detector_list.\n") ;
-		return -1. ;
-	}
-	if (!rank) {
-		fprintf(stderr, "Number of unique detectors = %d\n", det[0].num_det) ;
-		fprintf(stderr, "Number of detector files = %d\n", det[0].num_dfiles) ;
-	}
-	
-	return qmax ;
-}
-
-void calc_size(double qmax) {
-	if (iter->size < 0) {
-		iter->size = 2*ceil(qmax) + 3 ;
-		fprintf(stderr, "Calculated 3D volume size = %ld\n", iter->size) ;
-	}
-	else {
-		fprintf(stderr, "Provided 3D volume size = %ld\n", iter->size) ;
-	}
-	iter->center = iter->size / 2 ;
-}
-
-int generate_quaternion(int num_div, char *quat_fname, int sym_icosahedral) {
-	int num ;
-	quat->icosahedral_flag = sym_icosahedral ;
-	
-	if (num_div > 0 && quat_fname[0] != '\0') {
-		fprintf(stderr, "Config file contains both num_div as well as in_quat_file. Pick one.\n") ;
-		return 1 ;
-	}
-	else if (num_div > 0)
-		num = quat_gen(num_div, quat) ;
-	else
-		num = parse_quat(quat_fname, quat) ;
-	
-	if (num < 0)
-		return 1 ;
-	
-	divide_quat(rank, num_proc, quat) ;
-	
-	return 0 ;
-}
-
-int generate_data(char *data_flist, char *data_fname, struct dataset *frames_list, int compulsory) {
-	int num_datasets ;
-	frames_list->next = NULL ;
-	if (data_flist[0] != '\0' && data_fname[0] != '\0') {
-		fprintf(stderr, "Config file contains both in_photons_file and in_photons_list. Pick one.\n") ;
-		return 1 ;
-	}
-	else if (data_fname[0] != '\0') {
-		if (parse_dataset(data_fname, det, frames_list))
-			return 1 ;
-		frames_list->num_data_prev = 0 ;
-		calc_sum_fact(det, frames_list) ;
-		num_datasets = 1 ;
-	}
-	else if (data_flist[0] != '\0') {
-		if ((num_datasets = parse_data(data_flist, det, frames_list)) < 0)
-			return 1 ;
-	}
-	else if (compulsory) {
-		fprintf(stderr, "Need either in_photons_file or in_photons_list.\n") ;
-		return 1 ;
+	rewind(config_fp) ;
+	while (fgets(line, 1024, config_fp) != NULL) {
+		if ((token = generate_token(line, section_name)) == NULL)
+			continue ;
 		
-		if (det[0].num_dfiles > 0 && det[0].num_dfiles != num_datasets) {
-			fprintf(stderr, "Number of detector files and emc files don't match (%d vs %d)\n", det[0].num_dfiles, num_datasets) ;
-			return 1 ;
+		if (strcmp(section_name, "emc") == 0) {
+			if (strcmp(token, "blacklist_file") == 0)
+				strcpy(blacklist_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "selection") == 0)
+				strcpy(sel_string, strtok(NULL, " =\n")) ;
 		}
-		if (!rank)
-			fprintf(stderr, "Number of dataset files = %d\n", num_datasets) ;
 	}
 	
-	return 0 ;
-}
-
-void generate_blacklist(char *blacklist_fname, char *sel_string) {
 	if (sel_string[0] == '\0') {
 		make_blacklist(blacklist_fname, 0, frames) ;
 	}
@@ -157,9 +129,24 @@ void generate_blacklist(char *blacklist_fname, char *sel_string) {
 		fprintf(stderr, "%d/%d blacklisted frames\n", frames->num_blacklist, frames->tot_num_data) ;
 }
 
-int generate_iterate(char *input_fname, char *scale_fname, int continue_flag) {
-	char line[1024] ;
+int generate_iterate(FILE *config_fp, int continue_flag) {
 	FILE *fp ;
+	char input_fname[1024] = {'\0'}, scale_fname[1024] = {'\0'} ;
+	char line[1024], section_name[1024], *token ;
+	
+	rewind(config_fp) ;
+	while (fgets(line, 1024, config_fp) != NULL) {
+		if ((token = generate_token(line, section_name)) == NULL)
+			continue ;
+		
+		if (strcmp(section_name, "emc") == 0) {
+			if (strcmp(token, "start_model_file") == 0)
+				strcpy(input_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "scale_file") == 0)
+				strcpy(scale_fname, strtok(NULL, " =\n")) ;
+		}
+	}
+	
 	
 	if (continue_flag) {
 		fp = fopen(param.log_fname, "r") ;
@@ -204,137 +191,32 @@ int generate_iterate(char *input_fname, char *scale_fname, int continue_flag) {
 	return 0 ;
 }
 
-int get_token(char *line, char *token, char *section_name) {
-	token = strtok(line, " =") ;
-	if (token[0] == '#' || token[0] == '\n')
-		return 1 ;
-	
-	if (line[0] == '[') {
-		token = strtok(line, "[]") ;
-		strcpy(section_name, token) ;
-		return 1 ;
-	}
-	
-	return 0 ;
-}
-
 int setup(char *config_fname, int continue_flag) {
 	FILE *fp ;
-	char det_fname[1024], quat_fname[1024] ;
-	char data_flist[1024], input_fname[1024] ;
-	char scale_fname[1024], blacklist_fname[1024] ;
-	char data_fname[1024], out_data_fname[1024] ;
-	char merge_flist[1024], merge_fname[1024] ;
-	char out_det_fname[1024], det_flist[1024] ; 
-	char section_name[1024], sel_string[1024] ;
-	int sym_icosahedral = 0 ;
 	double qmax = -1. ;
-	int num_div = -1 ;
+	strcpy(config_section, "emc") ;
 
-	// Set default values of
-	// 	... local variables
-	data_flist[0] = '\0' ;
-	data_fname[0] = '\0' ;
-	det_flist[0] = '\0' ;
-	det_fname[0] = '\0' ;
-	merge_flist[0] = '\0' ;
-	merge_fname[0] = '\0' ;
-	quat_fname[0] = '\0' ;
-	sel_string[0] = '\0' ;
-	//	... structured variables
-	generate_globals() ;
-
-	// Parse config file options
-	char line[1024], *token ;
 	fp = fopen(config_fname, "r") ;
 	if (fp == NULL) {
 		fprintf(stderr, "Config file %s not found.\n", config_fname) ;
 		return 1 ;
 	}
-	while (fgets(line, 1024, fp) != NULL) {
-		if (get_token(line, token, section_name))
-			continue ;
-		
-		if (strcmp(section_name, "make_detector") == 0) {
-			if (strcmp(token, "out_detector_file") == 0)
-				strcpy(out_det_fname, strtok(NULL, " =\n")) ;
-		}
-		else if (strcmp(section_name, "make_data") == 0) {
-			if (strcmp(token, "out_photons_file") == 0)
-				strcpy(out_data_fname, strtok(NULL, " =\n")) ;
-		}
-		else if (strcmp(section_name, "emc") == 0) {
-			if (strcmp(token, "in_photons_file") == 0)
-				strcpy(data_fname, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "in_photons_list") == 0)
-				strcpy(data_flist, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "merge_photons_file") == 0)
-				strcpy(merge_fname, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "merge_photons_list") == 0)
-				strcpy(merge_flist, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "in_detector_file") == 0)
-				strcpy(det_fname, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "in_detector_list") == 0)
-				strcpy(det_flist, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "output_folder") == 0)
-				strcpy(param.output_folder, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "log_file") == 0)
-				strcpy(param.log_fname, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "start_model_file") == 0)
-				strcpy(input_fname, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "num_div") == 0)
-				num_div = atoi(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "size") == 0)
-				iter->size = atoi(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "in_quat_file") == 0)
-				strcpy(quat_fname, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "blacklist_file") == 0)
-				strcpy(blacklist_fname, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "scale_file") == 0)
-				strcpy(scale_fname, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "need_scaling") == 0)
-				param.need_scaling = atoi(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "alpha") == 0)
-				param.alpha = atof(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "beta") == 0)
-				param.beta = atof(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "beta_schedule") == 0) {
-				param.beta_jump = atof(strtok(NULL, " =\n")) ;
-				param.beta_period = atoi(strtok(NULL, " =\n")) ;
-			}
-			else if (strcmp(token, "selection") == 0)
-				strcpy(sel_string, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "sym_icosahedral") == 0)
-				sym_icosahedral = atoi(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "gaussian_sigma") == 0) {
-				param.sigmasq = atof(strtok(NULL, " =\n")) ;
-				param.sigmasq *= param.sigmasq ;
-				fprintf(stderr, "sigma_squared = %f\n", param.sigmasq) ;
-			}
-		}
-	}
+	generate_globals(fp) ;
+	generate_output_dirs() ;
+	if ((qmax = generate_detectors(fp, &det)) < 0.)
+		return 1 ;
+	generate_size(qmax, &(iter->size), &(iter->center)) ;
+	fprintf(stderr, "num_det = %d\n", det[0].num_det) ;
+	if (generate_quaternion(fp, quat))
+		return 1 ;
+	if (generate_data(fp, "in", frames, det))
+		return 1 ;
+	if (generate_data(fp, "merge", merge_frames, det))
+		return 1 ;
+	generate_blacklist(fp) ;
+	if (generate_iterate(fp, continue_flag))
+		return 1 ;
 	fclose(fp) ;
-	fprintf(stderr, "Parsed config file %s\n", config_fname) ;
-
-	// Check for referenced arguments
-	if (strcmp(det_fname, "make_detector:::out_detector_file") == 0)
-		strcpy(det_fname, out_det_fname) ;
-	if (strcmp(data_fname, "make_data:::out_photons_file") == 0)
-		strcpy(data_fname, out_data_fname) ;
-
-	generate_output_dir() ;
-	if ((qmax = generate_detectors(det_flist, det_fname) < 0.))
-		return 1 ;
-	calc_size(qmax) ;
-	if (generate_quaternion(num_div, quat_fname, sym_icosahedral))
-		return 1 ;
-	if (generate_data(data_flist, data_fname, frames, 1))
-		return 1 ;
-	if (generate_data(merge_flist, merge_fname, merge_frames, 0))
-		return 1 ;
-	generate_blacklist(blacklist_fname, sel_string) ;
-	if (generate_iterate(input_fname, scale_fname, continue_flag))
-		return 1 ;
 	
 	return 0 ;
 }

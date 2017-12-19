@@ -1,5 +1,77 @@
 #include "dataset.h"
 
+static char *generate_token(char *line, char *section_name) {
+	char *token = strtok(line, " =") ;
+	if (token[0] == '#' || token[0] == '\n')
+		return NULL ;
+	
+	if (line[0] == '[') {
+		token = strtok(line, "[]") ;
+		strcpy(section_name, token) ;
+		return NULL ;
+	}
+	
+	return token ;
+}
+
+int generate_data(FILE *config_fp, char *type_string, struct dataset *frames_list, struct detector *det_list) {
+	int num_datasets ;
+	char data_fname[1024] = {'\0'}, data_flist[1024] = {'\0'}, out_data_fname[1024] = {'\0'} ;
+	char line[1024], section_name[1024], *token ;
+	char fname_opt[64], flist_opt[64] ;
+	sprintf(fname_opt, "%s_photons_file", type_string) ;
+	sprintf(flist_opt, "%s_photons_list", type_string) ;
+	
+	rewind(config_fp) ;
+	while (fgets(line, 1024, config_fp) != NULL) {
+		if ((token = generate_token(line, section_name)) == NULL)
+			continue ;
+		
+		if (strcmp(section_name, "make_data") == 0) {
+			if (strcmp(token, "out_photons_file") == 0)
+				strcpy(out_data_fname, strtok(NULL, " =\n")) ;
+		}
+		else if (strcmp(section_name, config_section) == 0) {
+			if (strcmp(token, fname_opt) == 0)
+				strcpy(data_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, flist_opt) == 0)
+				strcpy(data_flist, strtok(NULL, " =\n")) ;
+		}
+	}
+	if (strcmp(data_fname, "make_data:::out_photons_file") == 0)
+		strcpy(data_fname, out_data_fname) ;
+	
+	frames_list->next = NULL ;
+	if (data_flist[0] != '\0' && data_fname[0] != '\0') {
+		fprintf(stderr, "Config file contains both in_photons_file and in_photons_list. Pick one.\n") ;
+		return 1 ;
+	}
+	else if (data_fname[0] != '\0') {
+		if (parse_dataset(data_fname, det_list, frames_list))
+			return 1 ;
+		frames_list->num_data_prev = 0 ;
+		calc_sum_fact(det_list, frames_list) ;
+		num_datasets = 1 ;
+	}
+	else if (data_flist[0] != '\0') {
+		if ((num_datasets = parse_data(data_flist, det_list, frames_list)) < 0)
+			return 1 ;
+	}
+	else if (strcmp(type_string, "in") == 0) {
+		fprintf(stderr, "Need either in_photons_file or in_photons_list.\n") ;
+		return 1 ;
+		
+		if (det_list[0].num_dfiles > 0 && det_list[0].num_dfiles != num_datasets) {
+			fprintf(stderr, "Number of detector files and photon files don't match (%d vs %d)\n", det_list[0].num_dfiles, num_datasets) ;
+			return 1 ;
+		}
+		if (!rank)
+			fprintf(stderr, "Number of dataset files = %d\n", num_datasets) ;
+	}
+	
+	return 0 ;
+}
+
 void calc_sum_fact(struct detector *det, struct dataset *frames) {
 	int d, t ;
 	struct dataset *curr = frames ;

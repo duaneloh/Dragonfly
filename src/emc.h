@@ -15,6 +15,7 @@ struct rotation *quat ;
 struct dataset *frames, *merge_frames ;
 struct iterate *iter ;
 struct params param ;
+char config_section[1024] ;
 
 int rank, num_proc ;
 

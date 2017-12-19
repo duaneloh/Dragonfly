@@ -8,8 +8,10 @@
 #include "../../src/quat.h"
 #include "../../src/interp.h"
 
+int rank, num_proc ;
+char config_section[1024] ;
 int s, c, rmax, rmin, max_r = 0 ;
-double i2i2, max_corr = -DBL_MAX ;
+double i2i2, max_corr ;
 
 char* extract_fname(char* fullName) {
 	return 
@@ -26,64 +28,85 @@ char* remove_ext(char *fullName) {
 	return out ;
 }
 
-// Calculate corr using radial-average-subtracted models
+int parse_arguments(int argc, char *argv[], char *output_fname, char *intens_fname1, char *intens_fname2) {
+	extern char *optarg ;
+	extern int optind ;
+	int chararg ;
+	char usage_string[1024] ;
+	
+	omp_set_num_threads(omp_get_max_threads()) ;
+	s = -1 ;
+	rmax = -1 ;
+	rmin = 2 ;
+	i2i2 = 0. ;
+	sprintf(usage_string, "Usage:\n%s [-s size] [-t num_threads] [-o output_name]\n\t[-R rmax] [-r rmin] [-h]\n\t<intens_fname1> <intens_fname2>\n", argv[0]) ;
+	
+	while (optind < argc) {
+		if ((chararg = getopt(argc, argv, "r:R:s:t:o:h")) != -1) {
+			switch (chararg) {
+				case 't':
+					omp_set_num_threads(atoi(optarg)) ;
+					break ;
+				case 's':
+					s = atoi(optarg) ;
+					c = s/2 ;
+					break ;
+				case 'o':
+					strcpy(output_fname, optarg) ;
+					break ;
+				case 'R':
+					rmax = atoi(optarg) ;
+					break ;
+				case 'r':
+					rmin = atoi(optarg) ;
+					break ;
+				case 'h':
+					fprintf(stderr, "Utility to align and compare two 3D intensity models.\n") ;
+					fprintf(stderr, "The first model is rotated to match the second and radial CC is calculated\n") ;
+					fprintf(stderr, "%s", usage_string) ;
+					return 1 ;
+			}
+		}
+		else {
+			strcpy(intens_fname1, argv[optind++]) ;
+			strcpy(intens_fname2, argv[optind++]) ;
+		}
+	}
+	
+	if (s == -1) {
+		fprintf(stderr, "Need size of intensity volume (-s)\n") ;
+		fprintf(stderr, "%s", usage_string) ;
+		return 1 ;
+	}
+	if (intens_fname1[0] == '\0' || intens_fname2[0] == '\0') {
+		fprintf(stderr, "Need two intensity files\n") ;
+		fprintf(stderr, "%s", usage_string) ;
+		return 1 ;
+	}
+	if (rmax == -1)
+		rmax = c - 1 ;
+	
+	return 0 ;
+}
+
 void calc_corr(struct rotation *quat, double *m1, double *m2) {
 	int vol = s*s*s ;
+	max_corr = -DBL_MAX ;
 	
 	#pragma omp parallel default(shared)
 	{
-		int x, y, z, r, i, j, priv_max_r = 0, vox[3] ;
-		double fx, fy, fz, cx, cy, cz ;
+		int x, r, priv_max_r = 0 ;
 		double i1i2, i1i1, corr, priv_max_corr = -DBL_MAX ;
-		double rot[3][3], rot_vox[3] ;
+		double rot[3][3] ;
 		double *rotmodel = malloc(vol * sizeof(double)) ;
 		int rank = omp_get_thread_num() ;
 		
 		// For each orientation
 		#pragma omp for schedule(static,1)
 		for (r = 0 ; r < quat->num_rot ; ++r) {
-			// Calculate rotation matrix
+			// Rotate model
 			make_rot_quat(&quat->quat[r*5], rot) ;
-			
-			// Zero rotated model
-			for (x = 0 ; x < vol ; ++x)
-				rotmodel[x] = 0. ;
-			
-			// Calculate rotated model
-			for (vox[0] = -c ; vox[0] < s-c-1 ; ++vox[0])
-			for (vox[1] = -c ; vox[1] < s-c-1 ; ++vox[1])
-			for (vox[2] = -c ; vox[2] < s-c-1 ; ++vox[2]) {
-				for (i = 0 ; i < 3 ; ++i) {
-					rot_vox[i] = 0. ;
-					for (j = 0 ; j < 3 ; ++j) 
-						rot_vox[i] += rot[i][j] * vox[j] ;
-					rot_vox[i] += c ;
-				}
-				
-				if (rot_vox[0] < 0 || rot_vox[0] >= s - 1) continue ;
-				if (rot_vox[1] < 0 || rot_vox[1] >= s - 1) continue ;
-				if (rot_vox[2] < 0 || rot_vox[2] >= s - 1) continue ;
-				
-				x = (int) rot_vox[0] ;
-				y = (int) rot_vox[1] ;
-				z = (int) rot_vox[2] ;
-				fx = rot_vox[0] - x ;
-				fy = rot_vox[1] - y ;
-				fz = rot_vox[2] - z ;
-				cx = 1. - fx ;
-				cy = 1. - fy ;
-				cz = 1. - fz ;
-				
-				rotmodel[(vox[0]+c)*s*s + (vox[1]+c)*s + (vox[2]+c)] =
-					cx*cy*cz*m1[x*s*s + y*s + z] + 
-					cx*cy*fz*m1[x*s*s + y*s + ((z+1)%s)] + 
-					cx*fy*cz*m1[x*s*s + ((y+1)%s)*s + z] + 
-					cx*fy*fz*m1[x*s*s + ((y+1)%s)*s + ((z+1)%s)] + 
-					fx*cy*cz*m1[((x+1)%s)*s*s + y*s + z] +
-					fx*cy*fz*m1[((x+1)%s)*s*s + y*s + ((z+1)%s)] +
-					fx*fy*cz*m1[((x+1)%s)*s*s + ((y+1)%s)*s + z] +
-					fx*fy*fz*m1[((x+1)%s)*s*s + ((y+1)%s)*s + ((z+1)%s)] ;
-			}
+			rotate_model(rot, m1, s, rotmodel) ;
 			
 			// Calculate i1i1 and i1i2
 			i1i1 = 0. ;
@@ -267,69 +290,31 @@ int main(int argc, char *argv[]) {
 	double *model1, *model2, *model1_rad, *model2_rad ;
 	struct rotation *quat ;
 	FILE *fp ;
-	char intens_fname1[999], intens_fname2[999] ;
-	char output_fname[999] ;
+	char intens_fname1[1024] = {'\0'}, intens_fname2[1024] = {'\0'} ;
+	char output_fname[1024] = {'\0'} ;
 	
-	extern char *optarg ;
-	extern int optind ;
-	int chararg ;
-	
-	omp_set_num_threads(omp_get_max_threads()) ;
-	s = -1 ;
-	output_fname[0] = '\0' ;
-	rmax = -1 ;
-	rmin = 10 ;
-	
-	while (optind < argc) {
-		if ((chararg = getopt(argc, argv, "r:R:s:t:o:h")) != -1) {
-			switch (chararg) {
-				case 't':
-					omp_set_num_threads(atoi(optarg)) ;
-					break ;
-				case 's':
-					s = atoi(optarg) ;
-					c = s/2 ;
-					break ;
-				case 'o':
-					strcpy(output_fname, optarg) ;
-					break ;
-				case 'R':
-					rmax = atoi(optarg) ;
-					break ;
-				case 'r':
-					rmin = atoi(optarg) ;
-					break ;
-				case 'h':
-					fprintf(stderr, "Format: %s \n\t[-s size]\n\t[-t num_threads]\n\t[-o output_name]\n\t[-R rmax]\n\t[-r rmin]\n\t[-h]\n", argv[0]) ;
-					fprintf(stderr, "\t\t<intens_fname1> <intens_fname2>\n") ;
-					return 1 ;
-			}
-		}
-		else {
-			strcpy(intens_fname1, argv[optind++]) ;
-			strcpy(intens_fname2, argv[optind++]) ;
-		}
-	}
-	
-	if (s == -1) {
-		fprintf(stderr, "Need size of intensity volume (-s)\n") ;
+	if (parse_arguments(argc, argv, output_fname, intens_fname1, intens_fname2))
 		return 1 ;
-	}
-	if (rmax == -1)
-		rmax = c - 1 ;
 	vol = s*s*s ;
-	i2i2 = 0. ;
 	
 	// Parse models
 	model1 = malloc(vol * sizeof(double)) ;
 	model1_rad = malloc(vol * sizeof(double)) ;
 	fp = fopen(intens_fname1, "rb") ;
+	if (fp == NULL) {
+		fprintf(stderr, "Unable to open first file: %s\n", intens_fname1) ;
+		return 1 ;
+	}
 	fread(model1, sizeof(double), vol, fp) ;
 	fclose(fp) ;
 	
 	model2 = malloc(vol * sizeof(double)) ;
 	model2_rad = malloc(vol * sizeof(double)) ;
 	fp = fopen(intens_fname2, "rb") ;
+	if (fp == NULL) {
+		fprintf(stderr, "Unable to open second file: %s\n", intens_fname2) ;
+		return 1 ;
+	}
 	fread(model2, sizeof(double), vol, fp) ;
 	fclose(fp) ;
 	fprintf(stderr, "Parsed models from %s and %s\n", intens_fname1, intens_fname2) ;
@@ -342,19 +327,15 @@ int main(int argc, char *argv[]) {
 	for (t = 0 ; t < vol ; ++t)
 		i2i2 += model2_rad[t] * model2_rad[t] ;
 	
-	// Parse quaternion and calculate max_corr
-	quat = calloc(1, sizeof(struct rotation)) ;
+	// Generate quaternion and calculate max_corr
+	quat = malloc(sizeof(struct rotation)) ;
 	quat_gen(4, quat) ;
 	calc_corr(quat, model1_rad, model2_rad) ;
 	
 	// Generate subset and recalculate max_corr
 	gen_subset(quat, 30, 0.06) ;
-	max_corr = -DBL_MAX ;
 	calc_corr(quat, model1_rad, model2_rad) ;
-	
-	// Generate subset and recalculate max_corr
 	gen_subset(quat, 50, 0.02) ;
-	max_corr = -DBL_MAX ;
 	calc_corr(quat, model1_rad, model2_rad) ;
 	
 	// Calculate radial_corr for best orientation and save rotated model
