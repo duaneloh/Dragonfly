@@ -15,7 +15,7 @@ static char *generate_token(char *line, char *section_name) {
 }
 
 int generate_data(FILE *config_fp, char *type_string, struct dataset *frames_list, struct detector *det_list) {
-	int num_datasets ;
+	int num_datasets = 0 ;
 	char data_fname[1024] = {'\0'}, data_flist[1024] = {'\0'}, out_data_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;
 	char fname_opt[64], flist_opt[64] ;
@@ -41,26 +41,33 @@ int generate_data(FILE *config_fp, char *type_string, struct dataset *frames_lis
 	if (strcmp(data_fname, "make_data:::out_photons_file") == 0)
 		strcpy(data_fname, out_data_fname) ;
 	
-	frames_list->next = NULL ;
 	if (data_flist[0] != '\0' && data_fname[0] != '\0') {
 		fprintf(stderr, "Config file contains both in_photons_file and in_photons_list. Pick one.\n") ;
 		return 1 ;
 	}
 	else if (data_fname[0] != '\0') {
+		if (frames_list == NULL)
+			frames_list = malloc(sizeof(struct dataset)) ;
 		if (parse_dataset(data_fname, det_list, frames_list))
 			return 1 ;
 		frames_list->num_data_prev = 0 ;
+		frames_list->next = NULL ;
 		calc_sum_fact(det_list, frames_list) ;
 		num_datasets = 1 ;
 	}
 	else if (data_flist[0] != '\0') {
+		if (frames_list == NULL)
+			frames_list = malloc(sizeof(struct dataset)) ;
+		frames_list->next = NULL ;
 		if ((num_datasets = parse_data(data_flist, det_list, frames_list)) < 0)
 			return 1 ;
 	}
 	else if (strcmp(type_string, "in") == 0) {
 		fprintf(stderr, "Need either in_photons_file or in_photons_list.\n") ;
 		return 1 ;
-		
+	}
+	
+	if (strcmp(type_string, "in") == 0) {
 		if (det_list[0].num_dfiles > 0 && det_list[0].num_dfiles != num_datasets) {
 			fprintf(stderr, "Number of detector files and photon files don't match (%d vs %d)\n", det_list[0].num_dfiles, num_datasets) ;
 			return 1 ;
