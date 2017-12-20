@@ -203,10 +203,9 @@ int setup(char *config_fname, int continue_flag) {
 	}
 	generate_globals(fp) ;
 	generate_output_dirs() ;
-	if ((qmax = generate_detectors(fp, &det)) < 0.)
+	if ((qmax = generate_detectors(fp, &det, 1)) < 0.)
 		return 1 ;
 	generate_size(qmax, &(iter->size), &(iter->center)) ;
-	fprintf(stderr, "num_det = %d\n", det[0].num_det) ;
 	if (generate_quaternion(fp, quat))
 		return 1 ;
 	if (generate_data(fp, "in", frames, det))

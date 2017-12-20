@@ -14,7 +14,7 @@ static char *generate_token(char *line, char *section_name) {
 	return token ;
 }
 
-double generate_detectors(FILE *config_fp, struct detector **det_list) {
+double generate_detectors(FILE *config_fp, struct detector **det_list, int norm_flag) {
 	double qmax ;
 	char det_fname[1024] = {'\0'}, det_flist[1024] = {'\0'}, out_det_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;
@@ -47,11 +47,11 @@ double generate_detectors(FILE *config_fp, struct detector **det_list) {
 		*det_list = malloc(sizeof(struct detector)) ;
 		(*det_list)[0].num_det = 1 ;
 		memset((*det_list)[0].mapping, 0, 1024*sizeof(int)) ;
-		if ((qmax = parse_detector(det_fname, det_list[0], 1)) < 0.)
+		if ((qmax = parse_detector(det_fname, det_list[0], norm_flag)) < 0.)
 			return qmax ;
 	}
 	else if (det_flist[0] != '\0') {
-		if ((qmax = parse_detector_list(det_flist, det_list, 1)) < 0.)
+		if ((qmax = parse_detector_list(det_flist, det_list, norm_flag)) < 0.)
 			return qmax ;
 	}
 	else {

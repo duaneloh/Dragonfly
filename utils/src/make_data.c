@@ -518,7 +518,7 @@ int setup(char *config_fname) {
 	}
 	if (generate_globals(fp))
 		return 1 ;
-	if (generate_detectors(fp, &det) < 0.)
+	if (generate_detectors(fp, &det, 0) < 0.)
 		return 1 ;
 	fprintf(stderr, "num_det = %d\n", det[0].num_det) ;
 	background /= det[0].num_pix ;

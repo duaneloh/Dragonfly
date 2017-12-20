@@ -114,7 +114,7 @@ int setup(char *fname) {
 	}
 	if (generate_globals(fp))
 		return 1 ;
-	if ((qmax = generate_detectors(fp, &det)) < 0.)
+	if ((qmax = generate_detectors(fp, &det, 1)) < 0.)
 		return 1 ;
 	generate_size(qmax, &size, &center) ;
 	if (generate_data(fp, "in", frames, det))
