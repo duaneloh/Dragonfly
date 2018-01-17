@@ -2,11 +2,13 @@
 
 MPICC = mpicc
 CC = gcc
+OMPI_CC = $(CC)
 
 CFLAGS = $(shell gsl-config --cflags) -Wno-unused-result -O3 -Wall -fopenmp
 LIBS = $(shell gsl-config --libs) -fopenmp
 
-OMPI_CC = $(CC)
+# Derive source files and targets
+# ============================================================
 EMC_HEADER = $(wildcard src/*.h)
 EMC_SRC = $(wildcard src/*.c)
 EMC_OBJ = $(patsubst src/%.c, bin/%.o, $(EMC_SRC))
@@ -14,12 +16,17 @@ UTILS_SRC = $(wildcard utils/src/*.c)
 UTILS = $(patsubst utils/src/%.c, utils/%, $(UTILS_SRC))
 DIRECTORIES = data bin images
 
+# Create directories and compile and link C code
+# ============================================================
 all: mkdir emc $(UTILS)
 
+# Make directories which are not shipped with the repository
+# ============================================================
 mkdir: $(DIRECTORIES)
 $(DIRECTORIES):
 	mkdir -p $(DIRECTORIES)
 
+# Link emc executable from various objects
 emc: $(EMC_OBJ)
 ifeq ($(OMPI_CC), gcc)
 	$(MPICC) -o $@ $^ $(LIBS)
@@ -27,6 +34,8 @@ else
 	`export OMPI_CC=$(OMPI_CC); $(MPICC) -o $@ $^ $(LIBS)`
 endif
 
+# Compile emc objects
+# ============================================================
 bin/recon_emc.o bin/setup_emc.o bin/max_emc.o: $(EMC_HEADER)
 bin/detector.o: src/detector.h
 bin/dataset.o: src/dataset.h src/detector.h
@@ -41,6 +50,8 @@ else
 	`export OMPI_CC=$(OMPI_CC); $(MPICC) -c $< -o $@ $(CFLAGS)`
 endif
 
+# Compile and link C utilities
+# ============================================================
 utils/compare: bin/quat.o bin/interp.o
 utils/make_quaternion: bin/quat.o
 utils/make_data: bin/detector.o bin/interp.o
@@ -50,5 +61,7 @@ utils/fiberize: bin/detector.o bin/interp.o
 $(UTILS): utils/%: utils/src/%.c
 	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
 
+# Remove compiled files
+# ============================================================
 clean:
 	rm -f emc $(UTILS) $(EMC_OBJ)
