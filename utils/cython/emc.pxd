@@ -24,8 +24,8 @@ cdef extern from '../../src/detector.h':
 
 cdef extern from "../../src/interp.h":
 	void make_rot_quat(double*, double[3][3])
-	void slice_gen(double*, double, double*, double*, long, detector*)
-	void slice_merge(double*, double*, double*, double*, long, detector*)
+	void slice_gen(double*, double, double*, double*, long, detector*) # ==========> Wrapped
+	void slice_merge(double*, double*, double*, double*, long, detector*) # ==========> Wrapped
 	void rotate_model(double[3][3], double*, int, double*)
 	void symmetrize_friedel(double*, int) # ==========> Wrapped
 
