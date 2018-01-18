@@ -21,6 +21,13 @@ data
 !/utils/src
 !/utils/*.py
 !/utils/convert
+!/utils/cython
+
+# Cython output
+/utils/cython/build
+/utils/cython/src
+/utils/cython/*.c
+/utils/cython/*.so
 
 # Config file
 config.ini
