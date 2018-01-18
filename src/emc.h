@@ -21,9 +21,9 @@ int rank, num_proc ;
 
 // setup.c
 int setup(char*, int) ;
-void free_mem() ;
+void free_mem(void) ;
 
 // max.c
-double maximize() ;
+double maximize(void) ;
 
 #endif
