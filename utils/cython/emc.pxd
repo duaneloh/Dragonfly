@@ -1,7 +1,7 @@
 from libc.stdint cimport uint8_t
 from libc.stdio cimport FILE
 
-cdef extern from 'common.h':
+cdef extern from '../../src/emc.h':
 	int rank, num_proc
 	char config_section[1024]
 
