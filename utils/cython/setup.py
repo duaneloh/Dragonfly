@@ -10,9 +10,12 @@ compile_args = '-I/usr/include/python2.7 -fopenmp -O3 -Wall -Wno-cpp -Wno-unused
 link_args = '-lpython2.7 -lm -fopenmp'.split() + gsl_libs
 
 ext_modules = [
-    Extension(name='pyemc',
-        sources='emc.pyx ../../src/interp.c ../../src/detector.c ../../src/dataset.c'.split(),
-        language='c', extra_compile_args=compile_args, extra_link_args=link_args)
+    Extension(name='detector', sources='detector.pyx ../../src/detector.c'.split(),
+        language='c', extra_compile_args=compile_args, extra_link_args=link_args),
+    Extension(name='dataset', sources='dataset.pyx ../../src/dataset.c'.split(),
+        language='c', extra_compile_args=compile_args, extra_link_args=link_args),
+    Extension(name='pyemc', sources='emc.pyx ../../src/interp.c'.split(), extra_objects='src/detector.o src/dataset.o'.split(),
+        language='c', extra_compile_args=compile_args, extra_link_args=link_args),
 ]
 
 setup(name='pyemc', cmdclass={'build_ext': build_ext}, ext_modules=ext_modules)
