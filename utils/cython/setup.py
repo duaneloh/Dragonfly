@@ -6,17 +6,13 @@ import subprocess
 
 gsl_cflags = subprocess.check_output('gsl-config --cflags', shell=True).rstrip().split()
 gsl_libs = subprocess.check_output('gsl-config --libs', shell=True).rstrip().split()
+compile_args = '-I/usr/include/python2.7 -fopenmp -O3 -Wall -Wno-cpp -Wno-unused-result -Wno-unused-function'.split() + gsl_cflags
+link_args = '-lpython2.7 -lm -fopenmp'.split() + gsl_libs
 
-ext_modules  =  [Extension(
-    name = 'pyemc',
-    sources = ['emc.pyx', '../../src/interp.c', '../../src/detector.c', '../../src/dataset.c'],
-    language = 'c',
-    extra_compile_args = '-I/usr/include/python2.7 -fopenmp -O3 -Wall -Wno-cpp -Wno-unused-result -Wno-unused-function'.split() + gsl_cflags,
-    extra_link_args = '-lpython2.7 -lm -fopenmp'.split() + gsl_libs
-)]
+ext_modules = [
+    Extension(name='pyemc',
+        sources='emc.pyx ../../src/interp.c ../../src/detector.c ../../src/dataset.c'.split(),
+        language='c', extra_compile_args=compile_args, extra_link_args=link_args)
+]
 
-setup(
-    name = 'pyemc',
-    cmdclass = {'build_ext': build_ext},
-    ext_modules = ext_modules
-)
+setup(name='pyemc', cmdclass={'build_ext': build_ext}, ext_modules=ext_modules)
