@@ -17,7 +17,7 @@ cdef extern from '../../src/detector.h':
 		int mapping[1024]
 
 	double generate_detectors(FILE*, detector**, int)
-	void generate_size(double, long*, long*)
+	void generate_size(double, long*, long*) # ==========> Wrapped
 	double parse_detector(char*, detector*, int) # ==========> Wrapped
 	double parse_detector_list(char*, detector**, int)
 	void free_detector(detector*) # ==========> Wrapped
@@ -55,11 +55,11 @@ cdef extern from '../../src/dataset.h':
 		uint8_t *blacklist
 
 	int generate_data(FILE*, char*, dataset*, detector*)
-	void calc_sum_fact(detector*, dataset*)
-	int parse_dataset(char*, detector*, dataset*)
-	int parse_data(char*, detector*, dataset*)
-	void make_blacklist(char*, int, dataset*)
-	void free_data(int, dataset*)
+	void calc_sum_fact(detector*, dataset*) # ==========> Wrapped
+	int parse_dataset(char*, detector*, dataset*) # ==========> Wrapped
+	int parse_data(char*, detector*, dataset*) # ==========> Wrapped
+	void make_blacklist(char*, int, dataset*) # ==========> Wrapped
+	void free_data(int, dataset*) # ==========> Wrapped
 
 cdef extern from '../../src/quat.h':
 	struct rotation:
