@@ -6,7 +6,11 @@ import os
 import logging
 from py_src import read_config
 from py_src import py_utils
-import pyfftw
+try:
+    import pyfftw
+    with_pyfftw = True
+except ImportError:
+    with_pyfftw = False
 
 if __name__ == "__main__":
     logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -41,8 +45,10 @@ if __name__ == "__main__":
         pad_den     = np.zeros(3*(fov_len,))
         den_sh      = den.shape
         pad_den[:den_sh[0],:den_sh[1],:den_sh[2]] = den.copy()
-        #ft          = np.abs(np.fft.fftshift(np.fft.fftn(pad_den)))
-        ft          = np.abs(np.fft.fftshift(pyfftw.interfaces.numpy_fft.fftn(pad_den, threads=num_threads, planner_effort='FFTW_ESTIMATE')))
+        if with_pyfftw:
+            ft      = np.abs(np.fft.fftshift(pyfftw.interfaces.numpy_fft.fftn(pad_den, threads=num_threads, planner_effort='FFTW_ESTIMATE')))
+        else:
+            ft      = np.abs(np.fft.fftshift(np.fft.fftn(pad_den)))
         intens      = ft*ft
         timer.reset_and_report("Computing intensities") if args.vb else timer.reset()
 

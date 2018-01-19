@@ -7,7 +7,12 @@ from collections import OrderedDict
 from scipy.interpolate import interp1d
 from scipy.interpolate import griddata
 import urllib
-import pyfftw
+try:
+    import pyfftw
+    with_pyfftw = True
+except ImportError:
+    sys.stderr.write('No PyFFTW. FFTs will be slow\n')
+    with_pyfftw = False
 
 def fetch_pdb(pdb_code):
     print pdb_code
@@ -163,12 +168,18 @@ def low_pass_filter_density_map(in_arr, damping=-1., thr=1.E-3, num_cycles=2, th
     (xx,yy,zz) = np.mgrid[-1:1:xl*1j, -1:1:yl*1j, -1:1:zl*1j]
     fil = np.fft.ifftshift(np.exp(damping*(xx*xx + yy*yy + zz*zz)))
     out_arr = in_arr.copy()
-    for i in range(num_cycles):
-        ft = fil * pyfftw.interfaces.numpy_fft.fftn(out_arr, 
-                                                    planner_effort='FFTW_ESTIMATE', 
-                                                    threads=threads)
-        out_arr = np.real(pyfftw.interfaces.numpy_fft.ifftn(ft, 
-                                                            planner_effort='FFTW_ESTIMATE', 
-                                                            threads=threads))
-        out_arr *= (out_arr > thr)
+    if with_pyfftw:
+        for i in range(num_cycles):
+            ft = fil * pyfftw.interfaces.numpy_fft.fftn(out_arr, 
+                                                        planner_effort='FFTW_ESTIMATE', 
+                                                        threads=threads)
+            out_arr = np.real(pyfftw.interfaces.numpy_fft.ifftn(ft, 
+                                                                planner_effort='FFTW_ESTIMATE', 
+                                                                threads=threads))
+            out_arr *= (out_arr > thr)
+    else:
+        for i in range(num_cycles):
+            ft = fil * np.fft.fftn(out_arr)
+            out_arr = np.real(np.fft.ifftn(ft))
+            out_arr *= (out_arr > thr)
     return out_arr.copy()
