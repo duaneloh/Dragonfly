@@ -2,13 +2,17 @@ from setuptools import setup
 from setuptools.extension import Extension
 from Cython.Distutils import build_ext
 from Cython.Build import cythonize
+import subprocess
+
+gsl_cflags = subprocess.check_output('gsl-config --cflags', shell=True).rstrip().split()
+gsl_libs = subprocess.check_output('gsl-config --libs', shell=True).rstrip().split()
 
 ext_modules  =  [Extension(
     name = 'pyemc',
-    sources = ['emc.pyx', '../../src/interp.c', '../../src/detector.c'],
+    sources = ['emc.pyx', '../../src/interp.c', '../../src/detector.c', '../../src/dataset.c'],
     language = 'c',
-    extra_compile_args = '-O3 -I/usr/include/python2.7 -fopenmp'.split(),
-    extra_link_args = '-lpython2.7 -lm -lgomp -fopenmp'.split()
+    extra_compile_args = '-O3 -I/usr/include/python2.7 -fopenmp -O3 -Wall -Wno-unused-result -Wno-unused-function'.split() + gsl_cflags,
+    extra_link_args = '-lpython2.7 -lm -fopenmp'.split() + gsl_libs
 )]
 
 setup(
