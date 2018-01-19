@@ -39,17 +39,39 @@ cdef class detector:
 	@property
 	def mapping(self): return np.asarray(self.det.mapping, dtype='i4')
 
-def generate_size(double qmax, np.ndarray[long, mode='c'] size, np.ndarray[long] center):
+def generate_size(double qmax, np.ndarray[long] size, np.ndarray[long] center):
 	'''
 	Calculates size and center given a qmax
 	Since these values must be replaced in-place, they must be numpy arrays
 	'''
 	cdef long [:] size_view = size
-	cdef long [:] center_view = center
-	emc.generate_size(qmax, &size_view[0], &center_view[0])
-	print qmax
-	print size
-	print center
+	#cdef long [:] center_view = center
+	emc.generate_size(qmax, &size[0], &center[0])
+
+# dataset.c class and functions
+# ============================================================
+cdef class dataset:
+	cdef emc.dataset dset
+
+	def __init__(self):
+		pass
+
+	def parse_dataset(self, fname, detector det):
+		cdef char* c_fname = fname
+		cdef emc.detector c_det = det.det
+		emc.parse_dataset(c_fname, &c_det, &self.dset)
+
+	@property
+	def type(self): return self.dset.type
+	@property
+	def num_data(self): return self.dset.num_data
+	@property
+	def num_pix(self): return self.dset.num_pix
+	@property
+	def mean_count(self): return self.dset.mean_count
+	@property
+	def filename(self): return str(self.dset.filename)
+
 
 # interp.c functions
 # ============================================================
