@@ -11,7 +11,7 @@ ext_modules  =  [Extension(
     name = 'pyemc',
     sources = ['emc.pyx', '../../src/interp.c', '../../src/detector.c', '../../src/dataset.c'],
     language = 'c',
-    extra_compile_args = '-O3 -I/usr/include/python2.7 -fopenmp -O3 -Wall -Wno-unused-result -Wno-unused-function'.split() + gsl_cflags,
+    extra_compile_args = '-I/usr/include/python2.7 -fopenmp -O3 -Wall -Wno-cpp -Wno-unused-result -Wno-unused-function'.split() + gsl_cflags,
     extra_link_args = '-lpython2.7 -lm -fopenmp'.split() + gsl_libs
 )]
 
