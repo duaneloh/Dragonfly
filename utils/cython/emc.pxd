@@ -15,12 +15,79 @@ cdef extern from '../../src/detector.h':
 		# Only relevant for first detector in list
 		int num_det, num_dfiles
 		int mapping[1024]
+
 	double generate_detectors(FILE*, detector**, int)
 	void generate_size(double, long*, long*)
 	double parse_detector(char*, detector*, int) # ==========> Wrapped
 	double parse_detector_list(char*, detector**, int)
 	void free_detector(detector*) # ==========> Wrapped
 
+cdef extern from '../../src/dataset.h':
+	struct dataset:
+		# Data set type (0=sparse, 1=dense integer, 2=dense double)
+		int type
+		int num_data, num_pix, num_data_prev
+		double mean_count
+		char filename[1024]
+		
+		# Sparse dataset
+		long ones_total, multi_total
+		int *ones
+		int *multi
+		int *place_ones
+		int *place_multi
+		int *count_multi
+		long *ones_accum
+		long *multi_accum
+		
+		# Dense dataset
+		double *frames
+		int *int_frames
+		
+		# Pointer to next dataset
+		dataset *next
+		
+		# Need only be defined for head dataset
+		int tot_num_data, num_blacklist
+		double tot_mean_count
+		int *count
+		double *sum_fact
+		uint8_t *blacklist
+
+	int generate_data(FILE*, char*, dataset*, detector*)
+	void calc_sum_fact(detector*, dataset*)
+	int parse_dataset(char*, detector*, dataset*)
+	int parse_data(char*, detector*, dataset*)
+	void make_blacklist(char*, int, dataset*)
+	void free_data(int, dataset*)
+
+cdef extern from '../../src/quat.h':
+	struct rotation:
+		int num_rot, num_rot_p
+		double *quat
+		int icosahedral_flag
+
+	int generate_quaternion(FILE*, rotation*)
+	int quat_gen(int, rotation*)
+	int parse_quat(char*, rotation*)
+	void divide_quat(int, int, rotation*)
+	void free_quat(rotation*)
+
+cdef extern from '../../src/iterate.h':
+	struct iterate:
+		long size, center
+		double *model1
+		double *model2
+		double *inter_weight
+		double *scale
+		
+		double rescale, mutual_info, rms_change
+
+	int parse_scale(char*, dataset*, iterate*)
+	void calc_scale(dataset*, detector*, char*, iterate*)
+	void normalize_scale(dataset*, iterate*)
+	void parse_input(char*, double, char*, iterate*)
+	void free_iterate(int, iterate*)
 
 cdef extern from "../../src/interp.h":
 	void make_rot_quat(double*, double[3][3])
