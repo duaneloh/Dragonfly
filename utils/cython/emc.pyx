@@ -11,11 +11,14 @@ cdef extern from "numpy/arrayobject.h":
 cdef class detector:
 	cdef emc.detector det
 
-	def __init__(self, fname, norm_flag=True):
+	def __init__(self):
+		pass
+
+	def parse_detector(self, fname, norm_flag=True):
 		cdef char* c_fname = fname
 		emc.parse_detector(c_fname, &self.det, int(norm_flag))
 
-	def __del__(self):
+	def free_detector(self):
 		emc.free_detector(&self.det)
 
 	@property
@@ -137,7 +140,7 @@ def slice_gen(np.ndarray[double, ndim=1, mode='c'] quat,
               np.ndarray[double, ndim=1, mode='c'] out_slice,
               np.ndarray[double, ndim=3, mode='c'] model,
               detector det,
-	      double rescale=0):
+              double rescale=0):
 	'''Interpolate vlues at given voxel positions from a given 3D volume for a given quaternion'''
 	cdef int size = model.shape[0]
 	cdef np.ndarray[double, mode='c'] flat_model = np.ascontiguousarray(model.flatten())
@@ -145,10 +148,10 @@ def slice_gen(np.ndarray[double, ndim=1, mode='c'] quat,
 	return out_slice
 
 def slice_merge(np.ndarray[double, ndim=1, mode='c'] quat,
-              np.ndarray[double, ndim=1, mode='c'] in_slice,
-              np.ndarray[double, ndim=3, mode='c'] model,
-              np.ndarray[double, ndim=3, mode='c'] weight,
-	      detector det):
+                np.ndarray[double, ndim=1, mode='c'] in_slice,
+                np.ndarray[double, ndim=3, mode='c'] model,
+                np.ndarray[double, ndim=3, mode='c'] weight,
+                detector det):
 	'''
 	Merges slice into 3D model and interpolation weight arrays
 	Returns tuple of updated 3D model and 3D weights
