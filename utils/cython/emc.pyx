@@ -6,6 +6,8 @@ cimport openmp
 cdef extern from "numpy/arrayobject.h":
 	void PyArray_ENABLEFLAGS(np.ndarray arr, int flags)
 
+# detector.c class and functions
+# ============================================================
 cdef class detector:
 	cdef emc.detector det
 
@@ -36,6 +38,18 @@ cdef class detector:
 	def num_dfiles(self): return self.det.num_dfiles
 	@property
 	def mapping(self): return np.asarray(self.det.mapping, dtype='i4')
+
+def generate_size(double qmax, np.ndarray[long, mode='c'] size, np.ndarray[long] center):
+	'''
+	Calculates size and center given a qmax
+	Since these values must be replaced in-place, they must be numpy arrays
+	'''
+	cdef long [:] size_view = size
+	cdef long [:] center_view = center
+	emc.generate_size(qmax, &size_view[0], &center_view[0])
+	print qmax
+	print size
+	print center
 
 # interp.c functions
 # ============================================================
