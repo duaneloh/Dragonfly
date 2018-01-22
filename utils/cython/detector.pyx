@@ -15,6 +15,9 @@ cdef class detector:
 	def free_detector(self):
 		emc.free_detector(&self.det)
 
+	def generate_size(double qmax, np.ndarray[long] size, np.ndarray[long] center):
+		emc.generate_size(qmax, &size[0], &center[0])
+
 	@property
 	def num_pix(self): return self.det.num_pix
 	@property
@@ -36,13 +39,5 @@ cdef class detector:
 	@property
 	def mapping(self): return np.asarray(self.det.mapping, dtype='i4')
 
-def generate_size(double qmax, np.ndarray[long] size, np.ndarray[long] center):
-	'''
-	Calculates size and center given a qmax
-	Since these values must be replaced in-place, they must be numpy arrays
-	'''
-	cdef long [:] size_view = size
-	#cdef long [:] center_view = center
-	emc.generate_size(qmax, &size[0], &center[0])
 
 
