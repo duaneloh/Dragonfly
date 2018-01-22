@@ -1,12 +1,13 @@
 import numpy as np
 cimport numpy as np
+from cpython.mem cimport PyMem_Malloc, PyMem_Free
 cimport emc 
 cimport openmp
 from detector cimport detector
 
 cdef class detector:
 	def __init__(self):
-		pass
+		self.det = <emc.detector*> PyMem_Malloc(sizeof(emc.detector))
 
 	def parse_detector(self, fname, norm_flag=True):
 		cdef char* c_fname = fname
@@ -14,6 +15,7 @@ cdef class detector:
 
 	def free_detector(self):
 		emc.free_detector(self.det)
+		PyMem_Free(self.det)
 
 	def generate_size(double qmax, np.ndarray[long] size, np.ndarray[long] center):
 		emc.generate_size(qmax, &size[0], &center[0])

@@ -1,5 +1,6 @@
 import numpy as np
 cimport numpy as np
+from cpython.mem cimport PyMem_Malloc, PyMem_Free
 cimport emc
 from dataset cimport dataset
 from detector cimport detector
@@ -7,7 +8,7 @@ from iterate cimport iterate
 
 cdef class iterate:
 	def __init__(self):
-		pass
+		self.iterate = <emc.iterate*> PyMem_Malloc(sizeof(emc.iterate))
 
 	def parse_scale(self, fname, dataset dset):
 		cdef char* c_fname = fname
@@ -35,6 +36,7 @@ cdef class iterate:
 
 	def free_iterate(self, scale_flag=False):
 		emc.free_iterate(int(scale_flag), self.iterate)
+		PyMem_Free(self.iterate)
 
 	@property
 	def size(self): return self.iterate.size

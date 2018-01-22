@@ -1,5 +1,6 @@
 import numpy as np
 cimport numpy as np
+from cpython.mem cimport PyMem_Malloc, PyMem_Free
 cimport emc 
 cimport openmp
 from detector cimport detector
@@ -7,7 +8,7 @@ from dataset cimport dataset
 
 cdef class dataset:
 	def __init__(self):
-		cdef emc.dataset dset
+		self.dset = <emc.dataset*> PyMem_Malloc(sizeof(emc.dataset))
 		self.dset.next = NULL
 
 	def parse_dataset(self, fname, detector det):
@@ -28,6 +29,7 @@ cdef class dataset:
 	def free_data(self, scale_flag=False):
 		cdef int c_scale_flag = int(scale_flag)
 		emc.free_data(c_scale_flag, self.dset)
+		PyMem_Free(self.dset)
 
 	@property
 	def type(self): return self.dset.type
