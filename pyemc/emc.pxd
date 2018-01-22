@@ -2,7 +2,7 @@ from libc.stdint cimport uint8_t
 from libc.stdio cimport FILE
 cimport numpy as np
 
-cdef extern from "numpy/arrayobject.h":
+cdef extern from 'numpy/arrayobject.h':
 	void PyArray_ENABLEFLAGS(np.ndarray arr, int flags)
 
 cdef extern from '../src/emc.h':
@@ -20,17 +20,17 @@ cdef extern from '../src/detector.h':
 		int num_det, num_dfiles
 		int mapping[1024]
 
-	double generate_detectors(FILE*, detector**, int)
-	void generate_size(double, long*, long*) # ==========> Wrapped
-	double parse_detector(char*, detector*, int) # ==========> Wrapped
-	double parse_detector_list(char*, detector**, int)
-	void free_detector(detector*) # ==========> Wrapped
+	double generate_detectors(FILE*, detector**, int)                          #####################
+	void generate_size(double, long*, long*)                                   # ==========> Wrapped
+	double parse_detector(char*, detector*, int)                               # ==========> Wrapped
+	double parse_detector_list(char*, detector**, int)                         #####################
+	void free_detector(detector*)                                              # ==========> Wrapped
 
 cdef extern from '../src/dataset.h':
 	struct dataset:
+		int num_data, num_pix, num_data_prev
 		# Data set type (0=sparse, 1=dense integer, 2=dense double)
 		int type
-		int num_data, num_pix, num_data_prev
 		double mean_count
 		char filename[1024]
 		
@@ -58,12 +58,12 @@ cdef extern from '../src/dataset.h':
 		double *sum_fact
 		uint8_t *blacklist
 
-	int generate_data(FILE*, char*, dataset*, detector*)
-	void calc_sum_fact(detector*, dataset*) # ==========> Wrapped
-	int parse_dataset(char*, detector*, dataset*) # ==========> Wrapped
-	int parse_data(char*, detector*, dataset*) # ==========> Wrapped
-	void make_blacklist(char*, int, dataset*) # ==========> Wrapped
-	void free_data(int, dataset*) # ==========> Wrapped
+	int generate_data(FILE*, char*, dataset*, detector*)                       #####################
+	void calc_sum_fact(detector*, dataset*)                                    # ==========> Wrapped
+	int parse_dataset(char*, detector*, dataset*)                              # ==========> Wrapped
+	int parse_data(char*, detector*, dataset*)                                 # ==========> Wrapped
+	void make_blacklist(char*, int, dataset*)                                  # ==========> Wrapped
+	void free_data(int, dataset*)                                              # ==========> Wrapped
 
 cdef extern from '../src/quat.h':
 	struct rotation:
@@ -71,11 +71,11 @@ cdef extern from '../src/quat.h':
 		double *quat
 		int icosahedral_flag
 
-	int generate_quaternion(FILE*, rotation*)
-	int quat_gen(int, rotation*) # ==========> Wrapped
-	int parse_quat(char*, rotation*) # ==========> Wrapped
-	void divide_quat(int, int, rotation*) # ==========> Wrapped
-	void free_quat(rotation*) # ==========> Wrapped
+	int generate_quaternion(FILE*, rotation*)                                  #####################
+	int quat_gen(int, rotation*)                                               # ==========> Wrapped
+	int parse_quat(char*, rotation*)                                           # ==========> Wrapped
+	void divide_quat(int, int, rotation*)                                      # ==========> Wrapped
+	void free_quat(rotation*)                                                  # ==========> Wrapped
 
 cdef extern from '../src/iterate.h':
 	struct iterate:
@@ -87,16 +87,29 @@ cdef extern from '../src/iterate.h':
 		
 		double rescale, mutual_info, rms_change
 
-	int parse_scale(char*, dataset*, iterate*) # ==========> Wrapped
-	void calc_scale(dataset*, detector*, char*, iterate*) # ==========> Wrapped
-	void normalize_scale(dataset*, iterate*) # ==========> Wrapped
-	void parse_input(char*, double, char*, iterate*) # ==========> Wrapped
-	void free_iterate(int, iterate*) # ==========> Wrapped
+	int parse_scale(char*, dataset*, iterate*)                                 # ==========> Wrapped
+	void calc_scale(dataset*, detector*, char*, iterate*)                      # ==========> Wrapped
+	void normalize_scale(dataset*, iterate*)                                   # ==========> Wrapped
+	void parse_input(char*, double, char*, iterate*)                           # ==========> Wrapped
+	void free_iterate(int, iterate*)                                           # ==========> Wrapped
 
-cdef extern from "../src/interp.h":
-	void make_rot_quat(double*, double[3][3])
-	void slice_gen(double*, double, double*, double*, long, detector*) # ==========> Wrapped
-	void slice_merge(double*, double*, double*, double*, long, detector*) # ==========> Wrapped
-	void rotate_model(double[3][3], double*, int, double*)
-	void symmetrize_friedel(double*, int) # ==========> Wrapped
+cdef extern from '../src/interp.h':
+	void make_rot_quat(double*, double[3][3])                                  #####################
+	void slice_gen(double*, double, double*, double*, long, detector*)         # ==========> Wrapped
+	void slice_merge(double*, double*, double*, double*, long, detector*)      # ==========> Wrapped
+	void rotate_model(double[3][3], double*, int, double*)                     #####################
+	void symmetrize_friedel(double*, int)                                      # ==========> Wrapped
+
+cdef extern from '../src/params.h':
+	struct params:
+		int iteration, current_iter, start_iter, num_iter ;
+		char output_folder[1024]
+		char log_fname[1024] ;
+		
+		# Algorithm parameters
+		int beta_period, need_scaling, known_scale ;
+		double alpha, beta, beta_jump ;
+		
+		# Gaussian EMC parameter
+		double sigmasq ;
 

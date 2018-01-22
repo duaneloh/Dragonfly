@@ -37,7 +37,6 @@ def symmetrize_friedel(np.ndarray[np.double_t, ndim=3, mode='c'] model):
 	emc.symmetrize_friedel(&flat_model[0], size)
 	return flat_model.reshape(size,size,size)
 
-'''
 def rotate_model(np.ndarray[double, ndim=2] rot,
                  np.ndarray[double, ndim=3, mode='c'] model,
 				 np.ndarray[double, ndim=3, mode='c'] rotmodel):
@@ -45,7 +44,8 @@ def rotate_model(np.ndarray[double, ndim=2] rot,
 	cdef double[:,:] rotarr = rot
 	cdef np.ndarray[double, mode='c'] flat_model = np.ascontiguousarray(model.flatten())
 	cdef np.ndarray[double, mode='c'] flat_rotmodel = np.ascontiguousarray(rotmodel.flatten())
-	emc.rotate_model(&rotarr[0][0], &flat_model[0], size, &flat_rotmodel[0])
-'''
+	emc.rotate_model(<double(*)[3]>&rotarr[0][0], &flat_model[0], size, &flat_rotmodel[0])
+	rotmodel = np.asarray(flat_rotmodel).reshape(size, size, size)
+	return rotmodel
 
 	#void make_rot_quat(double*, double[3][3])
