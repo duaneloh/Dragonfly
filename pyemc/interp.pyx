@@ -12,7 +12,7 @@ def slice_gen(np.ndarray[double, ndim=1, mode='c'] quat,
 	'''Interpolate vlues at given voxel positions from a given 3D volume for a given quaternion'''
 	cdef int size = model.shape[0]
 	cdef np.ndarray[double, mode='c'] flat_model = np.ascontiguousarray(model.flatten())
-	emc.slice_gen(&quat[0], rescale, &out_slice[0], &flat_model[0], size, &det.det)
+	emc.slice_gen(&quat[0], rescale, &out_slice[0], &flat_model[0], size, det.det)
 	return out_slice
 
 def slice_merge(np.ndarray[double, ndim=1, mode='c'] quat,
@@ -27,7 +27,7 @@ def slice_merge(np.ndarray[double, ndim=1, mode='c'] quat,
 	cdef int size = model.shape[0]
 	cdef np.ndarray[double, mode='c'] flat_model = np.ascontiguousarray(model.flatten())
 	cdef np.ndarray[double, mode='c'] flat_weight = np.ascontiguousarray(weight.flatten())
-	emc.slice_merge(&quat[0], &in_slice[0], &flat_model[0], &flat_weight[0], size, &det.det)
+	emc.slice_merge(&quat[0], &in_slice[0], &flat_model[0], &flat_weight[0], size, det.det)
 	return flat_model.reshape(size,size,size), flat_weight.reshape(size,size,size)
 
 def symmetrize_friedel(np.ndarray[np.double_t, ndim=3, mode='c'] model):

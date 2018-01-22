@@ -12,21 +12,18 @@ cdef class dataset:
 
 	def parse_dataset(self, fname, detector det):
 		cdef char* c_fname = fname
-		cdef emc.detector c_det = det.det
-		emc.parse_dataset(c_fname, &c_det, self.dset)
+		emc.parse_dataset(c_fname, det.det, self.dset)
 
 	def parse_data(self, flist, detector det):
 		cdef char* c_flist = flist
-		cdef emc.detector c_det = det.det
-		emc.parse_data(c_flist, &c_det, self.dset)
+		emc.parse_data(c_flist, det.det, self.dset)
 
 	def make_blacklist(self, fname, int odd_flag=-1):
 		cdef char* c_fname = fname
 		emc.make_blacklist(c_fname, odd_flag, self.dset)
 
 	def calc_sum_fact(self, detector det):
-		cdef emc.detector c_det = det.det
-		emc.calc_sum_fact(&c_det, self.dset)
+		emc.calc_sum_fact(det.det, self.dset)
 
 	def free_data(self, scale_flag=False):
 		cdef int c_scale_flag = int(scale_flag)

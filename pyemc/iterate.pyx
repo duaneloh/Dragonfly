@@ -11,22 +11,18 @@ cdef class iterate:
 
 	def parse_scale(self, fname, dataset dset):
 		cdef char* c_fname = fname
-		cdef emc.dataset* c_dset = dset.dset
-		emc.parse_scale(c_fname, c_dset, self.iterate)
+		emc.parse_scale(c_fname, dset.dset, self.iterate)
 
 	def calc_scale(self, dataset dset, detector det, print_fname=None):
-		cdef emc.dataset* c_dset = dset.dset
-		cdef emc.detector c_det = det.det
 		cdef char* c_print_fname
 		if print_fname is not None:
 			c_print_fname = print_fname
 		else:
 			c_print_fname = NULL
-		emc.calc_scale(c_dset, &c_det, c_print_fname, self.iterate)
+		emc.calc_scale(dset.dset, det.det, c_print_fname, self.iterate)
 
 	def normalize_scale(self, dataset dset):
-		cdef emc.dataset* c_dset = dset.dset
-		emc.normalize_scale(c_dset, self.iterate)
+		emc.normalize_scale(dset.dset, self.iterate)
 
 	def parse_input(self, fname, double mean, print_fname=None):
 		cdef char* c_fname = fname
