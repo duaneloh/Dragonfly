@@ -24,10 +24,10 @@ data
 !/utils/cython
 
 # Cython output
-/utils/cython/build
-/utils/cython/src
-/utils/cython/*.c
-/utils/cython/*.so
+/pyemc/build
+/pyemc/src
+/pyemc/*.c
+/pyemc/*.so
 
 # Config file
 config.ini
