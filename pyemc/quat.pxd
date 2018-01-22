@@ -1,4 +1,4 @@
 cimport emc
 
 cdef class rotation:
-	cdef emc.rotation rot
+	cdef emc.rotation* rot

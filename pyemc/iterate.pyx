@@ -11,22 +11,22 @@ cdef class iterate:
 
 	def parse_scale(self, fname, dataset dset):
 		cdef char* c_fname = fname
-		cdef emc.dataset c_dset = dset.dset
-		emc.parse_scale(c_fname, &c_dset, &self.itr)
+		cdef emc.dataset* c_dset = dset.dset
+		emc.parse_scale(c_fname, c_dset, self.iterate)
 
 	def calc_scale(self, dataset dset, detector det, print_fname=None):
-		cdef emc.dataset c_dset = dset.dset
+		cdef emc.dataset* c_dset = dset.dset
 		cdef emc.detector c_det = det.det
 		cdef char* c_print_fname
 		if print_fname is not None:
 			c_print_fname = print_fname
 		else:
 			c_print_fname = NULL
-		emc.calc_scale(&c_dset, &c_det, c_print_fname, &self.itr)
+		emc.calc_scale(c_dset, &c_det, c_print_fname, self.iterate)
 
 	def normalize_scale(self, dataset dset):
-		cdef emc.dataset c_dset = dset.dset
-		emc.normalize_scale(&c_dset, &self.itr)
+		cdef emc.dataset* c_dset = dset.dset
+		emc.normalize_scale(c_dset, self.iterate)
 
 	def parse_input(self, fname, double mean, print_fname=None):
 		cdef char* c_fname = fname
@@ -35,19 +35,19 @@ cdef class iterate:
 			c_print_fname = print_fname
 		else:
 			c_print_fname = NULL
-		emc.parse_input(c_fname, mean, c_print_fname, &self.itr)
+		emc.parse_input(c_fname, mean, c_print_fname, self.iterate)
 
 	def free_iterate(self, scale_flag=False):
-		emc.free_iterate(int(scale_flag), &self.itr)
+		emc.free_iterate(int(scale_flag), self.iterate)
 
 	@property
-	def size(self): return self.itr.size
+	def size(self): return self.iterate.size
 	@property
-	def center(self): return self.itr.center
+	def center(self): return self.iterate.center
 	@property
-	def model1(self): return np.asarray(<double[:self.size*self.size*self.size]> self.itr.model1).reshape(self.size,self.size,self.size)
+	def model1(self): return np.asarray(<double[:self.size*self.size*self.size]> self.iterate.model1).reshape(self.size,self.size,self.size)
 	@property
-	def model2(self): return np.asarray(<double[:self.size*self.size*self.size]> self.itr.model2).reshape(self.size,self.size,self.size)
+	def model2(self): return np.asarray(<double[:self.size*self.size*self.size]> self.iterate.model2).reshape(self.size,self.size,self.size)
 	@property
-	def inter_weight(self): return np.asarray(<double[:self.size*self.size*self.size]> self.itr.inter_weight).reshape(self.size,self.size,self.size)
-	def scale(self, dataset dset): return np.asarray(<double[:dset.tot_num_data]> self.itr.scale)
+	def inter_weight(self): return np.asarray(<double[:self.size*self.size*self.size]> self.iterate.inter_weight).reshape(self.size,self.size,self.size)
+	def scale(self, dataset dset): return np.asarray(<double[:dset.tot_num_data]> self.iterate.scale)

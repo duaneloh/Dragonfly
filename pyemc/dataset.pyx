@@ -7,29 +7,30 @@ from dataset cimport dataset
 
 cdef class dataset:
 	def __init__(self):
-		pass
+		cdef emc.dataset dset
+		self.dset.next = NULL
 
 	def parse_dataset(self, fname, detector det):
 		cdef char* c_fname = fname
 		cdef emc.detector c_det = det.det
-		emc.parse_dataset(c_fname, &c_det, &self.dset)
+		emc.parse_dataset(c_fname, &c_det, self.dset)
 
 	def parse_data(self, flist, detector det):
 		cdef char* c_flist = flist
 		cdef emc.detector c_det = det.det
-		emc.parse_data(c_flist, &c_det, &self.dset)
+		emc.parse_data(c_flist, &c_det, self.dset)
 
 	def make_blacklist(self, fname, int odd_flag=-1):
 		cdef char* c_fname = fname
-		emc.make_blacklist(c_fname, odd_flag, &self.dset)
+		emc.make_blacklist(c_fname, odd_flag, self.dset)
 
 	def calc_sum_fact(self, detector det):
 		cdef emc.detector c_det = det.det
-		emc.calc_sum_fact(&c_det, &self.dset)
+		emc.calc_sum_fact(&c_det, self.dset)
 
 	def free_data(self, scale_flag=False):
 		cdef int c_scale_flag = int(scale_flag)
-		emc.free_data(c_scale_flag, &self.dset)
+		emc.free_data(c_scale_flag, self.dset)
 
 	@property
 	def type(self): return self.dset.type
@@ -68,13 +69,12 @@ cdef class dataset:
 	@property
 	def int_frames(self): return np.asarray(<int[:self.num_data*self.num_pix]>self.dset.int_frames, dtype='i4').reshape(self.num_data, self.num_pix)
 
-	'''
 	# Pointer to next dataset
 	@property
 	def next(self): 
-		cdef object next_dset = self.dset.next[0]
+		next_dset = dataset()
+		next_dset.dset = self.dset.next
 		return next_dset
-	'''
 		
 	# Need only be defined for head dataset
 	@property

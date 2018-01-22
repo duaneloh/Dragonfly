@@ -1,5 +1,5 @@
 cimport emc 
 
 cdef class dataset:
-	cdef emc.dataset dset
+	cdef emc.dataset* dset
 

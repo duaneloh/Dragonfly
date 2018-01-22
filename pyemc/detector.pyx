@@ -10,10 +10,10 @@ cdef class detector:
 
 	def parse_detector(self, fname, norm_flag=True):
 		cdef char* c_fname = fname
-		emc.parse_detector(c_fname, &self.det, int(norm_flag))
+		emc.parse_detector(c_fname, self.det, int(norm_flag))
 
 	def free_detector(self):
-		emc.free_detector(&self.det)
+		emc.free_detector(self.det)
 
 	def generate_size(double qmax, np.ndarray[long] size, np.ndarray[long] center):
 		emc.generate_size(qmax, &size[0], &center[0])

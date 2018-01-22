@@ -1,5 +1,5 @@
 cimport emc
 
 cdef class detector:
-	cdef emc.detector det
+	cdef emc.detector* det
 
