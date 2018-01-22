@@ -12,9 +12,13 @@ link_args = '-lpython2.7 -lm -fopenmp'.split() + gsl_libs
 ext_modules = [
     Extension(name='detector', sources='detector.pyx ../../src/detector.c'.split(),
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
+    Extension(name='quat', sources='quat.pyx ../../src/quat.c'.split(),
+        language='c', extra_compile_args=compile_args, extra_link_args=link_args),
     Extension(name='dataset', sources='dataset.pyx ../../src/dataset.c'.split(),
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
-    Extension(name='pyemc', sources='emc.pyx ../../src/interp.c'.split(), extra_objects='src/detector.o src/dataset.o'.split(),
+    Extension(name='interp', sources='interp.pyx ../../src/interp.c'.split(),
+        language='c', extra_compile_args=compile_args, extra_link_args=link_args),
+    Extension(name='pyemc', sources='emc.pyx'.split(), extra_objects='src/detector.o src/dataset.o src/interp.o'.split(),
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
 ]
 
