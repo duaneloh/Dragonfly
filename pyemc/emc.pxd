@@ -5,11 +5,11 @@ cimport numpy as np
 cdef extern from "numpy/arrayobject.h":
 	void PyArray_ENABLEFLAGS(np.ndarray arr, int flags)
 
-cdef extern from '../../src/emc.h':
+cdef extern from '../src/emc.h':
 	int rank, num_proc
 	char config_section[1024]
 
-cdef extern from '../../src/detector.h':
+cdef extern from '../src/detector.h':
 	struct detector:
 		int num_pix, rel_num_pix
 		double detd, ewald_rad
@@ -26,7 +26,7 @@ cdef extern from '../../src/detector.h':
 	double parse_detector_list(char*, detector**, int)
 	void free_detector(detector*) # ==========> Wrapped
 
-cdef extern from '../../src/dataset.h':
+cdef extern from '../src/dataset.h':
 	struct dataset:
 		# Data set type (0=sparse, 1=dense integer, 2=dense double)
 		int type
@@ -65,7 +65,7 @@ cdef extern from '../../src/dataset.h':
 	void make_blacklist(char*, int, dataset*) # ==========> Wrapped
 	void free_data(int, dataset*) # ==========> Wrapped
 
-cdef extern from '../../src/quat.h':
+cdef extern from '../src/quat.h':
 	struct rotation:
 		int num_rot, num_rot_p
 		double *quat
@@ -77,7 +77,7 @@ cdef extern from '../../src/quat.h':
 	void divide_quat(int, int, rotation*) # ==========> Wrapped
 	void free_quat(rotation*) # ==========> Wrapped
 
-cdef extern from '../../src/iterate.h':
+cdef extern from '../src/iterate.h':
 	struct iterate:
 		long size, center
 		double *model1
@@ -93,7 +93,7 @@ cdef extern from '../../src/iterate.h':
 	void parse_input(char*, double, char*, iterate*) # ==========> Wrapped
 	void free_iterate(int, iterate*) # ==========> Wrapped
 
-cdef extern from "../../src/interp.h":
+cdef extern from "../src/interp.h":
 	void make_rot_quat(double*, double[3][3])
 	void slice_gen(double*, double, double*, double*, long, detector*) # ==========> Wrapped
 	void slice_merge(double*, double*, double*, double*, long, detector*) # ==========> Wrapped
