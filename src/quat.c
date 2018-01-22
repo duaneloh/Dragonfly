@@ -216,7 +216,7 @@ void make_cell(int num) {
 	}
 }
 
-void make_map() {
+void make_map(void) {
 	int i, j, k, m, idx ;
 	double tmp ;
 	
