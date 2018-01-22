@@ -21,8 +21,8 @@ ext_modules = [
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
     Extension(name='iterate', sources='iterate.pyx ../src/iterate.c'.split(),
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
-    Extension(name='pyemc', sources='emc.pyx'.split(), extra_objects=glob.glob('src/*.o'),
-        language='c', extra_compile_args=compile_args, extra_link_args=link_args),
+    #Extension(name='pyemc', sources='emc.pyx'.split(), extra_objects=glob.glob('build/src/*.o'),
+    #    language='c', extra_compile_args=compile_args, extra_link_args=link_args),
 ]
 
 setup(name='pyemc', cmdclass={'build_ext': build_ext}, ext_modules=ext_modules)
