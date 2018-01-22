@@ -94,10 +94,10 @@ cdef extern from '../src/iterate.h':
 	void free_iterate(int, iterate*)                                           # ==========> Wrapped
 
 cdef extern from '../src/interp.h':
-	void make_rot_quat(double*, double[3][3])                                  #####################
+	void make_rot_quat(double*, double[3][3])                                  # ==========> Wrapped
 	void slice_gen(double*, double, double*, double*, long, detector*)         # ==========> Wrapped
 	void slice_merge(double*, double*, double*, double*, long, detector*)      # ==========> Wrapped
-	void rotate_model(double[3][3], double*, int, double*)                     #####################
+	void rotate_model(double[3][3], double*, int, double*)                     # ==========> Wrapped
 	void symmetrize_friedel(double*, int)                                      # ==========> Wrapped
 
 cdef extern from '../src/params.h':

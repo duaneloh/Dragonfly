@@ -4,6 +4,12 @@ cimport emc
 cimport openmp
 from detector cimport detector
 
+def make_rot_quat(np.ndarray[double, ndim=1] quat):
+	'''Return rotation matric corresponding to given quaternion'''
+	cdef double[:,:] rotarr = np.zeros(3,3))
+	emc.make_rot_quat(&quat[0], <double(*)[3]>&rotarr[0][0])
+	return np.asarray(rotarr).reshape(3,3)
+
 def slice_gen(np.ndarray[double, ndim=1, mode='c'] quat,
               np.ndarray[double, ndim=1, mode='c'] out_slice,
               np.ndarray[double, ndim=3, mode='c'] model,
@@ -40,12 +46,10 @@ def symmetrize_friedel(np.ndarray[np.double_t, ndim=3, mode='c'] model):
 def rotate_model(np.ndarray[double, ndim=2] rot,
                  np.ndarray[double, ndim=3, mode='c'] model,
 				 np.ndarray[double, ndim=3, mode='c'] rotmodel):
+	'''Rotate 3D cubic array by given rotation matrix and write to rotmodel'''
 	cdef int size = model.shape[0]
 	cdef double[:,:] rotarr = rot
 	cdef np.ndarray[double, mode='c'] flat_model = np.ascontiguousarray(model.flatten())
 	cdef np.ndarray[double, mode='c'] flat_rotmodel = np.ascontiguousarray(rotmodel.flatten())
-	emc.rotate_model(<double(*)[3]>&rotarr[0][0], &flat_model[0], size, &flat_rotmodel[0])
-	rotmodel = np.asarray(flat_rotmodel).reshape(size, size, size)
-	return rotmodel
+	emc.rotate_model(<double(*)[3]>&rotarr[0][0], &model[0,0,0], size, &rotmodel[0,0,0])
 
-	#void make_rot_quat(double*, double[3][3])
