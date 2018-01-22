@@ -72,10 +72,10 @@ cdef extern from '../../src/quat.h':
 		int icosahedral_flag
 
 	int generate_quaternion(FILE*, rotation*)
-	int quat_gen(int, rotation*)
-	int parse_quat(char*, rotation*)
-	void divide_quat(int, int, rotation*)
-	void free_quat(rotation*)
+	int quat_gen(int, rotation*) # ==========> Wrapped
+	int parse_quat(char*, rotation*) # ==========> Wrapped
+	void divide_quat(int, int, rotation*) # ==========> Wrapped
+	void free_quat(rotation*) # ==========> Wrapped
 
 cdef extern from '../../src/iterate.h':
 	struct iterate:
@@ -87,11 +87,11 @@ cdef extern from '../../src/iterate.h':
 		
 		double rescale, mutual_info, rms_change
 
-	int parse_scale(char*, dataset*, iterate*)
-	void calc_scale(dataset*, detector*, char*, iterate*)
-	void normalize_scale(dataset*, iterate*)
-	void parse_input(char*, double, char*, iterate*)
-	void free_iterate(int, iterate*)
+	int parse_scale(char*, dataset*, iterate*) # ==========> Wrapped
+	void calc_scale(dataset*, detector*, char*, iterate*) # ==========> Wrapped
+	void normalize_scale(dataset*, iterate*) # ==========> Wrapped
+	void parse_input(char*, double, char*, iterate*) # ==========> Wrapped
+	void free_iterate(int, iterate*) # ==========> Wrapped
 
 cdef extern from "../../src/interp.h":
 	void make_rot_quat(double*, double[3][3])

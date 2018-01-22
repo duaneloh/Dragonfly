@@ -3,6 +3,7 @@ from setuptools.extension import Extension
 from Cython.Distutils import build_ext
 from Cython.Build import cythonize
 import subprocess
+import glob
 
 gsl_cflags = subprocess.check_output('gsl-config --cflags', shell=True).rstrip().split()
 gsl_libs = subprocess.check_output('gsl-config --libs', shell=True).rstrip().split()
@@ -18,7 +19,9 @@ ext_modules = [
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
     Extension(name='interp', sources='interp.pyx ../../src/interp.c'.split(),
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
-    Extension(name='pyemc', sources='emc.pyx'.split(), extra_objects='src/detector.o src/dataset.o src/interp.o'.split(),
+    Extension(name='iterate', sources='iterate.pyx ../../src/iterate.c'.split(),
+        language='c', extra_compile_args=compile_args, extra_link_args=link_args),
+    Extension(name='pyemc', sources='emc.pyx'.split(), extra_objects=glob.glob('src/*.o'),
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
 ]
 
