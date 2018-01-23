@@ -1,5 +1,18 @@
 #include "iterate.h"
 
+void generate_size(double qmax, struct iterate *iter) {
+	if (iter->size < 0) {
+		iter->size = 2*ceil(qmax) + 3 ;
+		if (!rank)
+			fprintf(stderr, "Calculated 3D volume size = %ld\n", iter->size) ;
+	}
+	else {
+		if (!rank)
+			fprintf(stderr, "Provided 3D volume size = %ld\n", iter->size) ;
+	}
+	iter->center = iter->size / 2 ;
+}
+
 int parse_scale(char *fname, struct dataset *frames, struct iterate *iter) {
 	int flag = 0 ;
 	
@@ -125,7 +138,8 @@ void parse_input(char *fname, double mean, char *print_fname, struct iterate *it
 
 void free_iterate(int scale_flag, struct iterate *iter) {
 	free(iter->model1) ;
-	free(iter->model2) ;
+	if (iter->model2 != NULL)
+		free(iter->model2) ;
 	free(iter->inter_weight) ;
 	if (scale_flag)
 		free(iter->scale) ;

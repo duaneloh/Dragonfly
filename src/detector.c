@@ -66,19 +66,6 @@ double generate_detectors(FILE *config_fp, struct detector **det_list, int norm_
 	return qmax ;
 }
 
-void generate_size(double qmax, long *size_ptr, long *center_ptr) {
-	if (*size_ptr < 0) {
-		*size_ptr = 2*ceil(qmax) + 3 ;
-		if (!rank)
-			fprintf(stderr, "Calculated 3D volume size = %ld\n", *size_ptr) ;
-	}
-	else {
-		if (!rank)
-			fprintf(stderr, "Provided 3D volume size = %ld\n", *size_ptr) ;
-	}
-	*center_ptr = *size_ptr / 2 ;
-}
-
 double parse_detector(char *fname, struct detector *det, int norm_flag) {
 	int t, d ;
 	double q, qmax = -1., mean_pol = 0. ;

@@ -139,7 +139,7 @@ int generate_iterate(FILE *config_fp, int continue_flag, double qmax) {
 		}
 	}
 	
-	generate_size(qmax, &(iter->size), &(iter->center)) ;
+	generate_size(qmax, iter) ;
 	
 	if (continue_flag) {
 		fp = fopen(param.log_fname, "r") ;
