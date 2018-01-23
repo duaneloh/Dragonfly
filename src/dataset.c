@@ -14,7 +14,7 @@ static char *generate_token(char *line, char *section_name) {
 	return token ;
 }
 
-int generate_data(FILE *config_fp, char *type_string, struct dataset *frames_list, struct detector *det_list) {
+int generate_data(FILE *config_fp, char *type_string, struct detector *det_list, struct dataset *frames_list) {
 	int num_datasets = 0 ;
 	char data_fname[1024] = {'\0'}, data_flist[1024] = {'\0'}, out_data_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;

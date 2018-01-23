@@ -58,7 +58,7 @@ cdef extern from '../src/dataset.h':
 		double *sum_fact
 		uint8_t *blacklist
 
-	int generate_data(FILE*, char*, dataset*, detector*)                       #####################
+	int generate_data(FILE*, char*, detector*, dataset*)                       #####################
 	void calc_sum_fact(detector*, dataset*)                                    # ==========> Wrapped
 	int parse_dataset(char*, detector*, dataset*)                              # ==========> Wrapped
 	int parse_data(char*, detector*, dataset*)                                 # ==========> Wrapped

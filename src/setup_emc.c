@@ -205,9 +205,9 @@ int setup(char *config_fname, int continue_flag) {
 		return 1 ;
 	if (generate_quaternion(fp, quat))
 		return 1 ;
-	if (generate_data(fp, "in", frames, det))
+	if (generate_data(fp, "in", det, frames))
 		return 1 ;
-	if (generate_data(fp, "merge", merge_frames, det))
+	if (generate_data(fp, "merge", det, merge_frames))
 		return 1 ;
 	generate_blacklist(fp) ;
 	if (generate_iterate(fp, continue_flag, qmax))
