@@ -6,7 +6,7 @@ from detector cimport detector
 
 def make_rot_quat(np.ndarray[double, ndim=1] quat):
 	'''Return rotation matric corresponding to given quaternion'''
-	cdef double[:,:] rotarr = np.zeros(3,3))
+	cdef double[:,:] rotarr = np.zeros(3,3)
 	emc.make_rot_quat(&quat[0], <double(*)[3]>&rotarr[0][0])
 	return np.asarray(rotarr).reshape(3,3)
 
