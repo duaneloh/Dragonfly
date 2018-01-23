@@ -20,6 +20,6 @@ int quat_gen(int, struct rotation*) ;
 int parse_quat(char*, struct rotation*) ;
 void divide_quat(int, int, struct rotation*) ;
 void free_quat(struct rotation*) ;
-int generate_quaternion(FILE *config_fp, struct rotation*) ;
+int generate_quaternion(char*, struct rotation*) ;
 
 #endif //QUAT_H

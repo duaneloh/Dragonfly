@@ -38,7 +38,7 @@ struct dataset {
 extern int rank, num_proc ;
 extern char config_section[1024] ;
 
-int generate_data(FILE*, char*, struct detector*, struct dataset*) ;
+int generate_data(char*, char*, struct detector*, struct dataset*) ;
 void calc_sum_fact(struct detector*, struct dataset*) ;
 int parse_dataset(char*, struct detector*, struct dataset*) ;
 int parse_data(char*, struct detector*, struct dataset*) ;

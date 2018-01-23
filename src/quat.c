@@ -829,13 +829,13 @@ static char *generate_token(char *line, char *section_name) {
 	return token ;
 }
 
-int generate_quaternion(FILE *config_fp, struct rotation *quat_ptr) {
+int generate_quaternion(char *config_fname, struct rotation *quat_ptr) {
 	int num, num_div = -1 ;
 	char quat_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;
 	quat_ptr->icosahedral_flag = 0 ;
 	
-	rewind(config_fp) ;
+	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
@@ -849,6 +849,7 @@ int generate_quaternion(FILE *config_fp, struct rotation *quat_ptr) {
 				quat_ptr->icosahedral_flag = atoi(strtok(NULL, " =\n")) ;
 		}
 	}
+	fclose(config_fp) ;
 	
 	if (num_div > 0 && quat_fname[0] != '\0') {
 		fprintf(stderr, "Config file contains both num_div as well as in_quat_file. Pick one.\n") ;

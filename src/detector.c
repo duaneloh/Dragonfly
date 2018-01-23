@@ -14,12 +14,12 @@ static char *generate_token(char *line, char *section_name) {
 	return token ;
 }
 
-double generate_detectors(FILE *config_fp, struct detector **det_list, int norm_flag) {
+double generate_detectors(char *config_fname, struct detector **det_list, int norm_flag) {
 	double qmax ;
 	char det_fname[1024] = {'\0'}, det_flist[1024] = {'\0'}, out_det_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;
 	
-	rewind(config_fp) ;
+	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
@@ -35,6 +35,7 @@ double generate_detectors(FILE *config_fp, struct detector **det_list, int norm_
 				strcpy(det_flist, strtok(NULL, " =\n")) ;
 		}
 	}
+	fclose(config_fp) ;
 	if (strcmp(det_fname, "make_detector:::out_detector_file") == 0)
 		strcpy(det_fname, out_det_fname) ;
 	

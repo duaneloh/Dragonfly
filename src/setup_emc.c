@@ -18,7 +18,7 @@ char *generate_token(char *line, char *section_name) {
 	return token ;
 }
 
-void generate_params(FILE *config_fp) {
+void generate_params(char *config_fname) {
 	char line[1024], section_name[1024], *token ;
 	
 	param.known_scale = 0 ;
@@ -32,6 +32,7 @@ void generate_params(FILE *config_fp) {
 	strcpy(param.log_fname, "EMC.log") ;
 	strcpy(param.output_folder, "data/") ;
 	
+	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
@@ -58,6 +59,7 @@ void generate_params(FILE *config_fp) {
 			}
 		}
 	}
+	fclose(config_fp) ;
 	if (!rank)
 		fprintf(stderr, "Parsed params from config file\n") ;
 }
@@ -79,11 +81,11 @@ void generate_output_dirs() {
 	mkdir(line, 0750) ;
 }
 
-void generate_blacklist(FILE *config_fp) {
+void generate_blacklist(char *config_fname) {
 	char blacklist_fname[1024] = {'\0'}, sel_string[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;
 	
-	rewind(config_fp) ;
+	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
@@ -95,6 +97,7 @@ void generate_blacklist(FILE *config_fp) {
 				strcpy(sel_string, strtok(NULL, " =\n")) ;
 		}
 	}
+	fclose(config_fp) ;
 	
 	if (sel_string[0] == '\0') {
 		make_blacklist(blacklist_fname, 0, frames) ;
@@ -118,13 +121,13 @@ void generate_blacklist(FILE *config_fp) {
 		fprintf(stderr, "%d/%d blacklisted frames\n", frames->num_blacklist, frames->tot_num_data) ;
 }
 
-int generate_iterate(FILE *config_fp, int continue_flag, double qmax) {
+int generate_iterate(char *config_fname, int continue_flag, double qmax) {
 	FILE *fp ;
 	char input_fname[1024] = {'\0'}, scale_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;
 	iter->size = -1 ;
 	
-	rewind(config_fp) ;
+	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
@@ -138,6 +141,7 @@ int generate_iterate(FILE *config_fp, int continue_flag, double qmax) {
 				strcpy(scale_fname, strtok(NULL, " =\n")) ;
 		}
 	}
+	fclose(config_fp) ;
 	
 	generate_size(qmax, iter) ;
 	
@@ -199,20 +203,20 @@ int setup(char *config_fname, int continue_flag) {
 		fprintf(stderr, "Config file %s not found.\n", config_fname) ;
 		return 1 ;
 	}
-	generate_params(fp) ;
-	generate_output_dirs() ;
-	if ((qmax = generate_detectors(fp, &det, 1)) < 0.)
-		return 1 ;
-	if (generate_quaternion(fp, quat))
-		return 1 ;
-	if (generate_data(fp, "in", det, frames))
-		return 1 ;
-	if (generate_data(fp, "merge", det, merge_frames))
-		return 1 ;
-	generate_blacklist(fp) ;
-	if (generate_iterate(fp, continue_flag, qmax))
-		return 1 ;
 	fclose(fp) ;
+	generate_params(config_fname) ;
+	generate_output_dirs() ;
+	if ((qmax = generate_detectors(config_fname, &det, 1)) < 0.)
+		return 1 ;
+	if (generate_quaternion(config_fname, quat))
+		return 1 ;
+	if (generate_data(config_fname, "in", det, frames))
+		return 1 ;
+	if (generate_data(config_fname, "merge", det, merge_frames))
+		return 1 ;
+	generate_blacklist(config_fname) ;
+	if (generate_iterate(config_fname, continue_flag, qmax))
+		return 1 ;
 	
 	return 0 ;
 }

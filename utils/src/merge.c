@@ -34,11 +34,12 @@ char *generate_token(char *line, char *section_name) {
 	return token ;
 }
 
-int generate_quat_list(FILE *config_fp) {
+int generate_quat_list(char *config_fname) {
 	int r, t, invert_quat = 0 ;
 	char quat_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;
 	
+	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
@@ -50,6 +51,7 @@ int generate_quat_list(FILE *config_fp) {
 				invert_quat = atoi(strtok(NULL, " =\n")) ;
 		}
 	}
+	fclose(config_fp) ;
 	
 	FILE *fp = fopen(quat_fname, "r") ;
 	if (fp == NULL) {
@@ -73,7 +75,7 @@ int generate_quat_list(FILE *config_fp) {
 	return 0 ;
 }
 
-int generate_globals(FILE *config_fp) {
+int generate_globals(char *config_fname) {
 	char line[1024], section_name[1024], *token ;
 	
 	rank = 0 ;
@@ -85,7 +87,7 @@ int generate_globals(FILE *config_fp) {
 	iter->model2 = NULL ;
 	output_fname[0] = '\0' ;
 	
-	rewind(config_fp) ;
+	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
@@ -97,6 +99,7 @@ int generate_globals(FILE *config_fp) {
 				strcpy(output_fname, strtok(NULL, " =\n")) ;
 		}
 	}
+	fclose(config_fp) ;
 	
 	if (output_fname[0] == '\0') {
 		fprintf(stderr, "out_merge_file not specified.\n") ;
@@ -116,16 +119,16 @@ int setup(char *fname) {
 		fprintf(stderr, "Config file %s not found.\n", fname) ;
 		return 1 ;
 	}
-	if (generate_globals(fp))
+	fclose(fp) ;
+	if (generate_globals(fname))
 		return 1 ;
-	if ((qmax = generate_detectors(fp, &det, 1)) < 0.)
+	if ((qmax = generate_detectors(fname, &det, 1)) < 0.)
 		return 1 ;
 	generate_size(qmax, iter) ;
-	if (generate_data(fp, "in", frames, det))
+	if (generate_data(fname, "in", det, frames))
 		return 1 ;
-	if (generate_quat_list(fp))
+	if (generate_quat_list(fname))
 		return 1 ;
-	fclose(fp) ;
 	
 	return 0 ;
 }

@@ -14,7 +14,7 @@ static char *generate_token(char *line, char *section_name) {
 	return token ;
 }
 
-int generate_data(FILE *config_fp, char *type_string, struct detector *det_list, struct dataset *frames_list) {
+int generate_data(char *config_fname, char *type_string, struct detector *det_list, struct dataset *frames_list) {
 	int num_datasets = 0 ;
 	char data_fname[1024] = {'\0'}, data_flist[1024] = {'\0'}, out_data_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;
@@ -22,7 +22,7 @@ int generate_data(FILE *config_fp, char *type_string, struct detector *det_list,
 	sprintf(fname_opt, "%s_photons_file", type_string) ;
 	sprintf(flist_opt, "%s_photons_list", type_string) ;
 	
-	rewind(config_fp) ;
+	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
@@ -38,6 +38,8 @@ int generate_data(FILE *config_fp, char *type_string, struct detector *det_list,
 				strcpy(data_flist, strtok(NULL, " =\n")) ;
 		}
 	}
+	fclose(config_fp) ;
+	
 	if (strcmp(data_fname, "make_data:::out_photons_file") == 0)
 		strcpy(data_fname, out_data_fname) ;
 	

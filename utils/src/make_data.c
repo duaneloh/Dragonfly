@@ -305,13 +305,13 @@ char *generate_token(char *line, char *section_name) {
 	return token ;
 }
 
-int generate_size_params(FILE *config_fp) {
+int generate_size_params(char *config_fname) {
 	double qmin, qmax, hx, hy ;
 	double detd = 0., pixsize = 0., ewald_rad = -1. ;
 	int detsize = 0, dets_x = 0, dets_y = 0 ;
 	char line[1024], section_name[1024], *token ;
 	
-	rewind(config_fp) ;
+	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
@@ -336,6 +336,7 @@ int generate_size_params(FILE *config_fp) {
 				ewald_rad = atof(strtok(NULL, " =\n")) ;
 		}
 	}
+	fclose(config_fp) ;
 	
 	if (detsize == 0 || pixsize == 0. || detd == 0.) {
 		fprintf(stderr, "Need detector parameters: detd, detsize, pixsize\n") ;
@@ -361,12 +362,12 @@ int generate_size_params(FILE *config_fp) {
 	return 0 ;
 }
 
-int generate_intens(FILE *config_fp) {
+int generate_intens(char *config_fname) {
 	FILE *fp ;
 	char intens_fname[1024], out_intens_fname[1024] ;
 	char line[1024], section_name[1024], *token ;
 	
-	rewind(config_fp) ;
+	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
@@ -380,6 +381,7 @@ int generate_intens(FILE *config_fp) {
 				strcpy(out_intens_fname, strtok(NULL, " =\n")) ;
 		}
 	}
+	fclose(config_fp) ;
 	if (strcmp(intens_fname, "make_intensities:::out_intensity_file") == 0)
 		strcpy(intens_fname, out_intens_fname) ;
 	
@@ -395,13 +397,13 @@ int generate_intens(FILE *config_fp) {
 	return 0 ;
 }
 
-int generate_quat_list(FILE *config_fp) {
+int generate_quat_list(char *config_fname) {
 	int t ;
 	FILE *fp ;
 	char quat_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;
 	
-	rewind(config_fp) ;
+	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
@@ -411,6 +413,7 @@ int generate_quat_list(FILE *config_fp) {
 				strcpy(quat_fname, strtok(NULL, " =\n")) ;
 		}
 	}
+	fclose(config_fp) ;
 	
 	if (quat_fname[0] != '\0') {
 		fprintf(stderr, "Picking discrete orientations from %s\n", quat_fname) ;
@@ -429,7 +432,7 @@ int generate_quat_list(FILE *config_fp) {
 	return 0 ;
 }
 
-int generate_globals(FILE *config_fp) {
+int generate_globals(char *config_fname) {
 	char line[1024], section_name[1024], *token ;
 	
 	rank = 0 ;
@@ -446,6 +449,7 @@ int generate_globals(FILE *config_fp) {
 	likelihood_fname[0] = '\0' ;
 	scale_fname[0] = '\0' ;
 	
+	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
@@ -469,6 +473,7 @@ int generate_globals(FILE *config_fp) {
 				strcpy(scale_fname, strtok(NULL, " =\n")) ;
 		}
 	}
+	fclose(config_fp) ;
 
 	// Check for required parameters
 	if (num_data == 0) {
@@ -516,19 +521,19 @@ int setup(char *config_fname) {
 		fprintf(stderr, "Config file %s not found.\n", config_fname) ;
 		return 1 ;
 	}
-	if (generate_globals(fp))
+	fclose(fp) ;
+	if (generate_globals(config_fname))
 		return 1 ;
-	if (generate_detectors(fp, &det, 0) < 0.)
+	if (generate_detectors(config_fname, &det, 0) < 0.)
 		return 1 ;
 	fprintf(stderr, "num_det = %d\n", det[0].num_det) ;
 	background /= det[0].num_pix ;
-	if (generate_size_params(fp))
+	if (generate_size_params(config_fname))
 		return 1 ;
-	if (generate_intens(fp))
+	if (generate_intens(config_fname))
 		return 1 ;
-	if (generate_quat_list(fp))
+	if (generate_quat_list(config_fname))
 		return 1 ;
-	fclose(fp) ;
 
 	return 0 ;
 }
