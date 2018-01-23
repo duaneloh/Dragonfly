@@ -55,7 +55,7 @@ endif
 utils/compare: bin/quat.o bin/interp.o
 utils/make_quaternion: bin/quat.o
 utils/make_data: bin/detector.o bin/interp.o
-utils/merge: bin/detector.o bin/dataset.o bin/interp.o
+utils/merge: bin/detector.o bin/dataset.o bin/interp.o bin/iterate.o
 utils/fiberize: bin/detector.o bin/interp.o
 
 $(UTILS): utils/%: utils/src/%.c
