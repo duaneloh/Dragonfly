@@ -1,5 +1,4 @@
 from libc.stdint cimport uint8_t
-from libc.stdio cimport FILE
 cimport numpy as np
 
 cdef extern from '../src/emc.h':
@@ -18,7 +17,7 @@ cdef extern from '../src/detector.h':
 		int num_det, num_dfiles
 		int mapping[1024]
 
-	double generate_detectors(FILE*, detector**, int)
+	double generate_detectors(char*, detector**, int)
 	double parse_detector(char*, detector*, int)
 	double parse_detector_list(char*, detector**, int)
 	void free_detector(detector*)
@@ -55,7 +54,7 @@ cdef extern from '../src/dataset.h':
 		double *sum_fact
 		uint8_t *blacklist
 
-	int generate_data(FILE*, char*, detector*, dataset*)
+	int generate_data(char*, char*, detector*, dataset*)
 	void calc_sum_fact(detector*, dataset*)
 	int parse_dataset(char*, detector*, dataset*)
 	int parse_data(char*, detector*, dataset*)
@@ -68,7 +67,7 @@ cdef extern from '../src/quat.h':
 		double *quat
 		int icosahedral_flag
 
-	int generate_quaternion(FILE*, rotation*)
+	int generate_quaternion(char*, rotation*)
 	int quat_gen(int, rotation*)
 	int parse_quat(char*, rotation*)
 	void divide_quat(int, int, rotation*)

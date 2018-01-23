@@ -1,7 +1,6 @@
 import numpy as np
 cimport numpy as np
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
-from libc.stdio cimport FILE, fdopen
 cimport emc 
 cimport openmp
 from detector cimport detector
@@ -11,17 +10,17 @@ cdef class detector:
 		self.det = <emc.detector*> PyMem_Malloc(sizeof(emc.detector))
 		self.det.num_det = 0
 
-	def generate_detectors(self, config_file, norm_flag=True, config_section='emc', rank=0, num_proc=1):
+	def generate_detectors(self, config_fname, norm_flag=True, config_section='emc', rank=0, num_proc=1):
 		if emc.config_section[0] == '\0':
 			emc.config_section[:len(config_section)] = config_section
 			emc.config_section[len(config_section)] = '\0'
 		if emc.rank == 0: emc.rank = rank
 		if emc.num_proc == 0: emc.num_proc = num_proc
 		
-		cdef FILE* config_fp = fdopen(config_file.fileno(), 'r')
+		cdef char* c_config_fname = config_fname
 		if self.det.num_det > 0:
 			self.free_detector()
-		emc.generate_detectors(config_fp, &self.det, int(norm_flag))
+		emc.generate_detectors(c_config_fname, &self.det, int(norm_flag))
 
 	def parse_detector_list(self, flist, norm_flag=True):
 		cdef char* c_flist = flist
