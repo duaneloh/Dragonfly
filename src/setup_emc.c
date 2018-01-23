@@ -18,7 +18,7 @@ char *generate_token(char *line, char *section_name) {
 	return token ;
 }
 
-void generate_globals(FILE *config_fp) {
+void generate_params(FILE *config_fp) {
 	char line[1024], section_name[1024], *token ;
 	
 	param.known_scale = 0 ;
@@ -32,32 +32,21 @@ void generate_globals(FILE *config_fp) {
 	strcpy(param.log_fname, "EMC.log") ;
 	strcpy(param.output_folder, "data/") ;
 	
-	iter = malloc(sizeof(struct iterate)) ;
-	quat = malloc(sizeof(struct rotation)) ;
-	frames = malloc(sizeof(struct dataset)) ;
-	merge_frames = NULL ;
-	iter->size = -1 ;
-	quat->icosahedral_flag = 0 ;
-	
 	while (fgets(line, 1024, config_fp) != NULL) {
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
 		
-		if (strcmp(section_name, "emc") == 0) {
+		if (strcmp(section_name, config_section) == 0) {
 			if (strcmp(token, "output_folder") == 0)
 				strcpy(param.output_folder, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "log_file") == 0)
 				strcpy(param.log_fname, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "size") == 0)
-				iter->size = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "need_scaling") == 0)
 				param.need_scaling = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "alpha") == 0)
 				param.alpha = atof(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "beta") == 0)
 				param.beta = atof(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "sym_icosahedral") == 0)
-				quat->icosahedral_flag = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "beta_schedule") == 0) {
 				param.beta_jump = atof(strtok(NULL, " =\n")) ;
 				param.beta_period = atoi(strtok(NULL, " =\n")) ;
@@ -99,7 +88,7 @@ void generate_blacklist(FILE *config_fp) {
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
 		
-		if (strcmp(section_name, "emc") == 0) {
+		if (strcmp(section_name, config_section) == 0) {
 			if (strcmp(token, "blacklist_file") == 0)
 				strcpy(blacklist_fname, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "selection") == 0)
@@ -129,24 +118,28 @@ void generate_blacklist(FILE *config_fp) {
 		fprintf(stderr, "%d/%d blacklisted frames\n", frames->num_blacklist, frames->tot_num_data) ;
 }
 
-int generate_iterate(FILE *config_fp, int continue_flag) {
+int generate_iterate(FILE *config_fp, int continue_flag, double qmax) {
 	FILE *fp ;
 	char input_fname[1024] = {'\0'}, scale_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;
+	iter->size = -1 ;
 	
 	rewind(config_fp) ;
 	while (fgets(line, 1024, config_fp) != NULL) {
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
 		
-		if (strcmp(section_name, "emc") == 0) {
-			if (strcmp(token, "start_model_file") == 0)
+		if (strcmp(section_name, config_section) == 0) {
+			if (strcmp(token, "size") == 0)
+				iter->size = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "start_model_file") == 0)
 				strcpy(input_fname, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "scale_file") == 0)
 				strcpy(scale_fname, strtok(NULL, " =\n")) ;
 		}
 	}
 	
+	generate_size(qmax, &(iter->size), &(iter->center)) ;
 	
 	if (continue_flag) {
 		fp = fopen(param.log_fname, "r") ;
@@ -196,16 +189,20 @@ int setup(char *config_fname, int continue_flag) {
 	double qmax = -1. ;
 	strcpy(config_section, "emc") ;
 
+	iter = malloc(sizeof(struct iterate)) ;
+	quat = malloc(sizeof(struct rotation)) ;
+	frames = malloc(sizeof(struct dataset)) ;
+	merge_frames = NULL ;
+	
 	fp = fopen(config_fname, "r") ;
 	if (fp == NULL) {
 		fprintf(stderr, "Config file %s not found.\n", config_fname) ;
 		return 1 ;
 	}
-	generate_globals(fp) ;
+	generate_params(fp) ;
 	generate_output_dirs() ;
 	if ((qmax = generate_detectors(fp, &det, 1)) < 0.)
 		return 1 ;
-	generate_size(qmax, &(iter->size), &(iter->center)) ;
 	if (generate_quaternion(fp, quat))
 		return 1 ;
 	if (generate_data(fp, "in", frames, det))
@@ -213,7 +210,7 @@ int setup(char *config_fname, int continue_flag) {
 	if (generate_data(fp, "merge", merge_frames, det))
 		return 1 ;
 	generate_blacklist(fp) ;
-	if (generate_iterate(fp, continue_flag))
+	if (generate_iterate(fp, continue_flag, qmax))
 		return 1 ;
 	fclose(fp) ;
 	

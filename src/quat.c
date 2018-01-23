@@ -833,6 +833,7 @@ int generate_quaternion(FILE *config_fp, struct rotation *quat_ptr) {
 	int num, num_div = -1 ;
 	char quat_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;
+	quat_ptr->icosahedral_flag = 0 ;
 	
 	rewind(config_fp) ;
 	while (fgets(line, 1024, config_fp) != NULL) {
@@ -844,6 +845,8 @@ int generate_quaternion(FILE *config_fp, struct rotation *quat_ptr) {
 				num_div = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "in_quat_file") == 0)
 				strcpy(quat_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "sym_icosahedral") == 0)
+				quat_ptr->icosahedral_flag = atoi(strtok(NULL, " =\n")) ;
 		}
 	}
 	
