@@ -8,6 +8,7 @@ cdef extern from 'numpy/arrayobject.h':
 cdef extern from '../src/emc.h':
 	int rank, num_proc
 	char config_section[1024]
+config_section[:] = ['\0']*1024
 
 cdef extern from '../src/detector.h':
 	struct detector:
@@ -71,7 +72,7 @@ cdef extern from '../src/quat.h':
 		double *quat
 		int icosahedral_flag
 
-	int generate_quaternion(FILE*, rotation*)                                  #####################
+	int generate_quaternion(FILE*, rotation*)                                  # ==========> Wrapped
 	int quat_gen(int, rotation*)                                               # ==========> Wrapped
 	int parse_quat(char*, rotation*)                                           # ==========> Wrapped
 	void divide_quat(int, int, rotation*)                                      # ==========> Wrapped
