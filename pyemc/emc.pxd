@@ -22,7 +22,6 @@ cdef extern from '../src/detector.h':
 		int mapping[1024]
 
 	double generate_detectors(FILE*, detector**, int)                          #####################
-	void generate_size(double, long*, long*)                                   # ==========> Wrapped
 	double parse_detector(char*, detector*, int)                               # ==========> Wrapped
 	double parse_detector_list(char*, detector**, int)                         #####################
 	void free_detector(detector*)                                              # ==========> Wrapped
@@ -88,6 +87,7 @@ cdef extern from '../src/iterate.h':
 		
 		double rescale, mutual_info, rms_change
 
+	void generate_size(double, iterate*)                                       # ==========> Wrapped
 	int parse_scale(char*, dataset*, iterate*)                                 # ==========> Wrapped
 	void calc_scale(dataset*, detector*, char*, iterate*)                      # ==========> Wrapped
 	void normalize_scale(dataset*, iterate*)                                   # ==========> Wrapped

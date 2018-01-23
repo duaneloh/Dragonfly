@@ -10,6 +10,9 @@ cdef class iterate:
 	def __init__(self):
 		self.iterate = <emc.iterate*> PyMem_Malloc(sizeof(emc.iterate))
 
+	def generate_size(self, double qmax):
+		emc.generate_size(qmax, self.iterate)
+
 	def parse_scale(self, fname, dataset dset):
 		cdef char* c_fname = fname
 		emc.parse_scale(c_fname, dset.dset, self.iterate)

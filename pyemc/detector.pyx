@@ -17,9 +17,6 @@ cdef class detector:
 		emc.free_detector(self.det)
 		PyMem_Free(self.det)
 
-	def generate_size(double qmax, np.ndarray[long] size, np.ndarray[long] center):
-		emc.generate_size(qmax, &size[0], &center[0])
-
 	@property
 	def num_pix(self): return self.det.num_pix
 	@property
