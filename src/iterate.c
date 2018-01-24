@@ -169,6 +169,8 @@ void normalize_scale(struct dataset *frames, struct iterate *iter) {
 		iter->model1[x] *= mean_scale ;
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
 		iter->scale[d] /= mean_scale ;
+	
+	iter->rms_change *= mean_scale ;
 }
 
 void parse_input(char *fname, double mean, char *print_fname, int rank, struct iterate *iter) {
