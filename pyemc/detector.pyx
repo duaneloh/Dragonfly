@@ -18,26 +18,22 @@ cdef class detector:
 		if emc.num_proc == 0: emc.num_proc = num_proc
 		
 		cdef char* c_config_fname = config_fname
-		if self.det.num_det > 0:
-			self.free_detector()
+		if self.det.num_det > 0: self.free_detector()
 		emc.generate_detectors(c_config_fname, &self.det, int(norm_flag))
 
 	def parse_detector_list(self, flist, norm_flag=True):
 		cdef char* c_flist = flist
-		if self.det.num_det > 0:
-			self.free_detector()
+		if self.det.num_det > 0: self.free_detector()
 		emc.parse_detector_list(flist, &self.det, int(norm_flag))
 
 	def parse_detector(self, fname, norm_flag=True):
 		cdef char* c_fname = fname
-		if self.det.num_det > 0:
-			emc.free_detector(self.det)
+		if self.det.num_det > 0: self.free_detector()
 		emc.parse_detector(c_fname, self.det, int(norm_flag))
 		self.det.num_det = 1
 
 	def free_detector(self):
 		emc.free_detector(self.det)
-		PyMem_Free(self.det)
 
 	@property
 	def num_pix(self): return self.det.num_pix

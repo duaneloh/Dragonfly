@@ -40,7 +40,6 @@ cdef class iterate:
 
 	def free_iterate(self, scale_flag=False):
 		emc.free_iterate(int(scale_flag), self.iterate)
-		PyMem_Free(self.iterate)
 
 	@property
 	def size(self): return self.iterate.size

@@ -40,7 +40,6 @@ cdef class dataset:
 	def free_data(self, scale_flag=False):
 		cdef int c_scale_flag = int(scale_flag)
 		emc.free_data(c_scale_flag, self.dset)
-		PyMem_Free(self.dset)
 
 	@property
 	def type(self): return self.dset.type

@@ -31,7 +31,6 @@ cdef class rotation:
 
 	def free_quat(self):
 		emc.free_quat(self.rot)
-		PyMem_Free(self.rot)
 
 	@property
 	def num_rot(self): return self.rot.num_rot
