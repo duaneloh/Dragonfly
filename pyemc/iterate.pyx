@@ -10,6 +10,10 @@ cdef class iterate:
 	def __init__(self):
 		self.iterate = <emc.iterate*> PyMem_Malloc(sizeof(emc.iterate))
 		self.iterate.size = -1
+		self.iterate.model1 = NULL
+		self.iterate.model2 = NULL
+		self.iterate.inter_weight = NULL
+		self.iterate.scale = NULL
 
 	def calculate_size(self, double qmax):
 		emc.calculate_size(qmax, self.iterate)

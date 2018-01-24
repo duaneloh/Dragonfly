@@ -8,6 +8,7 @@ cdef class rotation:
 	def __init__(self):
 		self.rot = <emc.rotation*> PyMem_Malloc(sizeof(emc.rotation))
 		self.rot.icosahedral_flag = 0
+		self.rot.quat = NULL
 
 	def generate_quaternion(self, config_fname, config_section='emc', rank=0, num_proc=1):
 		if emc.config_section[0] == '\0':

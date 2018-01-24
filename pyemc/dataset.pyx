@@ -10,6 +10,8 @@ cdef class dataset:
 	def __init__(self):
 		self.dset = <emc.dataset*> PyMem_Malloc(sizeof(emc.dataset))
 		self.dset.next = NULL
+		self.dset.blacklist = NULL
+		self.dset.sum_fact = NULL
 
 	def generate_data(self, config_fname, detector det, type_string='in', config_section='emc', rank=0, num_proc=1):
 		if emc.config_section[0] == '\0':
