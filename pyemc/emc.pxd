@@ -4,7 +4,9 @@ cimport numpy as np
 cdef extern from '../src/emc.h':
 	int rank, num_proc
 	char config_section[1024]
-config_section[:] = ['\0']*1024
+	int setup(char*, int)
+	void free_mem()
+	double maximize()
 
 cdef extern from '../src/detector.h':
 	struct detector:
@@ -83,12 +85,12 @@ cdef extern from '../src/iterate.h':
 		
 		double rescale, mutual_info, rms_change
 
-	void generate_size(double, iterate*)
+	void calculate_size(double, iterate*)
 	int parse_scale(char*, dataset*, iterate*)
 	void calc_scale(dataset*, detector*, char*, iterate*)
 	void normalize_scale(dataset*, iterate*)
-	void parse_input(char*, double, char*, iterate*)
-	void free_iterate(int, iterate*)
+	void parse_input(char*, double, char*, int, iterate*)
+	void free_iterate(iterate*)
 
 cdef extern from '../src/interp.h':
 	void make_rot_quat(double*, double[3][3])

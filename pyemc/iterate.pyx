@@ -11,8 +11,8 @@ cdef class iterate:
 		self.iterate = <emc.iterate*> PyMem_Malloc(sizeof(emc.iterate))
 		self.iterate.size = -1
 
-	def generate_size(self, double qmax):
-		emc.generate_size(qmax, self.iterate)
+	def calculate_size(self, double qmax):
+		emc.calculate_size(qmax, self.iterate)
 
 	def parse_scale(self, fname, dataset dset):
 		cdef char* c_fname = fname
@@ -29,17 +29,17 @@ cdef class iterate:
 	def normalize_scale(self, dataset dset):
 		emc.normalize_scale(dset.dset, self.iterate)
 
-	def parse_input(self, fname, double mean, print_fname=None):
+	def parse_input(self, fname, double mean, int rank=0, print_fname=None):
 		cdef char* c_fname = fname
 		cdef char* c_print_fname
 		if print_fname is not None:
 			c_print_fname = print_fname
 		else:
 			c_print_fname = NULL
-		emc.parse_input(c_fname, mean, c_print_fname, self.iterate)
+		emc.parse_input(c_fname, mean, c_print_fname, rank, self.iterate)
 
-	def free_iterate(self, scale_flag=False):
-		emc.free_iterate(int(scale_flag), self.iterate)
+	def free_iterate(self):
+		emc.free_iterate(self.iterate)
 
 	@property
 	def size(self): return self.iterate.size
