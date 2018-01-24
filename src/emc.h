@@ -15,7 +15,6 @@ struct rotation *quat ;
 struct dataset *frames, *merge_frames ;
 struct iterate *iter ;
 struct params param ;
-char config_section[1024] ;
 
 // setup_emc.c
 int setup(char*, int) ;
@@ -28,5 +27,6 @@ double maximize(void) ;
 int parse_arguments(int, char**, int*, int*, char*) ;
 void write_log_file_header(int) ;
 void emc(void) ;
+void update_model(double) ;
 
 #endif

@@ -5,8 +5,7 @@
 #include <sys/time.h>
 #include "emc.h"
 
-static struct timeval t1, t2, t3 ;
-
+struct timeval t1, t2, t3 ;
 static void print_time(char*, struct timeval*, struct timeval*, int) ;
 
 int main(int argc, char *argv[]) {
@@ -18,14 +17,15 @@ int main(int argc, char *argv[]) {
 	MPI_Comm_rank(MPI_COMM_WORLD, &param.rank) ;
 	gettimeofday(&t1, NULL) ;
 	
-	if (parse_arguments(argc, argv, &continue_flag, &num_threads, config_fname))
+	if (parse_arguments(argc, argv, &continue_flag, &num_threads, config_fname)) {
+		MPI_Finalize() ;
 		return 1 ;
+	}
 	
 	if (setup(config_fname, continue_flag)) {
 		MPI_Finalize() ;
 		return 1 ;
 	}
-	print_time("Completed setup", &t1, &t2, param.rank) ;
 	
 	if (!param.rank && !continue_flag)
 		write_log_file_header(num_threads) ;
@@ -112,80 +112,32 @@ void write_log_file_header(int num_threads) {
 }
 
 void emc() {
-	long x, vol = iter->size * iter->size * iter->size ; ;
-	double change, norm, diff, likelihood ;
-	char fname[1024] ;
-	FILE *fp ;
+	long vol = iter->size * iter->size * iter->size ; ;
+	double likelihood ;
 	
 	for (param.iteration = param.start_iter ; param.iteration <= param.num_iter + param.start_iter - 1 ; ++param.iteration) {
-		if (!isnan(iter->rms_change)) {
-			gettimeofday(&t1, NULL) ;
-			
-			MPI_Bcast(iter->model1, vol, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
-			
-			// Increasing beta by a factor of 'beta_jump' every 'beta_period' param.iterations
-			if (param.iteration % param.beta_period == 1 && param.iteration > 1)
-				param.beta *= param.beta_jump ;
-			
-			likelihood = maximize() ;
-			print_time("Completed maximize", &t1, &t2, param.rank) ;
-			
-			if (likelihood == DBL_MAX) {
-				fprintf(stderr, "Error in maximize\n") ;
-				break ;
-			}
-			
-			if (!param.rank) {
-				change = 0. ;
-				//norm = 1. / frames->tot_mean_count ;
-				norm = 1. ;
-				
-				for (x = 0 ; x < vol ; ++x)
-					if (iter->inter_weight[x] > 0.)
-						iter->model2[x] *= norm / iter->inter_weight[x] ;
-				
-				if (quat->icosahedral_flag)
-					symmetrize_icosahedral(iter->model2, iter->size) ;
-				else
-					symmetrize_friedel(iter->model2, iter->size) ;
-				
-				for (x = 0 ; x < vol ; ++x) {
-					diff = iter->model2[x] - iter->model1[x] ;
-					change += diff * diff ;
-					if (param.alpha > 0.)
-						iter->model1[x] = param.alpha * iter->rescale * iter->model1[x] + (1. - param.alpha) * iter->model2[x] ;
-					else
-						iter->model1[x] = iter->model2[x] ;
-				}
-				
-				sprintf(fname, "%s/output/intens_%.3d.bin", param.output_folder, param.iteration) ;
-				fp = fopen(fname, "w") ;
-				fwrite(iter->model1, sizeof(double), vol, fp) ;
-				fclose(fp) ;
-				
-				sprintf(fname, "%s/weights/weights_%.3d.bin", param.output_folder, param.iteration) ;
-				fp = fopen(fname, "w") ;
-				fwrite(iter->inter_weight, sizeof(double), vol, fp) ;
-				fclose(fp) ;
-				
-				iter->rms_change = sqrt(change / vol) ;
-				
-				print_time("Finished iteration", &t2, &t3, param.rank) ;
-				
-				gettimeofday(&t2, NULL) ;
-				
-				fp = fopen(param.log_fname, "a") ;
-				fprintf(fp, "%d\t", param.iteration) ;
-				fprintf(fp, "%4.2f\t", (double)(t2.tv_sec - t1.tv_sec) + 1.e-6*(t2.tv_usec - t1.tv_usec)) ;
-				fprintf(fp, "%1.4e\t%f\t%.6e\t%-7d\t%f\n", iter->rms_change, iter->mutual_info, likelihood, quat->num_rot, param.beta) ;
-				fclose(fp) ;
-			}
-			
-			if (param.need_scaling)
-				normalize_scale(frames, iter) ;
-			MPI_Bcast(&iter->rms_change, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
+		gettimeofday(&t1, NULL) ;
+		
+		MPI_Bcast(iter->model1, vol, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
+		
+		// Increasing beta by a factor of 'beta_jump' every 'beta_period' param.iterations
+		if (param.iteration % param.beta_period == 1 && param.iteration > 1)
+			param.beta *= param.beta_jump ;
+		
+		likelihood = maximize() ;
+		print_time("Completed maximize", &t1, &t2, param.rank) ;
+		if (likelihood == DBL_MAX) {
+			fprintf(stderr, "Error in maximize\n") ;
+			break ;
 		}
-		else {
+		
+		if (!param.rank)
+			update_model(likelihood) ;
+		if (param.need_scaling)
+			normalize_scale(frames, iter) ;
+		
+		MPI_Bcast(&iter->rms_change, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
+		if (isnan(iter->rms_change)) {
 			fprintf(stderr, "rms_change = NAN\n") ;
 			break ;
 		}
@@ -195,3 +147,48 @@ void emc() {
 		fprintf(stderr, "Finished all iterations\n") ;
 }
 
+void update_model(double likelihood) {
+	long x, vol = iter->size * iter->size * iter->size ; ;
+	double diff, change = 0., norm = 1. ;
+	char fname[1024] ;
+	FILE *fp ;
+	
+	for (x = 0 ; x < vol ; ++x)
+		if (iter->inter_weight[x] > 0.)
+			iter->model2[x] *= norm / iter->inter_weight[x] ;
+	
+	if (quat->icosahedral_flag)
+		symmetrize_icosahedral(iter->model2, iter->size) ;
+	else
+		symmetrize_friedel(iter->model2, iter->size) ;
+	
+	for (x = 0 ; x < vol ; ++x) {
+		diff = iter->model2[x] - iter->model1[x] ;
+		change += diff * diff ;
+		if (param.alpha > 0.)
+			iter->model1[x] = param.alpha * iter->rescale * iter->model1[x] + (1. - param.alpha) * iter->model2[x] ;
+		else
+			iter->model1[x] = iter->model2[x] ;
+	}
+	iter->rms_change = sqrt(change / vol) ;
+	
+	sprintf(fname, "%s/output/intens_%.3d.bin", param.output_folder, param.iteration) ;
+	fp = fopen(fname, "w") ;
+	fwrite(iter->model1, sizeof(double), vol, fp) ;
+	fclose(fp) ;
+	
+	sprintf(fname, "%s/weights/weights_%.3d.bin", param.output_folder, param.iteration) ;
+	fp = fopen(fname, "w") ;
+	fwrite(iter->inter_weight, sizeof(double), vol, fp) ;
+	fclose(fp) ;
+	
+	print_time("Updated 3D intensity", &t2, &t3, param.rank) ;
+	
+	gettimeofday(&t2, NULL) ;
+	
+	fp = fopen(param.log_fname, "a") ;
+	fprintf(fp, "%d\t", param.iteration) ;
+	fprintf(fp, "%4.2f\t", (double)(t2.tv_sec - t1.tv_sec) + 1.e-6*(t2.tv_usec - t1.tv_usec)) ;
+	fprintf(fp, "%1.4e\t%f\t%.6e\t%-7d\t%f\n", iter->rms_change, iter->mutual_info, likelihood, quat->num_rot, param.beta) ;
+	fclose(fp) ;
+}
