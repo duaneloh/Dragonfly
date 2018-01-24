@@ -60,7 +60,7 @@ void generate_params(char *config_fname) {
 		}
 	}
 	fclose(config_fp) ;
-	if (!rank)
+	if (!param.rank)
 		fprintf(stderr, "Parsed params from config file\n") ;
 }
 
@@ -103,12 +103,12 @@ void generate_blacklist(char *config_fname) {
 		make_blacklist(blacklist_fname, 0, frames) ;
 	}
 	else if (strcmp(sel_string, "odd_only") == 0) {
-		if (!rank)
+		if (!param.rank)
 			fprintf(stderr, "Only processing 'odd' frames\n") ;
 		make_blacklist(blacklist_fname, 1, frames) ;
 	}
 	else if (strcmp(sel_string, "even_only") == 0) {
-		if (!rank)
+		if (!param.rank)
 			fprintf(stderr, "Only processing 'even' frames\n") ;
 		make_blacklist(blacklist_fname, 2, frames) ;
 	}
@@ -117,7 +117,7 @@ void generate_blacklist(char *config_fname) {
 		make_blacklist(blacklist_fname, 0, frames) ;
 	}
 	
-	if (!rank)
+	if (!param.rank)
 		fprintf(stderr, "%d/%d blacklisted frames\n", frames->num_blacklist, frames->tot_num_data) ;
 }
 
@@ -143,13 +143,13 @@ int setup(char *config_fname, int continue_flag) {
 		return 1 ;
 	if (generate_quaternion(config_fname, quat))
 		return 1 ;
-	divide_quat(rank, num_proc, quat) ;
+	divide_quat(param.rank, param.num_proc, quat) ;
 	if (generate_data(config_fname, "in", det, frames))
 		return 1 ;
 	if (generate_data(config_fname, "merge", det, merge_frames))
 		return 1 ;
 	generate_blacklist(config_fname) ;
-	if (generate_iterate(config_fname, continue_flag, qmax, rank, param, det, frames, iter))
+	if (generate_iterate(config_fname, continue_flag, qmax, param.rank, param, det, frames, iter))
 		return 1 ;
 	
 	return 0 ;

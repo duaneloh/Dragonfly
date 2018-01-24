@@ -2,6 +2,7 @@
 #define PARAMS_H
 
 struct params {
+	int rank, num_proc ;
 	int iteration, current_iter, start_iter, num_iter ;
 	char output_folder[1024], log_fname[1024] ;
 	
