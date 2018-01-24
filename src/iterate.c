@@ -19,6 +19,7 @@ int generate_iterate(char *config_fname, int continue_flag, double qmax, int ran
 	char input_fname[1024] = {'\0'}, scale_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;
 	iter->size = -1 ;
+	iter->scale = NULL ;
 	
 	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
