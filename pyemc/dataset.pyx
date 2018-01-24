@@ -13,16 +13,11 @@ cdef class dataset:
 		self.dset.blacklist = NULL
 		self.dset.sum_fact = NULL
 
-	def generate_data(self, config_fname, detector det, type_string='in', config_section='emc', rank=0, num_proc=1):
-		if emc.config_section[0] == '\0':
-			emc.config_section[:len(config_section)] = config_section
-			emc.config_section[len(config_section)] = '\0'
-		if emc.rank == 0: emc.rank = rank
-		if emc.num_proc == 0: emc.num_proc = num_proc
-		
+	def generate_data(self, config_fname, detector det, type_string='in', config_section='emc'):
 		cdef char* c_config_fname = config_fname
+		cdef char* c_config_section = config_section
 		cdef char* c_type_string = type_string
-		emc.generate_data(c_config_fname, c_type_string, det.det, self.dset)
+		emc.generate_data(c_config_fname, c_config_section, c_type_string, det.det, self.dset)
 
 	def parse_dataset(self, fname, detector det):
 		cdef char* c_fname = fname

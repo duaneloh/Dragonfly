@@ -1,9 +1,6 @@
 from libc.stdint cimport uint8_t
-cimport numpy as np
 
 cdef extern from '../src/emc.h':
-	int rank, num_proc
-	char config_section[1024]
 	int setup(char*, int)
 	void free_mem()
 	double maximize()
@@ -19,7 +16,7 @@ cdef extern from '../src/detector.h':
 		int num_det, num_dfiles
 		int mapping[1024]
 
-	double generate_detectors(char*, detector**, int)
+	double generate_detectors(char*, char*, detector**, int)
 	double parse_detector(char*, detector*, int)
 	double parse_detector_list(char*, detector**, int)
 	void free_detector(detector*)
@@ -56,7 +53,7 @@ cdef extern from '../src/dataset.h':
 		double *sum_fact
 		uint8_t *blacklist
 
-	int generate_data(char*, char*, detector*, dataset*)
+	int generate_data(char*, char*, char*, detector*, dataset*)
 	void calc_sum_fact(detector*, dataset*)
 	int parse_dataset(char*, detector*, dataset*)
 	int parse_data(char*, detector*, dataset*)
@@ -69,7 +66,7 @@ cdef extern from '../src/quat.h':
 		double *quat
 		int icosahedral_flag
 
-	int generate_quaternion(char*, rotation*)
+	int generate_quaternion(char*, char*, rotation*)
 	int quat_gen(int, rotation*)
 	int parse_quat(char*, rotation*)
 	void divide_quat(int, int, rotation*)
@@ -85,6 +82,7 @@ cdef extern from '../src/iterate.h':
 		
 		double rescale, mutual_info, rms_change
 
+	int generate_iterate(char*, char*, int, double, int, params, detector*, dataset*, iterate*) ;
 	void calculate_size(double, iterate*)
 	int parse_scale(char*, dataset*, iterate*)
 	void calc_scale(dataset*, detector*, char*, iterate*)
