@@ -8,8 +8,6 @@
 #include "dataset.h"
 #include "detector.h"
 
-extern int rank ;
-
 struct iterate {
 	long size, center ;
 	double *model1, *model2, *inter_weight ;
@@ -22,7 +20,7 @@ void generate_size(double, struct iterate*) ;
 int parse_scale(char*, struct dataset*, struct iterate*) ;
 void calc_scale(struct dataset*, struct detector*, char*, struct iterate*) ;
 void normalize_scale(struct dataset*, struct iterate*) ;
-void parse_input(char*, double, char*, struct iterate*) ;
-void free_iterate(int, struct iterate*) ;
+void parse_input(char*, double, char*, int, struct iterate*) ;
+void free_iterate(struct iterate*) ;
 
 #endif //ITERATE_H

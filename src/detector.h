@@ -18,7 +18,6 @@ struct detector {
 	int num_det, num_dfiles, mapping[1024] ;
 } ;
 
-extern int rank, num_proc ;
 extern char config_section[1024] ;
 
 double generate_detectors(char*, struct detector**, int) ;

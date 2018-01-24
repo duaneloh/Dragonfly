@@ -35,7 +35,6 @@ struct dataset {
 	uint8_t *blacklist ;
 } ;
 
-extern int rank, num_proc ;
 extern char config_section[1024] ;
 
 int generate_data(char*, char*, struct detector*, struct dataset*) ;

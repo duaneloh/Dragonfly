@@ -179,10 +179,10 @@ int generate_iterate(char *config_fname, int continue_flag, double qmax) {
 	
 	if (!rank && param.start_iter == 1) {
 		sprintf(line, "%s/output/intens_000.bin", param.output_folder) ;
-		parse_input(input_fname, frames[0].mean_count / det[0].rel_num_pix * 2., line, iter) ;
+		parse_input(input_fname, frames[0].mean_count / det[0].rel_num_pix * 2., line, rank, iter) ;
 	}
 	else {
-		parse_input(input_fname, frames[0].mean_count / det[0].rel_num_pix * 2., NULL, iter) ;
+		parse_input(input_fname, frames[0].mean_count / det[0].rel_num_pix * 2., NULL, rank, iter) ;
 	}
 	
 	return 0 ;
@@ -210,6 +210,7 @@ int setup(char *config_fname, int continue_flag) {
 		return 1 ;
 	if (generate_quaternion(config_fname, quat))
 		return 1 ;
+	divide_quat(rank, num_proc, quat) ;
 	if (generate_data(config_fname, "in", det, frames))
 		return 1 ;
 	if (generate_data(config_fname, "merge", det, merge_frames))
@@ -222,7 +223,7 @@ int setup(char *config_fname, int continue_flag) {
 }
 
 void free_mem() {
-	free_iterate(param.need_scaling, iter) ;
+	free_iterate(iter) ;
 	free(iter) ;
 	if (merge_frames != NULL) {
 		free_data(param.need_scaling, merge_frames) ;

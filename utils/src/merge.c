@@ -232,7 +232,7 @@ int main(int argc, char *argv[]) {
 	
 	fprintf(stderr, "Saved %ld-cubed model to %s\n", iter->size, output_fname) ;
 	
-	free_iterate(0, iter) ;
+	free_iterate(iter) ;
 	free(quat) ;
 	free_detector(det) ;
 	free_data(0, frames) ;

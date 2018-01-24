@@ -13,7 +13,6 @@ struct rotation {
 	int icosahedral_flag ;
 } ;
 
-extern int rank, num_proc ;
 extern char config_section[1024] ;
 
 int quat_gen(int, struct rotation*) ;

@@ -59,10 +59,9 @@ double generate_detectors(char *config_fname, struct detector **det_list, int no
 		fprintf(stderr, "Need either in_detector_file or in_detector_list.\n") ;
 		return -1. ;
 	}
-	if (!rank) {
-		fprintf(stderr, "Number of unique detectors = %d\n", (*det_list)[0].num_det) ;
-		fprintf(stderr, "Number of detector files in list = %d\n", (*det_list)[0].num_dfiles) ;
-	}
+	
+	fprintf(stderr, "Number of unique detectors = %d\n", (*det_list)[0].num_det) ;
+	fprintf(stderr, "Number of detector files in list = %d\n", (*det_list)[0].num_dfiles) ;
 	
 	return qmax ;
 }

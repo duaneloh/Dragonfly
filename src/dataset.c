@@ -74,8 +74,7 @@ int generate_data(char *config_fname, char *type_string, struct detector *det_li
 			fprintf(stderr, "Number of detector files and photon files don't match (%d vs %d)\n", det_list[0].num_dfiles, num_datasets) ;
 			return 1 ;
 		}
-		if (!rank)
-			fprintf(stderr, "Number of dataset files = %d\n", num_datasets) ;
+		fprintf(stderr, "Number of dataset files = %d\n", num_datasets) ;
 	}
 	
 	return 0 ;

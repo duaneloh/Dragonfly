@@ -863,8 +863,6 @@ int generate_quaternion(char *config_fname, struct rotation *quat_ptr) {
 	if (num < 0)
 		return 1 ;
 	
-	divide_quat(rank, num_proc, quat_ptr) ;
-	
 	return 0 ;
 }
 

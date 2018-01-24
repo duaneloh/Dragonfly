@@ -3,12 +3,10 @@
 void generate_size(double qmax, struct iterate *iter) {
 	if (iter->size < 0) {
 		iter->size = 2*ceil(qmax) + 3 ;
-		if (!rank)
-			fprintf(stderr, "Calculated 3D volume size = %ld\n", iter->size) ;
+		fprintf(stderr, "Calculated 3D volume size = %ld\n", iter->size) ;
 	}
 	else {
-		if (!rank)
-			fprintf(stderr, "Provided 3D volume size = %ld\n", iter->size) ;
+		fprintf(stderr, "Provided 3D volume size = %ld\n", iter->size) ;
 	}
 	iter->center = iter->size / 2 ;
 }
@@ -18,12 +16,10 @@ int parse_scale(char *fname, struct dataset *frames, struct iterate *iter) {
 	
 	FILE *fp = fopen(fname, "r") ;
 	if (fp == NULL) {
-		if (!rank)
-			fprintf(stderr, "Using uniform scale factors\n") ;
+		fprintf(stderr, "Using uniform scale factors\n") ;
 	}
 	else {
-		if (!rank)
-			fprintf(stderr, "Using scale factors from %s\n", fname) ;
+		fprintf(stderr, "Using scale factors from %s\n", fname) ;
 		flag = 1 ;
 		int d ;
 		for (d = 0 ; d < frames->tot_num_data ; ++d)
@@ -94,7 +90,7 @@ void normalize_scale(struct dataset *frames, struct iterate *iter) {
 		iter->scale[d] /= mean_scale ;
 }
 
-void parse_input(char *fname, double mean, char *print_fname, struct iterate *iter) {
+void parse_input(char *fname, double mean, char *print_fname, int rank, struct iterate *iter) {
 	long vol = iter->size * iter->size * iter->size ;
 	iter->model1 = malloc(vol * sizeof(double)) ;
 	iter->model2 = malloc(vol * sizeof(double)) ;
@@ -103,8 +99,7 @@ void parse_input(char *fname, double mean, char *print_fname, struct iterate *it
 	if (rank == 0) {
 		FILE *fp = fopen(fname, "r") ;
 		if (fp == NULL) {
-			if (!rank)
-				fprintf(stderr, "Random start\n") ;
+			fprintf(stderr, "Random start\n") ;
 			
 			long x ;
 			struct timeval t ;
@@ -121,26 +116,27 @@ void parse_input(char *fname, double mean, char *print_fname, struct iterate *it
 			gsl_rng_free(rng) ;
 		}
 		else {
-			if (!rank)
-				fprintf(stderr, "Starting from %s\n", fname) ;
+			fprintf(stderr, "Starting from %s\n", fname) ;
 			
 			fread(iter->model1, sizeof(double), vol, fp) ;
 			fclose(fp) ;
 		}
-	}
-	
-	if (print_fname != NULL) {
-		FILE *fp = fopen(print_fname, "wb") ;
-		fwrite(iter->model1, sizeof(double), vol, fp) ;
-		fclose(fp) ;
+		
+		if (print_fname != NULL) {
+			FILE *fp = fopen(print_fname, "wb") ;
+			fwrite(iter->model1, sizeof(double), vol, fp) ;
+			fclose(fp) ;
+		}
 	}
 }
 
-void free_iterate(int scale_flag, struct iterate *iter) {
-	free(iter->model1) ;
+void free_iterate(struct iterate *iter) {
+	if (iter->model1 != NULL)
+		free(iter->model1) ;
 	if (iter->model2 != NULL)
 		free(iter->model2) ;
-	free(iter->inter_weight) ;
-	if (scale_flag)
+	if (iter->inter_weight != NULL)
+		free(iter->inter_weight) ;
+	if (iter->scale != NULL)
 		free(iter->scale) ;
 }
