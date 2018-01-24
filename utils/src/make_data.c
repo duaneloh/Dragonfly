@@ -24,7 +24,6 @@ int size, num_rot, scale_method ;
 int **place_ones, **place_multi, *ones, *multi, **count_multi ;
 double *intens, *likelihood, *quat_list, *scale_factors ;
 struct detector *det ;
-char config_section[1024] ;
 
 // Config file params
 int num_data, do_gamma ;
@@ -435,7 +434,6 @@ int generate_quat_list(char *config_fname) {
 int generate_globals(char *config_fname) {
 	char line[1024], section_name[1024], *token ;
 	
-	strcpy(config_section, "make_data") ;
 	size = 0 ;
 	num_data = 0 ;
 	fluence = -1. ;
@@ -522,7 +520,7 @@ int setup(char *config_fname) {
 	fclose(fp) ;
 	if (generate_globals(config_fname))
 		return 1 ;
-	if (generate_detectors(config_fname, &det, 0) < 0.)
+	if (generate_detectors(config_fname, "make_data", &det, 0) < 0.)
 		return 1 ;
 	fprintf(stderr, "num_det = %d\n", det[0].num_det) ;
 	background /= det[0].num_pix ;

@@ -1,7 +1,6 @@
 #include "../../src/detector.h"
 #include "../../src/interp.h"
 
-char config_section[1024] ;
 int size, center, num_pix ;
 
 void make_flat_detector(struct detector *det) {

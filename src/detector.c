@@ -14,7 +14,7 @@ static char *generate_token(char *line, char *section_name) {
 	return token ;
 }
 
-double generate_detectors(char *config_fname, struct detector **det_list, int norm_flag) {
+double generate_detectors(char *config_fname, char *config_section, struct detector **det_list, int norm_flag) {
 	double qmax ;
 	char det_fname[1024] = {'\0'}, det_flist[1024] = {'\0'}, out_det_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;

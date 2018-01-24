@@ -18,9 +18,7 @@ struct detector {
 	int num_det, num_dfiles, mapping[1024] ;
 } ;
 
-extern char config_section[1024] ;
-
-double generate_detectors(char*, struct detector**, int) ;
+double generate_detectors(char*, char*, struct detector**, int) ;
 double parse_detector(char*, struct detector*, int) ;
 double parse_detector_list(char*, struct detector**, int) ;
 void free_detector(struct detector*) ;

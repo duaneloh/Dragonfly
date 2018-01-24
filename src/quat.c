@@ -829,7 +829,7 @@ static char *generate_token(char *line, char *section_name) {
 	return token ;
 }
 
-int generate_quaternion(char *config_fname, struct rotation *quat_ptr) {
+int generate_quaternion(char *config_fname, char *config_section, struct rotation *quat_ptr) {
 	int num, num_div = -1 ;
 	char quat_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;

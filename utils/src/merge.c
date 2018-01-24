@@ -12,7 +12,6 @@
 #include "../../src/interp.h"
 #include "../../src/iterate.h"
 
-char config_section[1024] ;
 struct detector *det ;
 struct dataset *frames ;
 struct iterate *iter ;
@@ -109,7 +108,6 @@ int generate_globals(char *config_fname) {
 int setup(char *fname) {
 	double qmax = -1 ;
 	FILE *fp ;
-	strcpy(config_section, "merge") ;
 	
 	fp = fopen(fname, "r") ;
 	if (fp == NULL) {
@@ -119,10 +117,10 @@ int setup(char *fname) {
 	fclose(fp) ;
 	if (generate_globals(fname))
 		return 1 ;
-	if ((qmax = generate_detectors(fname, &det, 1)) < 0.)
+	if ((qmax = generate_detectors(fname, "merge", &det, 1)) < 0.)
 		return 1 ;
 	calculate_size(qmax, iter) ;
-	if (generate_data(fname, "in", det, frames))
+	if (generate_data(fname, "merge", "in", det, frames))
 		return 1 ;
 	if (generate_quat_list(fname))
 		return 1 ;

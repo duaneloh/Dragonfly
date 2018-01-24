@@ -14,7 +14,7 @@ static char *generate_token(char *line, char *section_name) {
 	return token ;
 }
 
-int generate_iterate(char *config_fname, int continue_flag, double qmax, int rank, struct params param, struct detector *det, struct dataset *dset, struct iterate *iter) {
+int generate_iterate(char *config_fname, char *config_section, int continue_flag, double qmax, int rank, struct params param, struct detector *det, struct dataset *dset, struct iterate *iter) {
 	FILE *fp ;
 	char input_fname[1024] = {'\0'}, scale_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;

@@ -8,7 +8,6 @@
 #include "../../src/quat.h"
 #include "../../src/interp.h"
 
-char config_section[1024] ;
 int s, c, rmax, rmin, max_r = 0 ;
 double i2i2, max_corr ;
 

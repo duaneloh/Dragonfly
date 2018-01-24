@@ -37,7 +37,7 @@ void generate_params(char *config_fname) {
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
 		
-		if (strcmp(section_name, config_section) == 0) {
+		if (strcmp(section_name, "emc") == 0) {
 			if (strcmp(token, "output_folder") == 0)
 				strcpy(param.output_folder, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "log_file") == 0)
@@ -90,7 +90,7 @@ void generate_blacklist(char *config_fname) {
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
 		
-		if (strcmp(section_name, config_section) == 0) {
+		if (strcmp(section_name, "emc") == 0) {
 			if (strcmp(token, "blacklist_file") == 0)
 				strcpy(blacklist_fname, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "selection") == 0)
@@ -124,7 +124,9 @@ void generate_blacklist(char *config_fname) {
 int setup(char *config_fname, int continue_flag) {
 	FILE *fp ;
 	double qmax = -1. ;
-	strcpy(config_section, "emc") ;
+	struct timeval t1, t2 ;
+	
+	gettimeofday(&t1, NULL) ;
 
 	iter = malloc(sizeof(struct iterate)) ;
 	quat = malloc(sizeof(struct rotation)) ;
@@ -139,18 +141,21 @@ int setup(char *config_fname, int continue_flag) {
 	fclose(fp) ;
 	generate_params(config_fname) ;
 	generate_output_dirs() ;
-	if ((qmax = generate_detectors(config_fname, &det, 1)) < 0.)
+	if ((qmax = generate_detectors(config_fname, "emc", &det, 1)) < 0.)
 		return 1 ;
-	if (generate_quaternion(config_fname, quat))
+	if (generate_quaternion(config_fname, "emc", quat))
 		return 1 ;
 	divide_quat(param.rank, param.num_proc, quat) ;
-	if (generate_data(config_fname, "in", det, frames))
+	if (generate_data(config_fname, "emc", "in", det, frames))
 		return 1 ;
-	if (generate_data(config_fname, "merge", det, merge_frames))
+	if (generate_data(config_fname, "emc", "merge", det, merge_frames))
 		return 1 ;
 	generate_blacklist(config_fname) ;
-	if (generate_iterate(config_fname, continue_flag, qmax, param.rank, param, det, frames, iter))
+	if (generate_iterate(config_fname, "emc", continue_flag, qmax, param.rank, param, det, frames, iter))
 		return 1 ;
+
+	gettimeofday(&t1, NULL) ;
+	fprintf(stderr, "Completed setup: %f s\n", (double)(t2.tv_sec - t1.tv_sec) + 1.e-6*(t2.tv_usec - t1.tv_usec)) ;
 	
 	return 0 ;
 }
