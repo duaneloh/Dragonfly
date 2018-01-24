@@ -20,7 +20,7 @@
 #define FLUENCE 0
 #define COUNTS 1
 
-int rank, num_proc, size, num_rot, scale_method ;
+int size, num_rot, scale_method ;
 int **place_ones, **place_multi, *ones, *multi, **count_multi ;
 double *intens, *likelihood, *quat_list, *scale_factors ;
 struct detector *det ;
@@ -435,8 +435,6 @@ int generate_quat_list(char *config_fname) {
 int generate_globals(char *config_fname) {
 	char line[1024], section_name[1024], *token ;
 	
-	rank = 0 ;
-	num_proc = 1 ;
 	strcpy(config_section, "make_data") ;
 	size = 0 ;
 	num_data = 0 ;

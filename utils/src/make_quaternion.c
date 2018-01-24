@@ -3,7 +3,6 @@
 #include <sys/time.h>
 #include "../../src/quat.h"
 
-int rank, num_proc ;
 char config_section[1024] ;
 
 int main(int argc, char* argv[]) {

@@ -1,7 +1,6 @@
 #include "../../src/detector.h"
 #include "../../src/interp.h"
 
-int rank, num_proc ;
 char config_section[1024] ;
 int size, center, num_pix ;
 

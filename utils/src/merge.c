@@ -12,7 +12,6 @@
 #include "../../src/interp.h"
 #include "../../src/iterate.h"
 
-int rank, num_proc ;
 char config_section[1024] ;
 struct detector *det ;
 struct dataset *frames ;
@@ -78,8 +77,6 @@ int generate_quat_list(char *config_fname) {
 int generate_globals(char *config_fname) {
 	char line[1024], section_name[1024], *token ;
 	
-	rank = 0 ;
-	num_proc = 1 ;
 	frames = malloc(sizeof(struct dataset)) ;
 	iter = malloc(sizeof(struct iterate)) ;
 	
