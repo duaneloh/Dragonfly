@@ -7,6 +7,7 @@
 #include <gsl/gsl_rng.h>
 #include "dataset.h"
 #include "detector.h"
+#include "params.h"
 
 struct iterate {
 	long size, center ;
@@ -16,7 +17,8 @@ struct iterate {
 	double rescale, mutual_info, rms_change ;
 } ;
 
-void generate_size(double, struct iterate*) ;
+int generate_iterate(char*, int, double, int, struct params, struct detector*, struct dataset*, struct iterate*) ;
+void calculate_size(double, struct iterate*) ;
 int parse_scale(char*, struct dataset*, struct iterate*) ;
 void calc_scale(struct dataset*, struct detector*, char*, struct iterate*) ;
 void normalize_scale(struct dataset*, struct iterate*) ;

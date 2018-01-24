@@ -124,7 +124,7 @@ int setup(char *fname) {
 		return 1 ;
 	if ((qmax = generate_detectors(fname, &det, 1)) < 0.)
 		return 1 ;
-	generate_size(qmax, iter) ;
+	calculate_size(qmax, iter) ;
 	if (generate_data(fname, "in", det, frames))
 		return 1 ;
 	if (generate_quat_list(fname))
