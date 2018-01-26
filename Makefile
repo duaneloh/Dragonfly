@@ -41,7 +41,8 @@ bin/detector.o: src/detector.h
 bin/dataset.o: src/dataset.h src/detector.h
 bin/interp.o: src/interp.h src/detector.h
 bin/quat.o: src/quat.h
-bin/iterate.o: src/iterate.h src/dataset.h src/detector.h
+bin/params.o: src/params.h
+bin/iterate.o: src/iterate.h src/dataset.h src/detector.h src/params.h
 
 $(EMC_OBJ): bin/%.o: src/%.c
 ifeq ($(OMPI_CC), gcc)
