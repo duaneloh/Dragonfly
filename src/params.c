@@ -1,0 +1,75 @@
+#include "params.h"
+
+static char *generate_token(char *line, char *section_name) {
+	char *token = strtok(line, " =") ;
+	if (token[0] == '#' || token[0] == '\n')
+		return NULL ;
+	
+	if (line[0] == '[') {
+		token = strtok(line, "[]") ;
+		strcpy(section_name, token) ;
+		return NULL ;
+	}
+	
+	return token ;
+}
+
+static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
+	if (rel_path[0] == '/' || strstr(rel_path, ":::") != NULL) {
+		strcpy(path, rel_path) ;
+	}
+	else {
+		strncpy(&path[strlen(config_folder)], rel_path, strlen(rel_path)) ;
+		strncpy(path, config_folder, strlen(config_folder)) ;
+	}
+}
+
+void generate_params(char *config_fname, struct params *param) {
+	char line[1024], section_name[1024], *token ;
+	char *config_folder = strndup(config_fname, 1024) ;
+	sprintf(config_folder, "%s/", dirname(config_folder)) ;
+	
+	param->known_scale = 0 ;
+	param->start_iter = 1 ;
+	param->beta_period = 100 ;
+	param->beta_jump = 1. ;
+	param->need_scaling = 0 ;
+	param->alpha = 0. ;
+	param->beta = 1. ;
+	param->sigmasq = 0. ;
+	sprintf(param->log_fname, "%s/EMC.log", config_folder) ;
+	sprintf(param->output_folder, "%s/data/", config_folder) ;
+	
+	FILE *config_fp = fopen(config_fname, "r") ;
+	while (fgets(line, 1024, config_fp) != NULL) {
+		if ((token = generate_token(line, section_name)) == NULL)
+			continue ;
+		
+		if (strcmp(section_name, "emc") == 0) {
+			if (strcmp(token, "output_folder") == 0)
+				absolute_strcpy(config_folder, param->output_folder, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "log_file") == 0)
+				absolute_strcpy(config_folder, param->log_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "need_scaling") == 0)
+				param->need_scaling = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "alpha") == 0)
+				param->alpha = atof(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "beta") == 0)
+				param->beta = atof(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "beta_schedule") == 0) {
+				param->beta_jump = atof(strtok(NULL, " =\n")) ;
+				param->beta_period = atoi(strtok(NULL, " =\n")) ;
+			}
+			else if (strcmp(token, "gaussian_sigma") == 0) {
+				param->sigmasq = atof(strtok(NULL, " =\n")) ;
+				param->sigmasq *= param->sigmasq ;
+				fprintf(stderr, "sigma_squared = %f\n", param->sigmasq) ;
+			}
+		}
+	}
+	fclose(config_fp) ;
+	free(config_folder) ;
+	if (!param->rank)
+		fprintf(stderr, "Parsed params from config file\n") ;
+}
+

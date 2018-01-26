@@ -1,6 +1,11 @@
 #ifndef PARAMS_H
 #define PARAMS_H
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <libgen.h>
+
 struct params {
 	int rank, num_proc ;
 	int iteration, current_iter, start_iter, num_iter ;
@@ -13,5 +18,7 @@ struct params {
 	// Gaussian EMC parameter
 	double sigmasq ;
 } ;
+
+void generate_params(char*, struct params*) ;
 
 #endif //PARAMS_H
