@@ -121,31 +121,6 @@ void calc_sum_fact(struct detector *det, struct dataset *frames) {
 	}
 }
 
-void make_blacklist(char *fname, int flag, struct dataset *frames) {
-	int d, current = flag%2 ;
-	frames->num_blacklist = 0 ;
-	frames->blacklist = calloc(frames->tot_num_data, sizeof(uint8_t)) ;
-	
-	FILE *fp = fopen(fname, "r") ;
-	if (fp != NULL) {
-		for (d = 0 ; d < frames->tot_num_data ; ++d) {
-			fscanf(fp, "%" SCNu8 "\n", &frames->blacklist[d]) ;
-			if (frames->blacklist[d])
-				frames->num_blacklist++ ;
-		}
-		fclose(fp) ;
-	}
-	
-	if (flag > 0) {
-		for (d = 0 ; d < frames->tot_num_data ; ++d)
-		if (!frames->blacklist[d]) {
-			frames->blacklist[d] = current ;
-			frames->num_blacklist += current ;
-			current = 1 - current ;
-		}
-	}
-}
-
 int parse_dataset(char *fname, struct detector *det, struct dataset *current) {
 	int d ;
 	current->ones_total = 0, current->multi_total = 0 ;
@@ -286,6 +261,71 @@ int parse_data(char *fname, struct detector *det, struct dataset *frames) {
 	calc_sum_fact(det, frames) ;
 	
 	return num_datasets ;
+}
+
+void generate_blacklist(char *config_fname, struct dataset *frames) {
+	char blacklist_fname[1024] = {'\0'}, sel_string[1024] = {'\0'} ;
+	char line[1024], section_name[1024], *token ;
+	char *config_folder = strndup(config_fname, 1024) ;
+	sprintf(config_folder, "%s/", dirname(config_folder)) ;
+	
+	FILE *config_fp = fopen(config_fname, "r") ;
+	while (fgets(line, 1024, config_fp) != NULL) {
+		if ((token = generate_token(line, section_name)) == NULL)
+			continue ;
+		
+		if (strcmp(section_name, "emc") == 0) {
+			if (strcmp(token, "blacklist_file") == 0)
+				absolute_strcpy(config_folder, blacklist_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "selection") == 0)
+				strcpy(sel_string, strtok(NULL, " =\n")) ;
+		}
+	}
+	fclose(config_fp) ;
+	free(config_folder) ;
+	
+	if (sel_string[0] == '\0') {
+		make_blacklist(blacklist_fname, 0, frames) ;
+	}
+	else if (strcmp(sel_string, "odd_only") == 0) {
+		fprintf(stderr, "Only processing 'odd' frames\n") ;
+		make_blacklist(blacklist_fname, 1, frames) ;
+	}
+	else if (strcmp(sel_string, "even_only") == 0) {
+		fprintf(stderr, "Only processing 'even' frames\n") ;
+		make_blacklist(blacklist_fname, 2, frames) ;
+	}
+	else {
+		fprintf(stderr, "Did not understand selection keyword: %s. Will process all frames\n", sel_string) ;
+		make_blacklist(blacklist_fname, 0, frames) ;
+	}
+	
+	fprintf(stderr, "%d/%d blacklisted frames\n", frames->num_blacklist, frames->tot_num_data) ;
+}
+
+void make_blacklist(char *fname, int flag, struct dataset *frames) {
+	int d, current = flag%2 ;
+	frames->num_blacklist = 0 ;
+	frames->blacklist = calloc(frames->tot_num_data, sizeof(uint8_t)) ;
+	
+	FILE *fp = fopen(fname, "r") ;
+	if (fp != NULL) {
+		for (d = 0 ; d < frames->tot_num_data ; ++d) {
+			fscanf(fp, "%" SCNu8 "\n", &frames->blacklist[d]) ;
+			if (frames->blacklist[d])
+				frames->num_blacklist++ ;
+		}
+		fclose(fp) ;
+	}
+	
+	if (flag > 0) {
+		for (d = 0 ; d < frames->tot_num_data ; ++d)
+		if (!frames->blacklist[d]) {
+			frames->blacklist[d] = current ;
+			frames->num_blacklist += current ;
+			current = 1 - current ;
+		}
+	}
 }
 
 void free_data(int scale_flag, struct dataset *frames) {

@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/stat.h>
 #include <string.h>
 #include "emc.h"
 
@@ -25,7 +24,7 @@ int setup(char *s_config_fname, int continue_flag) {
 	}
 	fclose(fp) ;
 	generate_params(config_fname, param) ;
-	generate_output_dirs() ;
+	generate_output_dirs(param) ;
 	if ((qmax = generate_detectors(config_fname, "emc", &det, 1)) < 0.)
 		return 1 ;
 	if (generate_quaternion(config_fname, "emc", quat))
@@ -35,7 +34,7 @@ int setup(char *s_config_fname, int continue_flag) {
 		return 1 ;
 	if (generate_data(config_fname, "emc", "merge", det, merge_frames))
 		return 1 ;
-	generate_blacklist(config_fname) ;
+	generate_blacklist(config_fname, frames) ;
 	if (generate_iterate(config_fname, "emc", continue_flag, qmax, param, det, frames, iter))
 		return 1 ;
 
@@ -58,89 +57,5 @@ void free_mem() {
 	free(quat) ;
 	free_detector(det) ;
 	free(det) ;
-}
-
-static char *generate_token(char *line, char *section_name) {
-	char *token = strtok(line, " =") ;
-	if (token[0] == '#' || token[0] == '\n')
-		return NULL ;
-	
-	if (line[0] == '[') {
-		token = strtok(line, "[]") ;
-		strcpy(section_name, token) ;
-		return NULL ;
-	}
-	
-	return token ;
-}
-
-static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
-	if (rel_path[0] == '/' || strstr(rel_path, ":::") != NULL) {
-		strcpy(path, rel_path) ;
-	}
-	else {
-		strncpy(&path[strlen(config_folder)], rel_path, strlen(rel_path)) ;
-		strncpy(path, config_folder, strlen(config_folder)) ;
-	}
-}
-
-void generate_output_dirs() {
-	char line[1024] ;
-	
-	sprintf(line, "%s/output", param->output_folder) ;
-	mkdir(line, 0750) ;
-	sprintf(line, "%s/weights", param->output_folder) ;
-	mkdir(line, 0750) ;
-	sprintf(line, "%s/mutualInfo", param->output_folder) ;
-	mkdir(line, 0750) ;
-	sprintf(line, "%s/scale", param->output_folder) ;
-	mkdir(line, 0750) ;
-	sprintf(line, "%s/orientations", param->output_folder) ;
-	mkdir(line, 0750) ;
-	sprintf(line, "%s/likelihood", param->output_folder) ;
-	mkdir(line, 0750) ;
-}
-
-void generate_blacklist(char *config_fname) {
-	char blacklist_fname[1024] = {'\0'}, sel_string[1024] = {'\0'} ;
-	char line[1024], section_name[1024], *token ;
-	char *config_folder = strndup(config_fname, 1024) ;
-	sprintf(config_folder, "%s/", dirname(config_folder)) ;
-	
-	FILE *config_fp = fopen(config_fname, "r") ;
-	while (fgets(line, 1024, config_fp) != NULL) {
-		if ((token = generate_token(line, section_name)) == NULL)
-			continue ;
-		
-		if (strcmp(section_name, "emc") == 0) {
-			if (strcmp(token, "blacklist_file") == 0)
-				absolute_strcpy(config_folder, blacklist_fname, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "selection") == 0)
-				strcpy(sel_string, strtok(NULL, " =\n")) ;
-		}
-	}
-	fclose(config_fp) ;
-	free(config_folder) ;
-	
-	if (sel_string[0] == '\0') {
-		make_blacklist(blacklist_fname, 0, frames) ;
-	}
-	else if (strcmp(sel_string, "odd_only") == 0) {
-		if (!param->rank)
-			fprintf(stderr, "Only processing 'odd' frames\n") ;
-		make_blacklist(blacklist_fname, 1, frames) ;
-	}
-	else if (strcmp(sel_string, "even_only") == 0) {
-		if (!param->rank)
-			fprintf(stderr, "Only processing 'even' frames\n") ;
-		make_blacklist(blacklist_fname, 2, frames) ;
-	}
-	else {
-		fprintf(stderr, "Did not understand selection keyword: %s. Will process all frames\n", sel_string) ;
-		make_blacklist(blacklist_fname, 0, frames) ;
-	}
-	
-	if (!param->rank)
-		fprintf(stderr, "%d/%d blacklisted frames\n", frames->num_blacklist, frames->tot_num_data) ;
 }
 

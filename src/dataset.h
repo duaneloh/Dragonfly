@@ -40,6 +40,7 @@ int generate_data(char*, char*, char*, struct detector*, struct dataset*) ;
 void calc_sum_fact(struct detector*, struct dataset*) ;
 int parse_dataset(char*, struct detector*, struct dataset*) ;
 int parse_data(char*, struct detector*, struct dataset*) ;
+void generate_blacklist(char*, struct dataset*) ;
 void make_blacklist(char*, int, struct dataset*) ;
 void free_data(int, struct dataset*) ;
 

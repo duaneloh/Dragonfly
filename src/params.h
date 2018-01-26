@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <libgen.h>
+#include <sys/stat.h>
 
 struct params {
 	int rank, num_proc ;
@@ -20,5 +21,6 @@ struct params {
 } ;
 
 void generate_params(char*, struct params*) ;
+void generate_output_dirs(struct params*) ;
 
 #endif //PARAMS_H

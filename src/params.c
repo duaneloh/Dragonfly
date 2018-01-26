@@ -73,3 +73,20 @@ void generate_params(char *config_fname, struct params *param) {
 		fprintf(stderr, "Parsed params from config file\n") ;
 }
 
+void generate_output_dirs(struct params *param) {
+	char line[1024] ;
+	
+	sprintf(line, "%s/output", param->output_folder) ;
+	mkdir(line, 0750) ;
+	sprintf(line, "%s/weights", param->output_folder) ;
+	mkdir(line, 0750) ;
+	sprintf(line, "%s/mutualInfo", param->output_folder) ;
+	mkdir(line, 0750) ;
+	sprintf(line, "%s/scale", param->output_folder) ;
+	mkdir(line, 0750) ;
+	sprintf(line, "%s/orientations", param->output_folder) ;
+	mkdir(line, 0750) ;
+	sprintf(line, "%s/likelihood", param->output_folder) ;
+	mkdir(line, 0750) ;
+}
+
