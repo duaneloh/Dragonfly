@@ -13,14 +13,15 @@ cdef class rotation:
 	def generate_quaternion(self, config_fname, config_section='emc'):
 		cdef char* c_config_fname = config_fname
 		cdef char* c_config_section = config_section
-		emc.generate_quaternion(c_config_fname, c_config_section, self.rot)
+		ret = emc.generate_quaternion(c_config_fname, c_config_section, self.rot)
+		assert ret == 0
 	
 	def quat_gen(self, int num_div):
-		emc.quat_gen(num_div, self.rot)
+		return emc.quat_gen(num_div, self.rot)
 
 	def parse_quat(self, fname):
 		cdef char* c_fname = fname
-		emc.parse_quat(c_fname, self.rot)
+		return emc.parse_quat(c_fname, self.rot)
 
 	def divide_quat(self, int rank, int num_proc):
 		emc.divide_quat(rank, num_proc, self.rot)

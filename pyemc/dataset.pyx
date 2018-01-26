@@ -17,22 +17,30 @@ cdef class dataset:
 		cdef char* c_config_fname = config_fname
 		cdef char* c_config_section = config_section
 		cdef char* c_type_string = type_string
-		emc.generate_data(c_config_fname, c_config_section, c_type_string, det.det, self.dset)
+		ret = emc.generate_data(c_config_fname, c_config_section, c_type_string, det.det, self.dset)
+		assert ret == 0
+
+	def calc_sum_fact(self, detector det):
+		emc.calc_sum_fact(det.det, self.dset)
 
 	def parse_dataset(self, fname, detector det):
 		cdef char* c_fname = fname
-		emc.parse_dataset(c_fname, det.det, self.dset)
+		ret = emc.parse_dataset(c_fname, det.det, self.dset)
+		assert ret == 0
 
 	def parse_data(self, flist, detector det):
 		cdef char* c_flist = flist
-		emc.parse_data(c_flist, det.det, self.dset)
+		ret = emc.parse_data(c_flist, det.det, self.dset)
+		assert ret > 0
+		return ret
+
+	def generate_blacklist(self, config_fname):
+		cdef char* c_config_fname = config_fname
+		emc.generate_blacklist(c_config_fname, self.dset)
 
 	def make_blacklist(self, fname, int odd_flag=-1):
 		cdef char* c_fname = fname
 		emc.make_blacklist(c_fname, odd_flag, self.dset)
-
-	def calc_sum_fact(self, detector det):
-		emc.calc_sum_fact(det.det, self.dset)
 
 	def free_data(self, scale_flag=False):
 		cdef int c_scale_flag = int(scale_flag)

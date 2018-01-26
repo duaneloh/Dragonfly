@@ -1,9 +1,18 @@
 from libc.stdint cimport uint8_t
 
 cdef extern from '../src/emc.h':
+	# setup_emc.c
 	int setup(char*, int)
 	void free_mem()
+
+	# max_emc.c
 	double maximize()
+
+	# recon_emc.c
+	int parse_arguments(int, char**, int*, int*, char*)
+	void write_log_file_header(int)
+	void emc()
+	void update_model(double)
 
 cdef extern from '../src/detector.h':
 	struct detector:
@@ -24,7 +33,7 @@ cdef extern from '../src/detector.h':
 cdef extern from '../src/dataset.h':
 	struct dataset:
 		int num_data, num_pix, num_data_prev
-		# Data set type (0=sparse, 1=dense integer, 2=dense double)
+		# Data set type [0=sparse, 1=dense integer, 2=dense double]
 		int type
 		double mean_count
 		char filename[1024]
@@ -57,6 +66,7 @@ cdef extern from '../src/dataset.h':
 	void calc_sum_fact(detector*, dataset*)
 	int parse_dataset(char*, detector*, dataset*)
 	int parse_data(char*, detector*, dataset*)
+	void generate_blacklist(char*, dataset*)
 	void make_blacklist(char*, int, dataset*)
 	void free_data(int, dataset*)
 
@@ -82,7 +92,7 @@ cdef extern from '../src/iterate.h':
 		
 		double rescale, mutual_info, rms_change
 
-	int generate_iterate(char*, char*, int, double, int, params, detector*, dataset*, iterate*) ;
+	int generate_iterate(char*, char*, int, double, params*, detector*, dataset*, iterate*)
 	void calculate_size(double, iterate*)
 	int parse_scale(char*, dataset*, iterate*)
 	void calc_scale(dataset*, detector*, char*, iterate*)
@@ -99,14 +109,17 @@ cdef extern from '../src/interp.h':
 
 cdef extern from '../src/params.h':
 	struct params:
-		int iteration, current_iter, start_iter, num_iter ;
+		int rank, num_proc
+		int iteration, current_iter, start_iter, num_iter
 		char output_folder[1024]
-		char log_fname[1024] ;
+		char log_fname[1024]
 		
 		# Algorithm parameters
-		int beta_period, need_scaling, known_scale ;
-		double alpha, beta, beta_jump ;
+		int beta_period, need_scaling, known_scale
+		double alpha, beta, beta_jump
 		
 		# Gaussian EMC parameter
-		double sigmasq ;
+		double sigmasq
 
+	void generate_params(char*, params*)
+	void generate_output_dirs(params*)

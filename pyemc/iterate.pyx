@@ -16,17 +16,18 @@ cdef class iterate:
 		self.iterate.inter_weight = NULL
 		self.iterate.scale = NULL
 
-	def generate_iterate(self, config_fname, double qmax, params param, detector det, dataset dset, continue_flag=False, int rank=0, config_section='emc'):
+	def generate_iterate(self, config_fname, double qmax, params param, detector det, dataset dset, continue_flag=False, config_section='emc'):
 		cdef char* c_config_fname = config_fname
 		cdef char* c_config_section = config_section
-		emc.generate_iterate(c_config_fname, c_config_section, int(continue_flag), qmax, rank, param.param, det.det, dset.dset, self.iterate)
+		ret = emc.generate_iterate(c_config_fname, c_config_section, int(continue_flag), qmax, param.param, det.det, dset.dset, self.iterate)
+		assert ret == 0
 
 	def calculate_size(self, double qmax):
 		emc.calculate_size(qmax, self.iterate)
 
 	def parse_scale(self, fname, dataset dset):
 		cdef char* c_fname = fname
-		emc.parse_scale(c_fname, dset.dset, self.iterate)
+		return emc.parse_scale(c_fname, dset.dset, self.iterate)
 
 	def calc_scale(self, dataset dset, detector det, print_fname=None):
 		cdef char* c_print_fname

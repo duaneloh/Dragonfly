@@ -15,18 +15,25 @@ cdef class detector:
 		cdef char* c_config_fname = config_fname
 		cdef char* c_config_section = config_section
 		if self.det.num_det > 0: self.free_detector()
-		return emc.generate_detectors(c_config_fname, c_config_section, &self.det, int(norm_flag))
+		qmax = emc.generate_detectors(c_config_fname, c_config_section, &self.det, int(norm_flag))
+		assert qmax > 0.
+		return qmax
 
 	def parse_detector_list(self, flist, norm_flag=True):
 		cdef char* c_flist = flist
 		if self.det.num_det > 0: self.free_detector()
-		emc.parse_detector_list(flist, &self.det, int(norm_flag))
+		qmax = emc.parse_detector_list(flist, &self.det, int(norm_flag))
+		assert qmax > 0.
+		return qmax
 
 	def parse_detector(self, fname, norm_flag=True):
 		cdef char* c_fname = fname
 		if self.det.num_det > 0: self.free_detector()
-		emc.parse_detector(c_fname, self.det, int(norm_flag))
 		self.det.num_det = 1
+		self.det.num_dfiles = 0
+		qmax = emc.parse_detector(c_fname, self.det, int(norm_flag))
+		assert qmax > 0.
+		return qmax
 
 	def free_detector(self):
 		emc.free_detector(self.det)

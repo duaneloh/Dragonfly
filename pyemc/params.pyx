@@ -1,8 +1,12 @@
 cimport emc
+from cpython.mem cimport PyMem_Malloc, PyMem_Free
 from params cimport params
 
 cdef class params:
 	def __init__(self):
+		self.param = <emc.params*> PyMem_Malloc(sizeof(emc.params))
+		self.param.rank = 0
+		self.param.num_proc = 1
 		self.param.known_scale = 0
 		self.param.start_iter = 1
 		self.param.beta_period = 100
@@ -13,6 +17,13 @@ cdef class params:
 		self.param.sigmasq = 0.
 		self.param.log_fname[:7] = "EMC.log"
 		self.param.output_folder[:5] = "data/"
+
+	def generate_params(self, config_fname):
+		cdef char* c_config_fname = config_fname
+		emc.generate_params(c_config_fname, self.param)
+
+	def generate_output_dirs(self):
+		emc.generate_output_dirs(self.param)
 
 	@property
 	def rank(self): return self.param.rank
@@ -43,5 +54,5 @@ cdef class params:
 	@property
 	def beta_jump(self): return self.param.beta_jump
 	@property
-	def sigma_sq(self): return self.param.sigma_sq
+	def sigmasq(self): return self.param.sigmasq
 	
