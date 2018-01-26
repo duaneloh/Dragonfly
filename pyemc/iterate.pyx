@@ -5,6 +5,7 @@ cimport emc
 from dataset cimport dataset
 from detector cimport detector
 from iterate cimport iterate
+from params cimport params
 
 cdef class iterate:
 	def __init__(self):
@@ -14,6 +15,11 @@ cdef class iterate:
 		self.iterate.model2 = NULL
 		self.iterate.inter_weight = NULL
 		self.iterate.scale = NULL
+
+	def generate_iterate(self, config_fname, double qmax, params param, detector det, dataset dset, continue_flag=False, int rank=0, config_section='emc'):
+		cdef char* c_config_fname = config_fname
+		cdef char* c_config_section = config_section
+		emc.generate_iterate(c_config_fname, c_config_section, int(continue_flag), qmax, rank, param.param, det.det, dset.dset, self.iterate)
 
 	def calculate_size(self, double qmax):
 		emc.calculate_size(qmax, self.iterate)
