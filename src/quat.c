@@ -829,10 +829,22 @@ static char *generate_token(char *line, char *section_name) {
 	return token ;
 }
 
+static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
+	if (path[0] != '/') {
+		strncpy(&path[strlen(config_folder)], rel_path, strlen(rel_path)) ;
+		strncpy(path, config_folder, strlen(config_folder)) ;
+	}
+	else {
+		strcpy(path, rel_path) ;
+	}
+}
+
 int generate_quaternion(char *config_fname, char *config_section, struct rotation *quat_ptr) {
 	int num, num_div = -1 ;
 	char quat_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;
+	char *config_folder = strndup(config_fname, 1024) ;
+	sprintf(config_folder, "%s/", dirname(config_folder)) ;
 	quat_ptr->icosahedral_flag = 0 ;
 	
 	FILE *config_fp = fopen(config_fname, "r") ;
@@ -844,12 +856,13 @@ int generate_quaternion(char *config_fname, char *config_section, struct rotatio
 			if (strcmp(token, "num_div") == 0)
 				num_div = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "in_quat_file") == 0)
-				strcpy(quat_fname, strtok(NULL, " =\n")) ;
+				absolute_strcpy(config_folder, quat_fname, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "sym_icosahedral") == 0)
 				quat_ptr->icosahedral_flag = atoi(strtok(NULL, " =\n")) ;
 		}
 	}
 	fclose(config_fp) ;
+	free(config_folder) ;
 	
 	if (num_div > 0 && quat_fname[0] != '\0') {
 		fprintf(stderr, "Config file contains both num_div as well as in_quat_file. Pick one.\n") ;

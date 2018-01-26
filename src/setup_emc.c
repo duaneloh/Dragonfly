@@ -121,7 +121,7 @@ void generate_blacklist(char *config_fname) {
 		fprintf(stderr, "%d/%d blacklisted frames\n", frames->num_blacklist, frames->tot_num_data) ;
 }
 
-int setup(char *config_fname, int continue_flag) {
+int setup(char *s_config_fname, int continue_flag) {
 	FILE *fp ;
 	double qmax = -1. ;
 	struct timeval t1, t2 ;
@@ -132,6 +132,9 @@ int setup(char *config_fname, int continue_flag) {
 	quat = malloc(sizeof(struct rotation)) ;
 	frames = malloc(sizeof(struct dataset)) ;
 	merge_frames = NULL ;
+	char config_fname[1024] ;
+	realpath(s_config_fname, config_fname) ;
+	fprintf(stderr, "%s\n", config_fname) ;
 	
 	fp = fopen(config_fname, "r") ;
 	if (fp == NULL) {
@@ -154,7 +157,7 @@ int setup(char *config_fname, int continue_flag) {
 	if (generate_iterate(config_fname, "emc", continue_flag, qmax, param.rank, param, det, frames, iter))
 		return 1 ;
 
-	gettimeofday(&t1, NULL) ;
+	gettimeofday(&t2, NULL) ;
 	fprintf(stderr, "Completed setup: %f s\n", (double)(t2.tv_sec - t1.tv_sec) + 1.e-6*(t2.tv_usec - t1.tv_usec)) ;
 	
 	return 0 ;

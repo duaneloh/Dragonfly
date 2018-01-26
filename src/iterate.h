@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <libgen.h>
 #include <sys/time.h>
 #include <gsl/gsl_rng.h>
 #include "dataset.h"

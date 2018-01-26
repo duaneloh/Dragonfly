@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <libgen.h>
 #include <gsl/gsl_sf_gamma.h>
 #include <inttypes.h>
 #include "detector.h"

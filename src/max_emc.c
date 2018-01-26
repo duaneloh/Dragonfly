@@ -26,7 +26,6 @@ static void print_time(char*, char*, int) ;
 static void free_memory(double**) ;
 
 double maximize() {
-	int d, r ;
 	long vol = iter->size * iter->size * iter->size ;
 	double **probab, avg_likelihood ;
 	gettimeofday(&t1, NULL) ;
@@ -38,9 +37,9 @@ double maximize() {
 	iter->rescale = calculate_rescale() ;
 
 	// Main loop: Calculate probabilities and update tomograms
-	#pragma omp parallel default(shared) private(r,d)
+	#pragma omp parallel default(shared)
 	{
-		int omp_rank = omp_get_thread_num() ;
+		int d, r, omp_rank = omp_get_thread_num() ;
 		// priv_data = {priv_likelihood, priv_info, priv_scale}
 		double *priv_data = NULL ;
 		double *sum = malloc(det[0].num_det * sizeof(double)) ;

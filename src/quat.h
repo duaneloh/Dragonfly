@@ -6,6 +6,7 @@
 #include <math.h>
 #include <unistd.h>
 #include <string.h>
+#include <libgen.h>
 
 struct rotation {
 	int num_rot, num_rot_p ;

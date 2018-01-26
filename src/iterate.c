@@ -14,10 +14,22 @@ static char *generate_token(char *line, char *section_name) {
 	return token ;
 }
 
+static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
+	if (path[0] != '/') {
+		strncpy(&path[strlen(config_folder)], rel_path, strlen(rel_path)) ;
+		strncpy(path, config_folder, strlen(config_folder)) ;
+	}
+	else {
+		strcpy(path, rel_path) ;
+	}
+}
+
 int generate_iterate(char *config_fname, char *config_section, int continue_flag, double qmax, int rank, struct params param, struct detector *det, struct dataset *dset, struct iterate *iter) {
 	FILE *fp ;
 	char input_fname[1024] = {'\0'}, scale_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;
+	char *config_folder = strndup(config_fname, 1024) ;
+	sprintf(config_folder, "%s/", dirname(config_folder)) ;
 	iter->size = -1 ;
 	iter->scale = NULL ;
 	
@@ -30,12 +42,13 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 			if (strcmp(token, "size") == 0)
 				iter->size = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "start_model_file") == 0)
-				strcpy(input_fname, strtok(NULL, " =\n")) ;
+				absolute_strcpy(config_folder, input_fname, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "scale_file") == 0)
-				strcpy(scale_fname, strtok(NULL, " =\n")) ;
+				absolute_strcpy(config_folder, scale_fname, strtok(NULL, " =\n")) ;
 		}
 	}
 	fclose(config_fp) ;
+	free(config_folder) ;
 	
 	calculate_size(qmax, iter) ;
 	

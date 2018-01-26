@@ -6,6 +6,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include <stdint.h>
+#include <libgen.h>
 #include <math.h>
 
 struct detector {

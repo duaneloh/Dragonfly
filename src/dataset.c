@@ -14,11 +14,23 @@ static char *generate_token(char *line, char *section_name) {
 	return token ;
 }
 
+static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
+	if (path[0] != '/') {
+		strncpy(&path[strlen(config_folder)], rel_path, strlen(rel_path)) ;
+		strncpy(path, config_folder, strlen(config_folder)) ;
+	}
+	else {
+		strcpy(path, rel_path) ;
+	}
+}
+
 int generate_data(char *config_fname, char *config_section, char *type_string, struct detector *det_list, struct dataset *frames_list) {
 	int num_datasets = 0 ;
 	char data_fname[1024] = {'\0'}, data_flist[1024] = {'\0'}, out_data_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;
 	char fname_opt[64], flist_opt[64] ;
+	char *config_folder = strndup(config_fname, 1024) ;
+	sprintf(config_folder, "%s/", dirname(config_folder)) ;
 	sprintf(fname_opt, "%s_photons_file", type_string) ;
 	sprintf(flist_opt, "%s_photons_list", type_string) ;
 	
@@ -29,18 +41,19 @@ int generate_data(char *config_fname, char *config_section, char *type_string, s
 		
 		if (strcmp(section_name, "make_data") == 0) {
 			if (strcmp(token, "out_photons_file") == 0)
-				strcpy(out_data_fname, strtok(NULL, " =\n")) ;
+				absolute_strcpy(config_folder, out_data_fname, strtok(NULL, " =\n")) ;
 		}
 		else if (strcmp(section_name, config_section) == 0) {
 			if (strcmp(token, fname_opt) == 0)
-				strcpy(data_fname, strtok(NULL, " =\n")) ;
+				absolute_strcpy(config_folder, data_fname, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, flist_opt) == 0)
-				strcpy(data_flist, strtok(NULL, " =\n")) ;
+				absolute_strcpy(config_folder, data_flist, strtok(NULL, " =\n")) ;
 		}
 	}
 	fclose(config_fp) ;
+	free(config_folder) ;
 	
-	if (strcmp(data_fname, "make_data:::out_photons_file") == 0)
+	if (strcmp(&data_fname[strlen(data_fname)-28], "make_data:::out_photons_file") == 0)
 		strcpy(data_fname, out_data_fname) ;
 	
 	if (data_flist[0] != '\0' && data_fname[0] != '\0') {

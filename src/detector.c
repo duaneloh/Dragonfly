@@ -14,10 +14,22 @@ static char *generate_token(char *line, char *section_name) {
 	return token ;
 }
 
+static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
+	if (path[0] != '/') {
+		strncpy(&path[strlen(config_folder)], rel_path, strlen(rel_path)) ;
+		strncpy(path, config_folder, strlen(config_folder)) ;
+	}
+	else {
+		strcpy(path, rel_path) ;
+	}
+}
+
 double generate_detectors(char *config_fname, char *config_section, struct detector **det_list, int norm_flag) {
 	double qmax ;
 	char det_fname[1024] = {'\0'}, det_flist[1024] = {'\0'}, out_det_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;
+	char *config_folder = strndup(config_fname, 1024) ;
+	sprintf(config_folder, "%s/", dirname(config_folder)) ;
 	
 	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
@@ -26,17 +38,19 @@ double generate_detectors(char *config_fname, char *config_section, struct detec
 		
 		if (strcmp(section_name, "make_detector") == 0) {
 			if (strcmp(token, "out_detector_file") == 0)
-				strcpy(out_det_fname, strtok(NULL, " =\n")) ;
+				absolute_strcpy(config_folder, out_det_fname, strtok(NULL, " =\n")) ;
 		}
 		else if (strcmp(section_name, config_section) == 0) {
 			if (strcmp(token, "in_detector_file") == 0)
-				strcpy(det_fname, strtok(NULL, " =\n")) ;
+				absolute_strcpy(config_folder, det_fname, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "in_detector_list") == 0)
-				strcpy(det_flist, strtok(NULL, " =\n")) ;
+				absolute_strcpy(config_folder, det_flist, strtok(NULL, " =\n")) ;
 		}
 	}
 	fclose(config_fp) ;
-	if (strcmp(det_fname, "make_detector:::out_detector_file") == 0)
+	free(config_folder) ;
+	
+	if (strcmp(&det_fname[strlen(det_fname)-33], "make_detector:::out_detector_file") == 0)
 		strcpy(det_fname, out_det_fname) ;
 	
 	if (det_flist[0] != '\0' && det_fname[0] != '\0') {
@@ -47,6 +61,7 @@ double generate_detectors(char *config_fname, char *config_section, struct detec
 		fprintf(stderr, "Parsing detector file: %s\n", det_fname) ;
 		*det_list = malloc(sizeof(struct detector)) ;
 		(*det_list)[0].num_det = 1 ;
+		(*det_list)[0].num_dfiles = 0 ;
 		memset((*det_list)[0].mapping, 0, 1024*sizeof(int)) ;
 		if ((qmax = parse_detector(det_fname, det_list[0], norm_flag)) < 0.)
 			return qmax ;
