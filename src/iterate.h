@@ -18,7 +18,7 @@ struct iterate {
 	double rescale, mutual_info, rms_change ;
 } ;
 
-int generate_iterate(char*, char*, int, double, struct params, struct detector*, struct dataset*, struct iterate*) ;
+int generate_iterate(char*, char*, int, double, struct params*, struct detector*, struct dataset*, struct iterate*) ;
 void calculate_size(double, struct iterate*) ;
 int parse_scale(char*, struct dataset*, struct iterate*) ;
 void calc_scale(struct dataset*, struct detector*, char*, struct iterate*) ;

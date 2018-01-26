@@ -14,12 +14,11 @@ struct detector *det ;
 struct rotation *quat ;
 struct dataset *frames, *merge_frames ;
 struct iterate *iter ;
-struct params param ;
+struct params *param ;
 
 // setup_emc.c
 int setup(char*, int) ;
 void free_mem(void) ;
-void generate_params(char*) ;
 void generate_output_dirs(void) ;
 void generate_blacklist(char*) ;
 

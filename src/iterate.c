@@ -24,7 +24,7 @@ static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
 	}
 }
 
-int generate_iterate(char *config_fname, char *config_section, int continue_flag, double qmax, struct params param, struct detector *det, struct dataset *dset, struct iterate *iter) {
+int generate_iterate(char *config_fname, char *config_section, int continue_flag, double qmax, struct params *param, struct detector *det, struct dataset *dset, struct iterate *iter) {
 	FILE *fp ;
 	char input_fname[1024] = {'\0'}, scale_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;
@@ -53,7 +53,7 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 	calculate_size(qmax, iter) ;
 	
 	if (continue_flag) {
-		fp = fopen(param.log_fname, "r") ;
+		fp = fopen(param->log_fname, "r") ;
 		if (fp == NULL) {
 			fprintf(stderr, "No log file found to continue run\n") ;
 			return 1 ;
@@ -61,35 +61,34 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 		else {
 			while (!feof(fp))
 				fgets(line, 500, fp) ;
-			sscanf(line, "%d", &param.start_iter) ;
+			sscanf(line, "%d", &param->start_iter) ;
 			fclose(fp) ;
 			
-			sprintf(input_fname, "%s/output/intens_%.3d.bin", param.output_folder, param.start_iter) ;
-			if (param.need_scaling)
-				sprintf(scale_fname, "%s/scale/scale_%.3d.dat", param.output_folder, param.start_iter) ;
-			param.start_iter += 1 ;
-			fprintf(stderr, "Continuing from previous run starting from iteration %d.\n", param.start_iter) ;
+			sprintf(input_fname, "%s/output/intens_%.3d.bin", param->output_folder, param->start_iter) ;
+			if (param->need_scaling)
+				sprintf(scale_fname, "%s/scale/scale_%.3d.dat", param->output_folder, param->start_iter) ;
+			param->start_iter += 1 ;
+			fprintf(stderr, "Continuing from previous run starting from iteration %d.\n", param->start_iter) ;
 		}
 	}
 	
-	if (param.need_scaling) {
-		if (!param.rank && param.start_iter == 1) {
-			sprintf(line, "%s/scale/scale_000.dat", param.output_folder) ;
+	if (param->need_scaling) {
+		if (!param->rank && param->start_iter == 1) {
+			sprintf(line, "%s/scale/scale_000.dat", param->output_folder) ;
 			calc_scale(dset, det, line, iter) ;
 		}
 		else {
 			calc_scale(dset, det, NULL, iter) ;
 		}
-		param.known_scale = parse_scale(scale_fname, dset, iter) ;
+		param->known_scale = parse_scale(scale_fname, dset, iter) ;
 	}
 	
-	if (!param.rank && param.start_iter == 1) {
-		sprintf(line, "%s/output/intens_000.bin", param.output_folder) ;
-		fprintf(stderr, "print_fname: %s\n", line) ;
-		parse_input(input_fname, dset[0].mean_count / det[0].rel_num_pix * 2., line, param.rank, iter) ;
+	if (!param->rank && param->start_iter == 1) {
+		sprintf(line, "%s/output/intens_000.bin", param->output_folder) ;
+		parse_input(input_fname, dset[0].mean_count / det[0].rel_num_pix * 2., line, param->rank, iter) ;
 	}
 	else {
-		parse_input(input_fname, dset[0].mean_count / det[0].rel_num_pix * 2., NULL, param.rank, iter) ;
+		parse_input(input_fname, dset[0].mean_count / det[0].rel_num_pix * 2., NULL, param->rank, iter) ;
 	}
 	
 	return 0 ;

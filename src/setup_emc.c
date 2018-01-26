@@ -24,13 +24,13 @@ int setup(char *s_config_fname, int continue_flag) {
 		return 1 ;
 	}
 	fclose(fp) ;
-	generate_params(config_fname) ;
+	generate_params(config_fname, param) ;
 	generate_output_dirs() ;
 	if ((qmax = generate_detectors(config_fname, "emc", &det, 1)) < 0.)
 		return 1 ;
 	if (generate_quaternion(config_fname, "emc", quat))
 		return 1 ;
-	divide_quat(param.rank, param.num_proc, quat) ;
+	divide_quat(param->rank, param->num_proc, quat) ;
 	if (generate_data(config_fname, "emc", "in", det, frames))
 		return 1 ;
 	if (generate_data(config_fname, "emc", "merge", det, merge_frames))
@@ -49,10 +49,10 @@ void free_mem() {
 	free_iterate(iter) ;
 	free(iter) ;
 	if (merge_frames != NULL) {
-		free_data(param.need_scaling, merge_frames) ;
+		free_data(param->need_scaling, merge_frames) ;
 		free(merge_frames) ;
 	}
-	free_data(param.need_scaling, frames) ;
+	free_data(param->need_scaling, frames) ;
 	free(frames) ;
 	free_quat(quat) ;
 	free(quat) ;
@@ -84,69 +84,20 @@ static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
 	}
 }
 
-void generate_params(char *config_fname) {
-	char line[1024], section_name[1024], *token ;
-	char *config_folder = strndup(config_fname, 1024) ;
-	sprintf(config_folder, "%s/", dirname(config_folder)) ;
-	
-	param.known_scale = 0 ;
-	param.start_iter = 1 ;
-	param.beta_period = 100 ;
-	param.beta_jump = 1. ;
-	param.need_scaling = 0 ;
-	param.alpha = 0. ;
-	param.beta = 1. ;
-	param.sigmasq = 0. ;
-	sprintf(param.log_fname, "%s/EMC.log", config_folder) ;
-	sprintf(param.output_folder, "%s/data/", config_folder) ;
-	
-	FILE *config_fp = fopen(config_fname, "r") ;
-	while (fgets(line, 1024, config_fp) != NULL) {
-		if ((token = generate_token(line, section_name)) == NULL)
-			continue ;
-		
-		if (strcmp(section_name, "emc") == 0) {
-			if (strcmp(token, "output_folder") == 0)
-				absolute_strcpy(config_folder, param.output_folder, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "log_file") == 0)
-				absolute_strcpy(config_folder, param.log_fname, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "need_scaling") == 0)
-				param.need_scaling = atoi(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "alpha") == 0)
-				param.alpha = atof(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "beta") == 0)
-				param.beta = atof(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "beta_schedule") == 0) {
-				param.beta_jump = atof(strtok(NULL, " =\n")) ;
-				param.beta_period = atoi(strtok(NULL, " =\n")) ;
-			}
-			else if (strcmp(token, "gaussian_sigma") == 0) {
-				param.sigmasq = atof(strtok(NULL, " =\n")) ;
-				param.sigmasq *= param.sigmasq ;
-				fprintf(stderr, "sigma_squared = %f\n", param.sigmasq) ;
-			}
-		}
-	}
-	fclose(config_fp) ;
-	free(config_folder) ;
-	if (!param.rank)
-		fprintf(stderr, "Parsed params from config file\n") ;
-}
-
 void generate_output_dirs() {
 	char line[1024] ;
 	
-	sprintf(line, "%s/output", param.output_folder) ;
+	sprintf(line, "%s/output", param->output_folder) ;
 	mkdir(line, 0750) ;
-	sprintf(line, "%s/weights", param.output_folder) ;
+	sprintf(line, "%s/weights", param->output_folder) ;
 	mkdir(line, 0750) ;
-	sprintf(line, "%s/mutualInfo", param.output_folder) ;
+	sprintf(line, "%s/mutualInfo", param->output_folder) ;
 	mkdir(line, 0750) ;
-	sprintf(line, "%s/scale", param.output_folder) ;
+	sprintf(line, "%s/scale", param->output_folder) ;
 	mkdir(line, 0750) ;
-	sprintf(line, "%s/orientations", param.output_folder) ;
+	sprintf(line, "%s/orientations", param->output_folder) ;
 	mkdir(line, 0750) ;
-	sprintf(line, "%s/likelihood", param.output_folder) ;
+	sprintf(line, "%s/likelihood", param->output_folder) ;
 	mkdir(line, 0750) ;
 }
 
@@ -175,12 +126,12 @@ void generate_blacklist(char *config_fname) {
 		make_blacklist(blacklist_fname, 0, frames) ;
 	}
 	else if (strcmp(sel_string, "odd_only") == 0) {
-		if (!param.rank)
+		if (!param->rank)
 			fprintf(stderr, "Only processing 'odd' frames\n") ;
 		make_blacklist(blacklist_fname, 1, frames) ;
 	}
 	else if (strcmp(sel_string, "even_only") == 0) {
-		if (!param.rank)
+		if (!param->rank)
 			fprintf(stderr, "Only processing 'even' frames\n") ;
 		make_blacklist(blacklist_fname, 2, frames) ;
 	}
@@ -189,7 +140,7 @@ void generate_blacklist(char *config_fname) {
 		make_blacklist(blacklist_fname, 0, frames) ;
 	}
 	
-	if (!param.rank)
+	if (!param->rank)
 		fprintf(stderr, "%d/%d blacklisted frames\n", frames->num_blacklist, frames->tot_num_data) ;
 }
 

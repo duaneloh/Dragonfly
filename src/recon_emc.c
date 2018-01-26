@@ -13,8 +13,9 @@ int main(int argc, char *argv[]) {
 	char config_fname[1024] ;
 	
 	MPI_Init(&argc, &argv) ;
-	MPI_Comm_size(MPI_COMM_WORLD, &param.num_proc) ;
-	MPI_Comm_rank(MPI_COMM_WORLD, &param.rank) ;
+	param = malloc(sizeof(struct params)) ;
+	MPI_Comm_size(MPI_COMM_WORLD, &param->num_proc) ;
+	MPI_Comm_rank(MPI_COMM_WORLD, &param->rank) ;
 	gettimeofday(&t1, NULL) ;
 	
 	if (parse_arguments(argc, argv, &continue_flag, &num_threads, config_fname)) {
@@ -27,7 +28,7 @@ int main(int argc, char *argv[]) {
 		return 1 ;
 	}
 	
-	if (!param.rank && !continue_flag)
+	if (!param->rank && !continue_flag)
 		write_log_file_header(num_threads) ;
 	
 	emc() ;
@@ -49,7 +50,7 @@ int parse_arguments(int argc, char *argv[], int *continue_flag, int *num_threads
 	int c ;
 	extern char *optarg ;
 	extern int optind ;
-	param.num_iter = 0 ;
+	param->num_iter = 0 ;
 	strcpy(config_fname, "config.ini") ;
 	system("ls > /dev/null") ;
 	system("ls .. > /dev/null") ;
@@ -70,25 +71,25 @@ int parse_arguments(int argc, char *argv[], int *continue_flag, int *num_threads
 			}
 		}
 		else {
-			param.num_iter = atoi(argv[optind]) ;
+			param->num_iter = atoi(argv[optind]) ;
 			optind++ ;
 		}
 	}
 	
-	if (param.num_iter == 0) {
+	if (param->num_iter == 0) {
 		fprintf(stderr, "Format: %s [-c config_fname] [-t num_threads] [-r] num_iter\n", argv[0]) ;
 		fprintf(stderr, "Default: -c config.ini -t %d\n", omp_get_max_threads()) ;
 		fprintf(stderr, "Missing <num_iter>\n") ;
 		return 1 ;
 	}
-	if (!param.rank)
-		fprintf(stderr, "Doing %d iteration(s) using %s\n", param.num_iter, config_fname) ;
+	if (!param->rank)
+		fprintf(stderr, "Doing %d iteration(s) using %s\n", param->num_iter, config_fname) ;
 	
 	return 0 ;
 }
 
 void write_log_file_header(int num_threads) {
-	FILE *fp = fopen(param.log_fname, "w") ;
+	FILE *fp = fopen(param->log_fname, "w") ;
 	fprintf(fp, "Cryptotomography with the EMC algorithm using MPI+OpenMP\n\n") ;
 	fprintf(fp, "Data parameters:\n") ;
 	if (frames->num_blacklist == 0)
@@ -103,10 +104,10 @@ void write_log_file_header(int num_threads) {
 	fprintf(fp, "Reconstruction parameters:\n") ;
 	fprintf(fp, "\tnum_threads = %d\n\tnum_proc = %d\n\talpha = %.6f\n\tbeta = %.6f\n\tneed_scaling = %s", 
 			num_threads, 
-			param.num_proc, 
-			param.alpha, 
-			param.beta, 
-			param.need_scaling?"yes":"no") ;
+			param->num_proc, 
+			param->alpha, 
+			param->beta, 
+			param->need_scaling?"yes":"no") ;
 	fprintf(fp, "\n\nIter\ttime\trms_change\tinfo_rate\tlog-likelihood\tnum_rot\tbeta\n") ;
 	fclose(fp) ;
 }
@@ -115,25 +116,25 @@ void emc() {
 	long vol = iter->size * iter->size * iter->size ; ;
 	double likelihood ;
 	
-	for (param.iteration = param.start_iter ; param.iteration <= param.num_iter + param.start_iter - 1 ; ++param.iteration) {
+	for (param->iteration = param->start_iter ; param->iteration <= param->num_iter + param->start_iter - 1 ; ++param->iteration) {
 		gettimeofday(&t1, NULL) ;
 		
 		MPI_Bcast(iter->model1, vol, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
 		
-		// Increasing beta by a factor of 'beta_jump' every 'beta_period' param.iterations
-		if (param.iteration % param.beta_period == 1 && param.iteration > 1)
-			param.beta *= param.beta_jump ;
+		// Increasing beta by a factor of 'beta_jump' every 'beta_period' param->iterations
+		if (param->iteration % param->beta_period == 1 && param->iteration > 1)
+			param->beta *= param->beta_jump ;
 		
 		likelihood = maximize() ;
-		print_time("Completed maximize", &t1, &t2, param.rank) ;
+		print_time("Completed maximize", &t1, &t2, param->rank) ;
 		if (likelihood == DBL_MAX) {
 			fprintf(stderr, "Error in maximize\n") ;
 			break ;
 		}
 		
-		if (!param.rank)
+		if (!param->rank)
 			update_model(likelihood) ;
-		if (param.need_scaling)
+		if (param->need_scaling)
 			normalize_scale(frames, iter) ;
 		
 		MPI_Bcast(&iter->rms_change, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
@@ -143,7 +144,7 @@ void emc() {
 		}
 	}
 	
-	if (!param.rank)
+	if (!param->rank)
 		fprintf(stderr, "Finished all iterations\n") ;
 }
 
@@ -165,30 +166,30 @@ void update_model(double likelihood) {
 	for (x = 0 ; x < vol ; ++x) {
 		diff = iter->model2[x] - iter->model1[x] ;
 		change += diff * diff ;
-		if (param.alpha > 0.)
-			iter->model1[x] = param.alpha * iter->rescale * iter->model1[x] + (1. - param.alpha) * iter->model2[x] ;
+		if (param->alpha > 0.)
+			iter->model1[x] = param->alpha * iter->rescale * iter->model1[x] + (1. - param->alpha) * iter->model2[x] ;
 		else
 			iter->model1[x] = iter->model2[x] ;
 	}
 	iter->rms_change = sqrt(change / vol) ;
 	
-	sprintf(fname, "%s/output/intens_%.3d.bin", param.output_folder, param.iteration) ;
+	sprintf(fname, "%s/output/intens_%.3d.bin", param->output_folder, param->iteration) ;
 	fp = fopen(fname, "w") ;
 	fwrite(iter->model1, sizeof(double), vol, fp) ;
 	fclose(fp) ;
 	
-	sprintf(fname, "%s/weights/weights_%.3d.bin", param.output_folder, param.iteration) ;
+	sprintf(fname, "%s/weights/weights_%.3d.bin", param->output_folder, param->iteration) ;
 	fp = fopen(fname, "w") ;
 	fwrite(iter->inter_weight, sizeof(double), vol, fp) ;
 	fclose(fp) ;
 	
-	print_time("Updated 3D intensity", &t2, &t3, param.rank) ;
+	print_time("Updated 3D intensity", &t2, &t3, param->rank) ;
 	
 	gettimeofday(&t2, NULL) ;
 	
-	fp = fopen(param.log_fname, "a") ;
-	fprintf(fp, "%d\t", param.iteration) ;
+	fp = fopen(param->log_fname, "a") ;
+	fprintf(fp, "%d\t", param->iteration) ;
 	fprintf(fp, "%4.2f\t", (double)(t2.tv_sec - t1.tv_sec) + 1.e-6*(t2.tv_usec - t1.tv_usec)) ;
-	fprintf(fp, "%1.4e\t%f\t%.6e\t%-7d\t%f\n", iter->rms_change, iter->mutual_info, likelihood, quat->num_rot, param.beta) ;
+	fprintf(fp, "%1.4e\t%f\t%.6e\t%-7d\t%f\n", iter->rms_change, iter->mutual_info, likelihood, quat->num_rot, param->beta) ;
 	fclose(fp) ;
 }
