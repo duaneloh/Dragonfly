@@ -834,7 +834,7 @@ static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
 		strcpy(path, rel_path) ;
 	}
 	else {
-		strncpy(&path[strlen(config_folder)], rel_path, strlen(rel_path)) ;
+		strcpy(&path[strlen(config_folder)], rel_path) ;
 		strncpy(path, config_folder, strlen(config_folder)) ;
 	}
 }
