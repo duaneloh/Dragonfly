@@ -20,7 +20,7 @@ struct params param ;
 int setup(char*, int) ;
 void free_mem(void) ;
 void generate_params(char*) ;
-void generate_output_dirs() ;
+void generate_output_dirs(void) ;
 void generate_blacklist(char*) ;
 
 // max_emc.c

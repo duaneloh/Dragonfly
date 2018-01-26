@@ -24,7 +24,7 @@ static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
 	}
 }
 
-int generate_iterate(char *config_fname, char *config_section, int continue_flag, double qmax, int rank, struct params param, struct detector *det, struct dataset *dset, struct iterate *iter) {
+int generate_iterate(char *config_fname, char *config_section, int continue_flag, double qmax, struct params param, struct detector *det, struct dataset *dset, struct iterate *iter) {
 	FILE *fp ;
 	char input_fname[1024] = {'\0'}, scale_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;
@@ -73,7 +73,7 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 	}
 	
 	if (param.need_scaling) {
-		if (!rank && param.start_iter == 1) {
+		if (!param.rank && param.start_iter == 1) {
 			sprintf(line, "%s/scale/scale_000.dat", param.output_folder) ;
 			calc_scale(dset, det, line, iter) ;
 		}
@@ -83,12 +83,13 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 		param.known_scale = parse_scale(scale_fname, dset, iter) ;
 	}
 	
-	if (!rank && param.start_iter == 1) {
+	if (!param.rank && param.start_iter == 1) {
 		sprintf(line, "%s/output/intens_000.bin", param.output_folder) ;
-		parse_input(input_fname, dset[0].mean_count / det[0].rel_num_pix * 2., line, rank, iter) ;
+		fprintf(stderr, "print_fname: %s\n", line) ;
+		parse_input(input_fname, dset[0].mean_count / det[0].rel_num_pix * 2., line, param.rank, iter) ;
 	}
 	else {
-		parse_input(input_fname, dset[0].mean_count / det[0].rel_num_pix * 2., NULL, rank, iter) ;
+		parse_input(input_fname, dset[0].mean_count / det[0].rel_num_pix * 2., NULL, param.rank, iter) ;
 	}
 	
 	return 0 ;

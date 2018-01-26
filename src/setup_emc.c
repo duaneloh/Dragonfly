@@ -36,7 +36,7 @@ int setup(char *s_config_fname, int continue_flag) {
 	if (generate_data(config_fname, "emc", "merge", det, merge_frames))
 		return 1 ;
 	generate_blacklist(config_fname) ;
-	if (generate_iterate(config_fname, "emc", continue_flag, qmax, param.rank, param, det, frames, iter))
+	if (generate_iterate(config_fname, "emc", continue_flag, qmax, param, det, frames, iter))
 		return 1 ;
 
 	gettimeofday(&t2, NULL) ;
