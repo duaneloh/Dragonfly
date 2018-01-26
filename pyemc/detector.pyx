@@ -9,12 +9,13 @@ cdef class detector:
 	def __init__(self):
 		self.det = <emc.detector*> PyMem_Malloc(sizeof(emc.detector))
 		self.det.num_det = 0
+		self.det.num_dfiles = 0
 
 	def generate_detectors(self, config_fname, norm_flag=True, config_section='emc'):
 		cdef char* c_config_fname = config_fname
 		cdef char* c_config_section = config_section
 		if self.det.num_det > 0: self.free_detector()
-		emc.generate_detectors(c_config_fname, c_config_section, &self.det, int(norm_flag))
+		return emc.generate_detectors(c_config_fname, c_config_section, &self.det, int(norm_flag))
 
 	def parse_detector_list(self, flist, norm_flag=True):
 		cdef char* c_flist = flist
