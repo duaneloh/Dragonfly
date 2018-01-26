@@ -19,6 +19,9 @@ struct params param ;
 // setup_emc.c
 int setup(char*, int) ;
 void free_mem(void) ;
+void generate_params(char*) ;
+void generate_output_dirs() ;
+void generate_blacklist(char*) ;
 
 // max_emc.c
 double maximize(void) ;

@@ -15,12 +15,12 @@ static char *generate_token(char *line, char *section_name) {
 }
 
 static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
-	if (path[0] != '/') {
-		strncpy(&path[strlen(config_folder)], rel_path, strlen(rel_path)) ;
-		strncpy(path, config_folder, strlen(config_folder)) ;
+	if (rel_path[0] == '/' || strstr(rel_path, ":::") != NULL) {
+		strcpy(path, rel_path) ;
 	}
 	else {
-		strcpy(path, rel_path) ;
+		strncpy(&path[strlen(config_folder)], rel_path, strlen(rel_path)) ;
+		strncpy(path, config_folder, strlen(config_folder)) ;
 	}
 }
 
