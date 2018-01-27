@@ -127,15 +127,12 @@ void emc() {
 		
 		likelihood = maximize() ;
 		print_time("Completed maximize", &t1, &t2, param->rank) ;
-		if (likelihood == DBL_MAX) {
-			fprintf(stderr, "Error in maximize\n") ;
-			break ;
-		}
 		
 		if (!param->rank)
 			update_model(likelihood) ;
 		if (param->need_scaling)
 			normalize_scale(frames, iter) ;
+		print_time("Updated 3D intensity", &t2, &t3, param->rank) ;
 		
 		MPI_Bcast(&iter->rms_change, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
 		if (isnan(iter->rms_change)) {
@@ -182,8 +179,6 @@ void update_model(double likelihood) {
 	fp = fopen(fname, "w") ;
 	fwrite(iter->inter_weight, sizeof(double), vol, fp) ;
 	fclose(fp) ;
-	
-	print_time("Updated 3D intensity", &t2, &t3, param->rank) ;
 	
 	gettimeofday(&t2, NULL) ;
 	
