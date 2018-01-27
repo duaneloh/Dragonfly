@@ -27,9 +27,10 @@ static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
 double generate_detectors(char *config_fname, char *config_section, struct detector **det_list, int norm_flag) {
 	double qmax ;
 	char det_fname[1024] = {'\0'}, det_flist[1024] = {'\0'}, out_det_fname[1024] = {'\0'} ;
-	char line[1024], section_name[1024], *token ;
-	char *config_folder = strndup(config_fname, 1024) ;
-	sprintf(config_folder, "%s/", dirname(config_folder)) ;
+	char line[1024], section_name[1024], config_folder[1024], *token ;
+	char *temp_fname = strndup(config_fname, 1024) ;
+	sprintf(config_folder, "%s/", dirname(temp_fname)) ;
+	free(temp_fname) ;
 	
 	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
@@ -48,7 +49,6 @@ double generate_detectors(char *config_fname, char *config_section, struct detec
 		}
 	}
 	fclose(config_fp) ;
-	free(config_folder) ;
 	
 	if (strcmp(det_fname, "make_detector:::out_detector_file") == 0)
 		strcpy(det_fname, out_det_fname) ;

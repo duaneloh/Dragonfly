@@ -813,6 +813,7 @@ void divide_quat(int rank, int num_proc, struct rotation *quat) {
 
 void free_quat(struct rotation *quat) {
 	free(quat->quat) ;
+	free(quat) ;
 }
 
 static char *generate_token(char *line, char *section_name) {
@@ -842,9 +843,10 @@ static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
 int generate_quaternion(char *config_fname, char *config_section, struct rotation *quat_ptr) {
 	int num, num_div = -1 ;
 	char quat_fname[1024] = {'\0'} ;
-	char line[1024], section_name[1024], *token ;
-	char *config_folder = strndup(config_fname, 1024) ;
-	sprintf(config_folder, "%s/", dirname(config_folder)) ;
+	char line[1024], section_name[1024], config_folder[1024], *token ;
+	char *temp_fname = strndup(config_fname, 1024) ;
+	sprintf(config_folder, "%s/", dirname(temp_fname)) ;
+	free(temp_fname) ;
 	quat_ptr->icosahedral_flag = 0 ;
 	
 	FILE *config_fp = fopen(config_fname, "r") ;
@@ -862,7 +864,6 @@ int generate_quaternion(char *config_fname, char *config_section, struct rotatio
 		}
 	}
 	fclose(config_fp) ;
-	free(config_folder) ;
 	
 	if (num_div > 0 && quat_fname[0] != '\0') {
 		fprintf(stderr, "Config file contains both num_div as well as in_quat_file. Pick one.\n") ;

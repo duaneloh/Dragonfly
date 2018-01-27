@@ -27,9 +27,10 @@ static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
 int generate_iterate(char *config_fname, char *config_section, int continue_flag, double qmax, struct params *param, struct detector *det, struct dataset *dset, struct iterate *iter) {
 	FILE *fp ;
 	char input_fname[1024] = {'\0'}, scale_fname[1024] = {'\0'} ;
-	char line[1024], section_name[1024], *token ;
-	char *config_folder = strndup(config_fname, 1024) ;
-	sprintf(config_folder, "%s/", dirname(config_folder)) ;
+	char line[1024], section_name[1024], config_folder[1024], *token ;
+	char *temp_fname = strndup(config_fname, 1024) ;
+	sprintf(config_folder, "%s/", dirname(temp_fname)) ;
+	free(temp_fname) ;
 	iter->size = -1 ;
 	iter->scale = NULL ;
 	
@@ -48,7 +49,6 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 		}
 	}
 	fclose(config_fp) ;
-	free(config_folder) ;
 	
 	calculate_size(qmax, iter) ;
 	
@@ -235,4 +235,5 @@ void free_iterate(struct iterate *iter) {
 		free(iter->inter_weight) ;
 	if (iter->scale != NULL)
 		free(iter->scale) ;
+	free(iter) ;
 }

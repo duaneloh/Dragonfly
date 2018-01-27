@@ -25,9 +25,10 @@ static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
 }
 
 void generate_params(char *config_fname, struct params *param) {
-	char line[1024], section_name[1024], *token ;
-	char *config_folder = strndup(config_fname, 1024) ;
-	sprintf(config_folder, "%s/", dirname(config_folder)) ;
+	char line[1024], section_name[1024], config_folder[1024], *token ;
+	char *temp_fname = strndup(config_fname, 1024) ;
+	sprintf(config_folder, "%s/", dirname(temp_fname)) ;
+	free(temp_fname) ;
 	
 	param->known_scale = 0 ;
 	param->start_iter = 1 ;
@@ -68,7 +69,6 @@ void generate_params(char *config_fname, struct params *param) {
 		}
 	}
 	fclose(config_fp) ;
-	free(config_folder) ;
 	if (!param->rank)
 		fprintf(stderr, "Parsed params from config file\n") ;
 }

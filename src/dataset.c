@@ -27,10 +27,11 @@ static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
 int generate_data(char *config_fname, char *config_section, char *type_string, struct detector *det_list, struct dataset *frames_list) {
 	int num_datasets = 0 ;
 	char data_fname[1024] = {'\0'}, data_flist[1024] = {'\0'}, out_data_fname[1024] = {'\0'} ;
-	char line[1024], section_name[1024], *token ;
 	char fname_opt[64], flist_opt[64] ;
-	char *config_folder = strndup(config_fname, 1024) ;
-	sprintf(config_folder, "%s/", dirname(config_folder)) ;
+	char line[1024], section_name[1024], config_folder[1024], *token ;
+	char *temp_fname = strndup(config_fname, 1024) ;
+	sprintf(config_folder, "%s/", dirname(temp_fname)) ;
+	free(temp_fname) ;
 	sprintf(fname_opt, "%s_photons_file", type_string) ;
 	sprintf(flist_opt, "%s_photons_list", type_string) ;
 	
@@ -51,7 +52,6 @@ int generate_data(char *config_fname, char *config_section, char *type_string, s
 		}
 	}
 	fclose(config_fp) ;
-	free(config_folder) ;
 	
 	if (strcmp(data_fname, "make_data:::out_photons_file") == 0)
 		strcpy(data_fname, out_data_fname) ;
@@ -265,9 +265,10 @@ int parse_data(char *fname, struct detector *det, struct dataset *frames) {
 
 void generate_blacklist(char *config_fname, struct dataset *frames) {
 	char blacklist_fname[1024] = {'\0'}, sel_string[1024] = {'\0'} ;
-	char line[1024], section_name[1024], *token ;
-	char *config_folder = strndup(config_fname, 1024) ;
-	sprintf(config_folder, "%s/", dirname(config_folder)) ;
+	char line[1024], section_name[1024], config_folder[1024], *token ;
+	char *temp_fname = strndup(config_fname, 1024) ;
+	sprintf(config_folder, "%s/", dirname(temp_fname)) ;
+	free(temp_fname) ;
 	
 	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
@@ -282,7 +283,6 @@ void generate_blacklist(char *config_fname, struct dataset *frames) {
 		}
 	}
 	fclose(config_fp) ;
-	free(config_folder) ;
 	
 	if (sel_string[0] == '\0') {
 		make_blacklist(blacklist_fname, 0, frames) ;
@@ -329,12 +329,22 @@ void make_blacklist(char *fname, int flag, struct dataset *frames) {
 }
 
 void free_data(int scale_flag, struct dataset *frames) {
-	struct dataset *curr = frames ;
+	struct dataset *temp, *curr = frames ;
+	
+	if (scale_flag)
+		free(frames->count) ;
+	if (frames->blacklist != NULL)
+		free(frames->blacklist) ;
+	if (frames->sum_fact != NULL)
+		free(frames->sum_fact) ;
+	
 	while (curr != NULL) {
 		if (curr->type == 0) {
 			free(curr->ones) ;
-			free(curr->place_ones) ;
 			free(curr->multi) ;
+			free(curr->ones_accum) ;
+			free(curr->multi_accum) ;
+			free(curr->place_ones) ;
 			free(curr->place_multi) ;
 			free(curr->count_multi) ;
 		}
@@ -344,14 +354,9 @@ void free_data(int scale_flag, struct dataset *frames) {
 		else if (curr->type == 2) {
 			free(curr->frames) ;
 		}
+		temp = curr ;
 		curr = curr->next ;
+		free(temp) ;
 	}
-	
-	if (scale_flag)
-		free(frames->count) ;
-	if (frames->blacklist != NULL)
-		free(frames->blacklist) ;
-	if (frames->sum_fact != NULL)
-		free(frames->sum_fact) ;
 }
 

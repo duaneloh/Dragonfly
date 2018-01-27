@@ -46,16 +46,11 @@ int setup(char *s_config_fname, int continue_flag) {
 
 void free_mem() {
 	free_iterate(iter) ;
-	free(iter) ;
-	if (merge_frames != NULL) {
+	if (merge_frames != NULL)
 		free_data(param->need_scaling, merge_frames) ;
-		free(merge_frames) ;
-	}
 	free_data(param->need_scaling, frames) ;
-	free(frames) ;
 	free_quat(quat) ;
-	free(quat) ;
 	free_detector(det) ;
-	free(det) ;
+	free(param) ;
 }
 
