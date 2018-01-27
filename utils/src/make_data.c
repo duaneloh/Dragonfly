@@ -131,12 +131,12 @@ void rescale_intens() {
 			else {
 				slice_gen(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], 0., view, intens, size, det) ;
 			}
-            
+			
 			for (t = 0 ; t < det->num_pix ; ++t){
 				if (det->mask[t] > 1)
 					continue ;
 				intens_ave += view[t] ;
-            }
+			}
 		}
 		
 		free(view) ;
@@ -144,6 +144,7 @@ void rescale_intens() {
 	}
 	
 	free(seeds) ;
+	gsl_rng_free(rng) ;
 	intens_ave /= NUM_AVE ;
 	
     if (scale_method == FLUENCE) {
@@ -256,6 +257,7 @@ double calc_dataset() {
 	}
 	 
 	free(seeds) ;
+	gsl_rng_free(rng) ;
 	fprintf(stderr, "\rFinished d = %d\n", num_data) ;
 	return actual_mean_count / num_data ;
 }
@@ -522,7 +524,6 @@ int setup(char *config_fname) {
 		return 1 ;
 	if (generate_detectors(config_fname, "make_data", &det, 0) < 0.)
 		return 1 ;
-	fprintf(stderr, "num_det = %d\n", det[0].num_det) ;
 	background /= det[0].num_pix ;
 	if (generate_size_params(config_fname))
 		return 1 ;
