@@ -241,7 +241,7 @@ void symmetrize_friedel(double *array, int size) {
 	}
 }
 
-double icos_list[60][3][3] = {
+static double icos_list[60][3][3] = {
 	{{1., 0., 0.}, {0., 1., 0.}, {0., 0., 1.}},
 	{{-1., 0., 0.}, {0., -1., 0.}, {0., 0., 1.}},
 	{{0., 0., 1.}, {1., 0., 0.}, {0., 1., 0.}},
