@@ -25,34 +25,38 @@ cdef class params:
 	def generate_output_dirs(self):
 		emc.generate_output_dirs(self.param)
 
+	def free_params(self):
+		PyMem_Free(self.param)
+		self.param = NULL
+
 	@property
-	def rank(self): return self.param.rank
+	def rank(self): return self.param.rank if self.param != NULL else None
 	@property
-	def num_proc(self): return self.param.num_proc
+	def num_proc(self): return self.param.num_proc if self.param != NULL else None
 	@property
-	def output_folder(self): return str(self.param.output_folder)
+	def output_folder(self): return str(self.param.output_folder) if self.param != NULL else None
 	@property
-	def log_fname(self): return str(self.param.log_fname)
+	def log_fname(self): return str(self.param.log_fname) if self.param != NULL else None
 	@property
-	def iteration(self): return self.param.iteration
+	def iteration(self): return self.param.iteration if self.param != NULL else None
 	@property
-	def current_iter(self): return self.param.current_iter
+	def current_iter(self): return self.param.current_iter if self.param != NULL else None
 	@property
-	def start_iter(self): return self.param.start_iter
+	def start_iter(self): return self.param.start_iter if self.param != NULL else None
 	@property
-	def num_iter(self): return self.param.num_iter
+	def num_iter(self): return self.param.num_iter if self.param != NULL else None
 	@property
-	def beta_period(self): return self.param.beta_period
+	def beta_period(self): return self.param.beta_period if self.param != NULL else None
 	@property
-	def need_scaling(self): return self.param.need_scaling
+	def need_scaling(self): return self.param.need_scaling if self.param != NULL else None
 	@property
-	def known_scale(self): return self.param.known_scale
+	def known_scale(self): return self.param.known_scale if self.param != NULL else None
 	@property
-	def alpha(self): return self.param.alpha
+	def alpha(self): return self.param.alpha if self.param != NULL else None
 	@property
-	def beta(self): return self.param.beta
+	def beta(self): return self.param.beta if self.param != NULL else None
 	@property
-	def beta_jump(self): return self.param.beta_jump
+	def beta_jump(self): return self.param.beta_jump if self.param != NULL else None
 	@property
-	def sigmasq(self): return self.param.sigmasq
+	def sigmasq(self): return self.param.sigmasq if self.param != NULL else None
 	

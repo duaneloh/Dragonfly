@@ -28,12 +28,13 @@ cdef class rotation:
 
 	def free_quat(self):
 		emc.free_quat(self.rot)
+		self.rot = NULL
 
 	@property
-	def num_rot(self): return self.rot.num_rot
+	def num_rot(self): return self.rot.num_rot if self.rot != NULL else None
 	@property
-	def num_rot_p(self): return self.rot.num_rot_p
+	def num_rot_p(self): return self.rot.num_rot_p if self.rot != NULL else None
 	@property
-	def quat(self): return np.asarray(<double[:self.num_rot*5]> self.rot.quat).reshape(-1,5)
+	def quat(self): return np.asarray(<double[:self.num_rot*5]> self.rot.quat).reshape(-1,5) if self.rot != NULL else None
 	@property
-	def icosahedral_flag(self): return bool(self.rot.icosahedral_flag)
+	def icosahedral_flag(self): return bool(self.rot.icosahedral_flag) if self.rot != NULL else None

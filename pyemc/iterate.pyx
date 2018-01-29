@@ -53,13 +53,13 @@ cdef class iterate:
 		emc.free_iterate(self.iterate)
 
 	@property
-	def size(self): return self.iterate.size
+	def size(self): return self.iterate.size if self.iterate != NULL else None
 	@property
-	def center(self): return self.iterate.center
+	def center(self): return self.iterate.center if self.iterate != NULL else None
 	@property
-	def model1(self): return np.asarray(<double[:self.size*self.size*self.size]> self.iterate.model1).reshape(self.size,self.size,self.size)
+	def model1(self): return np.asarray(<double[:self.size*self.size*self.size]> self.iterate.model1).reshape(self.size,self.size,self.size) if self.iterate != NULL else None
 	@property
-	def model2(self): return np.asarray(<double[:self.size*self.size*self.size]> self.iterate.model2).reshape(self.size,self.size,self.size)
+	def model2(self): return np.asarray(<double[:self.size*self.size*self.size]> self.iterate.model2).reshape(self.size,self.size,self.size) if self.iterate != NULL else None
 	@property
-	def inter_weight(self): return np.asarray(<double[:self.size*self.size*self.size]> self.iterate.inter_weight).reshape(self.size,self.size,self.size)
-	def scale(self, dataset dset): return np.asarray(<double[:dset.tot_num_data]> self.iterate.scale)
+	def inter_weight(self): return np.asarray(<double[:self.size*self.size*self.size]> self.iterate.inter_weight).reshape(self.size,self.size,self.size) if self.iterate != NULL else None
+	def scale(self, dataset dset): return np.asarray(<double[:dset.tot_num_data]> self.iterate.scale) if self.iterate != NULL else None
