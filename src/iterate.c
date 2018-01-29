@@ -227,6 +227,9 @@ void parse_input(char *fname, double mean, char *print_fname, int rank, struct i
 }
 
 void free_iterate(struct iterate *iter) {
+	if (iter == NULL)
+		return ;
+	
 	if (iter->model1 != NULL)
 		free(iter->model1) ;
 	if (iter->model2 != NULL)

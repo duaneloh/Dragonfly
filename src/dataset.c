@@ -331,6 +331,9 @@ void make_blacklist(char *fname, int flag, struct dataset *frames) {
 void free_data(int scale_flag, struct dataset *frames) {
 	struct dataset *temp, *curr = frames ;
 	
+	if (frames == NULL)
+		return ;
+	
 	if (scale_flag)
 		free(frames->count) ;
 	if (frames->blacklist != NULL)

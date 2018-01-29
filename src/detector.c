@@ -170,6 +170,10 @@ double parse_detector_list(char *fname, struct detector **det_ptr, int norm_flag
 
 void free_detector(struct detector *det) {
 	int detn ;
+	
+	if (det == NULL)
+		return ;
+	
 	for (detn = 0 ; detn < det[0].num_det ; ++detn) {
 		free(det[detn].pixels) ;
 		free(det[detn].mask) ;

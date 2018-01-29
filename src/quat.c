@@ -812,6 +812,9 @@ void divide_quat(int rank, int num_proc, struct rotation *quat) {
 }
 
 void free_quat(struct rotation *quat) {
+	if (quat == NULL)
+		return ;
+	
 	free(quat->quat) ;
 	free(quat) ;
 }
