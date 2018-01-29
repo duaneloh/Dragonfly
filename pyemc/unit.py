@@ -8,8 +8,10 @@ import os
 import sys
 import detector
 import dataset
+import quat
 
 recon_folder = '../recon_0001/'
+# TODO Create function to add/modify config file entries
 
 class TestDetector(unittest.TestCase):
     def det_sim_tests(self, det):
@@ -33,6 +35,7 @@ class TestDetector(unittest.TestCase):
         self.assertEqual(det.num_dfiles, 0)
         self.det_sim_tests(det)
         det.parse_detector(recon_folder+'/data/det_sim.dat')
+        # TODO Test with old style detector file as well
 
     def test_parse_detector_list(self):
         print('=== Testing parse_detector_list()')
@@ -93,7 +96,7 @@ class TestDataset(unittest.TestCase):
             npt.assert_array_equal(dset.count_multi[-16:-11], np.array([2,3,2,2,2], dtype='i4'))
     
     def test_generate_data(self):
-        print('=== Testing parse_dataset()')
+        print('=== Testing generate_data()')
         det = self.create_det()
         dset = dataset.dataset(det)
         dset.generate_data(recon_folder+'/config.ini')
@@ -154,7 +157,7 @@ class TestDataset(unittest.TestCase):
         det = self.create_det()
         dset = dataset.dataset(det)
         dset.parse_dataset(recon_folder+'/data/photons.emc')
-        dset.make_blacklist('')
+        dset.make_blacklist('') # TODO Create blacklist file and test
         self.assertEqual(dset.blacklist.shape[0], 3000)
         self.assertEqual(dset.blacklist.sum(), 0)
         dset.make_blacklist('', odd_flag=2)
@@ -167,13 +170,50 @@ class TestDataset(unittest.TestCase):
         npt.assert_array_equal(dset.blacklist[:4], np.array([1,0,1,0], dtype='u1'))
 
     def test_free_data(self):
-        print('=== Testing make_blacklist()')
+        print('=== Testing free_data()')
         det = self.create_det()
         dset = dataset.dataset(det)
         dset.parse_dataset(recon_folder+'/data/photons.emc')
         dset.free_data()
         dset.free_data()
         self.assertIsNone(dset.num_data)
+
+class TestRotation(unittest.TestCase):
+    def quat_tests(self, rot):
+        self.assertEqual(rot.num_rot, 3240)
+        self.assertFalse(rot.icosahedral_flag)
+        self.assertEqual(rot.quat.shape, (3240, 5))
+        npt.assert_array_almost_equal(rot.quat[0], np.array([0.5,-0.5,-0.5,-0.5, 2.07312814e-04], dtype='f8'))
+        npt.assert_array_almost_equal(rot.quat[-1], np.array([2.18508012e-01, 0.00000000e+00, 5.72061403e-01, 7.90569415e-01, 3.38911452e-04], dtype='f8'))
+        
+    def test_generate_quaternion(self):
+        print('=== Testing generate_quaternion()')
+        rot = quat.rotation()
+        rot.generate_quaternion(recon_folder+'/config.ini')
+        self.quat_tests(rot)
+        rot.generate_quaternion(recon_folder+'/config.ini')
+        # TODO Modify config to test icosahedral reduction
+
+    def test_quat_gen(self):
+        print('=== Testing quat_gen()')
+        rot = quat.rotation()
+        self.assertEqual(rot.quat_gen(4), 3240)
+        self.quat_tests(rot)
+        for i in range(1,13,1):
+            self.assertEqual(rot.quat_gen(i), 10*(5*i**3 + i))
+
+    def test_parse_quat(self):
+        print('=== Testing parse_quat()')
+        rot = quat.rotation()
+        rot.parse_quat('') # TODO Add saved quaternion file
+        
+    def test_free_quat(self):
+        print('=== Testing free_quat()')
+        rot = quat.rotation()
+        rot.quat_gen(4)
+        rot.free_quat()
+        rot.free_quat()
+        self.assertIsNone(rot.num_rot)
 
 if __name__ == '__main__':
     unittest.main(verbosity=0)
