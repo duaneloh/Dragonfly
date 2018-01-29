@@ -20,6 +20,7 @@
 #define FLUENCE 0
 #define COUNTS 1
 
+int testing_mode = 0 ;
 int size, num_rot, scale_method ;
 int **place_ones, **place_multi, *ones, *multi, **count_multi ;
 double *intens, *likelihood, *quat_list, *scale_factors ;
@@ -49,13 +50,17 @@ int main(int argc, char *argv[]) {
 	
 	omp_set_num_threads(omp_get_max_threads()) ;
 	strcpy(config_fname, "config.ini") ;
-	while ((c = getopt(argc, argv, "c:t:h")) != -1) {
+	while ((c = getopt(argc, argv, "c:t:Th")) != -1) {
 		switch (c) {
 			case 't':
 				omp_set_num_threads(atoi(optarg)) ;
 				break ;
 			case 'c':
 				strcpy(config_fname, optarg) ;
+				break ;
+			case 'T':
+				testing_mode = 1 ;
+				fprintf(stderr, "====== Testing mode (fixed seed) ======\n") ;
 				break ;
 			case 'h':
 				fprintf(stderr, "Format: %s [-c config_fname] [-t num_threads] [-h]\n", argv[0]) ;
@@ -105,12 +110,17 @@ void rescale_intens() {
 	int x ;
 	double rescale = 0., intens_ave = 0. ;
 	const gsl_rng_type *T = gsl_rng_default ;
-	struct timeval tval ;
 	gsl_rng *rng = gsl_rng_alloc(T) ;
 	unsigned long *seeds = malloc(omp_get_max_threads() * sizeof(unsigned long)) ;
 	
-	gettimeofday(&tval, NULL) ;
-	gsl_rng_set(rng, tval.tv_sec + tval.tv_usec) ;
+	if (testing_mode) {
+		gsl_rng_set(rng, 0x5EED) ;
+	}
+	else {
+		struct timeval tval ;
+		gettimeofday(&tval, NULL) ;
+		gsl_rng_set(rng, tval.tv_sec + tval.tv_usec) ;
+	}
 	for (x = 0 ; x < omp_get_max_threads() ; ++x)
 		seeds[x] = gsl_rng_get(rng) ;
 	
@@ -188,12 +198,17 @@ double calc_dataset() {
 	int x ;
 	double actual_mean_count = 0. ;
 	const gsl_rng_type *T = gsl_rng_default ;
-	struct timeval tval ;
 	gsl_rng *rng = gsl_rng_alloc(T) ;
 	unsigned long *seeds = malloc(omp_get_max_threads() * sizeof(unsigned long)) ;
 	
-	gettimeofday(&tval, NULL) ;
-	gsl_rng_set(rng, tval.tv_sec + tval.tv_usec) ;
+	if (testing_mode) {
+		gsl_rng_set(rng, 0x5EED) ;
+	}
+	else {
+		struct timeval tval ;
+		gettimeofday(&tval, NULL) ;
+		gsl_rng_set(rng, tval.tv_sec + tval.tv_usec) ;
+	}
 	for (x = 0 ; x < omp_get_max_threads() ; ++x)
 		seeds[x] = gsl_rng_get(rng) ;
 	
