@@ -1,5 +1,6 @@
 import numpy as np
 cimport numpy as np
+from libc.stdint cimport uint8_t
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
 cimport emc 
 cimport openmp
@@ -7,30 +8,32 @@ from detector cimport detector
 from dataset cimport dataset
 
 cdef class dataset:
-	def __init__(self):
+	def __init__(self, det):
 		self.dset = <emc.dataset*> PyMem_Malloc(sizeof(emc.dataset))
+		self.dset.num_data_prev = 0
 		self.dset.next = NULL
 		self.dset.blacklist = NULL
 		self.dset.sum_fact = NULL
+		self.det = <detector> det
 
-	def generate_data(self, config_fname, detector det, type_string='in', config_section='emc'):
+	def generate_data(self, config_fname, type_string='in', config_section='emc'):
 		cdef char* c_config_fname = config_fname
 		cdef char* c_config_section = config_section
 		cdef char* c_type_string = type_string
-		ret = emc.generate_data(c_config_fname, c_config_section, c_type_string, det.det, self.dset)
+		ret = emc.generate_data(c_config_fname, c_config_section, c_type_string, self.det.det, self.dset)
 		assert ret == 0
 
-	def calc_sum_fact(self, detector det):
-		emc.calc_sum_fact(det.det, self.dset)
+	def calc_sum_fact(self):
+		emc.calc_sum_fact(self.det.det, self.dset)
 
-	def parse_dataset(self, fname, detector det):
+	def parse_dataset(self, fname):
 		cdef char* c_fname = fname
-		ret = emc.parse_dataset(c_fname, det.det, self.dset)
+		ret = emc.parse_dataset(c_fname, self.det.det, self.dset)
 		assert ret == 0
 
-	def parse_data(self, flist, detector det):
+	def parse_data(self, flist):
 		cdef char* c_flist = flist
-		ret = emc.parse_data(c_flist, det.det, self.dset)
+		ret = emc.parse_data(c_flist, self.det.det, self.dset)
 		assert ret > 0
 		return ret
 
@@ -43,59 +46,71 @@ cdef class dataset:
 		emc.make_blacklist(c_fname, odd_flag, self.dset)
 
 	def free_data(self, scale_flag=False):
-		cdef int c_scale_flag = int(scale_flag)
-		emc.free_data(c_scale_flag, self.dset)
+		emc.free_data(int(scale_flag), self.dset)
+		self.dset = NULL
+
+	def __del__(self):
+		self.free_data()
 
 	@property
-	def type(self): return self.dset.type
+	def type(self): return self.dset.type if self.dset != NULL else None
 	@property
-	def num_data(self): return self.dset.num_data
+	def num_data(self): return self.dset.num_data if self.dset != NULL else None
 	@property
-	def num_pix(self): return self.dset.num_pix
+	def num_pix(self): return self.dset.num_pix if self.dset != NULL else None
 	@property
-	def mean_count(self): return self.dset.mean_count
+	def mean_count(self): return self.dset.mean_count if self.dset != NULL else None
 	@property
-	def filename(self): return str(self.dset.filename)
+	def filename(self): return str(self.dset.filename) if self.dset != NULL else None
 
 	# Sparse dataset
 	@property
-	def ones_total(self): return self.dset.ones_total
+	def ones_total(self): return self.dset.ones_total if self.dset != NULL else None
 	@property
-	def multi_total(self): return self.dset.multi_total
+	def multi_total(self): return self.dset.multi_total if self.dset != NULL else None
 	@property
-	def ones(self): return np.asarray(<int[:self.num_data]>self.dset.ones, dtype='i4')
+	def ones(self): return np.asarray(<int[:self.num_data]>self.dset.ones, dtype='i4') if self.dset != NULL else None
 	@property
-	def multi(self): return np.asarray(<int[:self.num_data]>self.dset.multi, dtype='i4')
+	def multi(self): return np.asarray(<int[:self.num_data]>self.dset.multi, dtype='i4') if self.dset != NULL else None
 	@property
-	def place_ones(self): return np.asarray(<int[:self.ones_total]>self.dset.place_ones, dtype='i4')
+	def place_ones(self): return np.asarray(<int[:self.ones_total]>self.dset.place_ones, dtype='i4') if self.dset != NULL else None
 	@property
-	def place_multi(self): return np.asarray(<int[:self.multi_total]>self.dset.place_multi, dtype='i4')
+	def place_multi(self): return np.asarray(<int[:self.multi_total]>self.dset.place_multi, dtype='i4') if self.dset != NULL else None
 	@property
-	def count_multi(self): return np.asarray(<int[:self.multi_total]>self.dset.count_multi, dtype='i4')
+	def count_multi(self): return np.asarray(<int[:self.multi_total]>self.dset.count_multi, dtype='i4') if self.dset != NULL else None
 	@property
-	def ones_accum(self): return np.asarray(<long[:self.num_data]>self.dset.ones_accum, dtype='i8')
+	def ones_accum(self): return np.asarray(<long[:self.num_data]>self.dset.ones_accum, dtype='i8') if self.dset != NULL else None
 	@property
-	def multi_accum(self): return np.asarray(<long[:self.num_data]>self.dset.multi_accum, dtype='i8')
+	def multi_accum(self): return np.asarray(<long[:self.num_data]>self.dset.multi_accum, dtype='i8') if self.dset != NULL else None
 
 	# Dense dataset
 	@property
-	def frames(self): return np.asarray(<double[:self.num_data*self.num_pix]>self.dset.frames, dtype='f8').reshape(self.num_data, self.num_pix)
+	def frames(self): return np.asarray(<double[:self.num_data*self.num_pix]>self.dset.frames, dtype='f8').reshape(self.num_data, self.num_pix) if self.dset != NULL else None
 	@property
-	def int_frames(self): return np.asarray(<int[:self.num_data*self.num_pix]>self.dset.int_frames, dtype='i4').reshape(self.num_data, self.num_pix)
+	def int_frames(self): return np.asarray(<int[:self.num_data*self.num_pix]>self.dset.int_frames, dtype='i4').reshape(self.num_data, self.num_pix) if self.dset != NULL else None
 
 	# Pointer to next dataset
 	@property
 	def next(self): 
-		next_dset = dataset()
-		next_dset.dset = self.dset.next
-		return next_dset
+		if self.dset == NULL:
+			return None
+		else:
+			next_dset = dataset(self.det)
+			next_dset.dset = self.dset.next
+			return next_dset
 		
 	# Need only be defined for head dataset
 	@property
-	def tot_num_data(self): return self.dset.tot_num_data
+	def tot_num_data(self): return self.dset.tot_num_data if self.dset != NULL else None
 	@property
-	def num_blacklist(self): return self.dset.num_blacklist
+	def num_blacklist(self): return self.dset.num_blacklist if self.dset != NULL else None
 	@property
-	def tot_mean_count(self): return self.dset.tot_mean_count
+	def tot_mean_count(self): return self.dset.tot_mean_count if self.dset != NULL else None
+	@property
+	def count(self): return np.asarray(<int[:self.tot_num_data]>self.dset.count, dtype='i4') if self.dset != NULL else None
+	@property
+	def sum_fact(self): return np.asarray(<double[:self.tot_num_data]>self.dset.sum_fact, dtype='f8') if self.dset != NULL else None
+	@property
+	def blacklist(self): return np.asarray(<uint8_t[:self.tot_num_data]>self.dset.blacklist, dtype='u1') if self.dset != NULL else None
 
 
