@@ -6,11 +6,13 @@ import numpy as np
 import scipy.special
 import os
 import sys
+import shutil
 import detector
 import dataset
 import quat
+import params
 
-recon_folder = '../recon_0001/'
+recon_folder = os.path.relpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../test_0001/'))
 # TODO Create function to add/modify config file entries
 
 class TestDetector(unittest.TestCase):
@@ -71,13 +73,14 @@ class TestDataset(unittest.TestCase):
         return det
 
     def photons_tests(self, dset, num_dset=1, first_dset=True):
+        # Output of $ ./make_data -T -t 4
         self.assertEqual(dset.num_data, 3000)
         self.assertEqual(dset.num_pix, 10201)
         self.assertEqual(os.path.normpath(dset.filename), os.path.normpath(recon_folder+'/data/photons.emc'))
-        self.assertAlmostEqual(dset.mean_count, 1422.04766666)
+        self.assertAlmostEqual(dset.mean_count, 1424.309)
         if first_dset:
             self.assertEqual(dset.tot_num_data, num_dset*3000)
-            self.assertAlmostEqual(dset.tot_mean_count, 1422.04766666)
+            self.assertAlmostEqual(dset.tot_mean_count, 1424.309)
         if dset.type == 0:
             npt.assert_array_equal(dset.ones_accum, dset.ones.cumsum() - dset.ones)
             npt.assert_array_equal(dset.multi_accum, dset.multi.cumsum() - dset.multi)
@@ -85,15 +88,15 @@ class TestDataset(unittest.TestCase):
             self.assertEqual(dset.multi_total, dset.multi.sum())
             
             npt.assert_array_equal(dset.ones[:3], np.array([541, 426, 429], dtype='i4'))
-            npt.assert_array_equal(dset.ones[-3:], np.array([378, 402, 412], dtype='i4'))
+            npt.assert_array_equal(dset.ones[-3:], np.array([404, 377, 433], dtype='i4'))
             npt.assert_array_equal(dset.multi[:3], np.array([384, 326, 226], dtype='i4'))
-            npt.assert_array_equal(dset.multi[-3:], np.array([307, 231, 302], dtype='i4'))
+            npt.assert_array_equal(dset.multi[-3:], np.array([217, 249, 313], dtype='i4'))
             npt.assert_array_equal(dset.place_ones[:3], np.array([444, 546, 656], dtype='i4'))
-            npt.assert_array_equal(dset.place_ones[-3:], np.array([8129, 8214, 8234], dtype='i4'))
+            npt.assert_array_equal(dset.place_ones[-3:], np.array([8816, 9013, 9274], dtype='i4'))
             npt.assert_array_equal(dset.place_multi[:3], np.array([1984, 2066, 2161], dtype='i4'))
-            npt.assert_array_equal(dset.place_multi[-3:], np.array([7443, 7534, 7836], dtype='i4'))
+            npt.assert_array_equal(dset.place_multi[-3:], np.array([7538, 8015, 8331], dtype='i4'))
             npt.assert_array_equal(dset.count_multi[11:16], np.array([2,3,2,2,3], dtype='i4'))
-            npt.assert_array_equal(dset.count_multi[-16:-11], np.array([2,3,2,2,2], dtype='i4'))
+            npt.assert_array_equal(dset.count_multi[-16:-11], np.array([2,2,2,2,3], dtype='i4'))
     
     def test_generate_data(self):
         print('=== Testing generate_data()')
@@ -215,6 +218,50 @@ class TestRotation(unittest.TestCase):
         rot.free_quat()
         self.assertIsNone(rot.num_rot)
 
+class TestParams(unittest.TestCase):
+    def configparams_test(self, param):
+        # TODO Modify config file to make values non-default
+        self.assertEqual(param.rank, 0)
+        self.assertEqual(param.num_proc, 1)
+        self.assertEqual(os.path.abspath(param.output_folder), os.path.abspath(recon_folder+'/data/'))
+        self.assertEqual(os.path.abspath(param.log_fname), os.path.abspath(recon_folder+'/EMC.log'))
+        self.assertEqual(param.need_scaling, 0)
+        self.assertEqual(param.known_scale, 0)
+        self.assertEqual(param.alpha, 0.)
+        self.assertEqual(param.beta, 1.)
+        self.assertEqual(param.beta_period, 100)
+        self.assertEqual(param.beta_jump, 1.)
+        self.assertEqual(param.sigmasq, 0.)
+        
+        # TODO Test with continue flag
+        self.assertEqual(param.start_iter, 1)
+        self.assertEqual(param.current_iter, 0)
+
+    def test_generate_params(self):
+        print('=== Testing generate_params()')
+        param = params.params()
+        param.generate_params(recon_folder+'/config.ini')
+        self.configparams_test(param)
+        param.generate_params(recon_folder+'/config.ini')
+
+    def test_generate_output_dirs(self):
+        print('=== Testing generate_output_dirs()')
+        param = params.params()
+        param.generate_params(recon_folder+'/config.ini')
+        flist = [recon_folder+'/data/'+d for d in ['output', 'weights', 'orientations', 'scale', 'likelihood', 'mutualInfo']]
+        [shutil.rmtree(d) for d in flist if os.path.exists(d)]
+        param.generate_output_dirs()
+        self.assertTrue(np.array([os.path.exists(d) for d in flist]).all())
+        param.generate_output_dirs()
+
+    def test_free_params(self):
+        print('=== Testing free_params()')
+        param = params.params()
+        param.generate_params(recon_folder+'/config.ini')
+        param.free_params()
+        param.free_params()
+
 if __name__ == '__main__':
+    print('Testing using recon folder: %s'%recon_folder)
     unittest.main(verbosity=0)
 
