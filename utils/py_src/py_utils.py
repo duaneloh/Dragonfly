@@ -40,6 +40,7 @@ class my_argparser(argparse.ArgumentParser):
         self.add_argument("-v", "--verbose", dest="vb", action="store_true", default=False)
         self.add_argument("-m", "--main_dir", dest="main_dir",
                           help="relative path to main repository directory\n(where data aux utils are stored)")
+        self.add_argument("-y", "--yes", help="say yes to all question prompts", action="store_true")
 
     def special_parse_args(self):
         args = self.parse_args()

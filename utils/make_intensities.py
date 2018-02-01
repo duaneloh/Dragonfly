@@ -23,7 +23,10 @@ if __name__ == "__main__":
         num_threads = int(read_config.get_param(args.config_file, 'make_intensities', "num_threads"))
     except read_config.ConfigParser.NoOptionError:
         num_threads = 4
-    to_write    = py_utils.check_to_overwrite(intens_file)
+    if args.yes:
+        to_write = True
+    else:
+        to_write = py_utils.check_to_overwrite(intens_file)
     logging.info("\n\nStarting.... make_intensities")
     logging.info(' '.join(sys.argv))
 

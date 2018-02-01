@@ -9,7 +9,6 @@ from py_src import process_pdb
 from py_src import py_utils
 
 if __name__ == "__main__":
-    # logging config must occur before my_argparser, because latter already starts logging
     logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     parser      = py_utils.my_argparser(description="make electron density")
     args        = parser.special_parse_args()
@@ -28,7 +27,10 @@ if __name__ == "__main__":
         num_threads = 4
     aux_dir     = os.path.join(args.main_dir, read_config.get_filename(args.config_file, 'make_densities', "scatt_dir"))
     den_file    = os.path.join(args.main_dir, read_config.get_filename(args.config_file, 'make_densities', "out_density_file"))
-    to_write    = py_utils.check_to_overwrite(den_file)
+    if args.yes:
+        to_write = True
+    else:
+        to_write = py_utils.check_to_overwrite(den_file)
 
     if to_write:
         timer       = py_utils.my_timer()
