@@ -2,6 +2,8 @@
 
 import unittest
 import numpy.testing as npt
+
+import argparse
 import numpy as np
 import scipy.special
 import os
@@ -13,7 +15,6 @@ import quat
 import params
 import interp
 
-recon_folder = os.path.relpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../test_0001/'))
 # TODO Create function to add/modify config file entries
 
 class TestDetector(unittest.TestCase):
@@ -353,6 +354,14 @@ class TestInterp(unittest.TestCase):
         npt.assert_array_almost_equal(model[103:106,68:71,82:85], [[[480.23952805, 7053.79230354, 672.87605846], [2377.76518912, 5341.74335349, 70.74035788], [5519.30333337, 3220.70729727, 0.]], [[0., 5738.38868753, 2835.8821622], [640.53422865, 10226.00092727, 403.93064498], [3106.35276845, 5325.18474032, 0.]], [[0., 3752.37021246, 5424.77431879], [111.97675292, 5624.55664759, 2102.41717762], [1007.59124681, 6925.69283809, 450.55910447]]])
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Unit testing Dragonfly')
+    parser.add_argument('-f', '--recon_folder', help='Reconstruction folder with test data', default=os.path.relpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../testing_0001/')))
+    parser.add_argument('unittest_args', nargs='*')
+    args = parser.parse_args()
+
+    recon_folder = args.recon_folder
     print('Testing using recon folder: %s'%recon_folder)
+    sys.argv[1:] = args.unittest_args
+    
     unittest.main(verbosity=0)
 
