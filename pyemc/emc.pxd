@@ -85,6 +85,7 @@ cdef extern from '../src/quat.h':
 cdef extern from '../src/iterate.h':
 	struct iterate:
 		long size, center
+		int tot_num_data
 		double *model1
 		double *model2
 		double *inter_weight
@@ -94,9 +95,9 @@ cdef extern from '../src/iterate.h':
 
 	int generate_iterate(char*, char*, int, double, params*, detector*, dataset*, iterate*)
 	void calculate_size(double, iterate*)
-	int parse_scale(char*, dataset*, iterate*)
+	int parse_scale(char*, iterate*)
 	void calc_scale(dataset*, detector*, char*, iterate*)
-	void normalize_scale(dataset*, iterate*)
+	void normalize_scale(iterate*)
 	void parse_input(char*, double, char*, int, iterate*)
 	void free_iterate(iterate*)
 

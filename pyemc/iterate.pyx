@@ -24,10 +24,11 @@ cdef class iterate:
 
 	def calculate_size(self, double qmax):
 		emc.calculate_size(qmax, self.iterate)
+		return self.size
 
-	def parse_scale(self, fname, dataset dset):
+	def parse_scale(self, fname):
 		cdef char* c_fname = fname
-		return emc.parse_scale(c_fname, dset.dset, self.iterate)
+		return emc.parse_scale(c_fname, self.iterate)
 
 	def calc_scale(self, dataset dset, detector det, print_fname=None):
 		cdef char* c_print_fname
@@ -37,8 +38,8 @@ cdef class iterate:
 			c_print_fname = NULL
 		emc.calc_scale(dset.dset, det.det, c_print_fname, self.iterate)
 
-	def normalize_scale(self, dataset dset):
-		emc.normalize_scale(dset.dset, self.iterate)
+	def normalize_scale(self):
+		emc.normalize_scale(self.iterate)
 
 	def parse_input(self, fname, double mean, int rank=0, print_fname=None):
 		cdef char* c_fname = fname
@@ -51,15 +52,19 @@ cdef class iterate:
 
 	def free_iterate(self):
 		emc.free_iterate(self.iterate)
+		self.iterate = NULL
 
 	@property
 	def size(self): return self.iterate.size if self.iterate != NULL else None
 	@property
 	def center(self): return self.iterate.center if self.iterate != NULL else None
 	@property
+	def tot_num_data(self): return self.iterate.tot_num_data if self.iterate != NULL else None
+	@property
 	def model1(self): return np.asarray(<double[:self.size*self.size*self.size]> self.iterate.model1).reshape(self.size,self.size,self.size) if self.iterate != NULL else None
 	@property
 	def model2(self): return np.asarray(<double[:self.size*self.size*self.size]> self.iterate.model2).reshape(self.size,self.size,self.size) if self.iterate != NULL else None
 	@property
 	def inter_weight(self): return np.asarray(<double[:self.size*self.size*self.size]> self.iterate.inter_weight).reshape(self.size,self.size,self.size) if self.iterate != NULL else None
-	def scale(self, dataset dset): return np.asarray(<double[:dset.tot_num_data]> self.iterate.scale) if self.iterate != NULL else None
+	@property
+	def scale(self): return np.asarray(<double[:self.tot_num_data]> self.iterate.scale) if self.iterate != NULL else None
