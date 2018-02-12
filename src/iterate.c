@@ -80,7 +80,7 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 		else {
 			calc_scale(dset, det, NULL, iter) ;
 		}
-		param->known_scale = parse_scale(scale_fname, dset, iter) ;
+		param->known_scale = parse_scale(scale_fname, iter) ;
 	}
 	
 	if (!param->rank && param->start_iter == 1) {
@@ -105,7 +105,7 @@ void calculate_size(double qmax, struct iterate *iter) {
 	iter->center = iter->size / 2 ;
 }
 
-int parse_scale(char *fname, struct dataset *frames, struct iterate *iter) {
+int parse_scale(char *fname, struct iterate *iter) {
 	int flag = 0 ;
 	
 	FILE *fp = fopen(fname, "r") ;
@@ -116,7 +116,7 @@ int parse_scale(char *fname, struct dataset *frames, struct iterate *iter) {
 		fprintf(stderr, "Using scale factors from %s\n", fname) ;
 		flag = 1 ;
 		int d ;
-		for (d = 0 ; d < frames->tot_num_data ; ++d)
+		for (d = 0 ; d < iter->tot_num_data ; ++d)
 			fscanf(fp, "%lf", &iter->scale[d]) ;
 		fclose(fp) ;
 	}
@@ -129,8 +129,9 @@ void calc_scale(struct dataset *frames, struct detector *det, char* print_fname,
 	struct dataset *curr ;
 	curr = frames ;
 	
-	iter->scale = calloc(frames->tot_num_data, sizeof(double)) ;
-	frames->count = calloc(frames->tot_num_data, sizeof(int)) ;
+	iter->tot_num_data = frames->tot_num_data ;
+	iter->scale = calloc(iter->tot_num_data, sizeof(double)) ;
+	frames->count = calloc(iter->tot_num_data, sizeof(int)) ;
 	
 	while (curr != NULL) {
 		if (curr->type == 0) {
@@ -165,22 +166,23 @@ void calc_scale(struct dataset *frames, struct detector *det, char* print_fname,
 	
 	if (print_fname != NULL) {
 		FILE *fp = fopen(print_fname, "w") ;
-		for (d = 0 ; d < frames->tot_num_data ; ++d)
+		for (d = 0 ; d < iter->tot_num_data ; ++d)
 			fprintf(fp, "%.6e\n", iter->scale[d]) ;
 		fclose(fp) ;
+		fprintf(stderr, "Written initial scale factors to %s\n", print_fname) ;
 	}
 }
 
-void normalize_scale(struct dataset *frames, struct iterate *iter) {
+void normalize_scale(struct iterate *iter) {
 	double mean_scale = 0. ;
 	long d, x, vol = iter->size*iter->size*iter->size ;
 	
-	for (d = 0 ; d < frames->tot_num_data ; ++d)
+	for (d = 0 ; d < iter->tot_num_data ; ++d)
 		mean_scale += iter->scale[d] ;
-	mean_scale /= frames->tot_num_data ;
+	mean_scale /= iter->tot_num_data ;
 	for (x = 0 ; x < vol ; ++x)
 		iter->model1[x] *= mean_scale ;
-	for (d = 0 ; d < frames->tot_num_data ; ++d)
+	for (d = 0 ; d < iter->tot_num_data ; ++d)
 		iter->scale[d] /= mean_scale ;
 	
 	iter->rms_change *= mean_scale ;

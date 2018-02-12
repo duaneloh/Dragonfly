@@ -12,6 +12,7 @@
 
 struct iterate {
 	long size, center ;
+	int tot_num_data ;
 	double *model1, *model2, *inter_weight ;
 	double *scale ;
 	
@@ -20,9 +21,9 @@ struct iterate {
 
 int generate_iterate(char*, char*, int, double, struct params*, struct detector*, struct dataset*, struct iterate*) ;
 void calculate_size(double, struct iterate*) ;
-int parse_scale(char*, struct dataset*, struct iterate*) ;
+int parse_scale(char*, struct iterate*) ;
 void calc_scale(struct dataset*, struct detector*, char*, struct iterate*) ;
-void normalize_scale(struct dataset*, struct iterate*) ;
+void normalize_scale(struct iterate*) ;
 void parse_input(char*, double, char*, int, struct iterate*) ;
 void free_iterate(struct iterate*) ;
 

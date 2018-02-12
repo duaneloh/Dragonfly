@@ -131,7 +131,7 @@ void emc() {
 		if (!param->rank)
 			update_model(likelihood) ;
 		if (param->need_scaling)
-			normalize_scale(frames, iter) ;
+			normalize_scale(iter) ;
 		print_time("Updated 3D intensity", &t2, &t3, param->rank) ;
 		
 		MPI_Bcast(&iter->rms_change, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
