@@ -26,6 +26,7 @@ static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
 
 int generate_iterate(char *config_fname, char *config_section, int continue_flag, double qmax, struct params *param, struct detector *det, struct dataset *dset, struct iterate *iter) {
 	FILE *fp ;
+	double model_mean ;
 	char input_fname[1024] = {'\0'}, scale_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], config_folder[1024], *token ;
 	char *temp_fname = strndup(config_fname, 1024) ;
@@ -85,10 +86,14 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 	
 	if (!param->rank && param->start_iter == 1) {
 		sprintf(line, "%s/output/intens_000.bin", param->output_folder) ;
-		parse_input(input_fname, dset[0].mean_count / det[0].rel_num_pix * 2., line, param->rank, iter) ;
+		model_mean = dset[0].mean_count / det[0].rel_num_pix * 2. ;
+		#ifdef FIXED_SEED
+		model_mean *= -1. ;
+		#endif // FIXED_SEED
+		parse_input(input_fname, model_mean, line, param->rank, iter) ;
 	}
 	else {
-		parse_input(input_fname, dset[0].mean_count / det[0].rel_num_pix * 2., NULL, param->rank, iter) ;
+		parse_input(input_fname, 1., NULL, param->rank, iter) ;
 	}
 	
 	return 0 ;
@@ -197,16 +202,25 @@ void parse_input(char *fname, double mean, char *print_fname, int rank, struct i
 	if (rank == 0) {
 		FILE *fp = fopen(fname, "r") ;
 		if (fp == NULL) {
-			fprintf(stderr, "Random start\n") ;
+			if (mean < 0.)
+				fprintf(stderr, "Random start with fixed seed\n") ;
+			else
+				fprintf(stderr, "Random start\n") ;
 			
 			long x ;
-			struct timeval t ;
 			const gsl_rng_type *T ;
 			gsl_rng_env_setup() ;
 			T = gsl_rng_default ;
 			gsl_rng *rng = gsl_rng_alloc(T) ;
-			gettimeofday(&t, NULL) ;
-			gsl_rng_set(rng, t.tv_sec + t.tv_usec) ;
+			if (mean < 0.) {
+				gsl_rng_set(rng, 0x5EED) ;
+				mean *= -1. ;
+			}
+			else {
+				struct timeval t ;
+				gettimeofday(&t, NULL) ;
+				gsl_rng_set(rng, t.tv_sec + t.tv_usec) ;
+			}
 			
 			for (x = 0 ; x < vol ; ++x)
 				iter->model1[x] = gsl_rng_uniform(rng) * mean ;
