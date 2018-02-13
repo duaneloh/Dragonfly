@@ -9,21 +9,39 @@ import scipy.special
 import os
 import sys
 import shutil
+import ConfigParser
+
 import detector
 import dataset
 import quat
 import params
 import interp
+import iterate
 
-# TODO Create function to add/modify config file entries
+class DragonflyConfig():
+    def __init__(self, fname):
+        self.config = ConfigParser.RawConfigParser()
+        self.fname = fname
+        self.config.read(fname)
+
+    def modify_entry(self, section, param, value):
+        self.config.set(section, param, value)
+        with open(self.fname, 'w') as f:
+            self.config.write(f)
+
+    def remove_entry(self, section, param):
+        self.config.remove_option(section, param)
+        with open(self.fname, 'w') as f:
+            self.config.write(f)
 
 class TestDetector(unittest.TestCase):
-    def det_sim_tests(self, det):
+    def det_sim_tests(self, det, old_style=False):
         self.assertEqual(det.num_pix, 10201)
         self.assertEqual(det.rel_num_pix, 7540)
         self.assertEqual(det.num_det, 1)
-        self.assertAlmostEqual(det.detd, 585.9375)
-        self.assertAlmostEqual(det.ewald_rad, 585.9375)
+        if not old_style:
+            self.assertAlmostEqual(det.detd, 585.9375)
+            self.assertAlmostEqual(det.ewald_rad, 585.9375)
         self.assertEqual((det.mask==0).sum(), 7540)
         self.assertEqual((det.mask==1).sum(), 2356)
         self.assertEqual((det.mask==2).sum(), 305)
@@ -31,7 +49,7 @@ class TestDetector(unittest.TestCase):
         arr[41:60] = 0
         npt.assert_equal(det.mask[101:202], arr)
         npt.assert_equal(det.mapping, np.zeros(1024, dtype='i4'))
-    
+
     def test_parse_detector(self):
         print('=== Testing parse_detector()')
         det = detector.detector()
@@ -39,7 +57,15 @@ class TestDetector(unittest.TestCase):
         self.assertEqual(det.num_dfiles, 0)
         self.det_sim_tests(det)
         det.parse_detector(recon_folder+'/data/det_sim.dat')
-        # TODO Test with old style detector file as well
+        
+        with open(recon_folder+'/data/det_sim.dat', 'r') as f:
+            lines = f.readlines()
+        lines[0] = lines[0].split()[0]+'\n'
+        with open(recon_folder+'/data/det_sim_test.dat', 'w') as f:
+            f.writelines(lines)
+        det.parse_detector(recon_folder+'/data/det_sim_test.dat')
+        self.det_sim_tests(det, old_style=True)
+        os.remove(recon_folder+'/data/det_sim_test.dat')
 
     def test_parse_detector_list(self):
         print('=== Testing parse_detector_list()')
@@ -99,7 +125,7 @@ class TestDataset(unittest.TestCase):
             npt.assert_array_equal(dset.place_multi[-3:], [7538, 8015, 8331])
             npt.assert_array_equal(dset.count_multi[11:16], [2,3,2,2,3])
             npt.assert_array_equal(dset.count_multi[-16:-11], [2,2,2,2,3])
-    
+
     def test_generate_data(self):
         print('=== Testing generate_data()')
         det = self.create_det()
@@ -190,14 +216,22 @@ class TestRotation(unittest.TestCase):
         self.assertEqual(rot.quat.shape, (3240, 5))
         npt.assert_array_almost_equal(rot.quat[0], [0.5,-0.5,-0.5,-0.5, 2.07312814e-04])
         npt.assert_array_almost_equal(rot.quat[-1], [2.18508012e-01, 0.00000000e+00, 5.72061403e-01, 7.90569415e-01, 3.38911452e-04])
-        
+
     def test_generate_quaternion(self):
         print('=== Testing generate_quaternion()')
         rot = quat.rotation()
         rot.generate_quaternion(recon_folder+'/config.ini')
         self.quat_tests(rot)
         rot.generate_quaternion(recon_folder+'/config.ini')
-        # TODO Modify config to test icosahedral reduction
+        
+        config = DragonflyConfig(recon_folder+'/config.ini')
+        config.modify_entry('emc', 'sym_icosahedral', '1')
+        rot.generate_quaternion(recon_folder+'/config.ini')
+        self.assertTrue(rot.icosahedral_flag)
+        self.assertEqual(rot.num_rot, 75)
+        npt.assert_array_almost_equal(rot.quat[0], [1., 0., 0., 0., 0.00881278])
+        npt.assert_array_almost_equal(rot.quat[1], [0.98830208, -0.12973191, -0.08017873,  0., 0.01192908])
+        config.remove_entry('emc', 'sym_icosahedral')
 
     def test_quat_gen(self):
         print('=== Testing quat_gen()')
@@ -211,7 +245,7 @@ class TestRotation(unittest.TestCase):
         print('=== Testing parse_quat()')
         rot = quat.rotation()
         rot.parse_quat('') # TODO Add saved quaternion file
-        
+
     def test_free_quat(self):
         print('=== Testing free_quat()')
         rot = quat.rotation()
@@ -353,6 +387,90 @@ class TestInterp(unittest.TestCase):
         npt.assert_array_almost_equal(weight, weight2)
         npt.assert_array_almost_equal(model[103:106,68:71,82:85], [[[480.23952805, 7053.79230354, 672.87605846], [2377.76518912, 5341.74335349, 70.74035788], [5519.30333337, 3220.70729727, 0.]], [[0., 5738.38868753, 2835.8821622], [640.53422865, 10226.00092727, 403.93064498], [3106.35276845, 5325.18474032, 0.]], [[0., 3752.37021246, 5424.77431879], [111.97675292, 5624.55664759, 2102.41717762], [1007.59124681, 6925.69283809, 450.55910447]]])
 
+class TestIterate(unittest.TestCase):
+    def allocate_iterate(self):
+        itr = iterate.iterate()
+        det = detector.detector()
+        dset = dataset.dataset(det)
+        param = params.params()
+        qmax = det.generate_detectors(recon_folder+'/config.ini')
+        dset.generate_data(recon_folder+'/config.ini')
+        param.generate_params(recon_folder+'/config.ini')
+        itr.generate_iterate(recon_folder+'/config.ini', qmax, param, det, dset)
+        return itr, det, dset, param, qmax
+
+    def test_calculate_size(self):
+        print('=== Testing calculate_size()')
+        itr = iterate.iterate()
+        self.assertEqual(itr.calculate_size(12.5), 29)
+        self.assertEqual(itr.calculate_size(125.), 29)
+        itr.free_iterate()
+        itr = iterate.iterate()
+        self.assertEqual(itr.calculate_size(12.2), 29)
+        itr.free_iterate()
+        itr = iterate.iterate()
+        self.assertEqual(itr.calculate_size(12.7), 29)
+        itr.free_iterate()
+        itr = iterate.iterate()
+        self.assertEqual(itr.calculate_size(12), 27)
+        itr.free_iterate()
+        itr = iterate.iterate()
+        self.assertEqual(itr.calculate_size(13.), 29)
+        itr.free_iterate()
+
+    def test_generate_iterate(self):
+        print('=== Testing generate_iterate()')
+        itr, det, dset, param, qmax = self.allocate_iterate()
+        self.assertRaises(AssertionError, itr.generate_iterate, recon_folder+'/config.ini', qmax, param, det, dset, continue_flag=True)
+        itr.generate_iterate(recon_folder+'/config.ini', qmax, param, det, dset, config_section='foobar')
+
+    def test_calc_scale(self):
+        print('=== Testing calc_scale()')
+        itr, det, dset, param, qmax = self.allocate_iterate()
+        itr.calc_scale(dset, det)
+        self.assertEqual(itr.scale.shape[0], dset.tot_num_data)
+        npt.assert_array_equal(itr.scale, np.ones(dset.tot_num_data, dtype='f8'))
+        npt.assert_array_equal(dset.count[:5], [1621, 1382, 1050, 2436, 1450])
+        npt.assert_array_equal(dset.count[-5:], [1093, 1597, 1053, 1080, 1315])
+        itr.calc_scale(dset, det, print_fname=recon_folder+'/data/scale/scale_000.dat')
+
+    def test_normalize_scale(self):
+        print('=== Testing normalize_scale()')
+        itr, det, dset, param, qmax = self.allocate_iterate()
+        itr.calc_scale(dset, det)
+        itr.normalize_scale()
+        config = DragonflyConfig(recon_folder+'/config.ini')
+        config.modify_entry('emc', 'need_scaling', '1')
+        itr.normalize_scale()
+        config.remove_entry('emc', 'need_scaling')
+
+    def test_parse_scale(self):
+        print('=== Testing parse_scale()')
+        itr, det, dset, param, qmax = self.allocate_iterate()
+        itr.calc_scale(dset, det)
+        self.assertEqual(itr.parse_scale(''), 0)
+        
+        scale_fname = recon_folder+'/data/scales.dat'
+        rand_scales = np.random.random(dset.tot_num_data)
+        np.savetxt(scale_fname, rand_scales)
+        self.assertEqual(itr.parse_scale(scale_fname), 1)
+        npt.assert_array_almost_equal(itr.scale, rand_scales)
+
+    def test_parse_input(self):
+        print('=== Testing parse_scale()')
+        itr, det, dset, param, qmax = self.allocate_iterate()
+        itr.parse_input('', 1.)
+        self.assertAlmostEqual(itr.model1.mean(), 0.5, places=3)
+
+    def test_free_iterate(self):
+        print('=== Testing free_iterate()')
+        itr = iterate.iterate()
+        itr.free_iterate()
+        itr.free_iterate()
+        itr, det, dset, param, qmax = self.allocate_iterate()
+        itr.free_iterate()
+        itr.free_iterate()
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Unit testing Dragonfly')
     parser.add_argument('-f', '--recon_folder', help='Reconstruction folder with test data', default=os.path.relpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../testing_0001/')))
@@ -364,4 +482,3 @@ if __name__ == '__main__':
     sys.argv[1:] = args.unittest_args
     
     unittest.main(verbosity=0)
-
