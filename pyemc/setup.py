@@ -7,7 +7,7 @@ import glob
 
 gsl_cflags = subprocess.check_output('gsl-config --cflags', shell=True).rstrip().split()
 gsl_libs = subprocess.check_output('gsl-config --libs', shell=True).rstrip().split()
-compile_args = '-I/usr/include/python2.7 -fopenmp -O3 -Wall -Wno-cpp -Wno-unused-result -Wno-unused-function'.split() + gsl_cflags
+compile_args = '-I/usr/include/python2.7 -fopenmp -O3 -Wall -Wno-cpp -Wno-unused-result -Wno-unused-function -DFIXED_SEED'.split() + gsl_cflags
 link_args = '-lpython2.7 -lm -fopenmp'.split() + gsl_libs
 mpi_compile_args = subprocess.check_output('mpicc --showme:compile', shell=True).rstrip().split()
 mpi_link_args = subprocess.check_output('mpicc --showme:link', shell=True).rstrip().split()
