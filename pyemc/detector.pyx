@@ -12,6 +12,7 @@ cdef class detector:
 		self.det.num_det = 0
 		self.det.num_dfiles = 0
 		self.det.mapping = [0]*1024
+		self.curr_det = 0
 
 	def generate_detectors(self, config_fname, norm_flag=True, config_section='emc'):
 		cdef char* c_config_fname = config_fname
@@ -46,17 +47,17 @@ cdef class detector:
 		self.free_detector()
 
 	@property
-	def num_pix(self): return self.det.num_pix if self.det != NULL else None
+	def num_pix(self): return self.det[self.curr_det].num_pix if self.det != NULL else None
 	@property
-	def rel_num_pix(self): return self.det.rel_num_pix if self.det != NULL else None
+	def rel_num_pix(self): return self.det[self.curr_det].rel_num_pix if self.det != NULL else None
 	@property
-	def detd(self): return self.det.detd if self.det != NULL else None
+	def detd(self): return self.det[self.curr_det].detd if self.det != NULL else None
 	@property
-	def ewald_rad(self): return self.det.ewald_rad if self.det != NULL else None
+	def ewald_rad(self): return self.det[self.curr_det].ewald_rad if self.det != NULL else None
 	@property
-	def pixels(self): return np.asarray(<double[:4*self.num_pix]>self.det.pixels).reshape(-1,4) if self.det != NULL else None
+	def pixels(self): return np.asarray(<double[:4*self.num_pix]>self.det[self.curr_det].pixels).reshape(-1,4) if self.det != NULL else None
 	@property
-	def mask(self): return np.asarray(<emc.uint8_t[:self.num_pix]>self.det.mask) if self.det != NULL else None
+	def mask(self): return np.asarray(<emc.uint8_t[:self.num_pix]>self.det[self.curr_det].mask) if self.det != NULL else None
 
 	# Only relevant for first detector in list
 	@property
@@ -65,4 +66,13 @@ cdef class detector:
 	def num_dfiles(self): return self.det.num_dfiles if self.det != NULL else None
 	@property
 	def mapping(self): return np.asarray(self.det.mapping, dtype='i4') if self.det != NULL else None
+
+	def nth_det(self, num):
+		if num < self.num_det:
+			self.curr_det = num
+			print(num, self.curr_det, self.num_det)
+			return self
+		else:
+			print('No detector number %d'%num)
+			return None
 
