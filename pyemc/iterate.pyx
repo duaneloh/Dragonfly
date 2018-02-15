@@ -61,10 +61,11 @@ cdef class iterate:
 	@property
 	def tot_num_data(self): return self.iterate.tot_num_data if self.iterate != NULL else None
 	@property
-	def model1(self): return np.asarray(<double[:self.size*self.size*self.size]> self.iterate.model1).reshape(self.size,self.size,self.size) if self.iterate != NULL else None
+	def model1(self): return np.asarray(<double[:self.size**3]> self.iterate.model1).reshape(3*(self.size,)) if self.iterate != NULL else None
 	@property
-	def model2(self): return np.asarray(<double[:self.size*self.size*self.size]> self.iterate.model2).reshape(self.size,self.size,self.size) if self.iterate != NULL else None
+	def model2(self): return np.asarray(<double[:self.size**3]> self.iterate.model2).reshape(3*(self.size,)) if self.iterate != NULL else None
 	@property
-	def inter_weight(self): return np.asarray(<double[:self.size*self.size*self.size]> self.iterate.inter_weight).reshape(self.size,self.size,self.size) if self.iterate != NULL else None
+	def inter_weight(self): return np.asarray(<double[:self.size**3]> self.iterate.inter_weight).reshape(3*(self.size,)) if self.iterate != NULL else None
 	@property
 	def scale(self): return np.asarray(<double[:self.tot_num_data]> self.iterate.scale) if self.iterate != NULL else None
+ 

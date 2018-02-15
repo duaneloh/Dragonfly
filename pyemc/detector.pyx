@@ -70,7 +70,6 @@ cdef class detector:
 	def nth_det(self, num):
 		if num < self.num_det:
 			self.curr_det = num
-			print(num, self.curr_det, self.num_det)
 			return self
 		else:
 			print('No detector number %d'%num)
