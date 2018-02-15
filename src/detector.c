@@ -122,22 +122,29 @@ double parse_detector(char *fname, struct detector *det, int norm_flag) {
 	return sqrt(qmax) ;
 }
 
-double parse_detector_list(char *fname, struct detector **det_ptr, int norm_flag) {
+double parse_detector_list(char *flist, struct detector **det_ptr, int norm_flag) {
 	int j, num_det = 0, num_dfiles, new_det ;
 	double det_qmax, qmax = -1. ;
 	char name_list[1024][1024] ;
+	char flist_folder[1024] ;
 	int det_mapping[1024] = {0} ;
 	struct detector *det ;
 	
-	FILE *fp = fopen(fname, "r") ;
+	char *temp_fname = strndup(flist, 1024) ;
+	sprintf(flist_folder, "%s/", dirname(temp_fname)) ;
+	free(temp_fname) ;
+	char rel_fname[1024] ;
+	
+	FILE *fp = fopen(flist, "r") ;
 	if (fp == NULL) {
-		fprintf(stderr, "Unable to open in_detector_list %s\n", fname) ;
+		fprintf(stderr, "Unable to open in_detector_list %s\n", flist) ;
 		return -1. ;
 	}
 	for (num_dfiles = 0 ; num_dfiles < 1024 ; ++num_dfiles) {
-		if (feof(fp) || fscanf(fp, "%s\n", name_list[num_det]) != 1)
+		if (feof(fp) || fscanf(fp, "%s\n", rel_fname) != 1)
 			break ;
 		new_det = 1 ;
+		absolute_strcpy(flist_folder, name_list[num_det], rel_fname) ;
 		for (j = 0 ; j < num_det ; ++j)
 		if (strcmp(name_list[num_det], name_list[j]) == 0) {
 			new_det = 0 ;
