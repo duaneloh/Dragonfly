@@ -8,6 +8,7 @@ import numpy as np
 import scipy.special
 import os
 import sys
+import csv
 import shutil
 import ConfigParser
 
@@ -35,10 +36,9 @@ class DragonflyConfig():
             self.config.write(f)
 
 class TestDetector(unittest.TestCase):
-    def det_sim_tests(self, det, old_style=False):
+    def det_sim_tests(self, det, old_style=False, single=True):
         self.assertEqual(det.num_pix, 10201)
         self.assertEqual(det.rel_num_pix, 7540)
-        self.assertEqual(det.num_det, 1)
         if not old_style:
             self.assertAlmostEqual(det.detd, 585.9375)
             self.assertAlmostEqual(det.ewald_rad, 585.9375)
@@ -48,7 +48,9 @@ class TestDetector(unittest.TestCase):
         arr = np.ones(101, dtype='u1')
         arr[41:60] = 0
         npt.assert_equal(det.mask[101:202], arr)
-        npt.assert_equal(det.mapping, np.zeros(1024, dtype='i4'))
+        if single:
+            self.assertEqual(det.num_det, 1)
+            npt.assert_array_equal(det.mapping, np.zeros(1024, dtype='i4'))
 
     def test_parse_detector(self):
         print('=== Testing parse_detector()')
@@ -58,38 +60,83 @@ class TestDetector(unittest.TestCase):
         self.det_sim_tests(det)
         det.parse_detector(recon_folder+'/data/det_sim.dat')
         
+        det_fname = recon_folder+'/data/det_sim_test.dat'
         with open(recon_folder+'/data/det_sim.dat', 'r') as f:
             lines = f.readlines()
         lines[0] = lines[0].split()[0]+'\n'
-        with open(recon_folder+'/data/det_sim_test.dat', 'w') as f:
+        with open(det_fname, 'w') as f:
             f.writelines(lines)
-        det.parse_detector(recon_folder+'/data/det_sim_test.dat')
+        det.parse_detector(det_fname)
         self.det_sim_tests(det, old_style=True)
-        os.remove(recon_folder+'/data/det_sim_test.dat')
+        os.remove(det_fname)
 
     def test_parse_detector_list(self):
         print('=== Testing parse_detector_list()')
-        det = detector.detector()
+        shutil.copyfile(recon_folder+'/data/det_sim.dat', recon_folder+'/data/det_sim_test.dat')
         list_fname = 'test_det_list.txt'
+        
+        det = detector.detector()
         with open(list_fname, 'w') as f:
             f.writelines([recon_folder+'/data/det_sim.dat\n', recon_folder+'/data/det_sim.dat\n'])
         self.assertAlmostEqual(det.parse_detector_list(list_fname), 70.32817314646061) 
         self.assertEqual(det.num_dfiles, 2)
         self.det_sim_tests(det)
+        self.assertIs(det.nth_det(1), None)
+        
+        det = detector.detector()
+        with open(list_fname, 'w') as f:
+            f.writelines([recon_folder+'/data/det_sim.dat\n', recon_folder+'/data/det_sim_test.dat\n'])
         det.parse_detector_list(list_fname)
+        self.assertEqual(det.num_dfiles, 2)
+        self.assertEqual(det.num_det, 2)
+        npt.assert_array_equal(det.mapping, [0,1]+1022*[0])
+        self.det_sim_tests(det, single=False)
+        self.det_sim_tests(det.nth_det(1), single=False)
+        self.assertIs(det.nth_det(2), None)
+        
         os.remove(list_fname)
+        os.remove(recon_folder+'/data/det_sim_test.dat')
 
     def test_generate_detectors(self):
         print('=== Testing generate_detectors()')
         det = detector.detector()
-        self.assertAlmostEqual(det.generate_detectors(recon_folder+'/config.ini'), 70.32817314646061) 
+        self.assertAlmostEqual(det.generate_detectors(config_fname), 70.32817314646061) 
         self.assertEqual(det.num_dfiles, 0)
         self.det_sim_tests(det)
-        det.generate_detectors(recon_folder+'/config.ini')
+        det.generate_detectors(config_fname)
+        
+        det = detector.detector()
+        list_fname = recon_folder+'/det_list.txt'
+        with open(list_fname, 'w') as f:
+            f.writelines(['data/det_sim.dat\n', 'data/det_sim.dat\n'])
+        config = DragonflyConfig(config_fname)
+        config.modify_entry('emc', 'in_detector_list', 'det_list.txt')
+        self.assertRaises(AssertionError, det.generate_detectors, config_fname)
+        config.remove_entry('emc', 'in_detector_file')
+        det.generate_detectors(config_fname)
+        self.det_sim_tests(det)
+        
+        shutil.copyfile(recon_folder+'/data/det_sim.dat', recon_folder+'/data/det_sim_test.dat')
+        with open(list_fname, 'w') as f:
+            f.writelines(['data/det_sim.dat\n', 'data/det_sim_test.dat\n'])
+        det.generate_detectors(config_fname)
+        self.det_sim_tests(det, single=False)
+        self.det_sim_tests(det.nth_det(1), single=False)
+        
+        os.remove(list_fname)
+        os.remove(recon_folder+'/data/det_sim_test.dat')
+        config.remove_entry('emc', 'in_detector_list')
+        config.modify_entry('emc', 'in_detector_file', 'make_detector:::out_detector_file')
 
     def test_free_detector(self):
         print('=== Testing free_detector()')
         det = detector.detector()
+        det.free_detector()
+        det.free_detector()
+        self.assertIsNone(det.num_pix)
+        
+        det = detector.detector()
+        det.generate_detectors(config_fname)
         det.free_detector()
         det.free_detector()
         self.assertIsNone(det.num_pix)
@@ -130,9 +177,25 @@ class TestDataset(unittest.TestCase):
         print('=== Testing generate_data()')
         det = self.create_det()
         dset = dataset.dataset(det)
-        dset.generate_data(recon_folder+'/config.ini')
+        dset.generate_data(config_fname)
         self.photons_tests(dset)
-        dset.generate_data(recon_folder+'/config.ini')
+        dset.generate_data(config_fname)
+        
+        list_fname = recon_folder+'/test_photons_list.txt'
+        with open(list_fname, 'w') as f:
+            f.writelines(['data/photons.emc\n', 'data/photons.emc\n'])
+        config = DragonflyConfig(config_fname)
+        config.modify_entry('emc', 'in_photons_list', list_fname)
+        self.assertRaises(AssertionError, dset.generate_data, config_fname)
+        config.remove_entry('emc', 'in_photons_file')
+        dset.generate_data(config_fname)
+        self.photons_tests(dset, 2)
+        ndset = dset.next
+        self.photons_tests(ndset, 2, False)
+        
+        os.remove(list_fname)
+        config.remove_entry('emc', 'in_photons_list')
+        config.modify_entry('emc', 'in_photons_file', 'make_data:::out_photons_file')
 
     def test_parse_dataset(self):
         print('=== Testing parse_dataset()')
@@ -146,15 +209,15 @@ class TestDataset(unittest.TestCase):
         print('=== Testing parse_data()')
         det = self.create_det()
         dset = dataset.dataset(det)
-        temp_fname = 'test_dset_flist.txt'
-        with open(temp_fname, 'w') as f:
+        list_fname = 'test_dset_flist.txt'
+        with open(list_fname, 'w') as f:
             f.writelines([recon_folder+'/data/photons.emc\n', recon_folder+'/data/photons.emc\n'])
-        num_dsets = dset.parse_data(temp_fname)
+        num_dsets = dset.parse_data(list_fname)
         self.photons_tests(dset, num_dsets)
         ndset = dset.next
         self.photons_tests(ndset, num_dsets, False)
-        dset.parse_data(temp_fname)
-        os.remove(temp_fname)
+        dset.parse_data(list_fname)
+        os.remove(list_fname)
 
     def test_calc_sum_fact(self):
         print('=== Testing calc_sum_fact()')
@@ -178,27 +241,69 @@ class TestDataset(unittest.TestCase):
         det = self.create_det()
         dset = dataset.dataset(det)
         dset.parse_dataset(recon_folder+'/data/photons.emc')
-        dset.generate_blacklist(recon_folder+'/config.ini')
+        dset.generate_blacklist(config_fname)
         self.assertEqual(dset.blacklist.shape[0], 3000)
         self.assertEqual(dset.blacklist.sum(), 0)
-        dset.generate_blacklist(recon_folder+'/config.ini')
+        dset.generate_blacklist(config_fname)
+        
+        blist_fname = recon_folder+'/data/blacklist.dat'
+        blist = np.zeros(dset.tot_num_data, dtype='u1')
+        blist[:10] = 1
+        np.savetxt(blist_fname, blist, fmt='%d')
+        config = DragonflyConfig(config_fname)
+        config.modify_entry('emc', 'blacklist_file', 'data/blacklist.dat')
+        dset.generate_blacklist(config_fname)
+        self.assertEqual(dset.blacklist.shape[0], 3000)
+        self.assertEqual(dset.blacklist.sum(), 10)
+        os.remove(blist_fname)
+        
+        config.remove_entry('emc', 'blacklist_file')
+        config.modify_entry('emc', 'selection', 'odd_only')
+        dset.generate_blacklist(config_fname)
+        self.assertEqual(dset.blacklist.shape[0], 3000)
+        self.assertEqual(dset.blacklist.sum(), 1500)
+        config.remove_entry('emc', 'selection')
 
     def test_make_blacklist(self):
         print('=== Testing make_blacklist()')
         det = self.create_det()
         dset = dataset.dataset(det)
         dset.parse_dataset(recon_folder+'/data/photons.emc')
-        dset.make_blacklist('') # TODO Create blacklist file and test
+        dset.make_blacklist('')
         self.assertEqual(dset.blacklist.shape[0], 3000)
         self.assertEqual(dset.blacklist.sum(), 0)
+        
         dset.make_blacklist('', odd_flag=2)
         self.assertEqual(dset.blacklist.shape[0], 3000)
         self.assertEqual(dset.blacklist.sum(), 1500)
         npt.assert_array_equal(dset.blacklist[:4], [0,1,0,1])
+        
         dset.make_blacklist('', odd_flag=1)
         self.assertEqual(dset.blacklist.shape[0], 3000)
         self.assertEqual(dset.blacklist.sum(), 1500)
         npt.assert_array_equal(dset.blacklist[:4], [1,0,1,0])
+        
+        blist_fname = recon_folder+'/data/blacklist.dat'
+        blist = np.zeros(dset.tot_num_data, dtype='u1')
+        blist[:10] = 1
+        np.savetxt(blist_fname, blist, fmt='%d')
+        dset.make_blacklist(blist_fname)
+        self.assertEqual(dset.blacklist.shape[0], 3000)
+        self.assertEqual(dset.blacklist.sum(), 10)
+        npt.assert_array_equal(dset.blacklist[8:12], [1,1,0,0])
+        
+        # Behavior when both blacklist file and odd/even selection
+        # Alternate frames which are not blacklisted by file are blacklisted
+        dset.make_blacklist(blist_fname, odd_flag=2)
+        self.assertEqual(dset.blacklist.shape[0], 3000)
+        self.assertEqual(dset.blacklist.sum(), 1505)
+        npt.assert_array_equal(dset.blacklist[8:12], [1,1,0,1])
+        
+        dset.make_blacklist(blist_fname, odd_flag=1)
+        self.assertEqual(dset.blacklist.shape[0], 3000)
+        self.assertEqual(dset.blacklist.sum(), 1505)
+        npt.assert_array_equal(dset.blacklist[8:12], [1,1,1,0])
+        os.remove(blist_fname)
 
     def test_free_data(self):
         print('=== Testing free_data()')
@@ -220,18 +325,35 @@ class TestRotation(unittest.TestCase):
     def test_generate_quaternion(self):
         print('=== Testing generate_quaternion()')
         rot = quat.rotation()
-        rot.generate_quaternion(recon_folder+'/config.ini')
+        rot.generate_quaternion(config_fname)
         self.quat_tests(rot)
-        rot.generate_quaternion(recon_folder+'/config.ini')
+        rot.generate_quaternion(config_fname)
+        quat_fname = recon_folder+'/data/quat.dat'
+        with open(quat_fname, 'w') as f:
+            w = csv.writer(f, delimiter=' ')
+            w.writerow([rot.num_rot])
+            w.writerows(rot.quat)
         
-        config = DragonflyConfig(recon_folder+'/config.ini')
+        config = DragonflyConfig(config_fname)
         config.modify_entry('emc', 'sym_icosahedral', '1')
-        rot.generate_quaternion(recon_folder+'/config.ini')
+        rot.generate_quaternion(config_fname)
         self.assertTrue(rot.icosahedral_flag)
         self.assertEqual(rot.num_rot, 75)
         npt.assert_array_almost_equal(rot.quat[0], [1., 0., 0., 0., 0.00881278])
         npt.assert_array_almost_equal(rot.quat[1], [0.98830208, -0.12973191, -0.08017873,  0., 0.01192908])
         config.remove_entry('emc', 'sym_icosahedral')
+        
+        rot.free_quat()
+        rot = quat.rotation()
+        config.modify_entry('emc', 'in_quat_file', 'data/quat.dat')
+        self.assertRaises(AssertionError, rot.generate_quaternion, config_fname)
+        config.remove_entry('emc', 'num_div')
+        rot.generate_quaternion(config_fname)
+        self.quat_tests(rot)
+        
+        os.remove(quat_fname)
+        config.modify_entry('emc', 'num_div', '4')
+        config.remove_entry('emc', 'in_quat_file')
 
     def test_quat_gen(self):
         print('=== Testing quat_gen()')
@@ -244,48 +366,93 @@ class TestRotation(unittest.TestCase):
     def test_parse_quat(self):
         print('=== Testing parse_quat()')
         rot = quat.rotation()
-        rot.parse_quat('') # TODO Add saved quaternion file
+        self.assertEqual(rot.parse_quat(''), -1)
+        
+        rot.quat_gen(4)
+        quat_fname = recon_folder+'/data/quat.dat'
+        with open(quat_fname, 'w') as f:
+            w = csv.writer(f, delimiter=' ')
+            w.writerow([rot.num_rot])
+            w.writerows(rot.quat)
+        self.assertEqual(rot.parse_quat(quat_fname), 3240)
+        self.quat_tests(rot)
+        os.remove(quat_fname)
+
+    def test_divide_quat(self):
+        print('=== Testing divide_quat()')
+        rot = quat.rotation()
+        rot.quat_gen(4)
+        rot.divide_quat(0, 1)
+        self.assertEqual(rot.num_rot_p, 3240)
+        rot.divide_quat(5, 7)
+        self.assertEqual(rot.num_rot_p, 463)
+        rot.divide_quat(6, 7)
+        self.assertEqual(rot.num_rot_p, 462)
 
     def test_free_quat(self):
         print('=== Testing free_quat()')
         rot = quat.rotation()
         rot.quat_gen(4)
+        rot.divide_quat(6, 7)
         rot.free_quat()
         rot.free_quat()
         self.assertIsNone(rot.num_rot)
 
 class TestParams(unittest.TestCase):
-    def configparams_test(self, param):
-        # TODO Modify config file to make values non-default
+    def configparams_test(self, param, default=True):
         self.assertEqual(param.rank, 0)
         self.assertEqual(param.num_proc, 1)
-        self.assertEqual(os.path.abspath(param.output_folder), os.path.abspath(recon_folder+'/data/'))
-        self.assertEqual(os.path.abspath(param.log_fname), os.path.abspath(recon_folder+'/EMC.log'))
-        self.assertEqual(param.need_scaling, 0)
         self.assertEqual(param.known_scale, 0)
-        self.assertEqual(param.alpha, 0.)
-        self.assertEqual(param.beta, 1.)
-        self.assertEqual(param.beta_period, 100)
-        self.assertEqual(param.beta_jump, 1.)
-        self.assertEqual(param.sigmasq, 0.)
-        
-        # TODO Test with continue flag
         self.assertEqual(param.start_iter, 1)
-        #self.assertEqual(param.current_iter, 0)
-        #self.assertEqual(param.iteration, 0)
-        #self.assertEqual(param.num_iter, 0)
-
+        if default:
+            self.assertEqual(os.path.abspath(param.output_folder), os.path.abspath(recon_folder+'/data/'))
+            self.assertEqual(os.path.abspath(param.log_fname), os.path.abspath(recon_folder+'/EMC.log'))
+            self.assertEqual(param.need_scaling, 0)
+            self.assertEqual(param.alpha, 0.)
+            self.assertEqual(param.beta, 1.)
+            self.assertEqual(param.beta_period, 100)
+            self.assertEqual(param.beta_jump, 1.)
+            self.assertEqual(param.sigmasq, 0.)
+        else:
+            self.assertEqual(os.path.abspath(param.output_folder), os.path.abspath(recon_folder+'/other_data/'))
+            self.assertEqual(os.path.abspath(param.log_fname), os.path.abspath(recon_folder+'/other_EMC.log'))
+            self.assertEqual(param.need_scaling, 1)
+            self.assertEqual(param.alpha, 0.5)
+            self.assertEqual(param.beta, 0.5)
+            self.assertEqual(param.beta_period, 10)
+            self.assertEqual(param.beta_jump, 1.5)
+            self.assertEqual(param.sigmasq, 1.)
+        
     def test_generate_params(self):
         print('=== Testing generate_params()')
         param = params.params()
-        param.generate_params(recon_folder+'/config.ini')
+        param.generate_params(config_fname)
         self.configparams_test(param)
-        param.generate_params(recon_folder+'/config.ini')
+        param.generate_params(config_fname)
+        
+        config = DragonflyConfig(config_fname)
+        config.modify_entry('emc', 'output_folder', 'other_data/')
+        config.modify_entry('emc', 'log_file', 'other_EMC.log')
+        config.modify_entry('emc', 'need_scaling', '1')
+        config.modify_entry('emc', 'alpha', '0.5')
+        config.modify_entry('emc', 'beta', '0.5')
+        config.modify_entry('emc', 'beta_schedule', '1.5 10')
+        config.modify_entry('emc', 'gaussian_sigma', '1.')
+        param.generate_params(config_fname)
+        self.configparams_test(param, default=False)
+        
+        config.modify_entry('emc', 'output_folder', 'data/')
+        config.modify_entry('emc', 'log_file', 'EMC.log')
+        config.remove_entry('emc', 'need_scaling')
+        config.remove_entry('emc', 'alpha')
+        config.remove_entry('emc', 'beta')
+        config.remove_entry('emc', 'beta_schedule')
+        config.remove_entry('emc', 'gaussian_sigma')
 
     def test_generate_output_dirs(self):
         print('=== Testing generate_output_dirs()')
         param = params.params()
-        param.generate_params(recon_folder+'/config.ini')
+        param.generate_params(config_fname)
         flist = [recon_folder+'/data/'+d for d in ['output', 'weights', 'orientations', 'scale', 'likelihood', 'mutualInfo']]
         [shutil.rmtree(d) for d in flist if os.path.exists(d)]
         param.generate_output_dirs()
@@ -295,7 +462,7 @@ class TestParams(unittest.TestCase):
     def test_free_params(self):
         print('=== Testing free_params()')
         param = params.params()
-        param.generate_params(recon_folder+'/config.ini')
+        param.generate_params(config_fname)
         param.free_params()
         param.free_params()
 
@@ -393,10 +560,10 @@ class TestIterate(unittest.TestCase):
         det = detector.detector()
         dset = dataset.dataset(det)
         param = params.params()
-        qmax = det.generate_detectors(recon_folder+'/config.ini')
-        dset.generate_data(recon_folder+'/config.ini')
-        param.generate_params(recon_folder+'/config.ini')
-        itr.generate_iterate(recon_folder+'/config.ini', qmax, param, det, dset)
+        qmax = det.generate_detectors(config_fname)
+        dset.generate_data(config_fname)
+        param.generate_params(config_fname)
+        itr.generate_iterate(config_fname, qmax, param, det, dset)
         return itr, det, dset, param, qmax
 
     def test_calculate_size(self):
@@ -421,8 +588,21 @@ class TestIterate(unittest.TestCase):
     def test_generate_iterate(self):
         print('=== Testing generate_iterate()')
         itr, det, dset, param, qmax = self.allocate_iterate()
-        self.assertRaises(AssertionError, itr.generate_iterate, recon_folder+'/config.ini', qmax, param, det, dset, continue_flag=True)
-        itr.generate_iterate(recon_folder+'/config.ini', qmax, param, det, dset, config_section='foobar')
+        self.assertEqual(itr.size, 145)
+        self.assertRaises(AssertionError, itr.generate_iterate, config_fname, qmax, param, det, dset, continue_flag=True)
+        itr.generate_iterate(config_fname, qmax, param, det, dset, config_section='foobar')
+        
+        config = DragonflyConfig(config_fname)
+        config.modify_entry('emc', 'size', '101')
+        config.modify_entry('emc', 'need_scaling', '1')
+        itr, det, dset, param, qmax = self.allocate_iterate()
+        npt.assert_array_equal(itr.scale, np.ones(dset.tot_num_data, dtype='f8'))
+        npt.assert_array_equal(dset.count[:5], [1621, 1382, 1050, 2436, 1450])
+        npt.assert_array_equal(dset.count[-5:], [1093, 1597, 1053, 1080, 1315])
+        self.assertEqual(itr.size, 101)
+        
+        config.remove_entry('emc', 'size')
+        config.remove_entry('emc', 'need_scaling')
 
     def test_calc_scale(self):
         print('=== Testing calc_scale()')
@@ -439,8 +619,9 @@ class TestIterate(unittest.TestCase):
         itr, det, dset, param, qmax = self.allocate_iterate()
         itr.calc_scale(dset, det)
         itr.normalize_scale()
-        config = DragonflyConfig(recon_folder+'/config.ini')
+        config = DragonflyConfig(config_fname)
         config.modify_entry('emc', 'need_scaling', '1')
+        itr, det, dset, param, qmax = self.allocate_iterate()
         itr.normalize_scale()
         config.remove_entry('emc', 'need_scaling')
 
@@ -457,10 +638,10 @@ class TestIterate(unittest.TestCase):
         npt.assert_array_almost_equal(itr.scale, rand_scales)
 
     def test_parse_input(self):
-        print('=== Testing parse_scale()')
+        print('=== Testing parse_input()')
         itr, det, dset, param, qmax = self.allocate_iterate()
-        itr.parse_input('', 1.)
-        self.assertAlmostEqual(itr.model1.mean(), 0.5, places=3)
+        itr.parse_input('', -1.)
+        self.assertAlmostEqual(itr.model1.mean(), 0.499965209377)
 
     def test_free_iterate(self):
         print('=== Testing free_iterate()')
@@ -478,6 +659,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     recon_folder = args.recon_folder
+    config_fname = recon_folder + '/config.ini'
     print('Testing using recon folder: %s'%recon_folder)
     sys.argv[1:] = args.unittest_args
     
