@@ -14,19 +14,26 @@ mpi_link_args = subprocess.check_output('mpicc --showme:link', shell=True).rstri
 
 ext_modules = [
     Extension(name='detector', sources='detector.pyx ../src/detector.c'.split(),
+        depends='../src/detector.h emc.pxd'.split(),
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
     Extension(name='quat', sources='quat.pyx ../src/quat.c'.split(),
+        depends='../src/quat.h emc.pxd'.split(),
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
     Extension(name='dataset', sources='dataset.pyx ../src/dataset.c'.split(),
+        depends='../src/dataset.h emc.pxd detector.pxd'.split(),
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
     Extension(name='interp', sources='interp.pyx ../src/interp.c'.split(),
+        depends='../src/interp.h emc.pxd detector.pxd'.split(),
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
     Extension(name='params', sources='params.pyx ../src/params.c'.split(),
+        depends='../src/params.h emc.pxd'.split(),
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
     Extension(name='iterate', sources='iterate.pyx ../src/iterate.c'.split(),
+        depends='../src/iterate.h emc.pxd detector.pxd dataset.pxd params.pxd quat.pxd'.split(),
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
     Extension(name='pyemc', sources=['pyemc.pyx']+glob.glob('../src/*emc.c'), 
         extra_objects=['build/src/'+f for f in 'detector.o quat.o dataset.o interp.o iterate.o params.o'.split()],
+        depends='../src/iterate.h emc.pxd detector.pxd dataset.pxd params.pxd quat.pxd iterate.pxd'.split(),
         language='c', extra_compile_args=compile_args+mpi_compile_args, extra_link_args=link_args+mpi_link_args),
 ]
 
