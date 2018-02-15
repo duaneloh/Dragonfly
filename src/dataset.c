@@ -214,22 +214,27 @@ int parse_dataset(char *fname, struct detector *det, struct dataset *current) {
 	return 0 ;
 }
 
-int parse_data(char *fname, struct detector *det, struct dataset *frames) {
+int parse_data(char *flist, struct detector *det, struct dataset *frames) {
 	struct dataset *curr ;
 	char data_fname[1024] ;
+	char flist_folder[1024], rel_fname[1024] ;
+	char *temp_fname = strndup(flist, 1024) ;
+	sprintf(flist_folder, "%s/", dirname(temp_fname)) ;
+	free(temp_fname) ;
 	
-	FILE *fp = fopen(fname, "r") ;
+	FILE *fp = fopen(flist, "r") ;
 	if (fp == NULL) {
-		fprintf(stderr, "data_flist %s not found. Exiting.\n", fname) ;
+		fprintf(stderr, "data_flist %s not found. Exiting.\n", flist) ;
 		return -1 ;
 	}
 	
-	if (fscanf(fp, "%s\n", data_fname) == 1) {
+	if (fscanf(fp, "%s\n", rel_fname) == 1) {
+		absolute_strcpy(flist_folder, data_fname, rel_fname) ;
 		if (parse_dataset(data_fname, det, frames))
 			return -1 ;
 	}
 	else {
-		fprintf(stderr, "No datasets found in %s\n", fname) ;
+		fprintf(stderr, "No datasets found in %s\n", flist) ;
 		return -1 ;
 	}
 	
@@ -239,9 +244,10 @@ int parse_data(char *fname, struct detector *det, struct dataset *frames) {
 	frames->num_data_prev = 0 ;
 	int num_datasets = 1 ;
 	
-	while (fscanf(fp, "%s\n", data_fname) == 1) {
-		if (strlen(data_fname) == 0)
+	while (fscanf(fp, "%s\n", rel_fname) == 1) {
+		if (strlen(rel_fname) == 0)
 			continue ;
+		absolute_strcpy(flist_folder, data_fname, rel_fname) ;
 		curr->next = malloc(sizeof(struct dataset)) ;
 		curr = curr->next ;
 		curr->next = NULL ;
