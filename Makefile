@@ -1,4 +1,4 @@
-.PHONY: mkdir env
+.PHONY: mkdir env clean unit_test
 
 MPICC = mpicc
 CC = gcc
@@ -62,7 +62,15 @@ utils/fiberize: bin/detector.o bin/interp.o
 $(UTILS): utils/%: utils/src/%.c
 	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
 
+# Cythonize C code and run unit tests
+# ============================================================
+test: all unit_test
+
+unit_test:
+	./utils/run_tests.sh
+
 # Remove compiled files
 # ============================================================
 clean:
 	rm -f emc $(UTILS) $(EMC_OBJ)
+	rm -rf pyemc/build pyemc/*.so
