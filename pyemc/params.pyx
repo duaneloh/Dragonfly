@@ -31,20 +31,39 @@ cdef class params:
 
 	@property
 	def rank(self): return self.param.rank if self.param != NULL else None
+	@rank.setter
+	def rank(self, val): self.param.rank = val
+
 	@property
 	def num_proc(self): return self.param.num_proc if self.param != NULL else None
+	@num_proc.setter
+	def num_proc(self, val): self.param.num_proc = val
+
+	@property
+	def iteration(self): return self.param.iteration if self.param != NULL else None
+	@iteration.setter
+	def iteration(self, val): self.param.iteration = val
+
+	@property
+	def current_iter(self): return self.param.current_iter if self.param != NULL else None
+	@current_iter.setter
+	def current_iter(self, val): self.param.current_iter = val
+
+	@property
+	def start_iter(self): return self.param.start_iter if self.param != NULL else None
+	@start_iter.setter
+	def start_iter(self, val): self.param.start_iter = val
+
+	@property
+	def num_iter(self): return self.param.num_iter if self.param != NULL else None
+	@num_iter.setter
+	def num_iter(self, val): self.param.num_iter = val
+
+	# Properties related to configuration file
 	@property
 	def output_folder(self): return str(self.param.output_folder) if self.param != NULL else None
 	@property
 	def log_fname(self): return str(self.param.log_fname) if self.param != NULL else None
-	@property
-	def iteration(self): return self.param.iteration if self.param != NULL else None
-	@property
-	def current_iter(self): return self.param.current_iter if self.param != NULL else None
-	@property
-	def start_iter(self): return self.param.start_iter if self.param != NULL else None
-	@property
-	def num_iter(self): return self.param.num_iter if self.param != NULL else None
 	@property
 	def beta_period(self): return self.param.beta_period if self.param != NULL else None
 	@property
