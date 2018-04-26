@@ -15,6 +15,7 @@ python setup.py build_ext --inplace
 res=$?
 if [ ${res} -ne 0 ]
 then
+	echo
 	echo Error in building Cython testing code
 	cd ${root_dir}
 	rm -r ${test_dir}
@@ -25,4 +26,6 @@ echo
 ./unit.py -f ${test_dir}
 cd ${root_dir}
 
+echo
+echo Removing ${test_dir}
 rm -r ${test_dir}
