@@ -61,7 +61,7 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 		}
 		else {
 			while (!feof(fp))
-				fgets(line, 500, fp) ;
+				fgets(line, 1024, fp) ;
 			sscanf(line, "%d", &param->start_iter) ;
 			fclose(fp) ;
 			
