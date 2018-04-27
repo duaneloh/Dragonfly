@@ -186,7 +186,7 @@ int main(int argc, char *argv[]) {
 				for (t = 0 ; t < curr->multi[d] ; ++t)
 					view[curr->place_multi[curr->multi_accum[d]+t]] += curr->count_multi[curr->multi_accum[d]+t] ;
 				
-				slice_merge(&quat[4*d], view, priv_model, priv_weight, iter->size, &det[detn]) ;
+				slice_merge3d(&quat[4*d], view, priv_model, priv_weight, iter->size, &det[detn]) ;
 				if (omp_rank == 0)
 					fprintf(stderr, "\rMerging %s : %ld/%d", curr->filename, d+1, curr->num_data) ;
 			}

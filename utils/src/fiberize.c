@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
 		quat[2] = quat[0] ;
 		quat[3] = quat[1] ;
 		
-		slice_gen(quat, 0., temp_slice, volume, size, det) ;
+		slice_gen3d(quat, 0., temp_slice, volume, size, det) ;
 		for (t = 0 ; t < num_pix ; ++t)
 			slice[t] += temp_slice[t] ;
 		fprintf(stderr, "\r%.2f", a*180./M_PI) ;

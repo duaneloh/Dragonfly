@@ -136,10 +136,10 @@ void rescale_intens() {
 		for (d = 0 ; d < NUM_AVE ; ++d) {
 			if (num_rot == 0) {
 				rand_quat(quat, rng) ;
-				slice_gen(quat, 0., view, intens, size, det) ;
+				slice_gen3d(quat, 0., view, intens, size, det) ;
 			}
 			else {
-				slice_gen(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], 0., view, intens, size, det) ;
+				slice_gen3d(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], 0., view, intens, size, det) ;
 			}
 			
 			for (t = 0 ; t < det->num_pix ; ++t){
@@ -224,10 +224,10 @@ double calc_dataset() {
 		for (d = 0 ; d < num_data ; ++d) {
 			if (num_rot == 0) {
 				rand_quat(quat, rng) ;
-				slice_gen(quat, 0., view, intens, size, det) ;
+				slice_gen3d(quat, 0., view, intens, size, det) ;
 			}
 			else {
-				slice_gen(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], 0., view, intens, size, det) ;
+				slice_gen3d(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], 0., view, intens, size, det) ;
 			}
 			
 			if (do_gamma)
