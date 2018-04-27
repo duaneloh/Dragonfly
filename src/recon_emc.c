@@ -100,7 +100,7 @@ void write_log_file_header(int num_threads) {
 	fprintf(fp, "\tnum_rot = %d\n\tnum_pix = %d/%d\n\tsystem_volume = %ld X %ld X %ld\n\n", 
 			quat->num_rot, 
 			det->rel_num_pix, det->num_pix, 
-			iter->size, iter->size, iter->size) ;
+			param->modes > 0 ? param->modes : iter->size, iter->size, iter->size) ;
 	fprintf(fp, "Reconstruction parameters:\n") ;
 	fprintf(fp, "\tnum_threads = %d\n\tnum_proc = %d\n\talpha = %.6f\n\tbeta = %.6f\n\tneed_scaling = %s", 
 			num_threads, 
@@ -113,7 +113,11 @@ void write_log_file_header(int num_threads) {
 }
 
 void emc() {
-	long vol = iter->size * iter->size * iter->size ; ;
+	long vol ;
+	if (param->modes > 0)
+		vol = param->modes * iter->size * iter->size ;
+	else
+		vol = iter->size * iter->size * iter->size ;
 	double likelihood ;
 	
 	for (param->iteration = param->start_iter ; param->iteration <= param->num_iter + param->start_iter - 1 ; ++param->iteration) {
@@ -146,7 +150,11 @@ void emc() {
 }
 
 void update_model(double likelihood) {
-	long x, vol = iter->size * iter->size * iter->size ; ;
+	long x, vol ;
+	if (param->modes > 0)
+		vol = param->modes * iter->size * iter->size ;
+	else
+		vol = iter->size * iter->size * iter->size ;
 	double diff, change = 0., norm = 1. ;
 	char fname[1024] ;
 	FILE *fp ;
@@ -155,7 +163,8 @@ void update_model(double likelihood) {
 		if (iter->inter_weight[x] > 0.)
 			iter->model2[x] *= norm / iter->inter_weight[x] ;
 	
-	if (quat->icosahedral_flag)
+	if (param->modes > 0) ;
+	else if (quat->icosahedral_flag)
 		symmetrize_icosahedral(iter->model2, iter->size) ;
 	else
 		symmetrize_friedel(iter->model2, iter->size) ;

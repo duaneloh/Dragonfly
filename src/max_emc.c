@@ -87,7 +87,11 @@ double maximize() {
 
 void allocate_memory(struct max_data *data, int omp_flag) {
 	int d, r ;
-	long vol = iter->size * iter->size * iter->size ;
+	long vol ;
+	if (param->modes > 0)
+		vol = param->modes * iter->size * iter->size ;
+	else
+		vol = iter->size * iter->size * iter->size ;
 	
 	data->rmax = calloc(frames->tot_num_data, sizeof(int)) ;
 	data->max_exp_p = malloc(frames->tot_num_data * sizeof(double)) ;
@@ -140,7 +144,7 @@ double calculate_rescale(struct max_data *data) {
 		#pragma omp for schedule(static,1) reduction(+:total)
 		for (r = 0 ; r < quat->num_rot_p ; ++r) {
 			// Second argument being 0. tells slice_gen to generate un-rescaled tomograms
-			slice_gen(&quat->quat[(r*param->num_proc + param->rank)*5], 0., view, iter->model1, iter->size, det) ;
+			(*slice_gen)(&quat->quat[(r*param->num_proc + param->rank)*5], 0., view, iter->model1, iter->size, det) ;
 			
 			for (t = 0 ; t < det[0].num_pix ; ++t)
 			if (det[0].mask[t] < 1)
@@ -175,7 +179,7 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 		//Calculate slice for current detector
 		detn = det[0].mapping[dset] ;
 		if (detn != old_detn)
-			slice_gen(&quat->quat[(r*param->num_proc + param->rank)*5], 1., priv->view[detn], iter->model1, iter->size, &det[detn]) ;
+			(*slice_gen)(&quat->quat[(r*param->num_proc + param->rank)*5], 1., priv->view[detn], iter->model1, iter->size, &det[detn]) ;
 		old_detn = detn ;
 		
 		// For each frame in data set
@@ -384,14 +388,18 @@ void merge_tomogram(int r, struct max_data *priv) {
 			for (t = 0 ; t < det[detn].num_pix ; ++t)
 				priv->view[detn][t] /= priv->p_sum[detn] ;
 			
-			slice_merge(&quat->quat[(r*param->num_proc + param->rank)*5], priv->view[detn], priv->model, priv->weight, iter->size, &det[detn]) ;
+			(*slice_merge)(&quat->quat[(r*param->num_proc + param->rank)*5], priv->view[detn], priv->model, priv->weight, iter->size, &det[detn]) ;
 		}
 	}
 }
 
 void combine_information_omp(struct max_data *priv, struct max_data *common) {
 	int d, omp_rank = omp_get_thread_num() ;
-	long x, vol = iter->size * iter->size * iter->size ;
+	long x, vol ;
+	if (param->modes > 0)
+		vol = param->modes * iter->size * iter->size ;
+	else
+		vol = iter->size * iter->size * iter->size ;
 	
 	#pragma omp critical(model)
 	{
@@ -425,7 +433,11 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 
 double combine_information_mpi(struct max_data *data) {
 	int d ;
-	long vol = iter->size * iter->size * iter->size ;
+	long vol ;
+	if (param->modes > 0)
+		vol = param->modes * iter->size * iter->size ;
+	else
+		vol = iter->size * iter->size * iter->size ;
 	double avg_likelihood = 0. ;
 	
 	// Combine 3D volumes from all MPI ranks
