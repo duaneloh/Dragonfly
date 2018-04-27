@@ -7,6 +7,7 @@ int setup(char *s_config_fname, int continue_flag) {
 	FILE *fp ;
 	double qmax = -1. ;
 	struct timeval t1, t2 ;
+	int det_flag ;
 	
 	gettimeofday(&t1, NULL) ;
 
@@ -25,7 +26,17 @@ int setup(char *s_config_fname, int continue_flag) {
 	fclose(fp) ;
 	generate_params(config_fname, param) ;
 	generate_output_dirs(param) ;
-	if ((qmax = generate_detectors(config_fname, "emc", &det, 1)) < 0.)
+	if (param->modes > 0) {
+		det_flag = -param->modes ;
+		slice_gen = &slice_gen2d ;
+		slice_merge = &slice_merge2d ;
+	}
+	else {
+		det_flag = 1 ;
+		slice_gen = &slice_gen3d ;
+		slice_merge = &slice_merge3d ;
+	}
+	if ((qmax = generate_detectors(config_fname, "emc", &det, det_flag)) < 0.)
 		return 1 ;
 	if (generate_quaternion(config_fname, "emc", quat))
 		return 1 ;
