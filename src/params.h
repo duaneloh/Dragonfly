@@ -18,6 +18,9 @@ struct params {
 	
 	// Gaussian EMC parameter
 	double sigmasq ;
+
+	// Number of unconstrained modes
+	int modes ;
 } ;
 
 void generate_params(char*, struct params*) ;
