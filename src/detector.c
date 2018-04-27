@@ -83,7 +83,7 @@ double generate_detectors(char *config_fname, char *config_section, struct detec
 
 double parse_detector(char *fname, struct detector *det, int norm_flag) {
 	int t, d ;
-	double q, qmax = -1., mean_pol = 0. ;
+	double temp, q, qmax = -1., mean_pol = 0. ;
 	char line[1024] ;
 	
 	det->rel_num_pix = 0 ;
@@ -97,26 +97,59 @@ double parse_detector(char *fname, struct detector *det, int norm_flag) {
 	}
 	fgets(line, 1024, fp) ;
 	sscanf(line, "%d %lf %lf\n", &det->num_pix, &det->detd, &det->ewald_rad) ;
-	det->pixels = malloc(4 * det->num_pix * sizeof(double)) ;
-	det->mask = malloc(det->num_pix * sizeof(uint8_t)) ;
-	for (t = 0 ; t < det->num_pix ; ++t) {
-		for (d = 0 ; d < 4 ; ++d)
-			fscanf(fp, "%lf", &det->pixels[t*4 + d]) ;
-		fscanf(fp, "%" SCNu8, &det->mask[t]) ;
-		if (det->mask[t] < 1)
-			det->rel_num_pix++ ;
-		q = pow(det->pixels[t*4+0], 2.) + pow(det->pixels[t*4+1], 2.) + pow(det->pixels[t*4+2], 2.) ;
-		if (q > qmax)
-			qmax = q ;
-		mean_pol += det->pixels[t*4 + 3] ;
+	if (norm_flag >= 0) {
+		det->pixels = malloc(4 * det->num_pix * sizeof(double)) ;
+		det->mask = malloc(det->num_pix * sizeof(uint8_t)) ;
+		for (t = 0 ; t < det->num_pix ; ++t) {
+			for (d = 0 ; d < 4 ; ++d)
+				fscanf(fp, "%lf", &det->pixels[t*4 + d]) ;
+			fscanf(fp, "%" SCNu8, &det->mask[t]) ;
+			
+			if (det->mask[t] < 1)
+				det->rel_num_pix++ ;
+			q = pow(det->pixels[t*4+0], 2.) + pow(det->pixels[t*4+1], 2.) + pow(det->pixels[t*4+2], 2.) ;
+			if (q > qmax)
+				qmax = q ;
+			mean_pol += det->pixels[t*4 + 3] ;
+		}
+		
+		if (norm_flag == 1) {
+			mean_pol /= det->num_pix ;
+			for (t = 0 ; t < det->num_pix ; ++t)
+				det->pixels[t*4 + 3] /= mean_pol ;
+		}
 	}
-	
-	if (norm_flag == 1) {
+	else {
+		if (det->detd == 0. || det->ewald_rad == 0.) {
+			fprintf(stderr, "Need new format detector to create 2D detector\n") ;
+			return -1. ;
+		}
+		fprintf(stderr, "Creating 2D detector\n") ;
+		det->pixels = malloc(3 * det->num_pix * sizeof(double)) ;
+		det->mask = malloc(det->num_pix * sizeof(uint8_t)) ;
+		for (t = 0 ; t < det->num_pix ; ++t) {
+			fscanf(fp, "%lf", &det->pixels[t*3 + 0]) ;
+			fscanf(fp, "%lf", &det->pixels[t*3 + 1]) ;
+			fscanf(fp, "%lf", &temp) ;
+			fscanf(fp, "%lf", &det->pixels[t*3 + 2]) ;
+			fscanf(fp, "%" SCNu8, &det->mask[t]) ;
+			
+			// Mapping 3D q-space voxels to 2D
+			det->pixels[t*3+0] *= det->detd / (temp + det->ewald_rad) ;
+			det->pixels[t*3+1] *= det->detd / (temp + det->ewald_rad) ;
+			
+			if (det->mask[t] < 1)
+				det->rel_num_pix++ ;
+			q = pow(det->pixels[t*3+0], 2.) + pow(det->pixels[t*3+1], 2.) ;
+			if (q > qmax)
+				qmax = q ;
+			mean_pol += det->pixels[t*4 + 3] ;
+		}
+		
 		mean_pol /= det->num_pix ;
 		for (t = 0 ; t < det->num_pix ; ++t)
-			det->pixels[t*4 + 3] /= mean_pol ;
+			det->pixels[t*3 + 2] /= mean_pol ;
 	}
-	
 	fclose(fp) ;
 	
 	return sqrt(qmax) ;
@@ -165,7 +198,7 @@ double parse_detector_list(char *flist, struct detector **det_ptr, int norm_flag
 	det[0].num_dfiles = num_dfiles ;
 	//fprintf(stderr, "mapping: %d, %d, ...\n", det[0].mapping[0], det[0].mapping[1]) ;
 	for (j = 0 ; j < num_det ; ++j) {
-		det_qmax = parse_detector(name_list[j], &det[j], 1) ;
+		det_qmax = parse_detector(name_list[j], &det[j], norm_flag) ;
 		if (det_qmax < 0.)
 			return -1. ;
 		if (det_qmax > qmax)
