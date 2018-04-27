@@ -847,7 +847,7 @@ static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
 }
 
 int generate_quaternion(char *config_fname, char *config_section, struct rotation *quat_ptr) {
-	int num, num_div = -1 ;
+	int r, num, num_div = -1, num_modes = 0, num_rot = 0 ;
 	char quat_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], config_folder[1024], *token ;
 	char *temp_fname = strndup(config_fname, 1024) ;
@@ -863,6 +863,10 @@ int generate_quaternion(char *config_fname, char *config_section, struct rotatio
 		if (strcmp(section_name, config_section) == 0) {
 			if (strcmp(token, "num_div") == 0)
 				num_div = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "num_modes") == 0)
+				num_modes = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "num_rot") == 0)
+				num_rot = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "in_quat_file") == 0)
 				absolute_strcpy(config_folder, quat_fname, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "sym_icosahedral") == 0)
@@ -870,6 +874,22 @@ int generate_quaternion(char *config_fname, char *config_section, struct rotatio
 		}
 	}
 	fclose(config_fp) ;
+	
+	if (num_modes > 0) {
+		if (num_rot == 0) {
+			fprintf(stderr, "Need num_rot if num_modes is specified\n") ;
+			return 1 ;
+		}
+		fprintf(stderr, "Creating angles array instead of quaternions with %d modes\n", num_modes) ;
+		quat_ptr->num_rot = num_rot * num_modes ;
+		quat_ptr->quat = calloc(quat_ptr->num_rot * 5, sizeof(double)) ;
+		for (r = 0 ; r < quat_ptr->num_rot ; ++r) {
+			quat_ptr->quat[r*5+0] = 2. * M_PI * r / num_rot ;
+			quat_ptr->quat[r*5+4] = 1. ;
+		}
+		
+		return 0 ;
+	}
 	
 	if (num_div > 0 && quat_fname[0] != '\0') {
 		fprintf(stderr, "Config file contains both num_div as well as in_quat_file. Pick one.\n") ;
