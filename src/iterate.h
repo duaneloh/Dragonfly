@@ -24,7 +24,7 @@ void calculate_size(double, struct iterate*) ;
 int parse_scale(char*, struct iterate*) ;
 void calc_scale(struct dataset*, struct detector*, char*, struct iterate*) ;
 void normalize_scale(struct iterate*) ;
-void parse_input(char*, double, char*, int, struct iterate*) ;
+void parse_input(char*, double, char*, int, int, struct iterate*) ;
 void free_iterate(struct iterate*) ;
 
 #endif //ITERATE_H

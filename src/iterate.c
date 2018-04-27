@@ -87,13 +87,13 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 	if (!param->rank && param->start_iter == 1) {
 		sprintf(line, "%s/output/intens_000.bin", param->output_folder) ;
 		model_mean = dset[0].mean_count / det[0].rel_num_pix * 2. ;
-		#ifdef FIXED_SEED
+#ifdef FIXED_SEED
 		model_mean *= -1. ;
-		#endif // FIXED_SEED
-		parse_input(input_fname, model_mean, line, param->rank, iter) ;
+#endif // FIXED_SEED
+		parse_input(input_fname, model_mean, line, param->rank, param->modes, iter) ;
 	}
 	else {
-		parse_input(input_fname, 1., NULL, param->rank, iter) ;
+		parse_input(input_fname, 1., NULL, param->rank, param->modes, iter) ;
 	}
 	
 	return 0 ;
@@ -193,8 +193,12 @@ void normalize_scale(struct iterate *iter) {
 	iter->rms_change *= mean_scale ;
 }
 
-void parse_input(char *fname, double mean, char *print_fname, int rank, struct iterate *iter) {
-	long vol = iter->size * iter->size * iter->size ;
+void parse_input(char *fname, double mean, char *print_fname, int rank, int num_modes, struct iterate *iter) {
+	long vol ;
+	if (num_modes > 0)
+		vol = num_modes * iter->size * iter->size ;
+	else
+		vol = iter->size * iter->size * iter->size ;
 	iter->model1 = malloc(vol * sizeof(double)) ;
 	iter->model2 = malloc(vol * sizeof(double)) ;
 	iter->inter_weight = malloc(vol * sizeof(double)) ;
