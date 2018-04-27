@@ -143,7 +143,7 @@ double parse_detector(char *fname, struct detector *det, int norm_flag) {
 			q = pow(det->pixels[t*3+0], 2.) + pow(det->pixels[t*3+1], 2.) ;
 			if (q > qmax)
 				qmax = q ;
-			mean_pol += det->pixels[t*4 + 3] ;
+			mean_pol += det->pixels[t*3 + 2] ;
 		}
 		
 		mean_pol /= det->num_pix ;
