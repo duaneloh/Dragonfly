@@ -273,6 +273,11 @@ class Progress_viewer(QtWidgets.QMainWindow):
         except read_config.ConfigParser.NoOptionError:
             self.logfname = 'EMC.log'
 
+        try:
+            self.num_modes = int(read_config.get_param(config, 'emc', 'num_modes'))
+        except read_config.ConfigParser.NoOptionError:
+            self.num_modes = 0
+
     def plot_vol(self, num):
         self.imagename.setText('images/' + os.path.splitext(os.path.basename(self.fname.text()))[0] + '.png')
         rangemin = float(self.rangemin.text())
@@ -280,26 +285,39 @@ class Progress_viewer(QtWidgets.QMainWindow):
         exponent = float(self.expstr.text())
         cmap = self.color_map.checkedAction().text()
 
-        a = self.vol[num,:,:]**exponent
-        b = self.vol[:,num,:]**exponent
-        c = self.vol[:,:,num]**exponent
-
         self.fig.clf()
 
-        s1 = self.fig.add_subplot(131)
-        s1.imshow(a, vmin=rangemin, vmax=rangemax, cmap=cmap, interpolation='none')
-        s1.set_title("YZ plane", y=1.01)
-        s1.axis('off')
+        if self.num_modes == 0:
+            a = self.vol[num,:,:]**exponent
+            b = self.vol[:,num,:]**exponent
+            c = self.vol[:,:,num]**exponent
 
-        s2 = self.fig.add_subplot(132)
-        s2.matshow(b, vmin=rangemin, vmax=rangemax, cmap=cmap, interpolation='none')
-        s2.set_title("XZ plane", y=1.01)
-        s2.axis('off')
-
-        s3 = self.fig.add_subplot(133)
-        s3.matshow(c, vmin=rangemin, vmax=rangemax, cmap=cmap, interpolation='none')
-        s3.set_title("XY plane", y=1.01)
-        s3.axis('off')
+            s1 = self.fig.add_subplot(131)
+            s1.imshow(a, vmin=rangemin, vmax=rangemax, cmap=cmap, interpolation='none')
+            s1.set_title("YZ plane", y=1.01)
+            s1.axis('off')
+            s2 = self.fig.add_subplot(132)
+            s2.matshow(b, vmin=rangemin, vmax=rangemax, cmap=cmap, interpolation='none')
+            s2.set_title("XZ plane", y=1.01)
+            s2.axis('off')
+            s3 = self.fig.add_subplot(133)
+            s3.matshow(c, vmin=rangemin, vmax=rangemax, cmap=cmap, interpolation='none')
+            s3.set_title("XY plane", y=1.01)
+            s3.axis('off')
+        else:
+            nx = int(np.ceil(2.*np.sqrt(self.num_modes / 2.)))
+            ny = int(np.ceil(self.num_modes / float(nx)))
+            total_nx = nx + int(np.ceil(nx / 2)) + 1
+            gs = matplotlib.gridspec.GridSpec(ny, total_nx)
+            for m in range(self.num_modes):
+                s = self.fig.add_subplot(gs[m/nx, m%nx])
+                s.imshow(self.vol[m]**exponent, vmin=rangemin, vmax=rangemax, cmap=cmap, interpolation='none')
+                s.set_title('Class %d'%m)
+                s.axis('off')
+            s = self.fig.add_subplot(gs[:,nx:])
+            s.imshow(self.vol[num]**exponent, vmin=rangemin, vmax=rangemax, cmap=cmap, interpolation='none')
+            s.set_title('Class %d'%num)
+            s.axis('off')
 
         self.canvas.draw()
         self.image_exists = True
@@ -315,14 +333,24 @@ class Progress_viewer(QtWidgets.QMainWindow):
             return
 
         self.vol = np.fromfile(f, dtype='f8')
-        self.size = int(np.ceil(np.power(len(self.vol), 1./3.)))
-        self.vol = self.vol.reshape(self.size, self.size, self.size)
-        self.center = self.size/2
-        if not self.image_exists:
-            self.layer_slider.setRange(0, self.size-1)
-            self.layernum.setMaximum(self.size-1)
-            self.layer_slider.setValue(self.center)
-            self.layerslider_moved(self.center)
+        if self.num_modes == 0:
+            self.size = int(np.ceil(np.power(len(self.vol), 1./3.)))
+            self.vol = self.vol.reshape(self.size, self.size, self.size)
+            self.center = self.size/2
+            if not self.image_exists:
+                self.layer_slider.setRange(0, self.size-1)
+                self.layernum.setMaximum(self.size-1)
+                self.layer_slider.setValue(self.center)
+                self.layerslider_moved(self.center)
+        else:
+            self.size = int(np.ceil(np.power(len(self.vol)/self.num_modes, 1./2.)))
+            self.vol = self.vol.reshape(self.num_modes, self.size, self.size)
+            self.center = 0
+            if not self.image_exists:
+                self.layer_slider.setRange(0, self.num_modes-1)
+                self.layernum.setMaximum(self.num_modes-1)
+                self.layer_slider.setValue(self.center)
+                self.layerslider_moved(self.center)
 
         self.old_fname = fname
 
