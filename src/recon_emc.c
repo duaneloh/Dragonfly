@@ -134,7 +134,7 @@ void emc() {
 		
 		if (!param->rank)
 			update_model(likelihood) ;
-		if (param->need_scaling)
+		if (param->need_scaling && param->modes == 0)
 			normalize_scale(iter) ;
 		print_time("Updated 3D intensity", &t2, &t3, param->rank) ;
 		
