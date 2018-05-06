@@ -39,6 +39,7 @@ void generate_params(char *config_fname, struct params *param) {
 	param->beta = 1. ;
 	param->sigmasq = 0. ;
 	param->modes = 0 ;
+	param->rot_per_mode = 0 ;
 	sprintf(param->log_fname, "%s/EMC.log", config_folder) ;
 	sprintf(param->output_folder, "%s/data/", config_folder) ;
 	
@@ -60,6 +61,8 @@ void generate_params(char *config_fname, struct params *param) {
 				param->beta = atof(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "num_modes") == 0)
 				param->modes = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "num_rot") == 0)
+				param->rot_per_mode = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "beta_schedule") == 0) {
 				param->beta_jump = atof(strtok(NULL, " =\n")) ;
 				param->beta_period = atoi(strtok(NULL, " =\n")) ;
