@@ -107,9 +107,11 @@ double parse_detector(char *fname, struct detector *det, int norm_flag) {
 			
 			if (det->mask[t] < 1)
 				det->rel_num_pix++ ;
-			q = pow(det->pixels[t*4+0], 2.) + pow(det->pixels[t*4+1], 2.) + pow(det->pixels[t*4+2], 2.) ;
-			if (q > qmax)
-				qmax = q ;
+			if (det->mask[t] < 2) {
+				q = pow(det->pixels[t*4+0], 2.) + pow(det->pixels[t*4+1], 2.) + pow(det->pixels[t*4+2], 2.) ;
+				if (q > qmax)
+					qmax = q ;
+			}
 			mean_pol += det->pixels[t*4 + 3] ;
 		}
 		
@@ -140,9 +142,11 @@ double parse_detector(char *fname, struct detector *det, int norm_flag) {
 			
 			if (det->mask[t] < 1)
 				det->rel_num_pix++ ;
-			q = pow(det->pixels[t*3+0], 2.) + pow(det->pixels[t*3+1], 2.) ;
-			if (q > qmax)
-				qmax = q ;
+			if (det->mask[t] < 2) {
+				q = pow(det->pixels[t*3+0], 2.) + pow(det->pixels[t*3+1], 2.) ;
+				if (q > qmax)
+					qmax = q ;
+			}
 			mean_pol += det->pixels[t*3 + 2] ;
 		}
 		
