@@ -19,6 +19,7 @@ struct max_data {
 	double *max_exp_p, *p_sum ;
 	double *info, *likelihood ;
 	int *rmax ;
+	double *quat_norm ;
 } ;
 static struct timeval t1, t2 ;
 
@@ -128,6 +129,9 @@ void allocate_memory(struct max_data *data, int omp_flag) {
 		if (param->need_scaling)
 			data->scale = calloc(frames->tot_num_data, sizeof(double)) ;
 	}
+	
+	if (param->modes)
+		data->quat_norm = calloc(param->modes, sizeof(double)) ;
 }
 
 double calculate_rescale(struct max_data *data) {
@@ -376,6 +380,11 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 		curr = curr->next ;
 		dset++ ;
 	}
+	
+	if (param->modes > 0) {
+		for (detn = 0 ; detn < det[0].num_det ; ++detn)
+			priv->quat_norm[r / param->rot_per_mode] += priv->p_sum[detn] ;
+	}
 }
 
 void merge_tomogram(int r, struct max_data *priv) {
@@ -429,6 +438,12 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 				iter->scale[d] += priv->scale[d] ;
 		}
 	}
+	
+	if (param->modes > 0) {
+		#pragma omp critical(quat_norm)
+		for (d = 0 ; d < param->modes ; ++d)
+			common->quat_norm[d] += priv->quat_norm[d] ;
+	}
 }
 
 double combine_information_mpi(struct max_data *data) {
@@ -453,6 +468,8 @@ double combine_information_mpi(struct max_data *data) {
 	// Combine mutual info and likelihood from all MPI ranks
 	MPI_Allreduce(MPI_IN_PLACE, data->likelihood, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 	MPI_Allreduce(MPI_IN_PLACE, data->info, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
+	if (param->modes > 0)
+		MPI_Allreduce(MPI_IN_PLACE, data->quat_norm, param->modes, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 	
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
 	if (!frames->blacklist[d]) {
@@ -477,7 +494,7 @@ double combine_information_mpi(struct max_data *data) {
 }
 
 void save_output(struct max_data *data) {
-	int d ;
+	int d, r ;
 	
 	if (param->need_scaling) {	
 		char fname[100] ;
@@ -487,6 +504,16 @@ void save_output(struct max_data *data) {
 			fprintf(fp_scale, "%.15e\n", iter->scale[d]) ;
 		fclose(fp_scale) ;
 	}
+	
+	if (param->modes > 0 && param->rank == 0) {
+		fprintf(stderr, "Mode occupancies: ") ;
+		for (r = 0 ; r < param->modes ; ++r)
+			fprintf(stderr, "%.3f ", data->quat_norm[r] / frames->tot_num_data) ;
+		fprintf(stderr, "\n") ;
+	}
+	//if (param->modes > 0)
+	//for (r = 0 ; r < quat->num_rot ; ++r)
+	//	quat->quat[r*5 + 4] = data->quat_norm[r/param->rot_per_mode] / frames->tot_num_data ;
 	
 	// Print frame-by-frame mutual information, likelihood, and most likely orientations to file
 	char fname[1024] ;
@@ -514,6 +541,8 @@ void free_memory(struct max_data *data, int omp_flag) {
 	free(data->info) ;
 	free(data->likelihood) ;
 	free(data->rmax) ;
+	if (param->modes > 0)
+		free(data->quat_norm) ;
 	
 	if (!omp_flag) {
 		free(data->probab) ;
