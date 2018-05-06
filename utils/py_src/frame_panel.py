@@ -118,6 +118,7 @@ class Frame_panel(QtWidgets.QWidget):
             s = self.plot_slice(num)
         else:
             s = self.fig.add_subplot(111)
+        s.set_facecolor('gray')
         s.imshow(frame, vmin=0, vmax=float(self.rangestr.text()), interpolation='none', cmap=self.parent.cmap)
         title = '%d photons' % frame.sum()
         if frame is None and (mode == 1 or mode == 3):
