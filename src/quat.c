@@ -885,7 +885,7 @@ int generate_quaternion(char *config_fname, char *config_section, struct rotatio
 		quat_ptr->quat = calloc(quat_ptr->num_rot * 5, sizeof(double)) ;
 		for (r = 0 ; r < quat_ptr->num_rot ; ++r) {
 			quat_ptr->quat[r*5+0] = 2. * M_PI * r / num_rot ;
-			quat_ptr->quat[r*5+4] = 1. ;
+			quat_ptr->quat[r*5+4] = 1. / num_rot / num_modes ;
 		}
 		
 		return 0 ;
