@@ -309,10 +309,12 @@ class Progress_viewer(QtWidgets.QMainWindow):
             ny = int(np.ceil(self.num_modes / float(nx)))
             total_nx = nx + int(np.ceil(nx / 2)) + 1
             gs = matplotlib.gridspec.GridSpec(ny, total_nx)
+            gs.update(wspace=0.02, hspace=0.02)
             for m in range(self.num_modes):
                 s = self.fig.add_subplot(gs[m/nx, m%nx])
                 s.imshow(self.vol[m]**exponent, vmin=rangemin, vmax=rangemax, cmap=cmap, interpolation='none')
-                s.set_title('Class %d'%m)
+                #s.set_title('Class %d'%m)
+                s.text(0.05, 0.85, '%d'%m, transform=s.transAxes, fontsize=10, color='w', bbox={'facecolor': 'black', 'pad': 0})
                 s.axis('off')
             s = self.fig.add_subplot(gs[:,nx:])
             s.imshow(self.vol[num]**exponent, vmin=rangemin, vmax=rangemax, cmap=cmap, interpolation='none')
@@ -506,7 +508,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
 
     def save_plot(self, event=None):
         self.fig.savefig(str(self.imagename.text()), bbox_inches='tight')
-        sys.stderr.write('Saved to %s'%self.imagename.text())
+        sys.stderr.write('Saved to %s\n'%self.imagename.text())
 
     def save_log_plot(self, event=None):
         self.log_fig.savefig(self.log_imagename.text(), bbox_inches='tight')
