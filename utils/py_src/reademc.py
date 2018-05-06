@@ -1,6 +1,7 @@
 import sys
 import os
 import numpy as np
+import numpy.ma as ma
 
 class EMC_reader():
     """EMC file reader class
@@ -33,6 +34,8 @@ class EMC_reader():
                 print('Need mapping if multiple geometries are provided')
                 raise
         
+        self.assembled_masks = [self._assemble_frame(self.geom_list[num].unassembled_mask, num, fresh=True) for num in range(len(self.geom_list))]
+        self.assembled_blanks = [ma.masked_array(np.zeros(m.shape, dtype='i4'), mask=1-m) for m in self.assembled_masks]
         self._parse_headers()
 
     def get_frame(self, num, raw=False):
@@ -82,7 +85,7 @@ class EMC_reader():
         
         powder *= self.geom_list[0].unassembled_mask
         if not raw:
-            powder = self._assemble_frame(powder, self.geom_list[0])
+            powder = self._assemble_frame(powder, 0)
         return powder
 
     def _parse_headers(self):
@@ -137,11 +140,16 @@ class EMC_reader():
         np.add.at(frame, place_multi, count_multi)
         frame *= self.geom_list[file_num].unassembled_mask
         if not raw_flag:
-            frame = self._assemble_frame(frame, self.geom_list[file_num])
+            frame = self._assemble_frame(frame, file_num)
         return frame
 
-    def _assemble_frame(self, data, geom):
-        img = np.zeros(geom.frame_shape)
+    def _assemble_frame(self, data, num, fresh=False):
+        geom = self.geom_list[num]
+        if fresh:
+            img = np.zeros(geom.frame_shape, dtype=data.dtype)
+        else:
+            img = self.assembled_blanks[num]
+            img.data[:] = 0
         np.add.at(img, [geom.x, geom.y], data)
         return img
 
