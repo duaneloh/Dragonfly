@@ -74,7 +74,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
         # Color map picker
         cmapmenu = menubar.addMenu('&Color Map')
         self.color_map = QtWidgets.QActionGroup(self, exclusive=True)
-        for i, s in enumerate(['cubehelix', 'CMRmap', 'gray', 'gray_r', 'jet']):
+        for i, s in enumerate(['cubehelix', 'CMRmap', 'gray', 'gray_r', 'jet', 'coolwarm']):
             a = self.color_map.addAction(QtWidgets.QAction(s, self, checkable=True))
             if i == 0:
                 a.setChecked(True)
@@ -310,16 +310,19 @@ class Progress_viewer(QtWidgets.QMainWindow):
             total_nx = nx + int(np.ceil(nx / 2)) + 1
             gs = matplotlib.gridspec.GridSpec(ny, total_nx)
             gs.update(wspace=0.02, hspace=0.02)
+            self.subplot_list = []
             for m in range(self.num_modes):
                 s = self.fig.add_subplot(gs[m/nx, m%nx])
                 s.imshow(self.vol[m]**exponent, vmin=rangemin, vmax=rangemax, cmap=cmap, interpolation='none')
                 #s.set_title('Class %d'%m)
                 s.text(0.05, 0.85, '%d'%m, transform=s.transAxes, fontsize=10, color='w', bbox={'facecolor': 'black', 'pad': 0})
                 s.axis('off')
+                self.subplot_list.append(s)
             s = self.fig.add_subplot(gs[:,nx:])
             s.imshow(self.vol[num]**exponent, vmin=rangemin, vmax=rangemax, cmap=cmap, interpolation='none')
             s.set_title('Class %d'%num)
             s.axis('off')
+            self.fig.canvas.mpl_connect('button_press_event', self.select_mode)
 
         self.canvas.draw()
         self.image_exists = True
@@ -457,7 +460,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
             s4 = self.log_fig.add_subplot(grid[:,2])
             o_array = o_array[o_array[:,-1]>=0]
             sh = o_array.shape
-            s4.imshow(o_array**0.5, aspect=(1.*sh[1]/sh[0]), extent=[1,sh[1],sh[0],0])
+            s4.imshow(o_array**0.5, aspect=(1.*sh[1]/sh[0]), extent=[1,sh[1],sh[0],0], cmap=self.color_map.checkedAction().text())
             s4.get_yaxis().set_ticks([])
             s4.set_xlabel('Iteration')
             s4.set_ylabel('Pattern number (sorted)')
@@ -501,6 +504,16 @@ class Progress_viewer(QtWidgets.QMainWindow):
             self.checker.start(5000)
         else:
             self.checker.stop()
+
+    def select_mode(self, event=None):
+        curr_mode = -1
+        for i, ax in enumerate(self.subplot_list):
+            if event.inaxes is ax:
+                curr_mode = i
+        if curr_mode >= 0 and curr_mode != self.layernum.value():
+            self.layer_slider.setValue(curr_mode)
+            self.layernum.setValue(curr_mode)
+            self.plot_vol(curr_mode)
 
     def force_plot(self, event=None):
         self.parse()
