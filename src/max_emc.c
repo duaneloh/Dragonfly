@@ -383,7 +383,7 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 	
 	if (param->modes > 0) {
 		for (detn = 0 ; detn < det[0].num_det ; ++detn)
-			priv->quat_norm[r / param->rot_per_mode] += priv->p_sum[detn] ;
+			priv->quat_norm[(r*param->num_proc + param->rank) / param->rot_per_mode] += priv->p_sum[detn] ;
 	}
 }
 
@@ -508,12 +508,12 @@ void save_output(struct max_data *data) {
 	if (param->modes > 0 && param->rank == 0) {
 		fprintf(stderr, "Mode occupancies: ") ;
 		for (r = 0 ; r < param->modes ; ++r)
-			fprintf(stderr, "%.3f ", data->quat_norm[r] / frames->tot_num_data) ;
+			fprintf(stderr, "%.3f ", data->quat_norm[r]/(frames->tot_num_data - frames->num_blacklist)) ;
 		fprintf(stderr, "\n") ;
 	}
 	//if (param->modes > 0)
 	//for (r = 0 ; r < quat->num_rot ; ++r)
-	//	quat->quat[r*5 + 4] = data->quat_norm[r/param->rot_per_mode] / frames->tot_num_data ;
+	//	quat->quat[r*5 + 4] = data->quat_norm[r/param->rot_per_mode] / (frames->tot_num_data - frames->num_blacklist) ;
 	
 	// Print frame-by-frame mutual information, likelihood, and most likely orientations to file
 	char fname[1024] ;
