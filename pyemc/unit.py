@@ -512,45 +512,45 @@ class TestInterp(unittest.TestCase):
         interp.rotate_model(rot, intens, rotmodel)
         npt.assert_array_almost_equal(rotmodel[100:103,100:103,100:103], [[[0.09167898, 0.03647299, 0.00707748], [0.12777323, 0.06260195, 0.02031047], [0.16907458, 0.09657051, 0.04333556]], [[0.06231541, 0.02152542, 0.00546131], [0.09500319, 0.04364314, 0.0141322], [0.13197364, 0.07370418, 0.03259982]], [[0.04283407, 0.01201542, 0.00398634], [0.06886472, 0.02839342, 0.00625303], [0.10017888, 0.05289991, 0.02144472]]])
 
-    def test_slice_gen(self):
-        print('=== Testing slice_gen()')
+    def test_slice_gen3d(self):
+        print('=== Testing slice_gen3d()')
         det = detector.detector()
         det.parse_detector(recon_folder+'/data/det_sim.dat')
         intens = 1.e-9*np.fromfile(recon_folder+'/data/intensities.bin').reshape(3*(145,))
         view = np.zeros(det.num_pix)
         
         quat = np.array([1.,0,0,0])
-        interp.slice_gen(quat, view, intens, det)
+        interp.slice_gen3d(quat, view, intens, det)
         self.assertAlmostEqual(view.mean(), 223.922218946)
         npt.assert_array_almost_equal(view[:5], [0.03021473, 0.02554173, 0.01861631, 0.01085438, 0.00459315])
-        interp.slice_gen(quat, view, intens, det, rescale=1.)
+        interp.slice_gen3d(quat, view, intens, det, rescale=1.)
         self.assertAlmostEqual(view.mean(), 1.86882056344)
         npt.assert_array_almost_equal(view[:5], [-3.49942586, -3.66744152, -3.98371703, -4.5231864, -5.38318919])
         
         quat = np.array([np.sqrt(0.86),0.1,0.2,0.3])
-        interp.slice_gen(quat, view, intens, det)
+        interp.slice_gen3d(quat, view, intens, det)
         self.assertAlmostEqual(view.mean(), 184.449773553)
         npt.assert_array_almost_equal(view[:5], [0.00039123, 0.00014522, 0.00057308, 0.00185642, 0.00371838])
-        interp.slice_gen(quat, view, intens, det, rescale=1.)
+        interp.slice_gen3d(quat, view, intens, det, rescale=1.)
         self.assertAlmostEqual(view.mean(), 0.567310517859)
         npt.assert_array_almost_equal(view[:5], [-7.84620536, -8.83729446, -7.46449246, -6.28910363, -5.59446611])
 
-    def test_slice_merge(self):
-        print('=== Testing slice_merge()')
+    def test_slice_merge3d(self):
+        print('=== Testing slice_merge3d()')
         det = detector.detector()
         det.parse_detector(recon_folder+'/data/det_sim.dat')
         view = np.ascontiguousarray(det.pixels[:,3])
         quat = np.array([np.sqrt(0.86),0.1,0.2,0.3])
         model = np.zeros(3*(145,))
         weight = np.zeros_like(model)
-        interp.slice_merge(quat, view, model, weight, det)
+        interp.slice_merge3d(quat, view, model, weight, det)
         npt.assert_array_almost_equal(model, weight)
         npt.assert_array_almost_equal(model[103:106,68:71,82:85], [[[0.05970267, 0.86777407, 0.08261854], [0.29557584, 0.6624112, 0.00868513], [0.69197243, 0.40168333, 0.]], [[0., 0.69936496, 0.34398347], [0.07919628, 1.25519294, 0.0490487], [0.38575382, 0.65815609, 0.]], [[0., 0.45319003, 0.65207203], [0.01374454, 0.68324196, 0.25491581], [0.12366799, 0.84800088, 0.05462553]]])
         
         view = np.ascontiguousarray(det.pixels[:,3])*np.arange(det.num_pix)
         model = np.zeros(3*(145,))
         weight2 = np.zeros_like(model)
-        interp.slice_merge(quat, view, model, weight2, det)
+        interp.slice_merge3d(quat, view, model, weight2, det)
         npt.assert_array_almost_equal(weight, weight2)
         npt.assert_array_almost_equal(model[103:106,68:71,82:85], [[[480.23952805, 7053.79230354, 672.87605846], [2377.76518912, 5341.74335349, 70.74035788], [5519.30333337, 3220.70729727, 0.]], [[0., 5738.38868753, 2835.8821622], [640.53422865, 10226.00092727, 403.93064498], [3106.35276845, 5325.18474032, 0.]], [[0., 3752.37021246, 5424.77431879], [111.97675292, 5624.55664759, 2102.41717762], [1007.59124681, 6925.69283809, 450.55910447]]])
 

@@ -48,7 +48,7 @@ cdef class iterate:
 			c_print_fname = print_fname
 		else:
 			c_print_fname = NULL
-		emc.parse_input(c_fname, mean, c_print_fname, rank, self.iterate)
+		emc.parse_input(c_fname, mean, c_print_fname, rank, 0, self.iterate)
 
 	def free_iterate(self):
 		emc.free_iterate(self.iterate)

@@ -98,13 +98,13 @@ cdef extern from '../src/iterate.h':
 	int parse_scale(char*, iterate*)
 	void calc_scale(dataset*, detector*, char*, iterate*)
 	void normalize_scale(iterate*)
-	void parse_input(char*, double, char*, int, iterate*)
+	void parse_input(char*, double, char*, int, int, iterate*)
 	void free_iterate(iterate*)
 
 cdef extern from '../src/interp.h':
 	void make_rot_quat(double*, double[3][3])
-	void slice_gen(double*, double, double*, double*, long, detector*)
-	void slice_merge(double*, double*, double*, double*, long, detector*)
+	void slice_gen3d(double*, double, double*, double*, long, detector*)
+	void slice_merge3d(double*, double*, double*, double*, long, detector*)
 	void rotate_model(double[3][3], double*, int, double*)
 	void symmetrize_friedel(double*, int)
 

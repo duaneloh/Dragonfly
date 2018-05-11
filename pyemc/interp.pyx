@@ -14,7 +14,7 @@ def make_rot_quat(np.ndarray[double, ndim=1] quat):
 	emc.make_rot_quat(&quat[0], <double(*)[3]>&rotarr[0][0])
 	return np.asarray(rotarr).reshape(3,3)
 
-def slice_gen(np.ndarray[double, ndim=1, mode='c'] quat,
+def slice_gen3d(np.ndarray[double, ndim=1, mode='c'] quat,
               np.ndarray[double, ndim=1, mode='c'] out_slice,
               np.ndarray[double, ndim=3, mode='c'] model,
               detector det,
@@ -22,17 +22,17 @@ def slice_gen(np.ndarray[double, ndim=1, mode='c'] quat,
 	'''
 	Interpolates values at given voxel positions from a given 3D volume for a given quaternion
 	
-	slice_gen(np.ndarray[double, ndim=1, mode='c'] quat,
-              np.ndarray[double, ndim=1, mode='c'] out_slice,
-              np.ndarray[double, ndim=3, mode='c'] model,
-              detector det,
-              double rescale=0)
+	slice_gen3d(np.ndarray[double, ndim=1, mode='c'] quat,
+                np.ndarray[double, ndim=1, mode='c'] out_slice,
+                np.ndarray[double, ndim=3, mode='c'] model,
+                detector det,
+                double rescale=0)
 	'''
 	cdef int size = model.shape[0]
 	cdef double[:,:,:] modelarr = model
-	emc.slice_gen(&quat[0], rescale, &out_slice[0], <double*>&modelarr[0][0][0], size, det.det)
+	emc.slice_gen3d(&quat[0], rescale, &out_slice[0], <double*>&modelarr[0][0][0], size, det.det)
 
-def slice_merge(np.ndarray[double, ndim=1, mode='c'] quat,
+def slice_merge3d(np.ndarray[double, ndim=1, mode='c'] quat,
                 np.ndarray[double, ndim=1, mode='c'] in_slice,
                 np.ndarray[double, ndim=3, mode='c'] model,
                 np.ndarray[double, ndim=3, mode='c'] weight,
@@ -40,16 +40,16 @@ def slice_merge(np.ndarray[double, ndim=1, mode='c'] quat,
 	'''
 	Merges slice into 3D model and interpolation weight arrays
 	
-	slice_merge(np.ndarray[double, ndim=1, mode='c'] quat,
-                np.ndarray[double, ndim=1, mode='c'] in_slice,
-                np.ndarray[double, ndim=3, mode='c'] model,
-                np.ndarray[double, ndim=3, mode='c'] weight,
-                detector det)
+	slice_merge3d(np.ndarray[double, ndim=1, mode='c'] quat,
+                  np.ndarray[double, ndim=1, mode='c'] in_slice,
+                  np.ndarray[double, ndim=3, mode='c'] model,
+                  np.ndarray[double, ndim=3, mode='c'] weight,
+                  detector det)
 	'''
 	cdef int size = model.shape[0]
 	cdef double[:,:,:] modelarr = model
 	cdef double[:,:,:] weightarr = weight
-	emc.slice_merge(&quat[0], &in_slice[0], <double*>&modelarr[0][0][0], <double*>&weightarr[0][0][0], size, det.det)
+	emc.slice_merge3d(&quat[0], &in_slice[0], <double*>&modelarr[0][0][0], <double*>&weightarr[0][0][0], size, det.det)
 
 def symmetrize_friedel(np.ndarray[np.double_t, ndim=3, mode='c'] model):
 	'''
