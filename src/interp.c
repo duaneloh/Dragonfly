@@ -270,6 +270,46 @@ void slice_merge2d(double *angle_ptr, double *slice, double *model, double *weig
  * 		rotmodel - Pointer to rotated model
  */
 void rotate_model(double rot[3][3], double *m, int s, double *rotmodel) {
+	int x, y, z, i, c = s/2, vx, vy, vz ;
+	double fx, fy, fz, cx, cy, cz ;
+	double rot_vox[3] ;
+	
+	for (vx = -c ; vx < s-c ; ++vx)
+	for (vy = -c ; vy < s-c ; ++vy)
+	for (vz = -c ; vz < s-c ; ++vz) {
+		for (i = 0 ; i < 3 ; ++i) {
+			rot_vox[i] = 0. ;
+			rot_vox[i] += rot[i][0]*vx + rot[i][1]*vy + rot[i][2]*vz ;
+			rot_vox[i] += c ;
+		}
+		
+		if (rot_vox[0] < 0 || rot_vox[0] >= s - 1) continue ;
+		if (rot_vox[1] < 0 || rot_vox[1] >= s - 1) continue ;
+		if (rot_vox[2] < 0 || rot_vox[2] >= s - 1) continue ;
+		
+		x = (int) rot_vox[0] ;
+		y = (int) rot_vox[1] ;
+		z = (int) rot_vox[2] ;
+		fx = rot_vox[0] - x ;
+		fy = rot_vox[1] - y ;
+		fz = rot_vox[2] - z ;
+		cx = 1. - fx ;
+		cy = 1. - fy ;
+		cz = 1. - fz ;
+		
+		rotmodel[(vx+c)*s*s + (vy+c)*s + (vz+c)] +=
+			cx*cy*cz*m[x*s*s + y*s + z] + 
+			cx*cy*fz*m[x*s*s + y*s + ((z+1)%s)] + 
+			cx*fy*cz*m[x*s*s + ((y+1)%s)*s + z] + 
+			cx*fy*fz*m[x*s*s + ((y+1)%s)*s + ((z+1)%s)] + 
+			fx*cy*cz*m[((x+1)%s)*s*s + y*s + z] +
+			fx*cy*fz*m[((x+1)%s)*s*s + y*s + ((z+1)%s)] +
+			fx*fy*cz*m[((x+1)%s)*s*s + ((y+1)%s)*s + z] +
+			fx*fy*fz*m[((x+1)%s)*s*s + ((y+1)%s)*s + ((z+1)%s)] ;
+	}
+}
+
+void rotate_model_openmp(double rot[3][3], double *m, int s, double *rotmodel) {
 	#pragma omp parallel default(shared)
 	{
 		int x, y, z, i, c = s/2, vx, vy, vz ;
@@ -409,7 +449,7 @@ void symmetrize_icosahedral(double *model, int size) {
 	memset(model, 0, size*size*size*sizeof(double)) ;
 	
 	for (i = 0 ; i < 60 ; ++i)
-		rotate_model(icos_list[i], temp, size, model) ;
+		rotate_model_openmp(icos_list[i], temp, size, model) ;
 	
 	for (i = 0 ; i < size*size*size ; ++i)
 		model[i] /= 60. ;
