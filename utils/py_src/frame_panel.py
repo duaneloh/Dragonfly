@@ -155,8 +155,9 @@ class Frame_panel(QtWidgets.QWidget):
         if iteration > 0:
             s = self.fig.add_subplot(121)
             sc = self.fig.add_subplot(122)
-            tomo = self.slices.get_slice(iteration, num)
-            sc.imshow(tomo, cmap=self.parent.cmap, vmin=0, vmax=float(self.rangestr.text()), interpolation='none')
+            tomo, info = self.slices.get_slice(iteration, num)
+            sc.imshow(tomo**0.2, cmap=self.parent.cmap, vmin=0, vmax=float(self.rangestr.text()), interpolation='none')
+            sc.set_title('Mutual Info. = %f'%info)
             self.fig.add_subplot(sc)
         else:
             s = self.fig.add_subplot(111)
