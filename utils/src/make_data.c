@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <inttypes.h>
+#include <limits.h>
 #include <omp.h>
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
@@ -12,39 +13,43 @@
 #include <float.h>
 #include <stdint.h>
 #include <libgen.h>
+#include "../../src/detector.h"
+#include "../../src/interp.h"
 
 #define NUM_AVE 5000
 #define FLUENCE 0
 #define COUNTS 1
 
-double rot[2][2] ;
-int size, num_data, num_data_p, num_pix, scale_method ;
+int rank, num_proc, size, num_rot, scale_method ;
 int **place_ones, **place_multi, *ones, *multi, **count_multi ;
-double fluence, rescale, mean_count, spread, detd, back, center ;
-double *intens, *det, *view, *likelihood ;
-char output_fname[999], likelihood_fname[999] ;
-uint8_t *mask ;
+double *intens, *likelihood, *quat_list, *scale_factors ;
+struct detector *det ;
+char config_section[1024] ;
 
-int setup(char *) ;
-void rand_quat(double[4], gsl_rng*) ;
-int poisson(double, gsl_rng*) ;
-double rand_scale() ;
+// Config file params
+int num_data, do_gamma ;
+double fluence, rescale, mean_count, background ;
+char output_fname[1024], likelihood_fname[1024], scale_fname[1024] ;
+
+void rescale_intens() ;
+void allocate_data_memory() ;
+double calc_dataset() ;
+void write_dataset() ;
+int setup(char*) ;
 void free_mem() ;
-void slice_gen(double*, double*, double*, double*) ;
 
 int main(int argc, char *argv[]) {
-	int c, d, x ;
-	double intens_ave, actual_mean_count = 0. ;
-	FILE *fp ;
+	int c ;
+	double actual_mean_count ;
 	struct timeval t1, t2 ;
+	gsl_rng_env_setup() ;
 	
-	char config_fname[999] ;
+	char config_fname[1024] ;
 	extern char *optarg ;
 	extern int optind ;
 	
 	omp_set_num_threads(omp_get_max_threads()) ;
 	strcpy(config_fname, "config.ini") ;
-	
 	while ((c = getopt(argc, argv, "c:t:h")) != -1) {
 		switch (c) {
 			case 't':
@@ -58,93 +63,168 @@ int main(int argc, char *argv[]) {
 				return 1 ;
 		}
 	}
-	
 	fprintf(stderr, "Generating data with parameters from %s\n", config_fname) ;
 	
 	if (setup(config_fname))
-		return 2 ;
+		return 1 ;
 	
 	gettimeofday(&t1, NULL) ;
-	intens_ave = 0. ;
 	
-	const gsl_rng_type *T ;
-	gsl_rng_env_setup() ;
-	T = gsl_rng_default ;
+	rescale_intens() ;
+	allocate_data_memory() ;
+	actual_mean_count = calc_dataset() ;
+	write_dataset() ;
+	
+	gettimeofday(&t2, NULL) ;
+	fprintf(stderr, "Generated %d frames with %f photons/frame\n", num_data, actual_mean_count) ;
+	fprintf(stderr, "Time taken = %f s\n", (double)(t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.) ;
+	
+	free_mem() ;
+	
+	return 0 ;
+}
+
+void rand_quat(double quat[4], gsl_rng *rng) {
+	int i ;
+	double qq ;
+	
+	do {
+		qq = 0. ;
+		for (i = 0 ; i < 4 ; ++i) {
+			quat[i] = gsl_rng_uniform(rng) -.5 ;
+			qq += quat[i] * quat[i] ;
+		}
+	}
+	while (qq > .25) ;
+	
+	qq = sqrt(qq) ;
+	for (i = 0 ; i < 4 ; ++i)
+		quat[i] /= qq ;
+}
+
+void rescale_intens() {
+	int x ;
+	double rescale = 0., intens_ave = 0. ;
+	const gsl_rng_type *T = gsl_rng_default ;
+	struct timeval tval ;
+	gsl_rng *rng = gsl_rng_alloc(T) ;
+	unsigned long *seeds = malloc(omp_get_max_threads() * sizeof(unsigned long)) ;
+	
+	gettimeofday(&tval, NULL) ;
+	gsl_rng_set(rng, tval.tv_sec + tval.tv_usec) ;
+	for (x = 0 ; x < omp_get_max_threads() ; ++x)
+		seeds[x] = gsl_rng_get(rng) ;
 	
 	#pragma omp parallel default(shared)
 	{
-		int rank = omp_get_thread_num() ;
+		int d, t, rank = omp_get_thread_num() ;
 		double quat[4] ;
-		int d, t ;
-		double *view = malloc(num_pix * sizeof(double)) ;
-		gsl_rng *rng ;
-		
-		gettimeofday(&t2, NULL) ;
-		rng = gsl_rng_alloc(T) ;
-		gsl_rng_set(rng, t2.tv_sec + t2.tv_usec + rank) ;
+		double *view = malloc(det->num_pix * sizeof(double)) ;
+		gsl_rng *rng = gsl_rng_alloc(T) ;
+		gsl_rng_set(rng, seeds[rank]) ;
 		
 		#pragma omp for schedule(static) reduction(+:intens_ave)
 		for (d = 0 ; d < NUM_AVE ; ++d) {
-			rand_quat(quat, rng) ;
-			slice_gen(quat, view, intens, det) ;
+			if (num_rot == 0) {
+				rand_quat(quat, rng) ;
+				slice_gen(quat, 0., view, intens, size, det) ;
+			}
+			else {
+				slice_gen(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], 0., view, intens, size, det) ;
+			}
             
-			for (t = 0 ; t < num_pix ; ++t){
-				if (mask[t] > 1)
+			for (t = 0 ; t < det->num_pix ; ++t){
+				if (det->mask[t] > 1)
 					continue ;
 				intens_ave += view[t] ;
             }
 		}
-
+		
 		free(view) ;
 		gsl_rng_free(rng) ;
 	}
 	
+	free(seeds) ;
 	intens_ave /= NUM_AVE ;
+	
     if (scale_method == FLUENCE) {
 		rescale = fluence*pow(2.81794e-9, 2) ;
 		mean_count = rescale*intens_ave ;
-		fprintf(stderr, "Target mean_count = %f\n", mean_count) ;
+		fprintf(stderr, "Target mean_count = %f for fluence = %.3e photons/um^2\n", mean_count, fluence) ;
 	}
 	else if (scale_method == COUNTS)
 		rescale = mean_count / intens_ave ;
 	
-	spread /= mean_count ;
-	for (d = 0 ; d < num_data ; ++d) {
-		place_ones[d] = malloc((long) 5 * mean_count * (1+spread) * sizeof(int)) ;
-		place_multi[d] = malloc((long) mean_count * (1+spread) * sizeof(int)) ;
-		count_multi[d] = malloc((long) mean_count * (1+spread) * sizeof(int)) ;
-	}
-	
 	for (x = 0 ; x < size * size * size ; ++x)
 		intens[x] *= rescale ;
+}
+
+void allocate_data_memory() {
+	int d ;
+	long num_ones, num_multi ;
+	
+	ones = calloc(num_data, sizeof(int)) ;
+	multi = calloc(num_data, sizeof(int)) ;
+	place_ones = malloc(num_data * sizeof(int*)) ;
+	place_multi = malloc(num_data * sizeof(int*)) ;
+	count_multi = malloc(num_data * sizeof(int*)) ;
+	likelihood = calloc(num_data, sizeof(double)) ;
+	scale_factors = malloc(num_data * sizeof(double)) ;
+	
+	num_multi = (mean_count + background*det->num_pix) > det->num_pix ?
+	            det->num_pix :
+	            (mean_count + background*det->num_pix) ;
+	num_ones = 10*num_multi > det->num_pix ? det->num_pix : 10*num_multi ;
+	fprintf(stderr, "Assuming maximum of %ld and %ld ones and multi pixels respectively.\n", num_ones, num_multi) ;
+	
+	for (d = 0 ; d < num_data ; ++d) {
+		place_ones[d] = malloc((long) num_ones * sizeof(int)) ;
+		place_multi[d] = malloc((long) num_multi * sizeof(int)) ;
+		count_multi[d] = malloc((long) num_multi * sizeof(int)) ;
+	}
+}
+
+double calc_dataset() {
+	int x ;
+	double actual_mean_count = 0. ;
+	const gsl_rng_type *T = gsl_rng_default ;
+	struct timeval tval ;
+	gsl_rng *rng = gsl_rng_alloc(T) ;
+	unsigned long *seeds = malloc(omp_get_max_threads() * sizeof(unsigned long)) ;
+	
+	gettimeofday(&tval, NULL) ;
+	gsl_rng_set(rng, tval.tv_sec + tval.tv_usec) ;
+	for (x = 0 ; x < omp_get_max_threads() ; ++x)
+		seeds[x] = gsl_rng_get(rng) ;
 	
 	#pragma omp parallel default(shared)
 	{
-		int rank = omp_get_thread_num() ;
-		int photons, d, t ;
+		int photons, d, t, rank = omp_get_thread_num() ;
 		double scale = 1., quat[4], val ;
-		double *view = malloc(num_pix * sizeof(double)) ;
-		gsl_rng *rng ;
-		
-		gettimeofday(&t2, NULL) ;
-		rng = gsl_rng_alloc(T) ;
-		gsl_rng_set(rng, t2.tv_sec + t2.tv_usec + rank) ;
+		double *view = malloc(det->num_pix * sizeof(double)) ;
+		gsl_rng *rng = gsl_rng_alloc(T) ;
+		gsl_rng_set(rng, seeds[rank]) ;
 		
 		#pragma omp for schedule(static,1) reduction(+:actual_mean_count)
 		for (d = 0 ; d < num_data ; ++d) {
-			rand_quat(quat, rng) ;
-			slice_gen(quat, view, intens, det) ;
+			if (num_rot == 0) {
+				rand_quat(quat, rng) ;
+				slice_gen(quat, 0., view, intens, size, det) ;
+			}
+			else {
+				slice_gen(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], 0., view, intens, size, det) ;
+			}
 			
-			if (spread > 0.)
-				scale = gsl_ran_gaussian(rng, spread) ;
+			if (do_gamma)
+				scale = gsl_ran_gamma(rng, 2., 0.5) ;
 			
 			if (scale > 0.) {
-				for (t = 0 ; t < num_pix ; ++t) {
-					if (mask[t] > 1)
+				for (t = 0 ; t < det->num_pix ; ++t) {
+					if (det->mask[t] > 1)
 						continue ;
 					
-					val = view[t]*scale + back ;
-					photons = gsl_ran_poisson(rng, view[t]*scale + back) ;
+					val = view[t]*scale + background ;
+					photons = gsl_ran_poisson(rng, val) ;
 					
 					if (photons == 1) {
 						place_ones[d][ones[d]++] = t ;
@@ -161,11 +241,13 @@ int main(int argc, char *argv[]) {
 						else
 							likelihood[d] += photons*log(val) - val - gsl_sf_lnfact(photons) ;
 					}
+					if (scale_fname[0] != '\0')
+						scale_factors[d] = scale ;
 				}
 			}
 			
 			actual_mean_count += ones[d] ;
-
+			
 			if (rank == 0)
 				fprintf(stderr, "\rFinished d = %d", d) ;
 		}
@@ -173,15 +255,19 @@ int main(int argc, char *argv[]) {
 		free(view) ;
 		gsl_rng_free(rng) ;
 	}
-	
+	 
+	free(seeds) ;
 	fprintf(stderr, "\rFinished d = %d\n", num_data) ;
-	actual_mean_count /= num_data ;
+	return actual_mean_count / num_data ;
+}
+
+void write_dataset() {
+	int d, header[256] = {0} ;
+	header[0] = num_data ;
+	header[1] = det->num_pix ;
 	
-	fp = fopen(output_fname, "wb") ;
-	fwrite(&num_data, sizeof(int), 1, fp) ;
-	fwrite(&num_pix, sizeof(int), 1, fp) ;
-	char buffer[1016] = {0} ;
-	fwrite(buffer, sizeof(char), 1016, fp) ;
+	FILE *fp = fopen(output_fname, "wb") ;
+	fwrite(header, sizeof(int), 256, fp) ;
 	fwrite(ones, sizeof(int), num_data, fp) ;
 	fwrite(multi, sizeof(int), num_data, fp) ;
 	for (d = 0 ; d < num_data ; ++d)
@@ -197,118 +283,200 @@ int main(int argc, char *argv[]) {
 		fwrite(likelihood, sizeof(double), num_data, fp) ;
 		fclose(fp) ;
 	}
-	
-	gettimeofday(&t2, NULL) ;
-	fprintf(stderr, "Generated %d frames with %f photons/frame\n", num_data, actual_mean_count) ;
-	fprintf(stderr, "Time taken = %f s\n", (double)(t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.) ;
-	
-	free_mem() ;
-	
-	return 0 ;
+	if (scale_fname[0] != '\0') {
+		fp = fopen(scale_fname, "w") ;
+		for (d = 0 ; d < num_data ; ++d)
+			fprintf(fp, "%13.10f\n", scale_factors[d]) ;
+		fclose(fp) ;
+	}
 }
 
-int setup(char *config_fname) {
-	int t, d ;
-	FILE *fp ;
-	char line[999], *token ;
-	char det_fname[999], model_fname[999] ;
-	char out_det_fname[999], out_model_fname[999] ;
-	double detd, pixsize, qmax, qmin, ewald_rad ;
-	int detsize, dets_x, dets_y ;
+char *generate_token(char *line, char *section_name) {
+	char *token = strtok(line, " =") ;
+	if (token[0] == '#' || token[0] == '\n')
+		return NULL ;
 	
-	size = 0 ;
-	center = 0 ;
-	num_data = 0 ;
-	fluence = -1. ;
-	mean_count = -1. ;
-	spread = 0. ;
-	back = 0. ;
-	output_fname[0] = '\0' ;
-	detsize = 0 ;
-	dets_x = 0 ;
-	dets_y = 0 ;
-	detd = 0. ;
-	pixsize = 0. ;
-	ewald_rad = -1. ;
-	
-	fp = fopen(config_fname, "r") ;
-	if (fp == NULL) {
-		fprintf(stderr, "Config file %s not found.\n", config_fname) ;
-		return 1 ;
+	if (line[0] == '[') {
+		token = strtok(line, "[]") ;
+		strcpy(section_name, token) ;
+		return NULL ;
 	}
-	while (fgets(line, 999, fp) != NULL) {
-		token = strtok(line, " =") ;
-		if (token[0] == '#' || token[0] == '\n' || token[0] == '[')
+	
+	return token ;
+}
+
+int generate_size_params(FILE *config_fp) {
+	double qmin, qmax, hx, hy ;
+	double detd = 0., pixsize = 0., ewald_rad = -1. ;
+	int detsize = 0, dets_x = 0, dets_y = 0 ;
+	char line[1024], section_name[1024], *token ;
+	
+	rewind(config_fp) ;
+	while (fgets(line, 1024, config_fp) != NULL) {
+		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
 		
-		if (strcmp(token, "num_data") == 0)
-			num_data = atoi(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "detd") == 0)
-			detd = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "detsize") == 0) {
-			dets_x = atoi(strtok(NULL, " =\n")) ;
-			dets_y = dets_x ;
-			token = strtok(NULL, " =\n") ;
-			if (token == NULL)
-				detsize = dets_x ;
-			else {
-				dets_y = atoi(token) ;
-				detsize = dets_x > dets_y ? dets_x : dets_y ;
+		if (strcmp(section_name, "parameters") == 0) {
+			if (strcmp(token, "detd") == 0)
+				detd = atof(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "detsize") == 0) {
+				dets_x = atoi(strtok(NULL, " =\n")) ;
+				dets_y = dets_x ;
+				token = strtok(NULL, " =\n") ;
+				if (token == NULL)
+					detsize = dets_x ;
+				else {
+					dets_y = atoi(token) ;
+					detsize = dets_x > dets_y ? dets_x : dets_y ;
+				}
 			}
+			else if (strcmp(token, "pixsize") == 0)
+				pixsize = atof(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "ewald_rad") == 0)
+				ewald_rad = atof(strtok(NULL, " =\n")) ;
 		}
-		else if (strcmp(token, "pixsize") == 0)
-			pixsize = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "ewald_rad") == 0)
-			ewald_rad = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "mean_count") == 0)
-			mean_count = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "fluence") == 0)
-			fluence = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "mean_count_spread") == 0)
-			spread = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "bg_count") == 0)
-			back = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "out_photons_file") == 0)
-			strcpy(output_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "out_likelihood_file") == 0)
-			strcpy(likelihood_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "in_intensity_file") == 0)
-			strcpy(model_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "in_detector_file") == 0)
-			strcpy(det_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "out_intensity_file") == 0)
-			strcpy(out_model_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "out_detector_file") == 0)
-			strcpy(out_det_fname, strtok(NULL, " =\n")) ;
 	}
-	fclose(fp) ;
-	
-	if (strcmp(model_fname, "make_intensities:::out_intensity_file") == 0)
-		strcpy(model_fname, out_model_fname) ;
-	if (strcmp(det_fname, "make_detector:::out_detector_file") == 0)
-		strcpy(det_fname, out_det_fname) ;
 	
 	if (detsize == 0 || pixsize == 0. || detd == 0.) {
 		fprintf(stderr, "Need detector parameters: detd, detsize, pixsize\n") ;
 		return 1 ;
 	}
 	
-	double hx = (dets_x - 1) / 2 * pixsize ;
-	double hy = (dets_y - 1) / 2 * pixsize ;
+	if (det->detd > 0.)
+		detd = det->detd ;
+	else
+		detd /= pixsize ;
+	if (det->ewald_rad > 0.)
+		ewald_rad = det->ewald_rad ;
+	hx = (dets_x - 1) / 2 ;
+	hy = (dets_y - 1) / 2 ;
 	qmax = 2. * sin(0.5 * atan(sqrt(hx*hx + hy*hy)/detd)) ;
-	qmin = 2. * sin(0.5 * atan(pixsize/detd)) ;
+	qmin = 2. * sin(0.5 * atan(1./detd)) ;
 	if (ewald_rad == -1.)
 		size = 2 * ceil(qmax / qmin) + 3 ;
 	else
-		size = 2 * ceil(qmax / qmin * ewald_rad * pixsize / detd) + 3 ;
-	center = size / 2 ;
+		size = 2 * ceil(qmax / qmin * ewald_rad / detd) + 3 ;
+	fprintf(stderr, "Calculated size of %d voxels from config parameters\n", size) ;
 	
+	return 0 ;
+}
+
+int generate_intens(FILE *config_fp) {
+	FILE *fp ;
+	char intens_fname[1024], out_intens_fname[1024] ;
+	char line[1024], section_name[1024], *token ;
+	
+	rewind(config_fp) ;
+	while (fgets(line, 1024, config_fp) != NULL) {
+		if ((token = generate_token(line, section_name)) == NULL)
+			continue ;
+		
+		if (strcmp(section_name, "make_data") == 0) {
+			if (strcmp(token, "in_intensity_file") == 0)
+				strcpy(intens_fname, strtok(NULL, " =\n")) ;
+		}
+		else if (strcmp(section_name, "make_intensities") == 0) {
+			if (strcmp(token, "out_intensity_file") == 0)
+				strcpy(out_intens_fname, strtok(NULL, " =\n")) ;
+		}
+	}
+	if (strcmp(intens_fname, "make_intensities:::out_intensity_file") == 0)
+		strcpy(intens_fname, out_intens_fname) ;
+	
+	fp = fopen(intens_fname, "rb") ;
+	if (fp == NULL) {
+		fprintf(stderr, "in_intensity_file: %s not found.\n", intens_fname) ;
+		return 1 ;
+	}
+	intens = malloc(size * size * size * sizeof(double)) ;
+	fread(intens, sizeof(double), size*size*size, fp) ;
+	fclose(fp) ;
+
+	return 0 ;
+}
+
+int generate_quat_list(FILE *config_fp) {
+	int t ;
+	FILE *fp ;
+	char quat_fname[1024] = {'\0'} ;
+	char line[1024], section_name[1024], *token ;
+	
+	rewind(config_fp) ;
+	while (fgets(line, 1024, config_fp) != NULL) {
+		if ((token = generate_token(line, section_name)) == NULL)
+			continue ;
+		
+		if (strcmp(section_name, "make_data") == 0) {
+			if (strcmp(token, "in_quat_list") == 0)
+				strcpy(quat_fname, strtok(NULL, " =\n")) ;
+		}
+	}
+	
+	if (quat_fname[0] != '\0') {
+		fprintf(stderr, "Picking discrete orientations from %s\n", quat_fname) ;
+		fp = fopen(quat_fname, "r") ;
+		if (fp == NULL) {
+			fprintf(stderr, "Unable to open %s\n", quat_fname) ;
+			return 1 ;
+		}
+		fscanf(fp, "%d\n", &num_rot) ;
+		quat_list = malloc(num_rot * 4 * sizeof(double)) ;
+		for (t = 0 ; t < num_rot*4 ; ++t)
+			fscanf(fp, "%lf", &quat_list[t]) ;
+		fclose(fp) ;
+	}
+	
+	return 0 ;
+}
+
+int generate_globals(FILE *config_fp) {
+	char line[1024], section_name[1024], *token ;
+	
+	rank = 0 ;
+	num_proc = 1 ;
+	strcpy(config_section, "make_data") ;
+	size = 0 ;
+	num_data = 0 ;
+	fluence = -1. ;
+	mean_count = -1. ;
+	do_gamma = 0 ;
+	background = 0. ;
+	num_rot = 0 ;
+	output_fname[0] = '\0' ;
+	likelihood_fname[0] = '\0' ;
+	scale_fname[0] = '\0' ;
+	
+	while (fgets(line, 1024, config_fp) != NULL) {
+		if ((token = generate_token(line, section_name)) == NULL)
+			continue ;
+		
+		if (strcmp(section_name, "make_data") == 0) {
+			if (strcmp(token, "num_data") == 0)
+				num_data = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "mean_count") == 0)
+				mean_count = atof(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "fluence") == 0)
+				fluence = atof(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "bg_count") == 0)
+				background = atof(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "gamma_fluence") == 0)
+				do_gamma = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "out_photons_file") == 0)
+				strcpy(output_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "out_likelihood_file") == 0)
+				strcpy(likelihood_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "out_scale_file") == 0)
+				strcpy(scale_fname, strtok(NULL, " =\n")) ;
+		}
+	}
+
+	// Check for required parameters
 	if (num_data == 0) {
 		fprintf(stderr, "Need num_data (number of frames to be generated)\n") ;
 		return 1 ;
 	}
 	if (output_fname[0] == '\0') {
-		fprintf(stderr, "Need out_photons (name of output emc format file)\n") ;
+		fprintf(stderr, "Need out_photons_file (name of output emc format file)\n") ;
 		return 1 ;
 	}
 	if (fluence < 0.) {
@@ -331,52 +499,37 @@ int setup(char *config_fname) {
 			return 1 ;
 		}
 	}
-	
 	if (likelihood_fname[0] != '\0')
 		fprintf(stderr, "Saving frame-by-frame likelihoods to %s\n", likelihood_fname) ;
+	if (do_gamma)
+		fprintf(stderr, "Assuming Gamma-distributed variable incident fluence\n") ;
+	fprintf(stderr, "Parsed global parameters from config file\n") ;
 	
-	char *config_folder = dirname(config_fname) ;
-	strcpy(line, det_fname) ;
-	sprintf(det_fname, "%s/%s", config_folder, line) ;
-	strcpy(line, output_fname) ;
-	sprintf(output_fname, "%s/%s", config_folder, line) ;
-	strcpy(line, model_fname) ;
-	sprintf(model_fname, "%s/%s", config_folder, line) ;
+	return 0 ;
+}
+
+int setup(char *config_fname) {
+	FILE *fp ;
 	
-	fp = fopen(model_fname, "rb") ;
+	fp = fopen(config_fname, "r") ;
 	if (fp == NULL) {
-		fprintf(stderr, "model_fname: %s not found. Exiting...\n", model_fname) ;
+		fprintf(stderr, "Config file %s not found.\n", config_fname) ;
 		return 1 ;
 	}
-	intens = malloc(size * size * size * sizeof(double)) ;
-	fread(intens, sizeof(double), size*size*size, fp) ;
-	fclose(fp) ;
-	
-	fp = fopen(det_fname, "r") ;
-	if (fp == NULL) {
-		fprintf(stderr, "det_fname: %s not found. Exiting...\n", det_fname) ;
+	if (generate_globals(fp))
 		return 1 ;
-	}
-	fscanf(fp, "%d", &num_pix) ;
-	det = malloc(num_pix * 4 * sizeof(double)) ;
-	mask = malloc(num_pix * sizeof(uint8_t)) ;
-	for (t = 0 ; t < num_pix ; ++t) {
-		for (d = 0 ; d < 4 ; ++d)
-			fscanf(fp, "%lf", &det[t*4 + d]) ;
-		fscanf(fp, "%" SCNu8, &mask[t]) ;
-	}
+	if (generate_detectors(fp, &det, 0) < 0.)
+		return 1 ;
+	fprintf(stderr, "num_det = %d\n", det[0].num_det) ;
+	background /= det[0].num_pix ;
+	if (generate_size_params(fp))
+		return 1 ;
+	if (generate_intens(fp))
+		return 1 ;
+	if (generate_quat_list(fp))
+		return 1 ;
 	fclose(fp) ;
-	
-	back /= num_pix ;
-	view = malloc(num_pix * sizeof(double)) ;
-	
-	ones = calloc(num_data, sizeof(int)) ;
-	multi = calloc(num_data, sizeof(int)) ;
-	place_ones = malloc(num_data * sizeof(int*)) ;
-	place_multi = malloc(num_data * sizeof(int*)) ;
-	count_multi = malloc(num_data * sizeof(int*)) ;
-	likelihood = calloc(num_data, sizeof(double)) ;
-	
+
 	return 0 ;
 }
 
@@ -384,9 +537,8 @@ void free_mem() {
 	int d ;
 	
 	free(intens) ;
-	free(det) ;
-	free(view) ;
-	free(mask) ;
+	free_detector(det) ;
+	free(likelihood) ;
 	
 	free(ones) ;
 	free(multi) ;
@@ -398,100 +550,5 @@ void free_mem() {
 	free(place_ones) ;
 	free(place_multi) ;
 	free(count_multi) ;
-}
-
-void rand_quat(double quat[4], gsl_rng *rng) {
-	int i ;
-	double qq ;
-	
-	do {
-		qq = 0. ;
-		for (i = 0 ; i < 4 ; ++i) {
-			quat[i] = gsl_rng_uniform(rng) -.5 ;
-			qq += quat[i] * quat[i] ;
-		}
-	}
-	while (qq > .25) ;
-	
-	qq = sqrt(qq) ;
-	for (i = 0 ; i < 4 ; ++i)
-		quat[i] /= qq ;
-}
-
-void make_rot_quat(double *quaternion, double rot[3][3]) {
-	double q0, q1, q2, q3, q01, q02, q03, q11, q12, q13, q22, q23, q33 ;
-	
-	q0 = quaternion[0] ;
-	q1 = quaternion[1] ;
-	q2 = quaternion[2] ;
-	q3 = quaternion[3] ;
-	
-	q01 = q0*q1 ;
-	q02 = q0*q2 ;
-	q03 = q0*q3 ;
-	q11 = q1*q1 ;
-	q12 = q1*q2 ;
-	q13 = q1*q3 ;
-	q22 = q2*q2 ;
-	q23 = q2*q3 ;
-	q33 = q3*q3 ;
-	
-	rot[0][0] = (1. - 2.*(q22 + q33)) ;
-	rot[0][1] = 2.*(q12 + q03) ;
-	rot[0][2] = 2.*(q13 - q02) ;
-	rot[1][0] = 2.*(q12 - q03) ;
-	rot[1][1] = (1. - 2.*(q11 + q33)) ;
-	rot[1][2] = 2.*(q01 + q23) ;
-	rot[2][0] = 2.*(q02 + q13) ;
-	rot[2][1] = 2.*(q23 - q01) ;
-	rot[2][2] = (1. - 2.*(q11 + q22)) ;
-}
-
-void slice_gen(double *quaternion, double slice[], double model3d[], double detector[]) {
-	int t, i, j, x, y, z ;
-	double tx, ty, tz, fx, fy, fz, cx, cy, cz ;
-	double rot_pix[3], rot[3][3] = {{0}} ;
-	
-	make_rot_quat(quaternion, rot) ;
-	
-	for (t = 0 ; t < num_pix ; ++t) {
-		for (i = 0 ; i < 3 ; ++i) {
-			rot_pix[i] = 0. ;
-			for (j = 0 ; j < 3 ; ++j) 
-				rot_pix[i] += rot[i][j] * detector[t*4 + j] ;
-			rot_pix[i] += center ;
-		}
-		
-		tx = rot_pix[0] ;
-		ty = rot_pix[1] ;
-		tz = rot_pix[2] ;
-		
-		if (tx < 0 || tx > size-2 || ty < 0 || ty > size-2 || tz < 0 || tz > size-2) {
-			slice[t] = 1.e-10 ;
-			continue ;
-		}
-		
-		x = (int) tx ;
-		y = (int) ty ;
-		z = (int) tz ;
-		fx = tx - x ;
-		fy = ty - y ;
-		fz = tz - z ;
-		cx = 1. - fx ;
-		cy = 1. - fy ;
-		cz = 1. - fz ;
-		
-		slice[t] =	cx*cy*cz*model3d[x*size*size + y*size + z] +
-				cx*cy*fz*model3d[x*size*size + y*size + ((z+1)%size)] +
-				cx*fy*cz*model3d[x*size*size + ((y+1)%size)*size + z] +
-				cx*fy*fz*model3d[x*size*size + ((y+1)%size)*size + ((z+1)%size)] +
-				fx*cy*cz*model3d[((x+1)%size)*size*size + y*size + z] +
-				fx*cy*fz*model3d[((x+1)%size)*size*size + y*size + ((z+1)%size)] + 
-				fx*fy*cz*model3d[((x+1)%size)*size*size + ((y+1)%size)*size + z] + 
-				fx*fy*fz*model3d[((x+1)%size)*size*size + ((y+1)%size)*size + ((z+1)%size)] ;
-		
-		// Correct for solid angle and polarization
-		slice[t] *= detector[t*4 + 3] ;
-	}
 }
 
