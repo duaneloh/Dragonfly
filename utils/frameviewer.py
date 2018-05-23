@@ -65,7 +65,7 @@ class Frameviewer(QtWidgets.QMainWindow):
         # Color map picker
         cmapmenu = menubar.addMenu('&Color Map')
         self.color_map = QtWidgets.QActionGroup(self, exclusive=True)
-        for i, s in enumerate(['cubehelix', 'CMRmap', 'gray', 'gray_r', 'jet']):
+        for i, s in enumerate(['cubehelix', 'CMRmap', 'gray', 'gray_r', 'jet', 'coolwarm']):
             a = self.color_map.addAction(QtWidgets.QAction(s, self, checkable=True))
             if i == 0:
                 a.setChecked(True)
