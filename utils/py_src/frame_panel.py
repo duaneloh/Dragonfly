@@ -119,7 +119,7 @@ class Frame_panel(QtWidgets.QWidget):
         else:
             s = self.fig.add_subplot(111)
         s.set_facecolor('gray')
-        s.imshow(frame, vmin=0, vmax=float(self.rangestr.text()), interpolation='none', cmap=self.parent.cmap)
+        s.imshow(frame.T, vmin=0, vmax=float(self.rangestr.text()), interpolation='none', cmap=self.parent.cmap)
         title = '%d photons' % frame.sum()
         if frame is None and (mode == 1 or mode == 3):
             title += ' (%s)' % self.parent.classes.clist[num]
@@ -156,7 +156,7 @@ class Frame_panel(QtWidgets.QWidget):
             s = self.fig.add_subplot(121)
             sc = self.fig.add_subplot(122)
             tomo, info = self.slices.get_slice(iteration, num)
-            sc.imshow(tomo**0.2, cmap=self.parent.cmap, vmin=0, vmax=float(self.rangestr.text()), interpolation='none')
+            sc.imshow(tomo.T**0.2, cmap=self.parent.cmap, vmin=0, vmax=float(self.rangestr.text()), interpolation='none')
             sc.set_title('Mutual Info. = %f'%info)
             self.fig.add_subplot(sc)
         else:
@@ -190,7 +190,7 @@ class Frame_panel(QtWidgets.QWidget):
     def save_powder(self):
         fname = '%s/assem_powder.bin' % self.parent.output_folder
         sys.stderr.write('Saving assembled powder sum with shape %s to %s\n' % ((self.powder_sum.shape,), fname))
-        self.powder_sum.tofile(fname)
+        self.powder_sum.data.tofile(fname)
         
         raw_powder = self.emc_reader.get_powder(raw=True)
         fname = '%s/powder.bin' % self.parent.output_folder
