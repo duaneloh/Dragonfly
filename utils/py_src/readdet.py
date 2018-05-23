@@ -1,6 +1,7 @@
 import sys
 import os
 import numpy as np
+import pandas
 
 class Det_reader():
     """Dragonfly detector file reader
@@ -51,8 +52,18 @@ class Det_reader():
         sys.stderr.write('Reading %s...'%self.det_fname)
         if mask_flag:
             sys.stderr.write('with mask...')
-            self.qx, self.qy, self.qz, self.corr, raw_mask = np.loadtxt(self.det_fname, skiprows=1, unpack=True)
-            mask = np.copy(raw_mask).astype('u1')
+        dframe = pandas.read_csv(self.det_fname, 
+                delim_whitespace=True, skiprows=1, engine='c', header=None, 
+                names=['qx', 'qy', 'qz', 'corr', 'mask'],
+                dtype={'qx':'f8','qy':'f8','qz':'f8','corr':'f8','mask':'u1'})
+        self.qx, self.qy, self.qz, self.corr = tuple([np.array(dframe[key]) for key in ['qx','qy','qz','corr']])
+        sys.stderr.write('done\n')
+        
+        if mask_flag:
+            raw_mask = np.array(dframe['mask'])
+            mask = np.copy(raw_mask)
+            #self.qx, self.qy, self.qz, self.corr, raw_mask = np.loadtxt(self.det_fname, skiprows=1, unpack=True)
+            #mask = np.copy(raw_mask).astype('u1')
             if keep_mask_1:
                 mask[mask==1] = 0 # To keep both 0 and 1
                 mask = mask / 2 # To keep both 0 and 1
@@ -60,10 +71,10 @@ class Det_reader():
                 mask[mask==2] = 1 # To keep only mask==0
             mask = 1 - mask
         else:
-            self.qx, self.qy, self.qz, self.corr = np.loadtxt(self.det_fname, usecols=(0,1,2,3), skiprows=1, unpack=True)
+            #self.qx, self.qy, self.qz, self.corr = np.loadtxt(self.det_fname, usecols=(0,1,2,3), skiprows=1, unpack=True)
             raw_mask = np.zeros(self.qx.shape)
             mask = np.ones(self.qx.shape, dtype='u1')
-        sys.stderr.write('done\n')
+        #sys.stderr.write('done\n')
         
         self.cx = self.qx*self.detd/(self.qz+self.ewald_rad)
         self.cy = self.qy*self.detd/(self.qz+self.ewald_rad)
