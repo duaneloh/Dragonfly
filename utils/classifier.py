@@ -110,22 +110,31 @@ class Classifier(QtWidgets.QMainWindow):
         toolbox.currentChanged.connect(self.tab_changed)
 
     def get_config_params(self):
+        section = 'classifier'
         try:
-            pfile = read_config.get_filename(self.config_file, 'classifier', 'in_photons_file')
+            read_config.get_filename(self.config_file, section, 'test_option')
+        except read_config.ConfigParser.NoSectionError:
+            print 'No section named \'classifier\'. Taking parameters from \'emc\' section instead'
+            section = 'emc'
+        except read_config.ConfigParser.NoOptionError:
+            pass
+        
+        try:
+            pfile = read_config.get_filename(self.config_file, section, 'in_photons_file')
             print 'Using in_photons_file: %s' % pfile
             self.photons_list = [pfile]
         except read_config.ConfigParser.NoOptionError:
-            plist = read_config.get_filename(self.config_file, 'classifier', 'in_photons_list')
+            plist = read_config.get_filename(self.config_file, section, 'in_photons_list')
             print 'Using in_photons_list: %s' % plist
             with open(plist, 'r') as f:
                 self.photons_list = map(lambda x: x.rstrip(), f.readlines())
                 self.photons_list = [line for line in self.photons_list if line]
         try:
-            dfile = read_config.get_filename(self.config_file, 'classifier', 'in_detector_file')
+            dfile = read_config.get_filename(self.config_file, section, 'in_detector_file')
             print 'Using in_detector_file: %s' % dfile
             self.det_list = [dfile]
         except read_config.ConfigParser.NoOptionError:
-            dlist = read_config.get_filename(self.config_file, 'classifier', 'in_detector_list')
+            dlist = read_config.get_filename(self.config_file, section, 'in_detector_list')
             print 'Using in_detector_list: %s' % dlist
             with open(dlist, 'r') as f:
                 self.det_list = map(lambda x: x.rstrip(), f.readlines())
@@ -139,7 +148,7 @@ class Classifier(QtWidgets.QMainWindow):
         self.detd = pm['detd']/pm['pixsize']
         
         self.num_files = len(self.photons_list)
-        output_folder = read_config.get_filename(self.config_file, 'classifier', 'output_folder')
+        output_folder = read_config.get_filename(self.config_file, section, 'output_folder')
         self.output_folder = os.path.abspath(output_folder)
         self.blacklist = None
 
