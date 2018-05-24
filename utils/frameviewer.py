@@ -27,7 +27,7 @@ class Frameviewer(QtWidgets.QMainWindow):
         self.do_powder = do_powder
         self.do_compare = do_compare
         if cmap is None:
-            self.cmap = 'cubehelix'
+            self.cmap = 'coolwarm'
         else:
             self.cmap = cmap
         self.mode_val = None
@@ -66,7 +66,7 @@ class Frameviewer(QtWidgets.QMainWindow):
         # Color map picker
         cmapmenu = menubar.addMenu('&Color Map')
         self.color_map = QtWidgets.QActionGroup(self, exclusive=True)
-        for i, s in enumerate(['cubehelix', 'CMRmap', 'gray', 'gray_r', 'jet', 'coolwarm']):
+        for i, s in enumerate(['coolwarm', 'cubehelix', 'CMRmap', 'gray', 'gray_r', 'jet']):
             a = self.color_map.addAction(QtWidgets.QAction(s, self, checkable=True))
             if i == 0:
                 a.setChecked(True)
@@ -144,7 +144,7 @@ class Frameviewer(QtWidgets.QMainWindow):
 
 if __name__ == '__main__':
     parser = py_utils.my_argparser(description='Utility for viewing frames of the emc file (list)')
-    parser.add_argument('--cmap', help='Matplotlib color map (default: CMRmap)')
+    parser.add_argument('--cmap', help='Matplotlib color map (default: coolwarm)')
     parser.add_argument('-M', '--mask', help='Whether to zero out masked pixels (default False)', action='store_true', default=False)
     parser.add_argument('-P', '--powder', help='Show powder sum of all frames', action='store_true', default=False)
     parser.add_argument('-C', '--compare', help='Compare with predicted intensities (needs data/quat.dat)', action='store_true', default=False)

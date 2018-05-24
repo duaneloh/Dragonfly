@@ -26,10 +26,10 @@ from py_src import read_config
 from py_src import frame_panel
 
 class Classifier(QtWidgets.QMainWindow):
-    def __init__(self, config_file, cmap='CMRmap', mask=False, class_fname='my_classes.dat'):
+    def __init__(self, config_file, cmap='coolwarm', mask=False, class_fname='my_classes.dat'):
         super(Classifier, self).__init__()
         if cmap is None:
-            self.cmap = 'cubehelix'
+            self.cmap = 'coolwarm'
         else:
             self.cmap = cmap
         self.config_file = config_file
@@ -92,7 +92,7 @@ class Classifier(QtWidgets.QMainWindow):
         # Color map picker
         cmapmenu = menubar.addMenu('&Color Map')
         self.color_map = QtWidgets.QActionGroup(self, exclusive=True)
-        for i, s in enumerate(['cubehelix', 'CMRmap', 'gray', 'gray_r', 'jet']):
+        for i, s in enumerate(['coolwarm', 'cubehelix', 'CMRmap', 'gray', 'gray_r', 'jet']):
             a = self.color_map.addAction(QtWidgets.QAction(s, self, checkable=True))
             if i == 0:
                 a.setChecked(True)
