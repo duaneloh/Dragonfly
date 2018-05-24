@@ -3,6 +3,7 @@
 import sys
 import os
 import numpy as np
+import matplotlib
 try:
     from PyQt5 import QtCore, QtWidgets, QtGui
     os.environ['QT_API'] = 'pyqt5'
