@@ -10,16 +10,18 @@ import re
 import matplotlib
 try:
     from PyQt5 import QtCore, QtWidgets, QtGui
+    matplotlib.use('qt5agg')
     from matplotlib.backends.backend_qt5agg import FigureCanvas
     os.environ['QT_API'] = 'pyqt5'
 except ImportError:
-    import sip
-    sip.setapi('QString', 2)
+    import sip; sip.setapi('QString', 2)
     from PyQt4 import QtCore, QtGui
     from PyQt4 import QtGui as QtWidgets
+    matplotlib.use('qt4agg')
     from matplotlib.backends.backend_qt4agg import FigureCanvas
     os.environ['QT_API'] = 'pyqt'
 import qdarkstyle
+import matplotlib.pyplot as plt
 from py_src import frame_panel
 from py_src import py_utils
 from py_src import read_config
@@ -48,11 +50,15 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.max_iternum = 0
         self.need_replot = False
         self.image_exists = False
+        plt.style.use('dark_background')
+        '''
         matplotlib.rcParams.update({
             'text.color': '#eff0f1',
             'xtick.color': '#eff0f1',
             'ytick.color': '#eff0f1',
+            'axes.facecolor': '#eff0f1',
             'axes.labelcolor': '#eff0f1'})
+        '''
 
         self.read_config(config)
         self.init_UI()
@@ -65,11 +71,31 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.setGeometry(100, 100, 1600, 800)
         overall = QtWidgets.QWidget()
         self.setCentralWidget(overall)
-        self.grid = QtWidgets.QGridLayout(overall)
-
+        
+        layout = QtWidgets.QHBoxLayout(overall)
+        main_splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
+        layout.addWidget(main_splitter)
+        plot_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
+        main_splitter.addWidget(plot_splitter)
+        
         # Menu items
         menubar = self.menuBar()
         menubar.setNativeMenuBar(False)
+        
+        # File Menu
+        filemenu = menubar.addMenu('&File')
+        action = QtWidgets.QAction('&Load Volume', self)
+        action.triggered.connect(self.load_volume)
+        filemenu.addAction(action)
+        action = QtWidgets.QAction('&Save Image', self)
+        action.triggered.connect(self.save_plot)
+        filemenu.addAction(action)
+        action = QtWidgets.QAction('Save Log &Plot', self)
+        action.triggered.connect(self.save_log_plot)
+        filemenu.addAction(action)
+        action = QtWidgets.QAction('&Quit', self)
+        action.triggered.connect(self.close)
+        filemenu.addAction(action)
         
         # Color map picker
         cmapmenu = menubar.addMenu('&Color Map')
@@ -86,21 +112,21 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.fig.subplots_adjust(left=0.0, bottom=0.00, right=0.99, wspace=0.0)
         self.fig.set_facecolor('#232629')
         self.canvas = FigureCanvas(self.fig)
-        self.grid.addWidget(self.canvas, 0, 0)
-        self.grid.setColumnStretch(0, 1)
         self.canvas.show()
+        plot_splitter.addWidget(self.canvas)
 
         # Progress plots figure
         self.log_fig = matplotlib.figure.Figure(figsize=(14,5), facecolor='w')
         self.log_fig.set_facecolor('#232629')
         self.plotcanvas = FigureCanvas(self.log_fig)
-        self.grid.addWidget(self.plotcanvas, 1, 0)
         self.plotcanvas.show()
+        plot_splitter.addWidget(self.plotcanvas)
 
         # Plot options widget
+        options_widget = QtWidgets.QWidget()
         self.options = QtWidgets.QVBoxLayout()
-        self.grid.addLayout(self.options, 0, 1, 2, 1)
-        self.grid.setColumnStretch(1, 0)
+        options_widget.setLayout(self.options)
+        main_splitter.addWidget(options_widget)
 
         # -- Log file
         hbox = QtWidgets.QHBoxLayout()
@@ -140,28 +166,6 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.expstr.setFixedWidth(48)
         self.expstr.returnPressed.connect(self.range_changed)
         hbox.addWidget(self.expstr)
-
-        # -- Image saving
-        hbox = QtWidgets.QHBoxLayout()
-        self.options.addLayout(hbox)
-        label = QtWidgets.QLabel('Image name:', self)
-        hbox.addWidget(label)
-        self.imagename = QtWidgets.QLineEdit('images/'+os.path.splitext(os.path.basename(self.fname.text()))[0]+'.png', self)
-        self.imagename.setMinimumWidth(160)
-        hbox.addWidget(self.imagename)
-        button = QtWidgets.QPushButton('Save', self)
-        button.clicked.connect(self.save_plot)
-        hbox.addWidget(button)
-        hbox = QtWidgets.QHBoxLayout()
-        self.options.addLayout(hbox)
-        label = QtWidgets.QLabel('Log image name:', self)
-        hbox.addWidget(label)
-        self.log_imagename = QtWidgets.QLineEdit('images/log_fig.png', self)
-        self.log_imagename.setMinimumWidth(160)
-        hbox.addWidget(self.log_imagename)
-        button = QtWidgets.QPushButton('Save', self)
-        button.clicked.connect(self.save_log_plot)
-        hbox.addWidget(button)
 
         # -- Sliders
         hbox = QtWidgets.QHBoxLayout()
@@ -228,7 +232,11 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.options.addWidget(log_area)
         log_area.setMinimumWidth(450)
         log_area.setWidgetResizable(True)
-        self.emclog_text = QtWidgets.QTextEdit('Press Check to get log file contents', self)
+        self.emclog_text = QtWidgets.QTextEdit(
+                'Press \'Check\' to synchronize with log file<br>'
+                'Select \'Keep Checking\' to periodically synchronize<br><br>'
+                'The top half of the display area will show three orthogonal slices of the 3D volume. '
+                'The bottom half will show plots of various parameters vs iteration.', self)
         self.emclog_text.setReadOnly(True)
         self.emclog_text.setFontPointSize(8)
         self.emclog_text.setFontFamily('Courier')
@@ -281,7 +289,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
             self.num_modes = 0
 
     def plot_vol(self, num):
-        self.imagename.setText('images/' + os.path.splitext(os.path.basename(self.fname.text()))[0] + '.png')
+        #self.imagename.setText('images/' + os.path.splitext(os.path.basename(self.fname.text()))[0] + '.png')
         rangemin = float(self.rangemin.text())
         rangemax = float(self.rangestr.text())
         exponent = float(self.expstr.text())
@@ -521,13 +529,33 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.parse()
         self.plot_vol(int(self.layernum.text()))
 
+    def load_volume(self, event=None):
+        fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Load 3D Volume', 'data/', 'Binary data (*.bin)')
+        if fname:
+            self.fname.setText(fname)
+            self.parse_and_plot()
+        '''
+        dialog = QtWidgets.QFileDialog(self)
+        dialog.setFileMode(QtWidgets.QFileDialog.ExistingFile)
+        #dialog.setFilter('3D Binary Volumes (*.bin)')
+        if dialog._exec():
+            self.fname.setText(dialog.selectedFiles())
+            self.parse_and_plot()
+        '''
+
     def save_plot(self, event=None):
-        self.fig.savefig(str(self.imagename.text()), bbox_inches='tight')
-        sys.stderr.write('Saved to %s\n'%self.imagename.text())
+        default_name = 'images/'+os.path.splitext(os.path.basename(self.fname.text()))[0]+'.png'
+        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Volume Image', default_name, 'Image (*.png)')
+        if fname:
+            self.fig.savefig(fname, bbox_inches='tight')
+            sys.stderr.write('Saved to %s\n'%fname)
 
     def save_log_plot(self, event=None):
-        self.log_fig.savefig(self.log_imagename.text(), bbox_inches='tight')
-        sys.stderr.write("Saved to %s\n"%self.log_imagename.text())
+        default_name = 'images/log_fig.png'
+        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Log Plots', default_name, 'Image (*.png)')
+        if fname:
+            self.log_fig.savefig(fname, bbox_inches='tight')
+            sys.stderr.write("Saved to %s\n"%fname)
 
     def cmap_changed(self, event=None):
         self.need_replot = True
