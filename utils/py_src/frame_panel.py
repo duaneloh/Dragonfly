@@ -38,6 +38,7 @@ class Frame_panel(QtWidgets.QWidget):
         
         self.fig = Figure(figsize=(6, 6))
         self.fig.subplots_adjust(left=0.05, right=0.99, top=0.9, bottom=0.05)
+        self.fig.set_facecolor('#232629')
         self.canvas = FigureCanvas(self.fig)
         self.canvas.mpl_connect('button_press_event', self.frame_focus)
         vbox.addWidget(self.canvas)
@@ -103,6 +104,8 @@ class Frame_panel(QtWidgets.QWidget):
             frame = self.powder_sum
         else:
             num = self.get_num()
+            if num is None:
+                return
             frame = self.emc_reader.get_frame(num)
         
         try:
@@ -117,8 +120,7 @@ class Frame_panel(QtWidgets.QWidget):
         elif self.do_compare and self.compare_flag.isChecked():
             s = self.plot_slice(num)
         else:
-            s = self.fig.add_subplot(111)
-        s.set_facecolor('gray')
+            s = self.fig.add_subplot(111, axisbg='#232629')
         s.imshow(frame.T, vmin=0, vmax=float(self.rangestr.text()), interpolation='none', cmap=self.parent.cmap)
         title = '%d photons' % frame.sum()
         if frame is None and (mode == 1 or mode == 3):

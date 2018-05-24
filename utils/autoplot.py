@@ -11,12 +11,15 @@ import matplotlib
 try:
     from PyQt5 import QtCore, QtWidgets, QtGui
     from matplotlib.backends.backend_qt5agg import FigureCanvas
+    os.environ['QT_API'] = 'pyqt5'
 except ImportError:
     import sip
     sip.setapi('QString', 2)
     from PyQt4 import QtCore, QtGui
     from PyQt4 import QtGui as QtWidgets
     from matplotlib.backends.backend_qt4agg import FigureCanvas
+    os.environ['QT_API'] = 'pyqt'
+import qdarkstyle
 from py_src import frame_panel
 from py_src import py_utils
 from py_src import read_config
@@ -45,6 +48,11 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.max_iternum = 0
         self.need_replot = False
         self.image_exists = False
+        matplotlib.rcParams.update({
+            'text.color': '#eff0f1',
+            'xtick.color': '#eff0f1',
+            'ytick.color': '#eff0f1',
+            'axes.labelcolor': '#eff0f1'})
 
         self.read_config(config)
         self.init_UI()
@@ -62,19 +70,11 @@ class Progress_viewer(QtWidgets.QMainWindow):
         # Menu items
         menubar = self.menuBar()
         menubar.setNativeMenuBar(False)
-        # Theme picker
-        thememenu = menubar.addMenu('&Theme')
-        self.theme = QtWidgets.QActionGroup(self, exclusive=True)
-        for i, s in enumerate(map(str, list(QtWidgets.QStyleFactory.keys()))):
-            a = self.theme.addAction(QtWidgets.QAction(s, self, checkable=True))
-            if i == 0:
-                a.setChecked(True)
-            a.triggered.connect(self.theme_changed)
-            thememenu.addAction(a)
+        
         # Color map picker
         cmapmenu = menubar.addMenu('&Color Map')
         self.color_map = QtWidgets.QActionGroup(self, exclusive=True)
-        for i, s in enumerate(['cubehelix', 'CMRmap', 'gray', 'gray_r', 'jet', 'coolwarm']):
+        for i, s in enumerate(['coolwarm', 'cubehelix', 'CMRmap', 'gray', 'gray_r', 'jet']):
             a = self.color_map.addAction(QtWidgets.QAction(s, self, checkable=True))
             if i == 0:
                 a.setChecked(True)
@@ -84,6 +84,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
         # Volume slices figure
         self.fig = matplotlib.figure.Figure(figsize=(14,5))
         self.fig.subplots_adjust(left=0.0, bottom=0.00, right=0.99, wspace=0.0)
+        self.fig.set_facecolor('#232629')
         self.canvas = FigureCanvas(self.fig)
         self.grid.addWidget(self.canvas, 0, 0)
         self.grid.setColumnStretch(0, 1)
@@ -91,6 +92,7 @@ class Progress_viewer(QtWidgets.QMainWindow):
 
         # Progress plots figure
         self.log_fig = matplotlib.figure.Figure(figsize=(14,5), facecolor='w')
+        self.log_fig.set_facecolor('#232629')
         self.plotcanvas = FigureCanvas(self.log_fig)
         self.grid.addWidget(self.plotcanvas, 1, 0)
         self.plotcanvas.show()
@@ -527,9 +529,6 @@ class Progress_viewer(QtWidgets.QMainWindow):
         self.log_fig.savefig(self.log_imagename.text(), bbox_inches='tight')
         sys.stderr.write("Saved to %s\n"%self.log_imagename.text())
 
-    def theme_changed(self, event=None):
-        QtWidgets.QApplication.instance().setStyle(self.theme.checkedAction().text())
-
     def cmap_changed(self, event=None):
         self.need_replot = True
         self.parse_and_plot()
@@ -554,17 +553,6 @@ if __name__ == '__main__':
     args, unknown = parser.parse_known_args()
     
     app = QtWidgets.QApplication(unknown)
-    palette = QtGui.QPalette()
-    palette.setColor(QtGui.QPalette.Window, QtGui.QColor(53,53,53))
-    palette.setColor(QtGui.QPalette.WindowText, QtGui.QColor(255,255,255))
-    palette.setColor(QtGui.QPalette.Base, QtGui.QColor(25,25,25))
-    palette.setColor(QtGui.QPalette.Text, QtGui.QColor(255,255,255))
-    palette.setColor(QtGui.QPalette.Button, QtGui.QColor(53,53,53))
-    palette.setColor(QtGui.QPalette.ButtonText, QtGui.QColor(255,255,255))
-    palette.setColor(QtGui.QPalette.BrightText, QtGui.QColor(255,255,255))
-    palette.setColor(QtGui.QPalette.Highlight, QtGui.QColor(26,218,26))
-    palette.setColor(QtGui.QPalette.HighlightedText, QtGui.QColor(0,0,0))
-    app.setStyle('Fusion')
-    #app.setPalette(palette)
+    app.setStyleSheet(qdarkstyle.load_stylesheet_from_environment())
     p = Progress_viewer(config=args.config_file, model=args.volume_file)
     sys.exit(app.exec_())

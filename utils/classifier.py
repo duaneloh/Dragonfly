@@ -5,11 +5,14 @@ import os
 import numpy as np
 try:
     from PyQt5 import QtCore, QtWidgets, QtGui
+    os.environ['QT_API'] = 'pyqt5'
 except ImportError:
     import sip
     sip.setapi('QString', 2)
     from PyQt4 import QtCore, QtGui
     from PyQt4 import QtGui as QtWidgets
+    os.environ['QT_API'] = 'pyqt'
+import qdarkstyle
 from py_src import reademc
 from py_src import readdet
 from py_src import manual
@@ -38,6 +41,12 @@ class Classifier(QtWidgets.QMainWindow):
         }
         self.converted = None
         self.mode_val = 0
+        matplotlib.rcParams.update({
+            'text.color': '#eff0f1',
+            'xtick.color': '#eff0f1',
+            'ytick.color': '#eff0f1',
+            'axes.labelcolor': '#eff0f1'})
+        
         
         self.get_config_params()
         if len(set(self.det_list)) == 1:
@@ -79,15 +88,6 @@ class Classifier(QtWidgets.QMainWindow):
         # Menu items
         menubar = self.menuBar()
         menubar.setNativeMenuBar(False)
-        # Theme picker
-        thememenu = menubar.addMenu('&Theme')
-        self.theme = QtWidgets.QActionGroup(self, exclusive=True)
-        for i, s in enumerate(map(str, list(QtWidgets.QStyleFactory.keys()))):
-            a = self.theme.addAction(QtWidgets.QAction(s, self, checkable=True))
-            if i == 0:
-                a.setChecked(True)
-            a.triggered.connect(self.theme_changed)
-            thememenu.addAction(a)
         # Color map picker
         cmapmenu = menubar.addMenu('&Color Map')
         self.color_map = QtWidgets.QActionGroup(self, exclusive=True)
@@ -146,9 +146,6 @@ class Classifier(QtWidgets.QMainWindow):
         self.mode_val = index
         self.frame_panel.plot_frame()
 
-    def theme_changed(self, event=None):
-        QtWidgets.QApplication.instance().setStyle(self.theme.checkedAction().text())
-
     def cmap_changed(self, event=None):
         self.cmap = self.color_map.checkedAction().text()
         self.frame_panel.plot_frame()
@@ -195,6 +192,6 @@ if __name__ == '__main__':
     args = parser.special_parse_args()
     
     app = QtWidgets.QApplication(sys.argv)
-    app.setStyle('Fusion')
+    app.setStyleSheet(qdarkstyle.load_stylesheet_from_environment())
     Classifier(args.config_file, cmap=args.cmap, mask=args.mask, class_fname=args.class_fname)
     sys.exit(app.exec_())

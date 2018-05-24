@@ -3,13 +3,17 @@
 import numpy as np
 import sys
 import os
+import matplotlib
 try:
     from PyQt5 import QtCore, QtWidgets, QtGui
+    os.environ['QT_API'] = 'pyqt5'
 except ImportError:
     import sip
     sip.setapi('QString', 2)
     from PyQt4 import QtCore, QtGui
     from PyQt4 import QtGui as QtWidgets
+    os.environ['QT_API'] = 'pyqt'
+import qdarkstyle
 from py_src import py_utils
 from py_src import read_config
 from py_src import frame_panel
@@ -46,6 +50,12 @@ class Frameviewer(QtWidgets.QMainWindow):
         self.setWindowTitle('Dragonfly Frame Viewer')
         window = QtWidgets.QWidget()
 
+        matplotlib.rcParams.update({
+            'text.color': '#eff0f1',
+            'xtick.color': '#eff0f1',
+            'ytick.color': '#eff0f1',
+            'axes.labelcolor': '#eff0f1'})
+        
         self.hbox = QtWidgets.QHBoxLayout()
         self.frame_panel = frame_panel.Frame_panel(self, powder=self.do_powder, compare=self.do_compare)
         self.hbox.addWidget(self.frame_panel)
@@ -53,15 +63,6 @@ class Frameviewer(QtWidgets.QMainWindow):
         # Menu items
         menubar = self.menuBar()
         menubar.setNativeMenuBar(False)
-        # Theme picker
-        thememenu = menubar.addMenu('&Theme')
-        self.theme = QtWidgets.QActionGroup(self, exclusive=True)
-        for i, s in enumerate(map(str, list(QtWidgets.QStyleFactory.keys()))):
-            a = self.theme.addAction(QtWidgets.QAction(s, self, checkable=True))
-            if i == 0:
-                a.setChecked(True)
-            a.triggered.connect(self.theme_changed)
-            thememenu.addAction(a)
         # Color map picker
         cmapmenu = menubar.addMenu('&Color Map')
         self.color_map = QtWidgets.QActionGroup(self, exclusive=True)
@@ -122,9 +123,6 @@ class Frameviewer(QtWidgets.QMainWindow):
         except read_config.ConfigParser.NoOptionError:
             self.blacklist = None
 
-    def theme_changed(self, event=None):
-        QtWidgets.QApplication.instance().setStyle(self.theme.checkedAction().text())
-
     def cmap_changed(self, event=None):
         self.cmap = self.color_map.checkedAction().text()
         self.frame_panel.plot_frame()
@@ -153,6 +151,6 @@ if __name__ == '__main__':
     args = parser.special_parse_args()
     
     app = QtWidgets.QApplication(sys.argv)
-    app.setStyle('Fusion')
+    app.setStyleSheet(qdarkstyle.load_stylesheet_from_environment())
     Frameviewer(args.config_file, cmap=args.cmap, mask=args.mask, do_powder=args.powder, do_compare=args.compare)
     sys.exit(app.exec_())
