@@ -1,6 +1,7 @@
 import numpy as np
 import logging
 import ConfigParser
+import os
 from collections import OrderedDict
 
 class MultiOrderedDict(OrderedDict):
@@ -118,3 +119,59 @@ def compute_polarization(polarization, px, py, norm):
     else:
         #print 'Please set the polarization direction as x, y or none!'
         logging.info('Please set the polarization direction as x, y or none!')
+
+def read_gui_config(gui, section):
+    ''' Read config file parameters needed for GUI operation
+    '''
+    # Photons file list
+    try:
+        pfile = get_filename(gui.config_file, section, 'in_photons_file')
+        print 'Using in_photons_file: %s' % pfile
+        gui.photons_list = [pfile]
+    except ConfigParser.NoOptionError:
+        plist = get_filename(gui.config_file, section, 'in_photons_list')
+        print 'Using in_photons_list: %s' % plist
+        with open(plist, 'r') as f:
+            gui.photons_list = map(lambda x: x.rstrip(), f.readlines())
+            gui.photons_list = [line for line in gui.photons_list if line]
+    gui.num_files = len(gui.photons_list)
+    
+    # Detector file list
+    try:
+        dfile = get_filename(gui.config_file, section, 'in_detector_file')
+        print 'Using in_detector_file: %s' % dfile
+        gui.det_list = [dfile]
+    except ConfigParser.NoOptionError:
+        dlist = get_filename(gui.config_file, section, 'in_detector_list')
+        print 'Using in_detector_list: %s' % dlist
+        with open(dlist, 'r') as f:
+            gui.det_list = map(lambda x: x.rstrip(), f.readlines())
+            gui.det_list = [line for line in gui.det_list if line]
+    if len(gui.det_list) > 1 and len(gui.det_list) != len(gui.photons_list):
+        raise ValueError('Different number of detector and photon files')
+    
+    # Output folder
+    try:
+        output_folder = get_filename(gui.config_file, 'emc', 'output_folder')
+    except ConfigParser.NoOptionError:
+        output_folder = 'data/'
+    gui.output_folder = os.path.realpath(output_folder)
+    
+    # Frame blacklist
+    try:
+        gui.blacklist = np.loadtxt(get_filename(gui.config_file, 'emc', 'blacklist_file'), dtype='u1')
+    except ConfigParser.NoOptionError:
+        gui.blacklist = None
+    
+    # Only used with old detector file
+    try:
+        pm = get_detector_config(gui.config_file)
+        gui.ewald_rad = pm['ewald_rad']
+        gui.detd = pm['detd']/pm['pixsize']
+    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError):
+        gui.ewald_rad = None
+        gui.detd = None
+    
+    # Log file
+    gui.log_fname = get_filename(gui.config_file, 'emc', 'log_file')
+    

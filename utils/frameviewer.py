@@ -32,7 +32,7 @@ class Frameviewer(QtWidgets.QMainWindow):
             self.cmap = cmap
         self.mode_val = None
         
-        self.get_config_params()
+        read_config.read_gui_config(self, 'emc')
         if len(set(self.det_list)) == 1:
             geom_list = [readdet.Det_reader(self.det_list[0], self.detd, self.ewald_rad, mask_flag=mask)]
             geom_mapping = None
@@ -76,52 +76,6 @@ class Frameviewer(QtWidgets.QMainWindow):
         window.setLayout(self.hbox)
         self.setCentralWidget(window)
         self.show()
-
-    def get_config_params(self):
-        try:
-            pfile = read_config.get_filename(self.config_file, 'emc', 'in_photons_file')
-            print 'Using in_photons_file: %s' % pfile
-            self.photons_list = [pfile]
-        except read_config.ConfigParser.NoOptionError:
-            plist = read_config.get_filename(self.config_file, 'emc', 'in_photons_list')
-            print 'Using in_photons_list: %s' % plist
-            with open(plist, 'r') as f:
-                self.photons_list = map(lambda x: x.rstrip(), f.readlines())
-                self.photons_list = [line for line in self.photons_list if line]
-        self.num_files = len(self.photons_list)
-        try:
-            dfile = read_config.get_filename(self.config_file, 'emc', 'in_detector_file')
-            print 'Using in_detector_file: %s' % dfile
-            self.det_list = [dfile]
-        except read_config.ConfigParser.NoOptionError:
-            dlist = read_config.get_filename(self.config_file, 'emc', 'in_detector_list')
-            print 'Using in_detector_list: %s' % dlist
-            with open(dlist, 'r') as f:
-                self.det_list = map(lambda x: x.rstrip(), f.readlines())
-                self.det_list = [line for line in self.det_list if line]
-        if len(self.det_list) > 1 and len(self.det_list) != len(self.photons_list):
-            raise ValueError('Different number of detector and photon files')
-        
-        # Only used with old detector file
-        try:
-            pm = read_config.get_detector_config(self.config_file)
-            self.ewald_rad = pm['ewald_rad']
-            self.detd = pm['detd']/pm['pixsize']
-        except (read_config.ConfigParser.NoOptionError, read_config.ConfigParser.NoSectionError):
-            self.ewald_rad = None
-            self.detd = None
-        
-        self.log_fname = read_config.get_filename(self.config_file, 'emc', 'log_file')
-        try:
-            output_folder = read_config.get_filename(self.config_file, 'emc', 'output_folder')
-        except read_config.ConfigParser.NoOptionError:
-            output_folder = 'data/'
-        self.output_folder = os.path.realpath(output_folder)
-        
-        try:
-            self.blacklist = np.loadtxt(read_config.get_filename(args.config_file, 'emc', 'blacklist_file'), dtype='u1')
-        except read_config.ConfigParser.NoOptionError:
-            self.blacklist = None
 
     def cmap_changed(self, event=None):
         self.cmap = self.color_map.checkedAction().text()
