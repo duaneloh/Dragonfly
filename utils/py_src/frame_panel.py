@@ -11,12 +11,21 @@ except ImportError:
     from PyQt4 import QtCore, QtGui
     from PyQt4 import QtGui as QtWidgets
     from matplotlib.backends.backend_qt4agg import FigureCanvas
+import matplotlib
 from matplotlib.figure import Figure
 import slices
 
 class Frame_panel(QtWidgets.QWidget):
     def __init__(self, parent, compare=False, powder=False, *args, **kwargs):
         super(Frame_panel, self).__init__(parent, *args, **kwargs)
+        
+        matplotlib.rcParams.update({
+            'text.color': '#eff0f1',
+            'xtick.color': '#eff0f1',
+            'ytick.color': '#eff0f1',
+            'axes.labelcolor': '#eff0f1',
+            'axes.facecolor': '#232629',
+            'figure.facecolor': '#232629'})
         
         self.parent = parent
         self.emc_reader = self.parent.emc_reader
@@ -38,7 +47,6 @@ class Frame_panel(QtWidgets.QWidget):
         
         self.fig = Figure(figsize=(6, 6))
         self.fig.subplots_adjust(left=0.05, right=0.99, top=0.9, bottom=0.05)
-        self.fig.set_facecolor('#232629')
         self.canvas = FigureCanvas(self.fig)
         self.canvas.mpl_connect('button_press_event', self.frame_focus)
         vbox.addWidget(self.canvas)
@@ -120,7 +128,7 @@ class Frame_panel(QtWidgets.QWidget):
         elif self.do_compare and self.compare_flag.isChecked():
             s = self.plot_slice(num)
         else:
-            s = self.fig.add_subplot(111, axisbg='#232629')
+            s = self.fig.add_subplot(111)
         s.imshow(frame.T, vmin=0, vmax=float(self.rangestr.text()), interpolation='none', cmap=self.parent.cmap)
         title = '%d photons' % frame.sum()
         if frame is None and (mode == 1 or mode == 3):

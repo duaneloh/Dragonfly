@@ -42,12 +42,6 @@ class Classifier(QtWidgets.QMainWindow):
         }
         self.converted = None
         self.mode_val = 0
-        matplotlib.rcParams.update({
-            'text.color': '#eff0f1',
-            'xtick.color': '#eff0f1',
-            'ytick.color': '#eff0f1',
-            'axes.labelcolor': '#eff0f1'})
-        
         
         self.get_config_params()
         if len(set(self.det_list)) == 1:

@@ -50,12 +50,6 @@ class Frameviewer(QtWidgets.QMainWindow):
         self.setWindowTitle('Dragonfly Frame Viewer')
         window = QtWidgets.QWidget()
 
-        matplotlib.rcParams.update({
-            'text.color': '#eff0f1',
-            'xtick.color': '#eff0f1',
-            'ytick.color': '#eff0f1',
-            'axes.labelcolor': '#eff0f1'})
-        
         self.hbox = QtWidgets.QHBoxLayout()
         self.frame_panel = frame_panel.Frame_panel(self, powder=self.do_powder, compare=self.do_compare)
         self.hbox.addWidget(self.frame_panel)
