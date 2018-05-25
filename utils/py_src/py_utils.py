@@ -33,9 +33,10 @@ class my_timer(object):
 
 class my_argparser(argparse.ArgumentParser):
     def __init__(self, description=""):
-        argparse.ArgumentParser.__init__(self, description=description)
+        argparse.ArgumentParser.__init__(self, description=description,
+                                         formatter_class=argparse.RawTextHelpFormatter)
         self.add_argument("-c", "--config_file", dest="config_file",
-                          help="config file (defaults to config.ini)")
+                          help="config file (default config.ini)")
         self.add_argument("-v", "--verbose", dest="vb", action="store_true", default=False)
         self.add_argument("-m", "--main_dir", dest="main_dir",
                           help="relative path to main repository directory\n(where data aux utils are stored)")
@@ -156,7 +157,7 @@ def use_last_recon_as_starting_model(config_fname, output_subdir="output"):
             max_file = f
     logging.info("Setting start_model_file to " + max_file)
     config.set("emc", "start_model_file", max_file)
-    with open("config.ini", "w") as fp:
+    with open(config_fname, "w") as fp:
         config.write(fp)
 
 def increment_quat_file_sensibly(config_fname, incr):
@@ -169,7 +170,7 @@ def increment_quat_file_sensibly(config_fname, incr):
     quat_num_div += incr
     config.set("emc", "num_div", quat_num_div)
 
-    with open("config.ini", "w") as fp:
+    with open(config_fname, "w") as fp:
         config.write(fp)
 
 def increment_beta_sensibly(config_fname, incr):

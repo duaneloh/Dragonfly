@@ -1,17 +1,11 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
+#include "quat.h"
 
 #define num_vert 120 
 #define num_edge 720
 #define num_face 1200
 #define num_cell 600
-
 // number of nearest neighbors = num_edge / num_vert * 2
 #define nnn 12
-
-//void ver_even_permute( int ) ;
-//double weight( double*, double* ) ;
 
 struct q_point{
 	int vec[4][2] ;
@@ -26,9 +20,7 @@ int nn_list[num_vert][nnn] ;
 int edge2cell[num_edge][4] ;
 int face2cell[num_face][4] ;
 
-// components a and b of the coordinate (a + b*tau) / (2*num_div)
 int vec_vertices[num_vert][4][2] ;
-// square of minimal distance between two vertices
 double min_dist2 ;
 
 struct q_point *vertice_points, *edge_points, *face_points, *cell_points ;
@@ -749,17 +741,17 @@ void quat_free_mem(int num) {
 		free(cell_points) ;
 }
 
-int quat_gen(int num_div, double **quat_ptr, int do_icos) {
-	int r, num_rot ;
+int quat_gen(int num_div, struct rotation *quat) {
+	int r ;
 	double total_weight = 0. ;
-
+	
 	make_vertex(num_div) ; 
 	make_edge(num_div) ;
 	make_face(num_div) ; 
 	make_cell(num_div) ;
 	make_map() ;
 	
-	quat_setup(num_div, quat_ptr, &num_rot) ;
+	quat_setup(num_div, &quat->quat, &quat->num_rot) ;
 	
 	if (num_div > 1)
 		refine_edge(num_div) ;
@@ -768,19 +760,107 @@ int quat_gen(int num_div, double **quat_ptr, int do_icos) {
 	if (num_div > 3)
 		refine_cell(num_div) ;
 	
-	print_quat(num_div, *quat_ptr) ;
-
-	if (do_icos)
-		num_rot = reduce_icosahedral(num_div, *quat_ptr) ;
+	print_quat(num_div, quat->quat) ;
+	
+	if (quat->icosahedral_flag)
+		quat->num_rot = reduce_icosahedral(num_div, quat->quat) ;
 	
 	quat_free_mem(num_div) ;
 	
-	for (r = 0 ; r < num_rot ; ++r)
-		total_weight += (*quat_ptr)[r*5 + 4] ;
+	for (r = 0 ; r < quat->num_rot ; ++r)
+		total_weight += quat->quat[r*5 + 4] ;
 	total_weight = 1. / total_weight ;
-	for (r = 0 ; r < num_rot ; ++r)
-		(*quat_ptr)[r*5 + 4] *= total_weight ;
+	for (r = 0 ; r < quat->num_rot ; ++r)
+		quat->quat[r*5 + 4] *= total_weight ;
 	
-	return num_rot ;
+	return quat->num_rot ;
+}
+
+int parse_quat(char *fname, struct rotation *quat) {
+	int r, t ;
+	
+	FILE *fp = fopen(fname, "r") ;
+	if (fp == NULL) {
+		fprintf(stderr, "quaternion file %s not found. Exiting.\n", fname) ;
+		return -1 ;
+	}
+	double total_weight = 0. ;
+	fscanf(fp, "%d", &quat->num_rot) ;
+	quat->quat = malloc(quat->num_rot * 5 * sizeof(double)) ;
+	for (r = 0 ; r < quat->num_rot ; ++r) {
+		for (t = 0 ; t < 5 ; ++t)
+			fscanf(fp, "%lf", &quat->quat[r*5 + t]) ;
+		total_weight += quat->quat[r*5 + 4] ;
+	}
+	total_weight = 1. / total_weight ;
+	for (r = 0 ; r < quat->num_rot ; ++r)
+		quat->quat[r*5 + 4] *= total_weight ;
+	fclose(fp) ;
+	
+	return quat->num_rot ;
+}
+
+void divide_quat(int rank, int num_proc, struct rotation *quat) {
+	quat->num_rot_p = quat->num_rot / num_proc ;
+	if (rank < (quat->num_rot % num_proc))
+		quat->num_rot_p++ ;
+	if (num_proc > 1) {
+		char hname[99] ;
+		gethostname(hname, 99) ;
+		fprintf(stderr, "%d: %s: num_rot_p = %d\n", rank, hname, quat->num_rot_p) ;
+	}
+}
+
+void free_quat(struct rotation *quat) {
+	free(quat->quat) ;
+}
+
+static char *generate_token(char *line, char *section_name) {
+	char *token = strtok(line, " =") ;
+	if (token[0] == '#' || token[0] == '\n')
+		return NULL ;
+	
+	if (line[0] == '[') {
+		token = strtok(line, "[]") ;
+		strcpy(section_name, token) ;
+		return NULL ;
+	}
+	
+	return token ;
+}
+
+int generate_quaternion(FILE *config_fp, struct rotation *quat_ptr) {
+	int num, num_div = -1 ;
+	char quat_fname[1024] = {'\0'} ;
+	char line[1024], section_name[1024], *token ;
+	
+	rewind(config_fp) ;
+	while (fgets(line, 1024, config_fp) != NULL) {
+		if ((token = generate_token(line, section_name)) == NULL)
+			continue ;
+		
+		if (strcmp(section_name, config_section) == 0) {
+			if (strcmp(token, "num_div") == 0)
+				num_div = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "in_quat_file") == 0)
+				strcpy(quat_fname, strtok(NULL, " =\n")) ;
+		}
+	}
+	
+	if (num_div > 0 && quat_fname[0] != '\0') {
+		fprintf(stderr, "Config file contains both num_div as well as in_quat_file. Pick one.\n") ;
+		return 1 ;
+	}
+	else if (num_div > 0)
+		num = quat_gen(num_div, quat_ptr) ;
+	else
+		num = parse_quat(quat_fname, quat_ptr) ;
+	
+	if (num < 0)
+		return 1 ;
+	
+	divide_quat(rank, num_proc, quat_ptr) ;
+	
+	return 0 ;
 }
 
