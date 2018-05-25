@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
 				fwrite(model1, sizeof(double), size * size * size, fp) ;
 				fclose(fp) ;
 				
-				sprintf(fname, "%s/weights/weights_%.3d.bin", output_folder, iteration) ;
+				sprintf(fname, "%s/weights/weights_last.bin", output_folder) ;
 				fp = fopen(fname, "w") ;
 				fwrite(inter_weight, sizeof(double), size * size * size, fp) ;
 				fclose(fp) ;
