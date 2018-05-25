@@ -16,7 +16,7 @@ from glob import glob
 import re
 
 class Plotter:
-    def __init__(self, master, config='config.ini', size=200, model=None):
+    def __init__(self, master, config='config.ini', size=200, model=None, cmap='jet'):
         self.master = master
         self.size = size
         self.center = self.size/2
@@ -34,6 +34,7 @@ class Plotter:
         self.orientnum = set()
         self.orient = []
         self.log_txt = ""
+        self.cmap = cmap
 
         with open(config, 'r') as f:
             filestring = f.read()
@@ -196,19 +197,19 @@ class Plotter:
         grid = gridspec.GridSpec(1,3, wspace=0., hspace=0.)
 
         s1 = plt.Subplot(self.fig, grid[:,0])
-        s1.imshow(a, vmin=0, vmax=rangemax, cmap='jet', interpolation='none')
+        s1.imshow(a, vmin=0, vmax=rangemax, cmap=self.cmap, interpolation='none')
         s1.set_title("YZ plane", y=1.01)
         s1.axis('off')
         self.fig.add_subplot(s1)
 
         s2 = plt.Subplot(self.fig, grid[:,1])
-        s2.matshow(b, vmin=0, vmax=rangemax, cmap='jet', interpolation='none')
+        s2.matshow(b, vmin=0, vmax=rangemax, cmap=self.cmap, interpolation='none')
         s2.set_title("XZ plane", y=1.01)
         s2.axis('off')
         self.fig.add_subplot(s2)
 
         s3 = plt.Subplot(self.fig, grid[:,2])
-        s3.matshow(c, vmin=0, vmax=rangemax, cmap='jet', interpolation='none')
+        s3.matshow(c, vmin=0, vmax=rangemax, cmap=self.cmap, interpolation='none')
         s3.set_title("XY plane", y=1.01)
         s3.axis('off')
         self.fig.add_subplot(s3)
@@ -424,8 +425,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Dragonfly Progress Monitor')
     parser.add_argument('-c', '--config_file', help='Path to config file. Default=config.ini', default='config.ini')
     parser.add_argument('-f', '--volume_file', help='Show slices of particular file instead of output', default=None)
+    parser.add_argument('-m', '--colormap', type=str, help="Colormap used for plotting slices (default is jet)", default='jet')
     args = parser.parse_args()
     
     root = Tk.Tk()
-    plotter = Plotter(root, config=args.config_file, model=args.volume_file)
+    plotter = Plotter(root, config=args.config_file, model=args.volume_file, cmap=args.colormap)
     root.mainloop()
