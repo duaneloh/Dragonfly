@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 
-import numpy as np
 import sys
 import os
-import matplotlib
 try:
     from PyQt5 import QtCore, QtWidgets, QtGui
     os.environ['QT_API'] = 'pyqt5'

@@ -2,8 +2,6 @@
 
 import sys
 import os
-import numpy as np
-import matplotlib
 try:
     from PyQt5 import QtCore, QtWidgets, QtGui
     os.environ['QT_API'] = 'pyqt5'
@@ -48,8 +46,8 @@ class Classifier(QtWidgets.QMainWindow):
             geom_list = [readdet.Det_reader(self.det_list[0], self.detd, self.ewald_rad, mask_flag=mask)]
             geom_mapping = None
         else:
-            print('The Classifier GUI will likely have problems with multiple geometries')
-            print('We recommend classifying patterns with a common geometry')
+            print 'The Classifier GUI will likely have problems with multiple geometries'
+            print 'We recommend classifying patterns with a common geometry'
             uniq = sorted(set(self.det_list))
             geom_list = [readdet.Det_reader(fname, self.detd, self.ewald_rad, mask_flag=mask) for fname in uniq]
             geom_mapping = [uniq.index(fname) for fname in self.det_list]
@@ -63,7 +61,7 @@ class Classifier(QtWidgets.QMainWindow):
     def init_UI(self):
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setWindowTitle('Dragonfly Classifier')
-        self.setGeometry(0,0,1100,900)
+        self.setGeometry(0, 0, 1100, 900)
         window = QtWidgets.QWidget()
         hbox = QtWidgets.QHBoxLayout()
         hbox.setSpacing(0)
@@ -106,7 +104,7 @@ class Classifier(QtWidgets.QMainWindow):
     def get_config_params(self):
         section = 'classifier'
         try:
-            read_config.get_filename(self.config_file, section, 'test_option')
+            read_config.get_filename(self.config_file, section, 'nonexistent_option')
         except read_config.ConfigParser.NoSectionError:
             print 'No section named \'classifier\'. Taking parameters from \'emc\' section instead'
             section = 'emc'
