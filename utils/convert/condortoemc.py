@@ -25,6 +25,7 @@ if __name__ == '__main__':
     logging.basicConfig(filename='recon.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     parser      = py_utils.my_argparser(description='condortoemc')
     parser.add_argument('condor_fname', help='Condor CXI file to convert to emc format')
+    parser.add_argument('-o', '--output', help='Output folder, read from config file by default', type=str, default=None) 
     #parser.add_argument('-d', '--dset_name', help='Name of HDF5 dataset containing photon data', default=None)
     #parser.add_argument('-s', '--sel_file', help='Path to text file containing indices of frames or a set of 0 or 1 values. Default: Do all', default=None)
     #parser.add_argument('-S', '--sel_dset', help='Same as --sel_file, but pointing to the name of an HDF5 dataset', default=None)
@@ -35,7 +36,10 @@ if __name__ == '__main__':
     logging.info(' '.join(sys.argv))
     print args.config_file
     pm          = read_config.get_detector_config(args.config_file, show=args.vb)
-    output_folder = read_config.get_filename(args.config_file, 'emc', 'output_folder')
+    if args.output is None:
+        output_folder = read_config.get_filename(args.config_file, 'emc', 'output_folder')
+    else:
+        output_folder = args.output
 
     if not os.path.isfile(args.condor_fname):
         print 'Data file %s not found. Exiting.' % args.condor_fname
@@ -61,12 +65,13 @@ if __name__ == '__main__':
     for fname in flist:
         f = h5py.File(fname, 'r')
         dset = f['entry_1/data_1/data']
+        mask = f['entry_1/data_1/mask']
         num_frames = dset.shape[0]
         if not args.list:
             logging.info('Converting %d frames in %s' % (num_frames, args.condor_fname))
 
         for i in range(num_frames):
-            photons = dset[i]
+            photons = dset[i] * (~(mask[i]==512))
             photons[photons<0] = 0
             emcwriter.write_frame(photons.flatten())
             if not args.list:
