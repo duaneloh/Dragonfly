@@ -4,13 +4,13 @@ import os
 import string
 try:
     from PyQt5 import QtCore, QtWidgets, QtGui
-    from matplotlib.backends.backend_qt5agg import FigureCanvas
+    from matplotlib.backends.backend_qt5agg import FigureCanvas, NavigationToolbar2QT
 except ImportError:
     import sip
     sip.setapi('QString', 2)
     from PyQt4 import QtCore, QtGui
     from PyQt4 import QtGui as QtWidgets
-    from matplotlib.backends.backend_qt4agg import FigureCanvas
+    from matplotlib.backends.backend_qt4agg import FigureCanvas, NavigationToolbar2QT
 import matplotlib
 from matplotlib.figure import Figure
 import slices
@@ -48,7 +48,9 @@ class Frame_panel(QtWidgets.QWidget):
         self.fig = Figure(figsize=(6, 6))
         self.fig.subplots_adjust(left=0.05, right=0.99, top=0.9, bottom=0.05)
         self.canvas = FigureCanvas(self.fig)
+        self.navbar = NavigationToolbar2QT(self.canvas, self)
         self.canvas.mpl_connect('button_press_event', self.frame_focus)
+        vbox.addWidget(self.navbar)
         vbox.addWidget(self.canvas)
         
         hbox = QtWidgets.QHBoxLayout()
