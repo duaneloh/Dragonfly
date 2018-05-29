@@ -97,7 +97,8 @@ if __name__ == '__main__':
     qz = condor_qz / (2 * np.pi) * condor_wavelength * qscaling
 
     if pm['mask_fname'] is None:
-        mask = (condor_mask == 0).astype(np.int)
+        mask = np.zeros(condor_mask.shape)
+        mask [~(condor_mask == 0)] = 2
         rmax = min(condor_X.max(), np.abs(condor_X.min()), condor_Y.max(), np.abs(condor_Y.min()))
         mask[(condor_R>rmax)] = 1
         mask = mask.flatten()
