@@ -57,7 +57,7 @@ if __name__ == "__main__":
         args.num_mpi = 16
         args.num_threads = 2
     elif args.davinci:
-        args.num_mpi = 30
+        args.num_mpi = 3
         args.num_threads = 4
 
     # We might not need this anymore, except with the extend with quaternion up-refinement.
