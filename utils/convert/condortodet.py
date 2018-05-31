@@ -75,20 +75,7 @@ if __name__ == '__main__':
     # DRAGONFLY CALCULATION OF QMAP AND SOLID ANGLE
     # ---------------------------------------------
     q_pm = read_config.compute_q_params(pm['detd'], pm['dets_x'], pm['dets_y'], pm['pixsize'], pm['wavelength'], pm['ewald_rad'], show=args.vb)
-    #fov_len     = 2 * int(np.ceil(q_pm['fov_in_A']/q_pm['half_p_res']/2.)) + 3
-    #det_cen_x   = pm['detc_x']
-    #det_cen_y   = pm['detc_y']
     qscaling    = 1. / pm['wavelength'] / q_pm['q_sep']
-    #(x, y)      = np.mgrid[0:pm['dets_x'], 0:pm['dets_y']]
-    #print(x - det_cen_x), det_cen_x
-    #(x, y)      = (x.flatten()-det_cen_x, y.flatten()-det_cen_y)
-    #(px, py)    = (pm['pixsize']*x, pm['pixsize']*y)
-    #norm        = np.sqrt(px*px + py*py + pm['detd']*pm['detd'])
-    #polar       = read_config.compute_polarization(pm['polarization'], px, py, norm)
-    #(qx, qy)    = (px*qscaling/norm, py*qscaling/norm)
-    #qz          = qscaling*(pm['detd']/norm - 1.)
-    #solid_angle = pm['detd']*(pm['pixsize']*pm['pixsize']) / np.power(norm, 3.0)
-    #solid_angle = polar*solid_angle
 
     # RESCALE CONDOR Qs to match dragonfly convention
     # -----------------------------------------------
