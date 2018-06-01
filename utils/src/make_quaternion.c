@@ -6,15 +6,15 @@
 int main(int argc, char* argv[]) {
 	struct rotation *quat ;
 	int r, num_div ;
-	char config_fname[999], quat_fname[999] ;
-	char line[999], *token ;
+	char config_fname[1024], quat_fname[1024] ;
+	char line[1024], *token ;
 	FILE *fp ;
 	struct timeval t1, t2 ;
 	
 	gettimeofday(&t1, NULL) ;
 	
 	if (argc > 1)
-		strcpy(config_fname, argv[1]) ;
+		strncpy(config_fname, argv[1], 1023) ;
 	else
 		strcpy(config_fname, "config.ini") ;
 	
@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
 		fprintf(stderr, "Config file %s not found.\n", config_fname) ;
 		return 1 ;
 	}
-	while (fgets(line, 999, fp) != NULL) {
+	while (fgets(line, 1024, fp) != NULL) {
 		token = strtok(line, " =") ;
 		if (token[0] == '#' || token[0] == '\n' || token[0] == '[')
 			continue ;
@@ -59,6 +59,7 @@ int main(int argc, char* argv[]) {
 		if ((r+1) % 5 == 0)
 			fprintf(fp, "\n") ;
 	}
+	fclose(fp) ;
 	free_quat(quat) ;
 	
 	gettimeofday(&t2, NULL) ;

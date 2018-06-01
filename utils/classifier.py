@@ -42,19 +42,8 @@ class Classifier(QtWidgets.QMainWindow):
         self.mode_val = 0
         
         self.get_config_params()
-        if len(set(self.det_list)) == 1:
-            geom_list = [readdet.Det_reader(self.det_list[0], self.detd, self.ewald_rad, mask_flag=mask)]
-            geom_mapping = None
-        else:
-            print 'The Classifier GUI will likely have problems with multiple geometries'
-            print 'We recommend classifying patterns with a common geometry'
-            uniq = sorted(set(self.det_list))
-            geom_list = [readdet.Det_reader(fname, self.detd, self.ewald_rad, mask_flag=mask) for fname in uniq]
-            geom_mapping = [uniq.index(fname) for fname in self.det_list]
-        self.geom = geom_list[0]
-        self.emc_reader = reademc.EMC_reader(self.photons_list, geom_list, geom_mapping) 
-        self.num_frames = self.emc_reader.num_frames
-        self.classes = classes.Frame_classes(self.num_frames, fname=class_fname)
+        py_utils.gen_det_and_emc(self, classifier=True, mask=mask)
+        self.classes = classes.FrameClasses(self.emc_reader.num_frames, fname=class_fname)
         
         self.init_UI()
 
@@ -66,17 +55,17 @@ class Classifier(QtWidgets.QMainWindow):
         hbox = QtWidgets.QHBoxLayout()
         hbox.setSpacing(0)
 
-        self.frame_panel = frame_panel.Frame_panel(self)
+        self.frame_panel = frame_panel.FramePanel(self)
         hbox.addWidget(self.frame_panel)
 
         window.setLayout(hbox)
         self.setCentralWidget(window)
         self.show()
 
-        self.manual_panel = manual.Manual_panel(self)
-        self.conversion_panel = conversion.Conversion_panel(self)
-        self.embedding_panel = embedding.Embedding_panel(self)
-        self.mlp_panel = mlp.MLP_panel(self)
+        self.manual_panel = manual.ManualPanel(self)
+        self.conversion_panel = conversion.ConversionPanel(self)
+        self.embedding_panel = embedding.EmbeddingPanel(self)
+        self.mlp_panel = mlp.MLPPanel(self)
 
         # Menu items
         menubar = self.menuBar()
@@ -125,13 +114,7 @@ class Classifier(QtWidgets.QMainWindow):
         k = event.key()
         m = int(event.modifiers())
         
-        if QtGui.QKeySequence(m+k) == QtGui.QKeySequence('Ctrl+N'):
-            self.frame_panel.next_frame()
-        elif QtGui.QKeySequence(m+k) == QtGui.QKeySequence('Ctrl+P'):
-            self.frame_panel.prev_frame()
-        elif QtGui.QKeySequence(m+k) == QtGui.QKeySequence('Ctrl+R'):
-            self.frame_panel.rand_frame()
-        elif QtGui.QKeySequence(m+k) == QtGui.QKeySequence('Ctrl+Q'):
+        if QtGui.QKeySequence(m+k) == QtGui.QKeySequence('Ctrl+Q'):
             self.close()
         else:
             event.ignore()
@@ -156,7 +139,7 @@ class Classifier(QtWidgets.QMainWindow):
                 event.ignore()
 
 if __name__ == '__main__':
-    parser = py_utils.my_argparser(description='Data classifier')
+    parser = py_utils.MyArgparser(description='Data classifier')
     parser.add_argument('--cmap', help='Matplotlib color map (default: CMRmap)')
     parser.add_argument('-M', '--mask', help='Whether to zero out masked pixels (default False)', action='store_true', default=False)
     parser.add_argument('-C', '--class_fname', help='File containing classes for each frame', default='my_classes.dat')

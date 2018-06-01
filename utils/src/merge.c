@@ -131,7 +131,6 @@ int setup(char *fname) {
 int main(int argc, char *argv[]) {
 	long i, vol ;
 	FILE *fp ;
-	struct dataset *curr ;
 	char config_fname[1024] ;
 	int c ;
 	extern char *optarg ;
@@ -169,10 +168,7 @@ int main(int argc, char *argv[]) {
 		double *priv_model = calloc(vol, sizeof(double)) ;
 		double *priv_weight = calloc(vol, sizeof(double)) ;
 		double *view = malloc(det->num_pix * sizeof(double)) ;
-		
-		if (omp_rank == 0)
-			curr = frames ;
-		#pragma omp barrier
+		struct dataset *curr = frames ;
 		
 		while (curr != NULL) {
 			detn = det[0].mapping[dset] ;
@@ -193,8 +189,7 @@ int main(int argc, char *argv[]) {
 			if (omp_rank == 0)
 				fprintf(stderr, "\rMerging %s : %d/%d done\n", curr->filename, curr->num_data, curr->num_data) ;
 			
-			if (omp_rank == 0)
-				curr = curr->next ;
+			curr = curr->next ;
 			dset++ ;
 			#pragma omp barrier
 		}

@@ -1,12 +1,10 @@
 #!/usr/bin/env python
 
-import argparse
-import numpy as np
 import sys
 import os
-import time
 import glob
-import re
+import argparse
+import numpy as np
 import matplotlib
 try:
     from PyQt5 import QtCore, QtWidgets, QtGui
@@ -22,8 +20,6 @@ except ImportError:
     os.environ['QT_API'] = 'pyqt'
 import qdarkstyle
 import matplotlib.pyplot as plt
-from py_src import frame_panel
-from py_src import py_utils
 from py_src import read_config
 
 class mySpinBox(QtWidgets.QSpinBox):

@@ -14,7 +14,7 @@ except ImportError:
 
 if __name__ == "__main__":
     logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-    parser      = py_utils.my_argparser(description="make intensities")
+    parser      = py_utils.MyArgparser(description="make intensities")
     args        = parser.special_parse_args()
 
     den_file    = os.path.join(args.main_dir, read_config.get_filename(args.config_file, 'make_intensities', "in_density_file"))
@@ -31,14 +31,14 @@ if __name__ == "__main__":
     logging.info(' '.join(sys.argv))
 
     if to_write:
-        timer       = py_utils.my_timer()
+        timer       = py_utils.MyTimer()
         pm          = read_config.get_detector_config(args.config_file, show=args.vb)
         q_pm        = read_config.compute_q_params(pm['detd'], pm['dets_x'], pm['dets_y'], pm['pixsize'], pm['wavelength'], pm['ewald_rad'], show=args.vb)
         timer.reset_and_report("Reading experiment parameters") if args.vb else timer.reset()
 
         fov_len     = 2 * int(np.ceil(q_pm['fov_in_A']/q_pm['half_p_res']/2.)) + 3
         logging.info('Volume size: %d' % fov_len) 
-        den         = py_utils.read_density(den_file, binary=True)
+        den         = py_utils.read_density(den_file)
         min_over    = float(fov_len)/den.shape[0]
         if min_over > 12:
             if py_utils.confirm_oversampling(min_over) is False:

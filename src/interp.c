@@ -453,6 +453,8 @@ void symmetrize_icosahedral(double *model, int size) {
 	
 	for (i = 0 ; i < size*size*size ; ++i)
 		model[i] /= 60. ;
+	
+	free(temp) ;
 }
 
 void make_rot_quat(double *quaternion, double rot[3][3]) {

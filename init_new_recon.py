@@ -31,8 +31,6 @@ if __name__ == "__main__":
     print "Initializing new directory and creating soft links to useful utilities."
     print "Type './init_new_recon.py -h' for options"
     print "See http://github.com/duaneloh/Dragonfly/wiki/FAQ for troubleshooting tips."
-    print "Feel free to email Kartik Ayyer <kartik.ayyer@desy.de>"
-    print "or Duane Loh <duaneloh@nus.edu.sg> if the FAQ does not help."
     print 80*"="
 
     if args.recon_prefix != './':

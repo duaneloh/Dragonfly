@@ -31,16 +31,7 @@ class Frameviewer(QtWidgets.QMainWindow):
         self.mode_val = None
         
         read_config.read_gui_config(self, 'emc')
-        if len(set(self.det_list)) == 1:
-            geom_list = [readdet.Det_reader(self.det_list[0], self.detd, self.ewald_rad, mask_flag=mask)]
-            geom_mapping = None
-        else:
-            uniq = sorted(set(self.det_list))
-            geom_list = [readdet.Det_reader(fname, self.detd, self.ewald_rad, mask_flag=mask) for fname in uniq]
-            geom_mapping = [uniq.index(fname) for fname in self.det_list]
-        self.geom = geom_list[0]
-        self.emc_reader = reademc.EMC_reader(self.photons_list, geom_list, geom_mapping) 
-        self.num_frames = self.emc_reader.num_frames
+        py_utils.gen_det_and_emc(self)
         self.init_UI()
 
     def init_UI(self):
@@ -49,7 +40,7 @@ class Frameviewer(QtWidgets.QMainWindow):
         window = QtWidgets.QWidget()
 
         self.hbox = QtWidgets.QHBoxLayout()
-        self.frame_panel = frame_panel.Frame_panel(self, powder=self.do_powder, compare=self.do_compare)
+        self.frame_panel = frame_panel.FramePanel(self, powder=self.do_powder, compare=self.do_compare)
         self.hbox.addWidget(self.frame_panel)
 
         # Menu items
@@ -77,19 +68,13 @@ class Frameviewer(QtWidgets.QMainWindow):
         k = event.key()
         m = int(event.modifiers())
         
-        if QtGui.QKeySequence(m+k) == QtGui.QKeySequence('Ctrl+N'):
-            self.frame_panel.next_frame()
-        elif QtGui.QKeySequence(m+k) == QtGui.QKeySequence('Ctrl+P'):
-            self.frame_panel.prev_frame()
-        elif QtGui.QKeySequence(m+k) == QtGui.QKeySequence('Ctrl+R'):
-            self.frame_panel.rand_frame()
-        elif QtGui.QKeySequence(m+k) == QtGui.QKeySequence('Ctrl+Q'):
+        if QtGui.QKeySequence(m+k) == QtGui.QKeySequence('Ctrl+Q'):
             self.close()
         else:
             event.ignore()
 
 if __name__ == '__main__':
-    parser = py_utils.my_argparser(description='Utility for viewing frames of the emc file (list)')
+    parser = py_utils.MyArgparser(description='Utility for viewing frames of the emc file (list)')
     parser.add_argument('--cmap', help='Matplotlib color map (default: coolwarm)')
     parser.add_argument('-M', '--mask', help='Whether to zero out masked pixels (default False)', action='store_true', default=False)
     parser.add_argument('-P', '--powder', help='Show powder sum of all frames', action='store_true', default=False)

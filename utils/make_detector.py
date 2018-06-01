@@ -9,7 +9,7 @@ from py_src import py_utils
 
 if __name__ == "__main__":
     logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-    parser      = py_utils.my_argparser(description="make detector")
+    parser      = py_utils.MyArgparser(description="make detector")
     args        = parser.special_parse_args()
 
     det_file    = os.path.join(args.main_dir, read_config.get_filename(args.config_file, 'make_detector', "out_detector_file"))
@@ -21,7 +21,7 @@ if __name__ == "__main__":
     logging.info(' '.join(sys.argv))
 
     if to_write:
-        timer       = py_utils.my_timer()
+        timer       = py_utils.MyTimer()
         pm          = read_config.get_detector_config(args.config_file, show=args.vb)
         q_pm        = read_config.compute_q_params(pm['detd'], pm['dets_x'], pm['dets_y'], pm['pixsize'], pm['wavelength'], pm['ewald_rad'], show=args.vb)
         timer.reset_and_report("Reading experiment parameters") if args.vb else timer.reset()

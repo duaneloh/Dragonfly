@@ -1,14 +1,14 @@
 #!/usr/bin/env python
-import numpy as np
 import os
 import subprocess
 import argparse
 import logging
 import sys
+import numpy as np
 from py_src import py_utils
 
 if __name__ == "__main__":
-    # logging config must occur before my_argparser, because latter already starts logging
+    # logging config must occur before MyArgparser, because latter already starts logging
     logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     parser = argparse.ArgumentParser("Starts EMC reconstruction")
     parser.add_argument("-c", "--config_file", dest="config_file", default="config.ini")
@@ -67,16 +67,9 @@ if __name__ == "__main__":
     else:
         openMP_cmd = ["./emc", "-c", str(args.config_file), "-t", str(args.num_threads), ext_str, str(args.num_iter)]
 
-    # Determine of quaternions should be incremented in the log file and recomputed
+    # Determine if quaternions should be incremented in the config file
     if args.quat_add != 0:
         py_utils.increment_quat_file_sensibly(args.config_file, args.quat_add)
-        cmd = "./make_quaternion " + args.config_file
-        if not args.dry_run:
-            logging.info(20*"=" + "\n")
-            logging.info(20*"=" + "\n" + cmd)
-            subprocess.call(cmd, shell=True)
-        else:
-            print cmd
 
     # Switch between openMP only or openMPI + openMP
     if args.num_mpi > 0:

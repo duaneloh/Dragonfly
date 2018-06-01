@@ -62,8 +62,10 @@ int main(int argc, char *argv[]) {
 	for (x = 0 ; x < 3 ; ++x)
 		spotnum[x] = (int) 2 * floor(size / a[x] / 2.) + 1 ;
 	
-	char filename[500] ;
-	sprintf(filename, "%s.dat", remove_ext(extract_fname(argv[1]))) ;
+	char filename[1024] ;
+	char *base = remove_ext(extract_fname(argv[1])) ;
+	sprintf(filename, "%s.dat", base) ;
+	free(base) ;
 	fp = fopen(filename, "w") ;
 	
 	for (i[0] = -spotnum[0] ; i[0] < spotnum[0] ; ++i[0])
@@ -107,7 +109,9 @@ int main(int argc, char *argv[]) {
 	fprintf(stderr, "Generated %s with %d x %d x %d spots\n", 
 		filename, spotnum[0], spotnum[1], spotnum[2]) ;
 	
-	sprintf(filename, "%s_red.bin", remove_ext(argv[1])) ;
+	base = remove_ext(argv[1]) ;
+	sprintf(filename, "%s_red.bin", base) ;
+	free(base) ;
 	FILE *fp_red = fopen(filename, "wb") ;
 	fwrite(object, sizeof(double), size*size*size, fp_red) ;
 	fclose(fp_red) ;
