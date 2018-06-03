@@ -437,9 +437,9 @@ class Progress_viewer(QtWidgets.QMainWindow):
         s1_lim = s1.get_ylim()
         s1.set_ylim(s1_lim)
         for i in beta_change:
-            s1.plot([i+1,i+1], s1_lim,'k--',lw=1)
+            s1.plot([i+1,i+1], s1_lim,'w--',lw=1)
         for i in num_rot_change[:-1]:
-            s1.plot([i+1,i+1], s1_lim,'r--',lw=1)
+            s1.plot([i+1,i+1], s1_lim,'--',lw=1,color='tab:orange')
 
         # Plot average mutual information
         s2 = self.log_fig.add_subplot(grid[0,1])
@@ -449,9 +449,9 @@ class Progress_viewer(QtWidgets.QMainWindow):
         s2_lim = s2.get_ylim()
         s2.set_ylim(s2_lim)
         for i in beta_change:
-            s2.plot([i+1,i+1], s2_lim,'k--',lw=1)
+            s2.plot([i+1,i+1], s2_lim,'w--',lw=1)
         for i in num_rot_change[:-1]:
-            s2.plot([i+1,i+1], s2_lim,'r--',lw=1)
+            s2.plot([i+1,i+1], s2_lim,'--',lw=1,color='tab:orange')
 
         # Plot average log-likelihood
         s3 = self.log_fig.add_subplot(grid[1,1])
@@ -461,9 +461,9 @@ class Progress_viewer(QtWidgets.QMainWindow):
         s3_lim = s3.get_ylim()
         s3.set_ylim(s3_lim)
         for i in beta_change:
-            s3.plot([i+1,i+1], s3_lim,'k--',lw=1)
+            s3.plot([i+1,i+1], s3_lim,'w--',lw=1)
         for i in num_rot_change[:-1]:
-            s3.plot([i+1,i+1], s3_lim,'r--',lw=1)
+            s3.plot([i+1,i+1], s3_lim,'--',lw=1,color='tab:orange')
 
         # Plot most likely orientation convergence plot
         if len(loglines) > 1:
