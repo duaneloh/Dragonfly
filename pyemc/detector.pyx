@@ -13,8 +13,9 @@ cdef class detector:
 		self.det.num_dfiles = 0
 		self.det.mapping = [0]*1024
 		self.curr_det = 0
+		self.num_modes = 0
 
-	def generate_detectors(self, config_fname, norm_flag=True, config_section='emc'):
+	def generate_detectors(self, config_fname, norm_flag=1, config_section='emc'):
 		cdef char* c_config_fname = config_fname
 		cdef char* c_config_section = config_section
 		if self.det.num_det > 0: self.free_detector()
@@ -22,19 +23,21 @@ cdef class detector:
 		assert qmax > 0.
 		return qmax
 
-	def parse_detector_list(self, flist, norm_flag=True):
+	def parse_detector_list(self, flist, norm_flag=1):
 		cdef char* c_flist = flist
 		if self.det.num_det > 0: self.free_detector()
 		qmax = emc.parse_detector_list(flist, &self.det, int(norm_flag))
 		assert qmax > 0.
 		return qmax
 
-	def parse_detector(self, fname, norm_flag=True):
+	def parse_detector(self, fname, norm_flag=1):
 		cdef char* c_fname = fname
 		if self.det.num_det > 0: self.free_detector()
 		self.__init__()
 		self.det.num_det = 1
 		self.det.num_dfiles = 0
+		if norm_flag < 0:
+			self.num_modes = -norm_flag
 		qmax = emc.parse_detector(c_fname, self.det, int(norm_flag))
 		assert qmax > 0.
 		return qmax
@@ -55,7 +58,11 @@ cdef class detector:
 	@property
 	def ewald_rad(self): return self.det[self.curr_det].ewald_rad if self.det != NULL else None
 	@property
-	def pixels(self): return np.asarray(<double[:4*self.num_pix]>self.det[self.curr_det].pixels).reshape(-1,4) if self.det != NULL else None
+	def pixels(self):
+		if self.num_modes == 0:
+			return np.asarray(<double[:4*self.num_pix]>self.det[self.curr_det].pixels).reshape(-1,4) if self.det != NULL else None
+		else:
+			return np.asarray(<double[:3*self.num_pix]>self.det[self.curr_det].pixels).reshape(-1,3) if self.det != NULL else None
 	@property
 	def mask(self): return np.asarray(<emc.uint8_t[:self.num_pix]>self.det[self.curr_det].mask) if self.det != NULL else None
 

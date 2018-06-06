@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
 import unittest
 import numpy.testing as npt
 
@@ -553,6 +554,48 @@ class TestInterp(unittest.TestCase):
         interp.slice_merge3d(quat, view, model, weight2, det)
         npt.assert_array_almost_equal(weight, weight2)
         npt.assert_array_almost_equal(model[103:106,68:71,82:85], [[[480.23952805, 7053.79230354, 672.87605846], [2377.76518912, 5341.74335349, 70.74035788], [5519.30333337, 3220.70729727, 0.]], [[0., 5738.38868753, 2835.8821622], [640.53422865, 10226.00092727, 403.93064498], [3106.35276845, 5325.18474032, 0.]], [[0., 3752.37021246, 5424.77431879], [111.97675292, 5624.55664759, 2102.41717762], [1007.59124681, 6925.69283809, 450.55910447]]])
+
+    def test_slice_gen2d(self):
+        print('=== Testing slice_gen2d()')
+        det = detector.detector()
+        det.parse_detector(recon_folder+'/data/det_sim.dat', norm_flag=-3)
+        intens = np.arange(145*145*3).astype('f8').reshape(3,145,145)
+        view = np.zeros(det.num_pix)
+        
+        angle = np.array([1.37*np.pi])
+        interp.slice_gen2d(angle, view, intens, det)
+        self.assertAlmostEqual(view.mean(), 10512.)
+        npt.assert_array_almost_equal(view[:5], [6674.995665, 6808.058374, 6941.174136, 7074.339593, 7207.551378])
+        interp.slice_gen2d(angle, view, intens, det, rescale=1.)
+        self.assertAlmostEqual(view.mean(), 9.1579227696454524)
+        npt.assert_array_almost_equal(view[:5], [8.806124, 8.825862, 8.845226, 8.864229, 8.882885])
+        
+        angle = np.array([3.14*np.pi])
+        interp.slice_gen2d(angle, view, intens, det)
+        self.assertAlmostEqual(view.mean(), 31537.)
+        npt.assert_array_almost_equal(view[:5], [34414.902109, 34489.21956, 34563.301629, 34637.146226, 34710.751266])
+        interp.slice_gen2d(angle, view, intens, det, rescale=1.)
+        self.assertAlmostEqual(view.mean(), 10.349731872416205)
+        npt.assert_array_almost_equal(view[:5], [10.446245, 10.448402, 10.450548, 10.452682, 10.454805])
+        
+    def test_slice_merge2d(self):
+        print('=== Testing slice_merge2d()')
+        det = detector.detector()
+        qmax = det.parse_detector(recon_folder+'/data/det_sim.dat', norm_flag=-3)
+        view = np.ascontiguousarray(det.pixels[:,2])
+        angle = np.array([1.37*np.pi])
+        model = np.zeros((3, 145, 145))
+        weight = np.zeros_like(model)
+        interp.slice_merge2d(angle, view, model, weight, det)
+        npt.assert_array_almost_equal(model, weight)
+        npt.assert_array_almost_equal(model[0,88:91,82:85], [[1.013543, 1.013526, 0.95921],[0.948738, 0.988016, 0.986792], [1.013526, 0.985034, 0.98392]])
+        
+        view = np.ascontiguousarray(det.pixels[:,2])*np.arange(det.num_pix)
+        model = np.zeros((3, 145, 145))
+        weight2 = np.zeros_like(model)
+        interp.slice_merge2d(angle, view, model, weight2, det)
+        npt.assert_array_almost_equal(weight, weight2)
+        npt.assert_array_almost_equal(model[0,88:91,82:85], [[3590.950843, 3495.003523, 3221.593928], [3314.725198, 3367.85047, 3269.304046], [3513.177067, 3323.48564, 3226.194119]])
 
 class TestIterate(unittest.TestCase):
     def allocate_iterate(self):
