@@ -105,6 +105,8 @@ cdef extern from '../src/interp.h':
 	void make_rot_quat(double*, double[3][3])
 	void slice_gen3d(double*, double, double*, double*, long, detector*)
 	void slice_merge3d(double*, double*, double*, double*, long, detector*)
+	void slice_gen2d(double*, double, double*, double*, long, detector*)
+	void slice_merge2d(double*, double*, double*, double*, long, detector*)
 	void rotate_model(double[3][3], double*, int, double*)
 	void symmetrize_friedel(double*, int)
 
