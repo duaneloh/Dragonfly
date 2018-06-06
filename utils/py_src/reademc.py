@@ -28,7 +28,7 @@ class EMCReader(object):
         self.multiple_geom = False
         if len(geom_list) == 1:
             for i in range(num_files):
-                self.flist[i]['geom'] = geom_list
+                self.flist[i]['geom'] = geom_list[0]
         else:
             try:
                 for i in range(num_files):
@@ -73,7 +73,7 @@ class EMCReader(object):
         Returns:
             Assembled or unassembled frame as a dense array
         """
-        file_num = [pdict['num_data'] for pdict in self.flist if num < pdict['num_data']][0]
+        file_num = np.where(num < np.array([pdict['num_data'] for pdict in self.flist]))[0][0]
         #file_num = np.where(num < self.num_data_list)[0][0]
         if file_num == 0:
             frame_num = num

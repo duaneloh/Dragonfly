@@ -30,8 +30,10 @@ class ConversionPanel(QtWidgets.QWidget):
         self.parent = parent
         self.frame = self.parent.frame_panel
         self.emc_reader = self.parent.emc_reader
+        self.indices = np.arange(1000, dtype='i4')
 
         self.polar = None
+        self.converted = None
         self._init_ui()
         self._remake_converter(replot=False)
 
@@ -49,13 +51,13 @@ class ConversionPanel(QtWidgets.QWidget):
         vbox.addLayout(hbox)
         label = QtWidgets.QLabel('R_min:', self)
         hbox.addWidget(label)
-        self.polar_params['r_min'] = QtWidgets.QLineEdit('16')
+        self.polar_params['r_min'] = QtWidgets.QLineEdit(self.parent.polar_params[0])
         self.polar_params['r_min'].setFixedWidth(40)
         self.polar_params['r_min'].returnPressed.connect(self._remake_converter)
         hbox.addWidget(self.polar_params['r_min'])
         label = QtWidgets.QLabel('R_max:', self)
         hbox.addWidget(label)
-        self.polar_params['r_max'] = QtWidgets.QLineEdit('80')
+        self.polar_params['r_max'] = QtWidgets.QLineEdit(self.parent.polar_params[1])
         self.polar_params['r_max'].setFixedWidth(40)
         self.polar_params['r_max'].returnPressed.connect(self._remake_converter)
         hbox.addWidget(self.polar_params['r_max'])
@@ -65,13 +67,13 @@ class ConversionPanel(QtWidgets.QWidget):
         vbox.addLayout(hbox)
         label = QtWidgets.QLabel('dR:', self)
         hbox.addWidget(label)
-        self.polar_params['delta_r'] = QtWidgets.QLineEdit('2')
+        self.polar_params['delta_r'] = QtWidgets.QLineEdit(self.parent.polar_params[2])
         self.polar_params['delta_r'].setFixedWidth(40)
         self.polar_params['delta_r'].returnPressed.connect(self._remake_converter)
         hbox.addWidget(self.polar_params['delta_r'])
         label = QtWidgets.QLabel(u'd\u03b8:', self)
         hbox.addWidget(label)
-        self.polar_params['delta_ang'] = QtWidgets.QLineEdit('10')
+        self.polar_params['delta_ang'] = QtWidgets.QLineEdit(self.parent.polar_params[3])
         self.polar_params['delta_ang'].setFixedWidth(40)
         self.polar_params['delta_ang'].returnPressed.connect(self._remake_converter)
         hbox.addWidget(self.polar_params['delta_ang'])
@@ -181,11 +183,12 @@ class ConversionPanel(QtWidgets.QWidget):
             job.join()
         sys.stderr.write('\r%d/%d\n' % (len(indices), len(indices)))
 
-        self.parent.converted = np.frombuffer(converted.get_obj()).reshape(len(indices), -1)
+        self.converted = np.frombuffer(converted.get_obj()).reshape(len(indices), -1)
+        self.indices = indices
         if self.save_params['save_flag'].isChecked():
             sys.stderr.write('Saving angular correlations to %s\n'%
                              self.save_params['save_fname'].text())
-            np.save(self.save_params['save_fname'].text(), self.parent.converted)
+            np.save(self.save_params['save_fname'].text(), self.converted)
 
     def _get_and_convert(self, num):
         return np.array(self.polar.convert(self.emc_reader.get_frame(num, raw=True),

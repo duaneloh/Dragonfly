@@ -95,11 +95,11 @@ class MLPPanel(QtWidgets.QWidget):
         self.trained = True
 
     def _get_training_data(self):
-        converted = self.parent.converted
+        converted = self.conversion.converted
         if converted is None:
             #self.conversion.convert_frames()
-            self.parent.converted = np.load(self.parent.output_folder+'/converted.npy')
-            converted = self.parent.converted
+            self.conversion.converted = np.load(self.parent.output_folder+'/converted.npy')
+            converted = self.conversion.converted
 
         first = int(self.conversion.first_frame.text())
         last = int(self.conversion.last_frame.text())
@@ -160,10 +160,10 @@ class MLPPanel(QtWidgets.QWidget):
 
         if last < 0:
             last = self.emc_reader.num_frames
-        if self._get_and_convert(first).shape[0] != self.parent.converted.shape[1]:
+        if self._get_and_convert(first).shape[0] != self.conversion.converted.shape[1]:
             sys.stderr.write('Wrong length for converted image (expected %d, got %d).'
                              'You may need to update converter.\n' %
-                             (self.parent.converted.shape[1],
+                             (self.conversion.converted.shape[1],
                               self._get_and_convert(first).shape[0]))
             return
 

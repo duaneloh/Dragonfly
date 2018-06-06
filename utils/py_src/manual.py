@@ -55,15 +55,7 @@ class ManualPanel(QtWidgets.QWidget):
         hbox.addWidget(button)
         hbox.addStretch(1)
 
-        hbox = QtWidgets.QHBoxLayout()
-        vbox.addLayout(hbox)
-        self.class_fname = QtWidgets.QLineEdit(self.classes.fname, self)
-        self.class_fname.editingFinished.connect(self._update_name)
-        hbox.addWidget(self.class_fname)
-        button = QtWidgets.QPushButton('Save Classes', self)
-        button.clicked.connect(self.classes.save)
-        hbox.addWidget(button)
-        hbox.addStretch(1)
+        gui_utils.add_class_hbox(self, vbox)
 
         label = QtWidgets.QLabel('Classification Summary:', self)
         vbox.addWidget(label)

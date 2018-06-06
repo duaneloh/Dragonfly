@@ -115,7 +115,10 @@ class FramePanel(QtWidgets.QWidget):
         Updated plot depends on mode (for classifier) and whether the GUI is in
         'compare' or 'powder' mode.
         '''
-        mode = self.parent.mode_val
+        try:
+            mode = self.parent.mode_val
+        except AttributeError:
+            mode = None
 
         if frame is not None:
             pass
@@ -216,7 +219,7 @@ class FramePanel(QtWidgets.QWidget):
     def _compare_flag_changed(self):
         self.plot_frame()
 
-    def _frame_focus(self):
+    def _frame_focus(self, event):
         self.setFocus()
 
     def _save_powder(self):

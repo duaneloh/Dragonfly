@@ -16,10 +16,13 @@ class FrameClasses(object):
         save(): Save class list to file
         gen_summary(): Generate a summary string for class list
     '''
-    def __init__(self, num_frames, fname='my_classes.dat'):
+    def __init__(self, num_frames, fname=None):
         self.num_frames = num_frames
         self.unsaved = False
-        self.fname = fname
+        if fname is None:
+            self.fname = 'my_classes.dat'
+        else:
+            self.fname = fname
 
         if self.fname is '' or not os.path.isfile(self.fname):
             sys.stderr.write('Initializing empty class list\n')

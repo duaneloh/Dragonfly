@@ -26,12 +26,12 @@ class PolarConverter(object):
         self.x = x.flatten()
         self.y = y.flatten()
         self.mask = mask.flatten()
-        self.first_pass = True
         self.delta_r = delta_r
         self.delta_ang = delta_ang
         self.r_min = int(r_min/delta_r)
         self.r_max = int(np.ceil(r_max/delta_r))
 
+        self.first_pass = True
         self.angs = self.sel_pixels = self.ang_max = self.rad_max = None
         self.polar_indices = self.polar_count = None
 

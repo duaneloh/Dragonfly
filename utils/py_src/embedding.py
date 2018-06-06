@@ -91,11 +91,11 @@ class EmbeddingPanel(QtWidgets.QWidget):
 
     def _do_embedding(self):
         #pylint: disable=redefined-variable-type
-        converted = self.parent.converted
+        converted = self.conversion.converted
         if converted is None:
             #self.conversion.convert_frames()
-            self.parent.converted = np.load(self.parent.output_folder+'/converted.npy')
-            converted = self.parent.converted
+            self.conversion.converted = np.load(self.parent.output_folder+'/converted.npy')
+            converted = self.conversion.converted
 
         method_ind = self.method.currentIndex()
         print 'Doing %s' % self.method.currentText()
@@ -148,8 +148,9 @@ class EmbeddingPanel(QtWidgets.QWidget):
         subp.hist2d(eplot[:, xnum], eplot[:, ynum], bins=[self.binx, self.biny],
                     vmax=float(self.frame.rangestr.text()), cmap=self.parent.cmap)
         subp.set_title(self.method.currentText())
-        for point in self.roi_list:
-            subp.add_artist(point)
+        for patch in self.roi_list:
+            patch.set_transform(subp.transData)
+            subp.add_patch(patch)
         fig.add_subplot(subp)
         self.frame.canvas.draw()
 
@@ -267,7 +268,7 @@ class EmbeddingPanel(QtWidgets.QWidget):
                 color='white',
                 fill=False,
                 linewidth=2.,
-                figure=self.frame.fig
+                figure=self.frame.fig,
             )
         )
         self.frame.fig.get_axes()[0].add_artist(self.roi_list[-1])
@@ -325,15 +326,7 @@ class EmbeddingPanel(QtWidgets.QWidget):
         hbox.addWidget(button)
         hbox.addStretch(1)
 
-        hbox = QtWidgets.QHBoxLayout()
-        vbox.addLayout(hbox)
-        self.class_fname = QtWidgets.QLineEdit(self.classes.fname, self)
-        self.class_fname.editingFinished.connect(self._update_name)
-        hbox.addWidget(self.class_fname)
-        button = QtWidgets.QPushButton('Save Classes', self)
-        button.clicked.connect(self.classes.save)
-        hbox.addWidget(button)
-        hbox.addStretch(1)
+        gui_utils.add_class_hbox(self, vbox)
 
     def _add_roi_radiobutton(self, num):
         button = QtWidgets.QRadioButton(str(num))
@@ -387,7 +380,7 @@ class EmbeddingPanel(QtWidgets.QWidget):
 
     def _rand_frame(self):
         points = self.points_inside_list[self.current_roi.checkedId()]
-        self.numstr.frame.setText(str(points[np.random.randint(len(points))]))
+        self.frame.numstr.setText(str(points[np.random.randint(len(points))]))
         self.frame.plot_frame()
 
     def _apply_class(self):

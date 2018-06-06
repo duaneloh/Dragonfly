@@ -99,7 +99,6 @@ def compute_q_params(det_dist, dets_x, dets_y, pix_size, in_wavelength, ewald_ra
     In millimeters: det_dist, pix_size
     In Angstroms:   in_wavelength
     In pixels:      dets_x, dets_y
-
     """
     params = OrderedDict()
     half_x = pix_size * int((dets_x-1)/2)
@@ -114,10 +113,7 @@ def compute_q_params(det_dist, dets_x, dets_y, pix_size, in_wavelength, ewald_ra
 
     if show:
         for key, val in params.items():
-            #logging.info('{:<15}:{:10.4f}'.format(key, val))
             logging.info('%15s:%10.4f', key, val)
-        #logging.info('{:<15}:{:10.4f}'.format("voxel-length of reciprocal volume",
-        #                                      params['fov_in_A']/params['half_p_res']))
         logging.info('%15s:%10.4f',
                      'voxel-length or reciprocal volume',
                      params['fov_in_A']/params['half_p_res'])
@@ -169,20 +165,6 @@ def read_gui_config(gui, section):
     if len(gui.det_list) > 1 and len(gui.det_list) != len(gui.photons_list):
         raise ValueError('Different number of detector and photon files')
 
-    # Output folder
-    try:
-        output_folder = get_filename(gui.config_file, 'emc', 'output_folder')
-    except ConfigParser.NoOptionError:
-        output_folder = 'data/'
-    gui.output_folder = os.path.realpath(output_folder)
-
-    # Frame blacklist
-    try:
-        gui.blacklist = np.loadtxt(get_filename(gui.config_file, 'emc', 'blacklist_file'),
-                                   dtype='u1')
-    except ConfigParser.NoOptionError:
-        gui.blacklist = None
-
     # Only used with old detector file
     try:
         prm = get_detector_config(gui.config_file)
@@ -192,11 +174,39 @@ def read_gui_config(gui, section):
         gui.ewald_rad = None
         gui.detd = None
 
-    # Log file
-    gui.log_fname = get_filename(gui.config_file, 'emc', 'log_file')
-
-    # Need scaling
+    # Output folder
     try:
-        gui.need_scaling = bool(int(get_param(gui.config_file, 'emc', 'need_scaling')))
+        output_folder = get_filename(gui.config_file, section, 'output_folder')
     except ConfigParser.NoOptionError:
-        gui.need_scaling = False
+        output_folder = 'data/'
+    gui.output_folder = os.path.realpath(output_folder)
+
+    # For specific sections
+    if section == 'emc':
+        # Frame blacklist
+        try:
+            gui.blacklist = np.loadtxt(get_filename(gui.config_file, 'emc', 'blacklist_file'),
+                                       dtype='u1')
+        except ConfigParser.NoOptionError:
+            gui.blacklist = None
+
+        # Log file
+        gui.log_fname = get_filename(gui.config_file, 'emc', 'log_file')
+
+        # Need scaling
+        try:
+            gui.need_scaling = bool(int(get_param(gui.config_file, 'emc', 'need_scaling')))
+        except ConfigParser.NoOptionError:
+            gui.need_scaling = False
+    elif section == 'classifier':
+        # Polar conversion parameters
+        try:
+            gui.polar_params = get_param(gui.config_file, 'classifier', 'polar_params').split()
+        except ConfigParser.NoOptionError:
+            gui.polar_params = ['5', '60', '2.', '10.']
+
+        # Class list file
+        try:
+            gui.class_fname = get_filename(gui.config_file, 'classifier', 'in_class_file')
+        except ConfigParser.NoOptionError:
+            gui.class_fname = 'my_classes.dat'
