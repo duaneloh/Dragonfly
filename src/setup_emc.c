@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #include "emc.h"
 
 int setup(char *s_config_fname, int continue_flag) {
@@ -15,7 +16,7 @@ int setup(char *s_config_fname, int continue_flag) {
 	quat = malloc(sizeof(struct rotation)) ;
 	frames = malloc(sizeof(struct dataset)) ;
 	merge_frames = NULL ;
-	char config_fname[1024] ;
+	char config_fname[PATH_MAX] ;
 	realpath(s_config_fname, config_fname) ;
 	
 	fp = fopen(config_fname, "r") ;
