@@ -334,6 +334,36 @@ void make_blacklist(char *fname, int flag, struct dataset *frames) {
 	}
 }
 
+int write_dataset(struct dataset *frames) {
+	int header[253] = {0} ;
+	FILE *fp = fopen(frames->filename, "wb") ;
+	if (fp == NULL) {
+		fprintf(stderr, "Unable to open file for writing, %s\n", frames->filename) ;
+		return 1 ;
+	}
+	fwrite(&frames->num_data, sizeof(int), 1, fp) ;
+	fwrite(&frames->num_pix, sizeof(int), 1, fp) ;
+	fwrite(&frames->type, sizeof(int), 1, fp) ;
+	fwrite(header, sizeof(int), 253, fp) ;
+	
+	if (frames->type == 0) {
+		fwrite(frames->ones, sizeof(int), frames->num_data, fp) ;
+		fwrite(frames->multi, sizeof(int), frames->num_data, fp) ;
+		fwrite(frames->place_ones, sizeof(int), frames->ones_total, fp) ;
+		fwrite(frames->place_multi, sizeof(int), frames->multi_total, fp) ;
+		fwrite(frames->count_multi, sizeof(int), frames->multi_total, fp) ;
+	}
+	else if (frames->type == 1) {
+		fwrite(frames->int_frames, sizeof(int), frames->num_data*frames->num_pix, fp) ;
+	}
+	else if (frames->type == 2) {
+		fwrite(frames->frames, sizeof(double), frames->num_data*frames->num_pix, fp) ;
+	}
+	fclose(fp) ;
+	
+	return 0 ;
+}
+
 void free_data(int scale_flag, struct dataset *frames) {
 	struct dataset *temp, *curr = frames ;
 	
