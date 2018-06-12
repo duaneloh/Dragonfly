@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include <mpi.h>
 #include "emc.h"
 
 int setup(char *s_config_fname, int continue_flag) {
@@ -12,12 +13,15 @@ int setup(char *s_config_fname, int continue_flag) {
 	
 	gettimeofday(&t1, NULL) ;
 
+	param = malloc(sizeof(struct params)) ;
 	iter = malloc(sizeof(struct iterate)) ;
 	quat = malloc(sizeof(struct rotation)) ;
 	frames = malloc(sizeof(struct dataset)) ;
 	merge_frames = NULL ;
 	char config_fname[PATH_MAX] ;
 	realpath(s_config_fname, config_fname) ;
+	MPI_Comm_size(MPI_COMM_WORLD, &param->num_proc) ;
+	MPI_Comm_rank(MPI_COMM_WORLD, &param->rank) ;
 	
 	fp = fopen(config_fname, "r") ;
 	if (fp == NULL) {

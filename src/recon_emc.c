@@ -9,16 +9,14 @@ struct timeval t1, t2, t3 ;
 static void print_time(char*, struct timeval*, struct timeval*, int) ;
 
 int main(int argc, char *argv[]) {
-	int continue_flag = 0, num_threads = omp_get_max_threads() ;
+	int num_iter, continue_flag = 0, num_threads = omp_get_max_threads() ;
 	char config_fname[1024] ;
 	
 	MPI_Init(&argc, &argv) ;
-	param = malloc(sizeof(struct params)) ;
-	MPI_Comm_size(MPI_COMM_WORLD, &param->num_proc) ;
-	MPI_Comm_rank(MPI_COMM_WORLD, &param->rank) ;
 	gettimeofday(&t1, NULL) ;
 	
-	if (parse_arguments(argc, argv, &continue_flag, &num_threads, config_fname)) {
+	num_iter = parse_arguments(argc, argv, &continue_flag, &num_threads, config_fname) ;
+	if (num_iter < 0) {
 		MPI_Finalize() ;
 		return 1 ;
 	}
@@ -27,6 +25,7 @@ int main(int argc, char *argv[]) {
 		MPI_Finalize() ;
 		return 1 ;
 	}
+	param->num_iter = num_iter ;
 	
 	if (!param->rank && !continue_flag)
 		write_log_file_header(num_threads) ;
@@ -47,13 +46,13 @@ static void print_time(char *message, struct timeval *time_1, struct timeval *ti
 }
 
 int parse_arguments(int argc, char *argv[], int *continue_flag, int *num_threads, char *config_fname) {
-	int c ;
+	int c, rank, num_iter = -1 ;
 	extern char *optarg ;
 	extern int optind ;
-	param->num_iter = 0 ;
 	strcpy(config_fname, "config.ini") ;
 	system("ls > /dev/null") ;
 	system("ls .. > /dev/null") ;
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank) ;
 	
 	while (optind < argc) {
 		if ((c = getopt(argc, argv, "rc:t:")) != -1) {
@@ -71,21 +70,21 @@ int parse_arguments(int argc, char *argv[], int *continue_flag, int *num_threads
 			}
 		}
 		else {
-			param->num_iter = atoi(argv[optind]) ;
+			num_iter = atoi(argv[optind]) ;
 			optind++ ;
 		}
 	}
 	
-	if (param->num_iter == 0) {
+	if (num_iter == -1) {
 		fprintf(stderr, "Format: %s [-c config_fname] [-t num_threads] [-r] num_iter\n", argv[0]) ;
 		fprintf(stderr, "Default: -c config.ini -t %d\n", omp_get_max_threads()) ;
 		fprintf(stderr, "Missing <num_iter>\n") ;
-		return 1 ;
+		return -1 ;
 	}
-	if (!param->rank)
-		fprintf(stderr, "Doing %d iteration(s) using %s\n", param->num_iter, config_fname) ;
+	if (!rank)
+		fprintf(stderr, "Doing %d iteration(s) using %s\n", num_iter, config_fname) ;
 	
-	return 0 ;
+	return num_iter ;
 }
 
 void write_log_file_header(int num_threads) {
