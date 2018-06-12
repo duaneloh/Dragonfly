@@ -1,4 +1,4 @@
-cimport emc
+cimport decl
 cimport openmp
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
 import os
@@ -9,12 +9,12 @@ from iterate cimport iterate
 from params cimport params
 
 cdef extern from "../src/emc.h":
-	emc.detector *det ;
-	emc.rotation *quat ;
-	emc.dataset *frames ;
-	emc.dataset *merge_frames ;
-	emc.iterate *iter ;
-	emc.params *param ;
+	decl.detector *det ;
+	decl.rotation *quat ;
+	decl.dataset *frames ;
+	decl.dataset *merge_frames ;
+	decl.iterate *iter ;
+	decl.params *param ;
 
 def setup(config_fname='config.ini', continue_flag=False):
 	det = detector()
@@ -43,17 +43,14 @@ def setup(config_fname='config.ini', continue_flag=False):
 def main(int num_iter, continue_flag=False, num_threads=openmp.omp_get_max_threads(), config_fname='config.ini'):
 	global det, quat, frames, merge_frames, iter, param
 	
-	param = <emc.params*> PyMem_Malloc(sizeof(emc.params))
-	param.rank = 0
-	param.num_proc = 1
-	param.num_iter = num_iter
 	cdef char* c_config_fname = config_fname
 	
-	if emc.setup(c_config_fname, int(continue_flag)) != 0:
+	if decl.setup(c_config_fname, int(continue_flag)) != 0:
 		print 'Error in setup()'
 		return 1
+	param.num_iter = num_iter
 	if not continue_flag:
-		emc.write_log_file_header(num_threads)
-	emc.emc()
-	emc.free_mem()
+		decl.write_log_file_header(num_threads)
+	decl.emc()
+	decl.free_mem()
 	return 0

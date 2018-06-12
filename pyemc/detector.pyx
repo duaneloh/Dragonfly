@@ -1,14 +1,17 @@
 import numpy as np
 cimport numpy as np
 import sys
+
+from libc.stdint cimport uint8_t
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
-cimport emc 
+
+cimport decl 
 cimport openmp
 from detector cimport detector
 
 cdef class detector:
 	def __init__(self):
-		self.det = <emc.detector*> PyMem_Malloc(sizeof(emc.detector))
+		self.det = <decl.detector*> PyMem_Malloc(sizeof(decl.detector))
 		self.det.num_det = 0
 		self.det.num_dfiles = 0
 		self.det.mapping = [0]*1024
@@ -19,14 +22,14 @@ cdef class detector:
 		cdef char* c_config_fname = config_fname
 		cdef char* c_config_section = config_section
 		if self.det.num_det > 0: self.free_detector()
-		qmax = emc.generate_detectors(c_config_fname, c_config_section, &self.det, int(norm_flag))
+		qmax = decl.generate_detectors(c_config_fname, c_config_section, &self.det, int(norm_flag))
 		assert qmax > 0.
 		return qmax
 
 	def parse_detector_list(self, flist, norm_flag=1):
 		cdef char* c_flist = flist
 		if self.det.num_det > 0: self.free_detector()
-		qmax = emc.parse_detector_list(flist, &self.det, int(norm_flag))
+		qmax = decl.parse_detector_list(flist, &self.det, int(norm_flag))
 		assert qmax > 0.
 		return qmax
 
@@ -38,12 +41,12 @@ cdef class detector:
 		self.det.num_dfiles = 0
 		if norm_flag < 0:
 			self.num_modes = -norm_flag
-		qmax = emc.parse_detector(c_fname, self.det, int(norm_flag))
+		qmax = decl.parse_detector(c_fname, self.det, int(norm_flag))
 		assert qmax > 0.
 		return qmax
 
 	def free_detector(self):
-		emc.free_detector(self.det)
+		decl.free_detector(self.det)
 		self.det = NULL
 
 	def __del__(self):
@@ -64,7 +67,7 @@ cdef class detector:
 		else:
 			return np.asarray(<double[:3*self.num_pix]>self.det[self.curr_det].pixels).reshape(-1,3) if self.det != NULL else None
 	@property
-	def mask(self): return np.asarray(<emc.uint8_t[:self.num_pix]>self.det[self.curr_det].mask) if self.det != NULL else None
+	def mask(self): return np.asarray(<uint8_t[:self.num_pix]>self.det[self.curr_det].mask) if self.det != NULL else None
 
 	# Only relevant for first detector in list
 	@property

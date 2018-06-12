@@ -1,6 +1,6 @@
 import numpy as np
 cimport numpy as np
-cimport emc 
+cimport decl 
 cimport openmp
 from detector cimport detector
 
@@ -11,7 +11,7 @@ def make_rot_quat(np.ndarray[double, ndim=1] quat):
 	make_rot_quat(np.ndarray[double, ndim=1] quat)
 	'''
 	cdef double[:,:] rotarr = np.zeros((3,3), dtype='f8')
-	emc.make_rot_quat(&quat[0], <double(*)[3]>&rotarr[0][0])
+	decl.make_rot_quat(&quat[0], <double(*)[3]>&rotarr[0][0])
 	return np.asarray(rotarr).reshape(3,3)
 
 def slice_gen3d(np.ndarray[double, ndim=1, mode='c'] quat,
@@ -30,7 +30,7 @@ def slice_gen3d(np.ndarray[double, ndim=1, mode='c'] quat,
 	'''
 	cdef int size = model.shape[0]
 	cdef double[:,:,:] modelarr = model
-	emc.slice_gen3d(&quat[0], rescale, &out_slice[0], <double*>&modelarr[0][0][0], size, det.det)
+	decl.slice_gen3d(&quat[0], rescale, &out_slice[0], <double*>&modelarr[0][0][0], size, det.det)
 
 def slice_merge3d(np.ndarray[double, ndim=1, mode='c'] quat,
                 np.ndarray[double, ndim=1, mode='c'] in_slice,
@@ -49,7 +49,7 @@ def slice_merge3d(np.ndarray[double, ndim=1, mode='c'] quat,
 	cdef int size = model.shape[0]
 	cdef double[:,:,:] modelarr = model
 	cdef double[:,:,:] weightarr = weight
-	emc.slice_merge3d(&quat[0], &in_slice[0], <double*>&modelarr[0][0][0], <double*>&weightarr[0][0][0], size, det.det)
+	decl.slice_merge3d(&quat[0], &in_slice[0], <double*>&modelarr[0][0][0], <double*>&weightarr[0][0][0], size, det.det)
 
 def slice_gen2d(np.ndarray[double, ndim=1, mode='c'] angle,
               np.ndarray[double, ndim=1, mode='c'] out_slice,
@@ -68,7 +68,7 @@ def slice_gen2d(np.ndarray[double, ndim=1, mode='c'] angle,
 	'''
 	cdef int size = model.shape[1]
 	cdef double[:,:,:] modelarr = model
-	emc.slice_gen2d(&angle[0], rescale, &out_slice[0], <double*>&modelarr[0][0][0], size, det.det)
+	decl.slice_gen2d(&angle[0], rescale, &out_slice[0], <double*>&modelarr[0][0][0], size, det.det)
 
 def slice_merge2d(np.ndarray[double, ndim=1, mode='c'] angle,
                 np.ndarray[double, ndim=1, mode='c'] in_slice,
@@ -88,7 +88,7 @@ def slice_merge2d(np.ndarray[double, ndim=1, mode='c'] angle,
 	cdef int size = model.shape[1]
 	cdef double[:,:,:] modelarr = model
 	cdef double[:,:,:] weightarr = weight
-	emc.slice_merge2d(&angle[0], &in_slice[0], <double*>&modelarr[0][0][0], <double*>&weightarr[0][0][0], size, det.det)
+	decl.slice_merge2d(&angle[0], &in_slice[0], <double*>&modelarr[0][0][0], <double*>&weightarr[0][0][0], size, det.det)
 
 def symmetrize_friedel(np.ndarray[np.double_t, ndim=3, mode='c'] model):
 	'''
@@ -98,7 +98,7 @@ def symmetrize_friedel(np.ndarray[np.double_t, ndim=3, mode='c'] model):
 	'''
 	cdef int size = model.shape[0]
 	cdef double[:,:,:] modelarr = model
-	emc.symmetrize_friedel(<double*>&modelarr[0][0][0], size)
+	decl.symmetrize_friedel(<double*>&modelarr[0][0][0], size)
 
 def rotate_model(np.ndarray[double, ndim=2] rot,
                  np.ndarray[double, ndim=3, mode='c'] model,
@@ -114,5 +114,5 @@ def rotate_model(np.ndarray[double, ndim=2] rot,
 	cdef double[:,:] rotarr = rot
 	cdef double[:,:,:] modelarr = model
 	cdef double[:,:,:] rotmodelarr = rotmodel 
-	emc.rotate_model(<double(*)[3]>&rotarr[0][0], <double*>&modelarr[0,0,0], size, <double*>&rotmodelarr[0,0,0])
+	decl.rotate_model(<double(*)[3]>&rotarr[0][0], <double*>&modelarr[0,0,0], size, <double*>&rotmodelarr[0,0,0])
 

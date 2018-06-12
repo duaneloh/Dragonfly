@@ -1,10 +1,10 @@
-cimport emc
+cimport decl
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
 from params cimport params
 
 cdef class params:
 	def __init__(self):
-		self.param = <emc.params*> PyMem_Malloc(sizeof(emc.params))
+		self.param = <decl.params*> PyMem_Malloc(sizeof(decl.params))
 		self.param.rank = 0
 		self.param.num_proc = 1
 		self.param.known_scale = 0
@@ -17,13 +17,15 @@ cdef class params:
 		self.param.sigmasq = 0.
 		self.param.log_fname[:7] = "EMC.log"
 		self.param.output_folder[:5] = "data/"
+		self.param.modes = 0
+		self.param.rot_per_mode = 0
 
 	def generate_params(self, config_fname):
 		cdef char* c_config_fname = config_fname
-		emc.generate_params(c_config_fname, self.param)
+		decl.generate_params(c_config_fname, self.param)
 
 	def generate_output_dirs(self):
-		emc.generate_output_dirs(self.param)
+		decl.generate_output_dirs(self.param)
 
 	def free_params(self):
 		PyMem_Free(self.param)
@@ -76,6 +78,10 @@ cdef class params:
 	def beta(self): return self.param.beta if self.param != NULL else None
 	@property
 	def beta_jump(self): return self.param.beta_jump if self.param != NULL else None
+	@property
+	def modes(self): return self.param.modes if self.param != NULL else None
+	@property
+	def rot_per_mode(self): return self.param.rot_per_mode if self.param != NULL else None
 	@property
 	def sigmasq(self): return self.param.sigmasq if self.param != NULL else None
 	

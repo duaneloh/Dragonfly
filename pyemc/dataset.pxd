@@ -1,6 +1,6 @@
-cimport emc 
+cimport decl 
 from detector cimport detector
 
 cdef class dataset:
-	cdef emc.dataset* dset
+	cdef decl.dataset* dset
 	cdef public detector det

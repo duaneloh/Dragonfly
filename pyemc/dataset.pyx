@@ -1,15 +1,17 @@
 import numpy as np
 cimport numpy as np
 from libc.stdint cimport uint8_t
+
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
-cimport emc 
 cimport openmp
+
+cimport decl
 from detector cimport detector
 from dataset cimport dataset
 
 cdef class dataset:
 	def __init__(self, det):
-		self.dset = <emc.dataset*> PyMem_Malloc(sizeof(emc.dataset))
+		self.dset = <decl.dataset*> PyMem_Malloc(sizeof(decl.dataset))
 		self.dset.num_data_prev = 0
 		self.dset.next = NULL
 		self.dset.blacklist = NULL
@@ -20,33 +22,33 @@ cdef class dataset:
 		cdef char* c_config_fname = config_fname
 		cdef char* c_config_section = config_section
 		cdef char* c_type_string = type_string
-		ret = emc.generate_data(c_config_fname, c_config_section, c_type_string, self.det.det, self.dset)
+		ret = decl.generate_data(c_config_fname, c_config_section, c_type_string, self.det.det, self.dset)
 		assert ret == 0
 
 	def calc_sum_fact(self):
-		emc.calc_sum_fact(self.det.det, self.dset)
+		decl.calc_sum_fact(self.det.det, self.dset)
 
 	def parse_dataset(self, fname):
 		cdef char* c_fname = fname
-		ret = emc.parse_dataset(c_fname, self.det.det, self.dset)
+		ret = decl.parse_dataset(c_fname, self.det.det, self.dset)
 		assert ret == 0
 
 	def parse_data(self, flist):
 		cdef char* c_flist = flist
-		ret = emc.parse_data(c_flist, self.det.det, self.dset)
+		ret = decl.parse_data(c_flist, self.det.det, self.dset)
 		assert ret > 0
 		return ret
 
 	def generate_blacklist(self, config_fname):
 		cdef char* c_config_fname = config_fname
-		emc.generate_blacklist(c_config_fname, self.dset)
+		decl.generate_blacklist(c_config_fname, self.dset)
 
 	def make_blacklist(self, fname, int odd_flag=-1):
 		cdef char* c_fname = fname
-		emc.make_blacklist(c_fname, odd_flag, self.dset)
+		decl.make_blacklist(c_fname, odd_flag, self.dset)
 
 	def free_data(self, scale_flag=False):
-		emc.free_data(int(scale_flag), self.dset)
+		decl.free_data(int(scale_flag), self.dset)
 		self.dset = NULL
 
 	def __del__(self):

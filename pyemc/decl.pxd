@@ -123,6 +123,9 @@ cdef extern from '../src/params.h':
 		
 		# Gaussian EMC parameter
 		double sigmasq
+		
+		# Number of unconstrained modes
+		int modes, rot_per_mode
 
 	void generate_params(char*, params*)
 	void generate_output_dirs(params*)

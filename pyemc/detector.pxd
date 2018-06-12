@@ -1,7 +1,7 @@
-cimport emc
+cimport decl
 
 cdef class detector:
-	cdef emc.detector* det
+	cdef decl.detector* det
 	cdef int curr_det
 	cdef int num_modes
 

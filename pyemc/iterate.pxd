@@ -1,5 +1,5 @@
-cimport emc
+cimport decl
 
 cdef class iterate:
-	cdef emc.iterate* iterate
+	cdef decl.iterate* iterate
 

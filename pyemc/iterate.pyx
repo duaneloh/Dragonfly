@@ -1,7 +1,7 @@
 import numpy as np
 cimport numpy as np
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
-cimport emc
+cimport decl
 from dataset cimport dataset
 from detector cimport detector
 from iterate cimport iterate
@@ -9,7 +9,7 @@ from params cimport params
 
 cdef class iterate:
 	def __init__(self):
-		self.iterate = <emc.iterate*> PyMem_Malloc(sizeof(emc.iterate))
+		self.iterate = <decl.iterate*> PyMem_Malloc(sizeof(decl.iterate))
 		self.iterate.size = -1
 		self.iterate.model1 = NULL
 		self.iterate.model2 = NULL
@@ -19,16 +19,16 @@ cdef class iterate:
 	def generate_iterate(self, config_fname, double qmax, params param, detector det, dataset dset, continue_flag=False, config_section='emc'):
 		cdef char* c_config_fname = config_fname
 		cdef char* c_config_section = config_section
-		ret = emc.generate_iterate(c_config_fname, c_config_section, int(continue_flag), qmax, param.param, det.det, dset.dset, self.iterate)
+		ret = decl.generate_iterate(c_config_fname, c_config_section, int(continue_flag), qmax, param.param, det.det, dset.dset, self.iterate)
 		assert ret == 0
 
 	def calculate_size(self, double qmax):
-		emc.calculate_size(qmax, self.iterate)
+		decl.calculate_size(qmax, self.iterate)
 		return self.size
 
 	def parse_scale(self, fname):
 		cdef char* c_fname = fname
-		return emc.parse_scale(c_fname, self.iterate)
+		return decl.parse_scale(c_fname, self.iterate)
 
 	def calc_scale(self, dataset dset, detector det, print_fname=None):
 		cdef char* c_print_fname
@@ -36,10 +36,10 @@ cdef class iterate:
 			c_print_fname = print_fname
 		else:
 			c_print_fname = NULL
-		emc.calc_scale(dset.dset, det.det, c_print_fname, self.iterate)
+		decl.calc_scale(dset.dset, det.det, c_print_fname, self.iterate)
 
 	def normalize_scale(self):
-		emc.normalize_scale(self.iterate)
+		decl.normalize_scale(self.iterate)
 
 	def parse_input(self, fname, double mean, int rank=0, print_fname=None):
 		cdef char* c_fname = fname
@@ -48,10 +48,10 @@ cdef class iterate:
 			c_print_fname = print_fname
 		else:
 			c_print_fname = NULL
-		emc.parse_input(c_fname, mean, c_print_fname, rank, 0, self.iterate)
+		decl.parse_input(c_fname, mean, c_print_fname, rank, 0, self.iterate)
 
 	def free_iterate(self):
-		emc.free_iterate(self.iterate)
+		decl.free_iterate(self.iterate)
 		self.iterate = NULL
 
 	@property

@@ -1,4 +1,4 @@
-cimport emc
+cimport decl
 
 cdef class params:
-	cdef emc.params *param
+	cdef decl.params *param
