@@ -10,6 +10,7 @@
 #include "emc.h"
 
 struct max_data {
+	int within_openmp ;
 	// Common only
 	double *max_exp, *u, **probab ;
 	// Private only
@@ -23,8 +24,7 @@ struct max_data {
 } ;
 static struct timeval t1, t2 ;
 
-static void print_time(char*, char*, int) ;
-static void allocate_memory(struct max_data*, int) ;
+static void allocate_memory(struct max_data*) ;
 static double calculate_rescale(struct max_data*) ;
 static void calculate_prob(int, struct max_data*, struct max_data*) ;
 static void normalize_prob(struct max_data*, struct max_data*) ;
@@ -33,33 +33,32 @@ static void merge_tomogram(int, struct max_data*) ;
 static void combine_information_omp(struct max_data*, struct max_data*) ;
 static double combine_information_mpi(struct max_data*) ;
 static void save_output(struct max_data*) ;
-static void free_memory(struct max_data*, int) ;
+static void free_memory(struct max_data*) ;
+static void print_time(char*, char*, int) ;
 
 double maximize() {
 	double avg_likelihood ;
 	gettimeofday(&t1, NULL) ;
 	iter->mutual_info = 0. ;
 	struct max_data *common_data = malloc(sizeof(struct max_data)) ;
+	common_data->within_openmp = 0 ;
 	
-	allocate_memory(common_data, 0) ;
-	
-	// Sum over all pixels of model tomogram (data-independent part of probability)
+	allocate_memory(common_data) ;
 	iter->rescale = calculate_rescale(common_data) ;
 
-	// Main loop: Calculate probabilities and update tomograms
 	#pragma omp parallel default(shared)
 	{
-		int r, omp_rank = omp_get_thread_num() ;
+		int r ;
 		struct max_data *priv_data = malloc(sizeof(struct max_data)) ;
-		allocate_memory(priv_data, 1) ;
+		
+		priv_data->within_openmp = 1 ;
+		allocate_memory(priv_data) ;
 		
 		#pragma omp for schedule(static,1)
 		for (r = 0 ; r < quat->num_rot_p ; ++r)
 			calculate_prob(r, priv_data, common_data) ;
-		print_time("prob", "", param->rank == 0 && omp_rank == 0) ;
 		
 		normalize_prob(priv_data, common_data) ;
-		print_time("psum", "", param->rank == 0 && omp_rank == 0) ;
 		
 		#pragma omp for schedule(static,1)
 		for (r = 0 ; r < quat->num_rot_p ; ++r) {
@@ -74,19 +73,18 @@ double maximize() {
 		// OpenMP 4.5 support available in GCC 6.1+ or ICC 17.0+
 		combine_information_omp(priv_data, common_data) ;
 		
-		free_memory(priv_data, 1) ;
+		free_memory(priv_data) ;
 	}
-	print_time("Update", "", param->rank == 0) ;
 
 	avg_likelihood = combine_information_mpi(common_data) ;
 	if (!param->rank)
 		save_output(common_data) ;
-	free_memory(common_data, 0) ;
+	free_memory(common_data) ;
 	
 	return avg_likelihood ;
 }
 
-void allocate_memory(struct max_data *data, int omp_flag) {
+void allocate_memory(struct max_data *data) {
 	int d, r ;
 	long vol ;
 	if (param->modes > 0)
@@ -100,24 +98,20 @@ void allocate_memory(struct max_data *data, int omp_flag) {
 	data->likelihood = calloc(frames->tot_num_data, sizeof(double)) ;
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
 		data->max_exp_p[d] = -DBL_MAX ;
+	if (param->modes)
+		data->quat_norm = calloc(param->modes, sizeof(double)) ;
 	
-	if (!omp_flag) {
+	if (!data->within_openmp) {
 		data->probab = malloc(quat->num_rot_p * sizeof(double*)) ;
 		data->u = calloc(quat->num_rot_p, sizeof(double)) ;
 		data->max_exp = malloc(frames->tot_num_data * sizeof(double)) ;
 		data->p_sum = calloc(frames->tot_num_data, sizeof(double)) ;
-		for (d = 0 ; d < frames->tot_num_data ; ++d) {
-			if (param->need_scaling)
-				data->likelihood[d] = frames->count[d]*log(iter->scale[d]) - frames->sum_fact[d] ;
-			else
-				data->likelihood[d] = -frames->sum_fact[d] ;
-		}
 		
 		memset(iter->model2, 0, vol*sizeof(double)) ;
 		memset(iter->inter_weight, 0, vol*sizeof(double)) ;
 		for (r = 0 ; r < quat->num_rot_p ; ++r)
 			data->probab[r] = malloc(frames->tot_num_data * sizeof(double)) ;
-		print_time("Alloc", "", param->rank == 0) ;
+		print_time("alloc", "", param->rank == 0) ;
 	}
 	else {
 		data->p_sum = calloc(det[0].num_det, sizeof(double)) ;
@@ -129,9 +123,6 @@ void allocate_memory(struct max_data *data, int omp_flag) {
 		if (param->need_scaling)
 			data->scale = calloc(frames->tot_num_data, sizeof(double)) ;
 	}
-	
-	if (param->modes)
-		data->quat_norm = calloc(param->modes, sizeof(double)) ;
 }
 
 double calculate_rescale(struct max_data *data) {
@@ -240,8 +231,10 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 		dset++ ;
 	}
 	
-	if ((r*param->num_proc + param->rank)%5000 == 0)
-		fprintf(stderr, "\t\tFinished r = %d\n", r*param->num_proc + param->rank) ;
+	if ((r*param->num_proc + param->rank)%(quat->num_rot/10) == 0)
+		fprintf(stderr, "\t\tFinished r = %d/%d\n", r*param->num_proc + param->rank, quat->num_rot) ;
+	if (r == quat->num_rot_p - 1)
+		print_time("prob", "", param->rank == 0) ;
 }
 
 void normalize_prob(struct max_data *priv, struct max_data *common) {
@@ -290,6 +283,7 @@ void normalize_prob(struct max_data *priv, struct max_data *common) {
 	#pragma omp barrier
 	
 	free(priv_sum) ;
+	print_time("psum", "", param->rank == 0 && omp_rank == 0) ;
 }
 
 void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
@@ -325,11 +319,10 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 			else
 				prob[curr->num_data_prev+d] = exp(param->beta*(prob[curr->num_data_prev+d] - common->max_exp[curr->num_data_prev+d]) / 2. / param->sigmasq) / common->p_sum[curr->num_data_prev+d] ;
 			
-			if (param->need_scaling)
-				priv->likelihood[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * (temp - frames->sum_fact[curr->num_data_prev+d] + frames->count[curr->num_data_prev+d]*log(iter->scale[curr->num_data_prev+d])) ;
-			else
-				priv->likelihood[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * (temp - frames->sum_fact[curr->num_data_prev+d]) ;
-			//priv_data[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * temp ;
+			//if (param->need_scaling)
+			//	priv->likelihood[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * (temp - frames->sum_fact[curr->num_data_prev+d] + frames->count[curr->num_data_prev+d]*log(iter->scale[curr->num_data_prev+d])) ;
+			//else
+			priv->likelihood[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * (temp - frames->sum_fact[curr->num_data_prev+d]) ;
 			
 			// Calculate denominator for update rule
 			if (param->need_scaling) {
@@ -349,7 +342,6 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 			
 			// Calculate mutual information of probability distribution
 			priv->info[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * log(prob[curr->num_data_prev+d] / quat->quat[(r*param->num_proc + param->rank)*5 + 4]) ;
-			//priv_data[frames->tot_num_data + curr->num_data_prev+d] -= prob[curr->num_data_prev+d] * log(prob[curr->num_data_prev+d]) ;
 			
 			if (curr->type == 0) {
 				// For all pixels with one photon
@@ -444,6 +436,7 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 		for (d = 0 ; d < param->modes ; ++d)
 			common->quat_norm[d] += priv->quat_norm[d] ;
 	}
+	print_time("update", "", param->rank == 0 && omp_rank == 0) ;
 }
 
 double combine_information_mpi(struct max_data *data) {
@@ -535,7 +528,7 @@ void save_output(struct max_data *data) {
 	fclose(fp_likelihood) ;
 }
 
-void free_memory(struct max_data *data, int omp_flag) {
+void free_memory(struct max_data *data) {
 	free(data->max_exp_p) ;
 	free(data->p_sum) ;
 	free(data->info) ;
@@ -544,7 +537,7 @@ void free_memory(struct max_data *data, int omp_flag) {
 	if (param->modes > 0)
 		free(data->quat_norm) ;
 	
-	if (!omp_flag) {
+	if (!data->within_openmp) {
 		free(data->probab) ;
 		free(data->u) ;
 		free(data->max_exp) ;
