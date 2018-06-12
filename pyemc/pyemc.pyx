@@ -44,6 +44,7 @@ def main(int num_iter, continue_flag=False, num_threads=openmp.omp_get_max_threa
 	global det, quat, frames, merge_frames, iter, param
 	
 	cdef char* c_config_fname = config_fname
+	openmp.omp_set_num_threads(num_threads)
 	
 	if decl.setup(c_config_fname, int(continue_flag)) != 0:
 		print 'Error in setup()'
