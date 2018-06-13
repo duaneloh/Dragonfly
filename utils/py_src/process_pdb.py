@@ -136,7 +136,7 @@ def atoms_to_density_map(atoms, voxel_size):
 
     bins = np.arange(r_val+1)
     all_bins = np.vstack((bins, bins, bins))
-    coords = np.asarray([x, y, z]).T
+    coords = np.asarray([x, y, z])
     integ = np.floor(coords)
     frac = coords - integ
     ix, iy, iz = tuple(integ) # pylint: disable=C0103
