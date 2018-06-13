@@ -104,7 +104,7 @@ void allocate_memory(struct max_data *data) {
 	if (!data->within_openmp) {
 		data->probab = malloc(quat->num_rot_p * sizeof(double*)) ;
 		data->u = calloc(quat->num_rot_p, sizeof(double)) ;
-		data->max_exp = malloc(frames->tot_num_data * sizeof(double)) ;
+		data->max_exp = calloc(frames->tot_num_data, sizeof(double)) ;
 		data->p_sum = calloc(frames->tot_num_data, sizeof(double)) ;
 		
 		memset(iter->model2, 0, vol*sizeof(double)) ;
