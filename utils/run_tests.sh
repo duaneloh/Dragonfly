@@ -1,9 +1,19 @@
 #!/bin/bash
 
+cleanup () {
+	cd ${root_dir}
+	echo
+	echo Removing ${test_dir}
+	rm -r ${test_dir}
+	exit
+}
+
 cd $(dirname "${BASH_SOURCE[0]}")/..
 root_dir=$(pwd)
 
 test_dir=$(./init_new_recon.py -t testing|grep Created|awk '{print $4}')
+echo Created $test_dir
+ls $test_dir
 
 cd ${test_dir}
 cp ../sample_configs/testing.ini config.ini
@@ -17,15 +27,10 @@ if [ ${res} -ne 0 ]
 then
 	echo
 	echo Error in building Cython testing code
-	cd ${root_dir}
-	rm -r ${test_dir}
-	exit ${res}
+	cleanup
 fi
 
 echo
 ./unit.py -f ${test_dir}
-cd ${root_dir}
 
-echo
-echo Removing ${test_dir}
-rm -r ${test_dir}
+cleanup
