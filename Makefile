@@ -58,6 +58,7 @@ utils/make_quaternion: bin/quat.o
 utils/make_data: bin/detector.o bin/interp.o
 utils/merge: bin/detector.o bin/dataset.o bin/interp.o bin/iterate.o
 utils/fiberize: bin/detector.o bin/interp.o
+utils/cosmic: bin/detector.o bin/dataset.o
 
 $(UTILS): utils/%: utils/src/%.c
 	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
