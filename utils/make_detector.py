@@ -44,7 +44,7 @@ def main():
                         y*qscaling/norm,
                         qscaling*(pm['detd']/pm['pixsize']/norm - 1.))
         logging.info('%15s:%10.4f', 'qmax', np.sqrt(qx*qx + qy*qy + qz*qz).max())
-        solid_angle = pm['detd']*(pm['pixsize']*pm['pixsize']) / np.power(norm, 3.0)
+        solid_angle = pm['detd'] / pm['pixsize'] / norm**3
         solid_angle = polar*solid_angle
         rad = np.sqrt(x*x + y*y)
         if pm['mask_fname'] is None:
