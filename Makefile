@@ -1,11 +1,16 @@
-.PHONY: mkdir env clean unit_test
+.PHONY: mkdir clean unit_test
 
 MPICC = mpicc
 CC = gcc
-OMPI_CC = $(CC)
 
-CFLAGS = $(shell gsl-config --cflags) -Wno-unused-result -O3 -Wall -fopenmp
-LIBS = $(shell gsl-config --libs) -fopenmp
+OMPI_CC = $(CC)
+ifeq ($(CC), icc)
+	OMP_FLAG = -qopenmp
+else
+	OMP_FLAG = -fopenmp
+endif
+CFLAGS = $(shell gsl-config --cflags) -O3 -Wall $(OMP_FLAG)
+LIBS = $(shell gsl-config --libs) $(OMP_FLAG)
 
 # Derive source files and targets
 # ============================================================
