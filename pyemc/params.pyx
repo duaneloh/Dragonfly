@@ -1,10 +1,16 @@
 cimport decl
-from cpython.mem cimport PyMem_Malloc, PyMem_Free
+from libc.stdlib cimport malloc, free
 from params cimport params
 
 cdef class params:
-	def __init__(self):
-		self.param = <decl.params*> PyMem_Malloc(sizeof(decl.params))
+	def __init__(self, allocate=True):
+		if allocate:
+			self._alloc()
+		else:
+			self.param = NULL
+
+	def _alloc(self):
+		self.param = <decl.params*> malloc(sizeof(decl.params))
 		self.param.rank = 0
 		self.param.num_proc = 1
 		self.param.known_scale = 0
@@ -28,7 +34,7 @@ cdef class params:
 		decl.generate_output_dirs(self.param)
 
 	def free_params(self):
-		PyMem_Free(self.param)
+		free(self.param)
 		self.param = NULL
 
 	@property

@@ -1,12 +1,20 @@
 import numpy as np
+
 cimport numpy as np
-from cpython.mem cimport PyMem_Malloc, PyMem_Free
+from libc.stdlib cimport malloc, free
+
 cimport decl
 from quat cimport rotation
 
 cdef class rotation:
-	def __init__(self):
-		self.rot = <decl.rotation*> PyMem_Malloc(sizeof(decl.rotation))
+	def __init__(self, allocate=True):
+		if allocate:
+			self._alloc()
+		else:
+			self.rot = NULL
+
+	def _alloc(self):
+		self.rot = <decl.rotation*> malloc(sizeof(decl.rotation))
 		self.rot.icosahedral_flag = 0
 		self.rot.quat = NULL
 

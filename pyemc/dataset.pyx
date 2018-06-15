@@ -1,22 +1,27 @@
 import numpy as np
+
 cimport numpy as np
 from libc.stdint cimport uint8_t
-
-from cpython.mem cimport PyMem_Malloc, PyMem_Free
-cimport openmp
+from libc.stdlib cimport malloc, free
 
 cimport decl
 from detector cimport detector
 from dataset cimport dataset
 
 cdef class dataset:
-	def __init__(self, det):
-		self.dset = <decl.dataset*> PyMem_Malloc(sizeof(decl.dataset))
+	def __init__(self, det, allocate=True):
+		self.det = <detector> det
+		if allocate:
+			self._alloc()
+		else:
+			self.dset = NULL
+
+	def _alloc(self):
+		self.dset = <decl.dataset*> malloc(sizeof(decl.dataset))
 		self.dset.num_data_prev = 0
 		self.dset.next = NULL
 		self.dset.blacklist = NULL
 		self.dset.sum_fact = NULL
-		self.det = <detector> det
 
 	def generate_data(self, config_fname, type_string='in', config_section='emc'):
 		cdef char* c_config_fname = config_fname

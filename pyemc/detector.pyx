@@ -3,20 +3,26 @@ cimport numpy as np
 import sys
 
 from libc.stdint cimport uint8_t
-from cpython.mem cimport PyMem_Malloc, PyMem_Free
+from libc.stdlib cimport malloc, free
 
 cimport decl 
 cimport openmp
 from detector cimport detector
 
 cdef class detector:
-	def __init__(self):
-		self.det = <decl.detector*> PyMem_Malloc(sizeof(decl.detector))
+	def __init__(self, allocate=True):
+		if allocate:
+			self._alloc()
+		else:
+			self.det = NULL
+		self.curr_det = 0
+		self.num_modes = 0
+
+	def _alloc(self):
+		self.det = <decl.detector*> malloc(sizeof(decl.detector))
 		self.det.num_det = 0
 		self.det.num_dfiles = 0
 		self.det.mapping = [0]*1024
-		self.curr_det = 0
-		self.num_modes = 0
 
 	def generate_detectors(self, config_fname, norm_flag=1, config_section='emc'):
 		cdef char* c_config_fname = config_fname

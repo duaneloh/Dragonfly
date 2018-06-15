@@ -1,6 +1,8 @@
 import numpy as np
 cimport numpy as np
-from cpython.mem cimport PyMem_Malloc, PyMem_Free
+
+from libc.stdlib cimport malloc, free
+
 cimport decl
 from dataset cimport dataset
 from detector cimport detector
@@ -8,8 +10,14 @@ from iterate cimport iterate
 from params cimport params
 
 cdef class iterate:
-	def __init__(self):
-		self.iterate = <decl.iterate*> PyMem_Malloc(sizeof(decl.iterate))
+	def __init__(self, allocate=True):
+		if allocate:
+			self._alloc()
+		else:
+			self.iterate = NULL
+
+	def _alloc(self):
+		self.iterate = <decl.iterate*> malloc(sizeof(decl.iterate))
 		self.iterate.size = -1
 		self.iterate.model1 = NULL
 		self.iterate.model2 = NULL
