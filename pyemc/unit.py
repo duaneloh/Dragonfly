@@ -12,6 +12,7 @@ import sys
 import csv
 import shutil
 import ConfigParser
+from mpi4py import MPI
 
 import detector
 import dataset
@@ -19,6 +20,7 @@ import quat
 import params
 import interp
 import iterate
+import max_emc
 
 class DragonflyConfig():
     def __init__(self, fname):
@@ -54,7 +56,7 @@ class TestDetector(unittest.TestCase):
             npt.assert_array_equal(det.mapping, np.zeros(1024, dtype='i4'))
 
     def test_parse_detector(self):
-        print('=== Testing parse_detector()')
+        print('=== Testing parse_detector() ===')
         det = detector.detector()
         self.assertAlmostEqual(det.parse_detector(recon_folder+'/data/det_sim.dat'), 70.32817314646061) 
         self.assertEqual(det.num_dfiles, 0)
@@ -72,7 +74,7 @@ class TestDetector(unittest.TestCase):
         os.remove(det_fname)
 
     def test_parse_detector_list(self):
-        print('=== Testing parse_detector_list()')
+        print('=== Testing parse_detector_list() ===')
         shutil.copyfile(recon_folder+'/data/det_sim.dat', recon_folder+'/data/det_sim_test.dat')
         list_fname = 'test_det_list.txt'
         
@@ -99,7 +101,7 @@ class TestDetector(unittest.TestCase):
         os.remove(recon_folder+'/data/det_sim_test.dat')
 
     def test_generate_detectors(self):
-        print('=== Testing generate_detectors()')
+        print('=== Testing generate_detectors() ===')
         det = detector.detector()
         self.assertAlmostEqual(det.generate_detectors(config_fname), 70.32817314646061) 
         self.assertEqual(det.num_dfiles, 0)
@@ -130,7 +132,7 @@ class TestDetector(unittest.TestCase):
         config.modify_entry('emc', 'in_detector_file', 'make_detector:::out_detector_file')
 
     def test_free_detector(self):
-        print('=== Testing free_detector()')
+        print('=== Testing free_detector() ===')
         det = detector.detector()
         det.free_detector()
         det.free_detector()
@@ -175,7 +177,7 @@ class TestDataset(unittest.TestCase):
             npt.assert_array_equal(dset.count_multi[-16:-11], [2,2,2,2,3])
 
     def test_generate_data(self):
-        print('=== Testing generate_data()')
+        print('=== Testing generate_data() ===')
         det = self.create_det()
         dset = dataset.dataset(det)
         dset.generate_data(config_fname)
@@ -199,7 +201,7 @@ class TestDataset(unittest.TestCase):
         config.modify_entry('emc', 'in_photons_file', 'make_data:::out_photons_file')
 
     def test_parse_dataset(self):
-        print('=== Testing parse_dataset()')
+        print('=== Testing parse_dataset() ===')
         det = self.create_det()
         dset = dataset.dataset(det)
         dset.parse_dataset(recon_folder+'/data/photons.emc')
@@ -207,7 +209,7 @@ class TestDataset(unittest.TestCase):
         dset.parse_dataset(recon_folder+'/data/photons.emc')
 
     def test_parse_data(self):
-        print('=== Testing parse_data()')
+        print('=== Testing parse_data() ===')
         det = self.create_det()
         dset = dataset.dataset(det)
         list_fname = 'test_dset_flist.txt'
@@ -221,7 +223,7 @@ class TestDataset(unittest.TestCase):
         os.remove(list_fname)
 
     def test_calc_sum_fact(self):
-        print('=== Testing calc_sum_fact()')
+        print('=== Testing calc_sum_fact() ===')
         det = self.create_det()
         dset = dataset.dataset(det)
         dset.parse_dataset(recon_folder+'/data/photons.emc')
@@ -238,7 +240,7 @@ class TestDataset(unittest.TestCase):
         self.assertAlmostEqual(np.log(scipy.special.factorial(frame)).sum(), dset.sum_fact[-1])
 
     def test_generate_blacklist(self):
-        print('=== Testing generate_blacklist()')
+        print('=== Testing generate_blacklist() ===')
         det = self.create_det()
         dset = dataset.dataset(det)
         dset.parse_dataset(recon_folder+'/data/photons.emc')
@@ -266,7 +268,7 @@ class TestDataset(unittest.TestCase):
         config.remove_entry('emc', 'selection')
 
     def test_make_blacklist(self):
-        print('=== Testing make_blacklist()')
+        print('=== Testing make_blacklist() ===')
         det = self.create_det()
         dset = dataset.dataset(det)
         dset.parse_dataset(recon_folder+'/data/photons.emc')
@@ -307,7 +309,7 @@ class TestDataset(unittest.TestCase):
         os.remove(blist_fname)
 
     def test_free_data(self):
-        print('=== Testing free_data()')
+        print('=== Testing free_data() ===')
         det = self.create_det()
         dset = dataset.dataset(det)
         dset.parse_dataset(recon_folder+'/data/photons.emc')
@@ -324,7 +326,7 @@ class TestRotation(unittest.TestCase):
         npt.assert_array_almost_equal(rot.quat[-1], [2.18508012e-01, 0.00000000e+00, 5.72061403e-01, 7.90569415e-01, 3.38911452e-04])
 
     def test_generate_quaternion(self):
-        print('=== Testing generate_quaternion()')
+        print('=== Testing generate_quaternion() ===')
         rot = quat.rotation()
         rot.generate_quaternion(config_fname)
         self.quat_tests(rot)
@@ -357,7 +359,7 @@ class TestRotation(unittest.TestCase):
         config.remove_entry('emc', 'in_quat_file')
 
     def test_quat_gen(self):
-        print('=== Testing quat_gen()')
+        print('=== Testing quat_gen() ===')
         rot = quat.rotation()
         self.assertEqual(rot.quat_gen(4), 3240)
         self.quat_tests(rot)
@@ -365,7 +367,7 @@ class TestRotation(unittest.TestCase):
             self.assertEqual(rot.quat_gen(i), 10*(5*i**3 + i))
 
     def test_parse_quat(self):
-        print('=== Testing parse_quat()')
+        print('=== Testing parse_quat() ===')
         rot = quat.rotation()
         self.assertEqual(rot.parse_quat(''), -1)
         
@@ -380,7 +382,7 @@ class TestRotation(unittest.TestCase):
         os.remove(quat_fname)
 
     def test_divide_quat(self):
-        print('=== Testing divide_quat()')
+        print('=== Testing divide_quat() ===')
         rot = quat.rotation()
         rot.quat_gen(4)
         rot.divide_quat(0, 1)
@@ -391,7 +393,7 @@ class TestRotation(unittest.TestCase):
         self.assertEqual(rot.num_rot_p, 462)
 
     def test_free_quat(self):
-        print('=== Testing free_quat()')
+        print('=== Testing free_quat() ===')
         rot = quat.rotation()
         rot.quat_gen(4)
         rot.divide_quat(6, 7)
@@ -425,7 +427,7 @@ class TestParams(unittest.TestCase):
             self.assertEqual(param.sigmasq, 1.)
         
     def test_generate_params(self):
-        print('=== Testing generate_params()')
+        print('=== Testing generate_params() ===')
         param = params.params()
         param.generate_params(config_fname)
         self.configparams_test(param)
@@ -451,7 +453,7 @@ class TestParams(unittest.TestCase):
         config.remove_entry('emc', 'gaussian_sigma')
 
     def test_generate_output_dirs(self):
-        print('=== Testing generate_output_dirs()')
+        print('=== Testing generate_output_dirs() ===')
         param = params.params()
         param.generate_params(config_fname)
         flist = [recon_folder+'/data/'+d for d in ['output', 'weights', 'orientations', 'scale', 'likelihood', 'mutualInfo']]
@@ -461,7 +463,7 @@ class TestParams(unittest.TestCase):
         param.generate_output_dirs()
 
     def test_free_params(self):
-        print('=== Testing free_params()')
+        print('=== Testing free_params() ===')
         param = params.params()
         param.generate_params(config_fname)
         param.free_params()
@@ -469,7 +471,7 @@ class TestParams(unittest.TestCase):
 
 class TestInterp(unittest.TestCase):
     def test_make_rot_quat(self):
-        print('=== Testing make_rot_quat()')
+        print('=== Testing make_rot_quat() ===')
         npt.assert_array_almost_equal(interp.make_rot_quat(np.array([1,0,0,0], dtype='f8')), np.identity(3))
         npt.assert_array_almost_equal(interp.make_rot_quat(0.5*np.array([1,-1,-1,-1], dtype='f8')), [[0,0,1],[1,0,0],[0,1,0]])
         npt.assert_array_almost_equal(interp.make_rot_quat(0.5*np.array([1,-1,-1,+1], dtype='f8')), [[0,1,0],[0,0,-1],[-1,0,0]])
@@ -479,7 +481,7 @@ class TestInterp(unittest.TestCase):
         npt.assert_array_almost_equal(interp.make_rot_quat(np.array([-1/np.sqrt(2.),1/np.sqrt(2.),0,0], dtype='f8')), [[1,0,0],[0,0,-1],[0,1,0]])
 
     def test_symmetrize_friedel(self):
-        print('=== Testing symmetrize_friedel()')
+        print('=== Testing symmetrize_friedel() ===')
         arr = np.arange(27.).reshape(3,3,3)
         interp.symmetrize_friedel(arr)
         npt.assert_array_almost_equal(arr, 13.*np.ones((3,3,3), dtype='f8'))
@@ -494,7 +496,7 @@ class TestInterp(unittest.TestCase):
         npt.assert_array_almost_equal(arr, np.concatenate((1.1*np.ones(9), np.zeros(9), 1.1*np.ones(9))).reshape(3,3,3).transpose(2,1,0))
 
     def test_rotate_model(self):
-        print('=== Testing rotate_model()')
+        print('=== Testing rotate_model() ===')
         model = np.random.random((101,101,101))
         rotmodel = np.zeros_like(model)
         interp.rotate_model(np.identity(3), model, rotmodel)
@@ -514,7 +516,7 @@ class TestInterp(unittest.TestCase):
         npt.assert_array_almost_equal(rotmodel[100:103,100:103,100:103], [[[0.09167898, 0.03647299, 0.00707748], [0.12777323, 0.06260195, 0.02031047], [0.16907458, 0.09657051, 0.04333556]], [[0.06231541, 0.02152542, 0.00546131], [0.09500319, 0.04364314, 0.0141322], [0.13197364, 0.07370418, 0.03259982]], [[0.04283407, 0.01201542, 0.00398634], [0.06886472, 0.02839342, 0.00625303], [0.10017888, 0.05289991, 0.02144472]]])
 
     def test_slice_gen3d(self):
-        print('=== Testing slice_gen3d()')
+        print('=== Testing slice_gen3d() ===')
         det = detector.detector()
         det.parse_detector(recon_folder+'/data/det_sim.dat')
         intens = 1.e-9*np.fromfile(recon_folder+'/data/intensities.bin').reshape(3*(145,))
@@ -537,7 +539,7 @@ class TestInterp(unittest.TestCase):
         npt.assert_array_almost_equal(view[:5], [-7.84620536, -8.83729446, -7.46449246, -6.28910363, -5.59446611])
 
     def test_slice_merge3d(self):
-        print('=== Testing slice_merge3d()')
+        print('=== Testing slice_merge3d() ===')
         det = detector.detector()
         det.parse_detector(recon_folder+'/data/det_sim.dat')
         view = np.ascontiguousarray(det.pixels[:,3])
@@ -556,7 +558,7 @@ class TestInterp(unittest.TestCase):
         npt.assert_array_almost_equal(model[103:106,68:71,82:85], [[[480.23952805, 7053.79230354, 672.87605846], [2377.76518912, 5341.74335349, 70.74035788], [5519.30333337, 3220.70729727, 0.]], [[0., 5738.38868753, 2835.8821622], [640.53422865, 10226.00092727, 403.93064498], [3106.35276845, 5325.18474032, 0.]], [[0., 3752.37021246, 5424.77431879], [111.97675292, 5624.55664759, 2102.41717762], [1007.59124681, 6925.69283809, 450.55910447]]])
 
     def test_slice_gen2d(self):
-        print('=== Testing slice_gen2d()')
+        print('=== Testing slice_gen2d() ===')
         det = detector.detector()
         det.parse_detector(recon_folder+'/data/det_sim.dat', norm_flag=-3)
         intens = np.arange(145*145*3).astype('f8').reshape(3,145,145)
@@ -579,7 +581,7 @@ class TestInterp(unittest.TestCase):
         npt.assert_array_almost_equal(view[:5], [10.446245, 10.448402, 10.450548, 10.452682, 10.454805])
         
     def test_slice_merge2d(self):
-        print('=== Testing slice_merge2d()')
+        print('=== Testing slice_merge2d() ===')
         det = detector.detector()
         qmax = det.parse_detector(recon_folder+'/data/det_sim.dat', norm_flag=-3)
         view = np.ascontiguousarray(det.pixels[:,2])
@@ -610,7 +612,7 @@ class TestIterate(unittest.TestCase):
         return itr, det, dset, param, qmax
 
     def test_calculate_size(self):
-        print('=== Testing calculate_size()')
+        print('=== Testing calculate_size() ===')
         itr = iterate.iterate()
         self.assertEqual(itr.calculate_size(12.5), 29)
         self.assertEqual(itr.calculate_size(125.), 29)
@@ -629,7 +631,7 @@ class TestIterate(unittest.TestCase):
         itr.free_iterate()
 
     def test_generate_iterate(self):
-        print('=== Testing generate_iterate()')
+        print('=== Testing generate_iterate() ===')
         itr, det, dset, param, qmax = self.allocate_iterate()
         self.assertEqual(itr.size, 145)
         self.assertRaises(AssertionError, itr.generate_iterate, config_fname, qmax, param, det, dset, continue_flag=True)
@@ -648,7 +650,7 @@ class TestIterate(unittest.TestCase):
         config.remove_entry('emc', 'need_scaling')
 
     def test_calc_scale(self):
-        print('=== Testing calc_scale()')
+        print('=== Testing calc_scale() ===')
         itr, det, dset, param, qmax = self.allocate_iterate()
         itr.calc_scale(dset, det)
         self.assertEqual(itr.scale.shape[0], dset.tot_num_data)
@@ -658,7 +660,7 @@ class TestIterate(unittest.TestCase):
         itr.calc_scale(dset, det, print_fname=recon_folder+'/data/scale/scale_000.dat')
 
     def test_normalize_scale(self):
-        print('=== Testing normalize_scale()')
+        print('=== Testing normalize_scale() ===')
         itr, det, dset, param, qmax = self.allocate_iterate()
         itr.calc_scale(dset, det)
         itr.normalize_scale()
@@ -669,7 +671,7 @@ class TestIterate(unittest.TestCase):
         config.remove_entry('emc', 'need_scaling')
 
     def test_parse_scale(self):
-        print('=== Testing parse_scale()')
+        print('=== Testing parse_scale() ===')
         itr, det, dset, param, qmax = self.allocate_iterate()
         itr.calc_scale(dset, det)
         self.assertEqual(itr.parse_scale(''), 0)
@@ -681,19 +683,63 @@ class TestIterate(unittest.TestCase):
         npt.assert_array_almost_equal(itr.scale, rand_scales)
 
     def test_parse_input(self):
-        print('=== Testing parse_input()')
+        print('=== Testing parse_input() ===')
         itr, det, dset, param, qmax = self.allocate_iterate()
         itr.parse_input('', -1.)
         self.assertAlmostEqual(itr.model1.mean(), 0.499965209377)
 
     def test_free_iterate(self):
-        print('=== Testing free_iterate()')
+        print('=== Testing free_iterate() ===')
         itr = iterate.iterate()
         itr.free_iterate()
         itr.free_iterate()
         itr, det, dset, param, qmax = self.allocate_iterate()
         itr.free_iterate()
         itr.free_iterate()
+
+class TestMaxEMC(unittest.TestCase):
+    def __init__(self, *args, **kwargs):
+        print('=== Initializing maximize() ===')
+        super(TestMaxEMC, self).__init__(*args, **kwargs)
+        self.maximize = max_emc.maximize(config_fname, quiet_setup=False)
+
+    def test_allocate_memory(self):
+        print('=== Testing static allocate_memory() ===')
+        zarr = np.zeros(3000)
+        zvol = np.zeros(3*(145,))
+        
+        data = max_emc.py_max_data(omp_flag=False)
+        self.maximize.allocate_memory(data)
+        npt.assert_array_equal(data.max_exp, zarr)
+        npt.assert_array_equal(data.p_sum, zarr)
+        npt.assert_array_equal(data.info, zarr)
+        npt.assert_array_equal(data.likelihood, zarr)
+        npt.assert_array_equal(data.rmax, np.zeros(3000, dtype='i4'))
+        npt.assert_array_equal(data.u, np.zeros(3240))
+        npt.assert_array_equal(data.max_exp_p, -np.ones(3000)*sys.float_info.max)
+        npt.assert_array_equal(data.probab, np.zeros((3240,3000)))
+        self.maximize.free_memory(data)
+        
+        data = max_emc.py_max_data(omp_flag=True)
+        self.maximize.allocate_memory(data)
+        npt.assert_array_equal(data.info, zarr)
+        npt.assert_array_equal(data.likelihood, zarr)
+        npt.assert_array_equal(data.p_sum, np.zeros(1))
+        npt.assert_array_equal(data.rmax, np.zeros(3000, dtype='i4'))
+        npt.assert_array_equal(data.max_exp_p, -np.ones(3000)*sys.float_info.max)
+        npt.assert_array_equal(data.model, zvol)
+        npt.assert_array_equal(data.weight, zvol)
+        self.assertEqual(len(data.view), 1)
+        self.assertEqual(len(data.view[0]), 10201)
+        self.maximize.free_memory(data)
+        
+    def test_calculate_rescale(self):
+        print('=== Testing static calculate_rescale() ===')
+        data = max_emc.py_max_data(omp_flag=False)
+        self.maximize.allocate_memory(data)
+        rescale = self.maximize.calculate_rescale(data)
+        self.assertAlmostEqual(rescale, 0.9972006898)
+        self.maximize.free_memory(data)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Unit testing Dragonfly')
