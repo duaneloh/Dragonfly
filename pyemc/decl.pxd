@@ -1,6 +1,7 @@
 from libc.stdint cimport uint8_t
 
 cdef extern from "../src/emc.h":
+	# Global variables for emc
 	detector *det
 	rotation *quat
 	dataset *frames
@@ -8,7 +9,6 @@ cdef extern from "../src/emc.h":
 	iterate *iter
 	params *param
 
-cdef extern from '../src/emc.h':
 	# setup_emc.c
 	int setup(char*, int)
 	void free_mem()
@@ -21,6 +21,10 @@ cdef extern from '../src/emc.h':
 	void write_log_file_header(int)
 	void emc()
 	void update_model(double)
+
+	# interp function pointers
+	void (*slice_gen)(double*, double, double*, double*, long, detector*) ;
+	void (*slice_merge)(double*, double*, double*, double*, long, detector*) ;
 
 cdef extern from '../src/detector.h':
 	struct detector:
