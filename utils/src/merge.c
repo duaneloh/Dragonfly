@@ -176,7 +176,7 @@ int main(int argc, char *argv[]) {
 		
 		while (curr != NULL) {
 			detn = det[0].mapping[dset] ;
-			realloc(view, det[detn].num_pix*sizeof(double)) ;
+			view = realloc(view, det[detn].num_pix*sizeof(double)) ;
 			
 			#pragma omp for schedule(static,1)
 			for (d = 0 ; d < curr->num_data ; ++d) {
