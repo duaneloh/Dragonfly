@@ -4,13 +4,13 @@ MPICC = mpicc
 CC = gcc
 
 OMPI_CC = $(CC)
-ifeq ($(CC), icc)
+ifneq (,$(findstring icc, $(CC)))
 	OMP_FLAG = -qopenmp
 else
 	OMP_FLAG = -fopenmp
 endif
 CFLAGS = $(shell gsl-config --cflags) -O3 -Wall $(OMP_FLAG)
-LIBS = $(shell gsl-config --libs) $(OMP_FLAG)
+LIBS = $(shell gsl-config --libs) $(OMP_FLAG) -Wl,-rpath,$(shell gsl-config --prefix)/lib
 
 # Derive source files and targets
 # ============================================================
