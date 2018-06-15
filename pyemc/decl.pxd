@@ -1,5 +1,13 @@
 from libc.stdint cimport uint8_t
 
+cdef extern from "../src/emc.h":
+	detector *det
+	rotation *quat
+	dataset *frames
+	dataset *merge_frames
+	iterate *iter
+	params *param
+
 cdef extern from '../src/emc.h':
 	# setup_emc.c
 	int setup(char*, int)
