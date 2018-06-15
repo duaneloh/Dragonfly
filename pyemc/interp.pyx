@@ -15,10 +15,10 @@ def make_rot_quat(np.ndarray[double, ndim=1] quat):
 	return np.asarray(rotarr).reshape(3,3)
 
 def slice_gen3d(np.ndarray[double, ndim=1, mode='c'] quat,
-              np.ndarray[double, ndim=1, mode='c'] out_slice,
-              np.ndarray[double, ndim=3, mode='c'] model,
-              detector det,
-              double rescale=0):
+                np.ndarray[double, ndim=1, mode='c'] out_slice,
+                np.ndarray[double, ndim=3, mode='c'] model,
+                detector det,
+                double rescale=0):
 	'''
 	Interpolates values at given voxel positions from a given 3D volume for a given quaternion
 	
@@ -33,10 +33,10 @@ def slice_gen3d(np.ndarray[double, ndim=1, mode='c'] quat,
 	decl.slice_gen3d(&quat[0], rescale, &out_slice[0], <double*>&modelarr[0][0][0], size, det.det)
 
 def slice_merge3d(np.ndarray[double, ndim=1, mode='c'] quat,
-                np.ndarray[double, ndim=1, mode='c'] in_slice,
-                np.ndarray[double, ndim=3, mode='c'] model,
-                np.ndarray[double, ndim=3, mode='c'] weight,
-                detector det):
+                  np.ndarray[double, ndim=1, mode='c'] in_slice,
+                  np.ndarray[double, ndim=3, mode='c'] model,
+                  np.ndarray[double, ndim=3, mode='c'] weight,
+                  detector det):
 	'''
 	Merges slice into 3D model and interpolation weight arrays
 	
@@ -52,10 +52,10 @@ def slice_merge3d(np.ndarray[double, ndim=1, mode='c'] quat,
 	decl.slice_merge3d(&quat[0], &in_slice[0], <double*>&modelarr[0][0][0], <double*>&weightarr[0][0][0], size, det.det)
 
 def slice_gen2d(np.ndarray[double, ndim=1, mode='c'] angle,
-              np.ndarray[double, ndim=1, mode='c'] out_slice,
-              np.ndarray[double, ndim=3, mode='c'] model,
-              detector det,
-              double rescale=0):
+                np.ndarray[double, ndim=1, mode='c'] out_slice,
+                np.ndarray[double, ndim=3, mode='c'] model,
+                detector det,
+                double rescale=0):
 	'''
 	Interpolates values at given voxel positions from a list of 2D slices for a given angle pointer
 	If there are N slices the angle has a range of [0,2 N Pi)
@@ -71,10 +71,10 @@ def slice_gen2d(np.ndarray[double, ndim=1, mode='c'] angle,
 	decl.slice_gen2d(&angle[0], rescale, &out_slice[0], <double*>&modelarr[0][0][0], size, det.det)
 
 def slice_merge2d(np.ndarray[double, ndim=1, mode='c'] angle,
-                np.ndarray[double, ndim=1, mode='c'] in_slice,
-                np.ndarray[double, ndim=3, mode='c'] model,
-                np.ndarray[double, ndim=3, mode='c'] weight,
-                detector det):
+                  np.ndarray[double, ndim=1, mode='c'] in_slice,
+                  np.ndarray[double, ndim=3, mode='c'] model,
+                  np.ndarray[double, ndim=3, mode='c'] weight,
+                  detector det):
 	'''
 	Merges slice into slice stack and interpolation weight arrays using given angle
 	If there are N slices the angle has a range of [0,2 N Pi)
