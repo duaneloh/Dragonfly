@@ -22,7 +22,7 @@ struct max_data {
 	int *rmax ;
 	double *quat_norm ;
 } ;
-static struct timeval t1, t2 ;
+static struct timeval tm1, tm2 ;
 
 static void allocate_memory(struct max_data*) ;
 static double calculate_rescale(struct max_data*) ;
@@ -34,11 +34,11 @@ static void combine_information_omp(struct max_data*, struct max_data*) ;
 static double combine_information_mpi(struct max_data*) ;
 static void save_output(struct max_data*) ;
 static void free_memory(struct max_data*) ;
-static void print_time(char*, char*, int) ;
+static void print_max_time(char*, char*, int) ;
 
 double maximize() {
 	double avg_likelihood ;
-	gettimeofday(&t1, NULL) ;
+	gettimeofday(&tm1, NULL) ;
 	iter->mutual_info = 0. ;
 	struct max_data *common_data = malloc(sizeof(struct max_data)) ;
 	common_data->within_openmp = 0 ;
@@ -111,7 +111,7 @@ void allocate_memory(struct max_data *data) {
 		memset(iter->inter_weight, 0, vol*sizeof(double)) ;
 		for (r = 0 ; r < quat->num_rot_p ; ++r)
 			data->probab[r] = malloc(frames->tot_num_data * sizeof(double)) ;
-		print_time("alloc", "", param->rank == 0) ;
+		print_max_time("alloc", "", param->rank == 0) ;
 	}
 	else {
 		data->p_sum = calloc(det[0].num_det, sizeof(double)) ;
@@ -159,7 +159,7 @@ double calculate_rescale(struct max_data *data) {
 	}
 	
 	sprintf(res_string, "(= %.6e)", frames[0].mean_count / total) ;
-	print_time("rescale", res_string, param->rank == 0) ;
+	print_max_time("rescale", res_string, param->rank == 0) ;
 	
 	return frames[0].mean_count / total ;
 }
@@ -234,7 +234,7 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 	if ((r*param->num_proc + param->rank)%(quat->num_rot/10) == 0)
 		fprintf(stderr, "\t\tFinished r = %d/%d\n", r*param->num_proc + param->rank, quat->num_rot) ;
 	if (r == quat->num_rot_p - 1)
-		print_time("prob", "", param->rank == 0) ;
+		print_max_time("prob", "", param->rank == 0) ;
 }
 
 void normalize_prob(struct max_data *priv, struct max_data *common) {
@@ -283,7 +283,7 @@ void normalize_prob(struct max_data *priv, struct max_data *common) {
 	#pragma omp barrier
 	
 	free(priv_sum) ;
-	print_time("psum", "", param->rank == 0 && omp_rank == 0) ;
+	print_max_time("psum", "", param->rank == 0 && omp_rank == 0) ;
 }
 
 void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
@@ -436,7 +436,7 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 		for (d = 0 ; d < param->modes ; ++d)
 			common->quat_norm[d] += priv->quat_norm[d] ;
 	}
-	print_time("update", "", param->rank == 0 && omp_rank == 0) ;
+	print_max_time("update", "", param->rank == 0 && omp_rank == 0) ;
 }
 
 double combine_information_mpi(struct max_data *data) {
@@ -555,21 +555,21 @@ void free_memory(struct max_data *data) {
 	free(data) ;
 }
 
-void print_time(char *pre_tag, char *post_tag, int flag) {
+void print_max_time(char *pre_tag, char *post_tag, int flag) {
 	if (!flag)
 		return ;
 	
 	double diff ;
-	double time_1 = t1.tv_sec + t1.tv_usec*1.e-6 ;
-	double time_2 = t2.tv_sec + t2.tv_usec*1.e-6 ;
+	double time_1 = tm1.tv_sec + tm1.tv_usec*1.e-6 ;
+	double time_2 = tm2.tv_sec + tm2.tv_usec*1.e-6 ;
 	
 	if (time_1 > time_2) {
-		gettimeofday(&t2, NULL) ;
-		diff = t2.tv_sec + t2.tv_usec*1.e-6 - time_1 ;
+		gettimeofday(&tm2, NULL) ;
+		diff = tm2.tv_sec + tm2.tv_usec*1.e-6 - time_1 ;
 	}
 	else {
-		gettimeofday(&t1, NULL) ;
-		diff = t1.tv_sec + t1.tv_usec*1.e-6 - time_2 ;
+		gettimeofday(&tm1, NULL) ;
+		diff = tm1.tv_sec + tm1.tv_usec*1.e-6 - time_2 ;
 	}
 	
 	fprintf(stderr, "\t%s\t%f %s\n", pre_tag, diff, post_tag) ;

@@ -5,15 +5,15 @@
 #include <sys/time.h>
 #include "emc.h"
 
-struct timeval t1, t2, t3 ;
-static void print_time(char*, struct timeval*, struct timeval*, int) ;
+static struct timeval tr1, tr2, tr3 ;
+static void print_recon_time(char*, struct timeval*, struct timeval*, int) ;
 
 int main(int argc, char *argv[]) {
 	int num_iter, continue_flag = 0, num_threads = omp_get_max_threads() ;
 	char config_fname[1024] ;
 	
 	MPI_Init(&argc, &argv) ;
-	gettimeofday(&t1, NULL) ;
+	gettimeofday(&tr1, NULL) ;
 	
 	num_iter = parse_arguments(argc, argv, &continue_flag, &num_threads, config_fname) ;
 	if (num_iter < 0) {
@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
 	return 0 ;
 }
 
-static void print_time(char *message, struct timeval *time_1, struct timeval *time_2, int rank) {
+static void print_recon_time(char *message, struct timeval *time_1, struct timeval *time_2, int rank) {
 	if (!rank) {
 		gettimeofday(time_2, NULL) ;
 		fprintf(stderr, "%s: %f s\n", message, (double)(time_2->tv_sec - time_1->tv_sec) + 1.e-6*(time_2->tv_usec - time_1->tv_usec)) ;
@@ -120,7 +120,7 @@ void emc() {
 	double likelihood ;
 	
 	for (param->iteration = param->start_iter ; param->iteration <= param->num_iter + param->start_iter - 1 ; ++param->iteration) {
-		gettimeofday(&t1, NULL) ;
+		gettimeofday(&tr1, NULL) ;
 		
 		MPI_Bcast(iter->model1, vol, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
 		
@@ -129,13 +129,13 @@ void emc() {
 			param->beta *= param->beta_jump ;
 		
 		likelihood = maximize() ;
-		print_time("Completed maximize", &t1, &t2, param->rank) ;
+		print_recon_time("Completed maximize", &tr1, &tr2, param->rank) ;
 		
 		if (!param->rank)
 			update_model(likelihood) ;
 		if (param->need_scaling && param->modes == 0)
 			normalize_scale(iter) ;
-		print_time("Updated 3D intensity", &t2, &t3, param->rank) ;
+		print_recon_time("Updated 3D intensity", &tr2, &tr3, param->rank) ;
 		
 		MPI_Bcast(&iter->rms_change, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
 		if (isnan(iter->rms_change)) {
@@ -188,11 +188,11 @@ void update_model(double likelihood) {
 	fwrite(iter->inter_weight, sizeof(double), vol, fp) ;
 	fclose(fp) ;
 	
-	gettimeofday(&t2, NULL) ;
+	gettimeofday(&tr2, NULL) ;
 	
 	fp = fopen(param->log_fname, "a") ;
 	fprintf(fp, "%d\t", param->iteration) ;
-	fprintf(fp, "%4.2f\t", (double)(t2.tv_sec - t1.tv_sec) + 1.e-6*(t2.tv_usec - t1.tv_usec)) ;
+	fprintf(fp, "%4.2f\t", (double)(tr2.tv_sec - tr1.tv_sec) + 1.e-6*(tr2.tv_usec - tr1.tv_usec)) ;
 	fprintf(fp, "%1.4e\t%f\t%.6e\t%-7d\t%f\n", iter->rms_change, iter->mutual_info, likelihood, quat->num_rot, param->beta) ;
 	fclose(fp) ;
 }
