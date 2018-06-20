@@ -100,6 +100,16 @@ def symmetrize_friedel(np.ndarray[np.double_t, ndim=3, mode='c'] model):
 	cdef double[:,:,:] modelarr = model
 	decl.symmetrize_friedel(<double*>&modelarr[0][0][0], size)
 
+def symmetrize_icosahedral(np.ndarray[np.double_t, ndim=3, mode='c'] model):
+	'''
+	Icosahedrally symmetrizes 3D array
+	
+	symmetrize_friedel(np.ndarray[np.double_t, ndim=3, mode='c'] model)
+	'''
+	cdef int size = model.shape[0]
+	cdef double[:,:,:] modelarr = model
+	decl.symmetrize_icosahedral(<double*>&modelarr[0][0][0], size)
+
 def rotate_model(np.ndarray[double, ndim=2] rot,
                  np.ndarray[double, ndim=3, mode='c'] model,
 				 np.ndarray[double, ndim=3, mode='c'] rotmodel):
