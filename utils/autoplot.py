@@ -547,14 +547,14 @@ class Progress_viewer(QtWidgets.QMainWindow):
         default_name = 'images/'+os.path.splitext(os.path.basename(self.fname.text()))[0]+'.png'
         fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Volume Image', default_name, 'Image (*.png)')
         if fname:
-            self.fig.savefig(fname, bbox_inches='tight')
+            self.fig.savefig(fname, bbox_inches='tight', dpi=120)
             sys.stderr.write('Saved to %s\n'%fname)
 
     def save_log_plot(self, event=None):
         default_name = 'images/log_fig.png'
         fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Log Plots', default_name, 'Image (*.png)')
         if fname:
-            self.log_fig.savefig(fname, bbox_inches='tight')
+            self.log_fig.savefig(fname, bbox_inches='tight', dpi=120)
             sys.stderr.write("Saved to %s\n"%fname)
 
     def cmap_changed(self, event=None):
