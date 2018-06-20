@@ -35,9 +35,9 @@ ext_modules = [
         extra_objects=['build/src/'+f for f in 'detector.o quat.o dataset.o interp.o iterate.o params.o'.split()],
         depends='../src/emc.h ../src/max_emc.c'.split(),
         language='c', extra_compile_args=compile_args+mpi_compile_args, extra_link_args=link_args+mpi_link_args),
-    Extension(name='pyemc', sources=['pyemc.pyx']+glob.glob('../src/*emc.c'), 
+    Extension(name='pyemc', sources=['pyemc.pyx', '../src/setup_emc.c'],
         extra_objects=['build/src/'+f for f in 'detector.o quat.o dataset.o interp.o iterate.o params.o'.split()],
-        depends='../src/emc.h decl.pxd detector.pxd dataset.pxd params.pxd quat.pxd iterate.pxd'.split(),
+        depends=glob.glob('../src/*emc*') + glob.glob('*.pxd'),
         language='c', extra_compile_args=compile_args+mpi_compile_args, extra_link_args=link_args+mpi_link_args),
 ]
 
