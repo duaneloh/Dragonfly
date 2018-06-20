@@ -1,32 +1,6 @@
 from libc.stdint cimport uint8_t
 
-cdef extern from "../src/emc.h":
-	# Global variables for emc
-	detector *det
-	rotation *quat
-	dataset *frames
-	dataset *merge_frames
-	iterate *iter
-	params *param
-
-	# setup_emc.c
-	int setup(char*, int)
-	void free_mem()
-
-	# max_emc.c
-	double maximize()
-
-	# recon_emc.c
-	int parse_arguments(int, char**, int*, int*, char*)
-	void write_log_file_header(int)
-	void emc()
-	void update_model(double)
-
-	# interp function pointers
-	void (*slice_gen)(double*, double, double*, double*, long, detector*) ;
-	void (*slice_merge)(double*, double*, double*, double*, long, detector*) ;
-
-cdef extern from '../src/detector.h':
+cdef extern from '../src/detector.h' nogil:
 	struct detector:
 		int num_pix, rel_num_pix
 		double detd, ewald_rad
@@ -42,7 +16,7 @@ cdef extern from '../src/detector.h':
 	double parse_detector_list(char*, detector**, int)
 	void free_detector(detector*)
 
-cdef extern from '../src/dataset.h':
+cdef extern from '../src/dataset.h' nogil:
 	struct dataset:
 		int num_data, num_pix, num_data_prev
 		# Data set type [0=sparse, 1=dense integer, 2=dense double]
@@ -82,7 +56,7 @@ cdef extern from '../src/dataset.h':
 	void make_blacklist(char*, int, dataset*)
 	void free_data(int, dataset*)
 
-cdef extern from '../src/quat.h':
+cdef extern from '../src/quat.h' nogil:
 	struct rotation:
 		int num_rot, num_rot_p
 		double *quat
@@ -94,7 +68,7 @@ cdef extern from '../src/quat.h':
 	void divide_quat(int, int, rotation*)
 	void free_quat(rotation*)
 
-cdef extern from '../src/iterate.h':
+cdef extern from '../src/iterate.h' nogil:
 	struct iterate:
 		long size, center
 		int tot_num_data
@@ -113,7 +87,7 @@ cdef extern from '../src/iterate.h':
 	void parse_input(char*, double, char*, int, int, iterate*)
 	void free_iterate(iterate*)
 
-cdef extern from '../src/interp.h':
+cdef extern from '../src/interp.h' nogil:
 	void make_rot_quat(double*, double[3][3])
 	void slice_gen3d(double*, double, double*, double*, long, detector*)
 	void slice_merge3d(double*, double*, double*, double*, long, detector*)
@@ -121,8 +95,9 @@ cdef extern from '../src/interp.h':
 	void slice_merge2d(double*, double*, double*, double*, long, detector*)
 	void rotate_model(double[3][3], double*, int, double*)
 	void symmetrize_friedel(double*, int)
+	void symmetrize_icosahedral(double*, int)
 
-cdef extern from '../src/params.h':
+cdef extern from '../src/params.h' nogil:
 	struct params:
 		int rank, num_proc
 		int iteration, current_iter, start_iter, num_iter
