@@ -1,16 +1,15 @@
 import os
 import sys
 import numpy as np
+from contextlib import contextmanager
 
-cimport numpy as np
 from libc.stdlib cimport malloc, free
-from posix.time cimport gettimeofday 
 from libc.float cimport DBL_MAX
-from cStringIO import StringIO
+from posix.time cimport gettimeofday 
+cimport numpy as np
 
 cimport decl
 cimport max_emc
-from contextlib import contextmanager
 
 # Globals that need to be filled up by setup()
 cdef extern from "../src/emc.h":
@@ -20,6 +19,8 @@ cdef extern from "../src/emc.h":
 	decl.dataset *merge_frames ;
 	decl.iterate *iter ;
 	decl.params *param ;
+	
+	void setup(char*, int)
 
 @contextmanager
 def _silence_stderr(to=os.devnull):
@@ -39,10 +40,10 @@ def _silence_stderr(to=os.devnull):
 			_redirect_to(old_stderr)
 
 cdef class py_max_data:
-	def __init__(self, omp_flag=0):
+	def __init__(self, within_openmp=0):
 		self.data = <max_data*>malloc(sizeof(max_data))
 		
-		self.data.within_openmp = int(omp_flag)
+		self.data.within_openmp = int(within_openmp)
 		# Common only
 		self.data.max_exp = NULL
 		self.data.u = NULL
@@ -81,7 +82,6 @@ cdef class py_max_data:
 			for i in range(quat.num_rot_p):
 				retval[i] = np.asarray(<double[:frames.tot_num_data]> self.data.probab[i])
 			return retval
-		#return np.asarray(<double[:quat.num_rot_p, :frames.tot_num_data]> self.data.probab) if self.data.probab != NULL else None
 	@property
 	def model(self):
 		return np.asarray(<double[:iter.size**3]> self.data.model).reshape(3*(iter.size,)) if self.data.model != NULL else None
@@ -122,14 +122,14 @@ cdef class py_max_data:
 	def quat_norm(self):
 		return np.asarray(<double[:param.modes]> self.data.quat_norm) if self.data.quat_norm != NULL else None
 
-cdef class maximize:
+cdef class py_maximize:
 	def __init__(self, config_fname, quiet_setup=True):
-		gettimeofday(&t1, NULL)
-		cdef char* c_config_fname = config_fname
-		if quiet_setup:
-			with _silence_stderr(): decl.setup(c_config_fname, 0)
-		else:
-			decl.setup(c_config_fname, 0)
+		gettimeofday(&tm1, NULL)
+		if config_fname is not None:
+			if quiet_setup:
+				with _silence_stderr(): setup(config_fname, 0)
+			else:
+				setup(config_fname, 0)
 
 	def allocate_memory(self, py_max_data data):
 		max_emc.allocate_memory(data.data)

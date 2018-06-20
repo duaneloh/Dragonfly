@@ -1,6 +1,6 @@
 from posix.time cimport timeval
 
-cdef extern from "../src/max_emc.c":
+cdef extern from "../src/max_emc.c" nogil:
 	struct max_data:
 		int within_openmp
 		
@@ -23,8 +23,8 @@ cdef extern from "../src/max_emc.c":
 		int *rmax
 		double *quat_norm
 
-	timeval t1
-	timeval t2
+	timeval tm1
+	timeval tm2
 
 	cdef void allocate_memory(max_data*)
 	cdef double calculate_rescale(max_data*)
@@ -40,7 +40,7 @@ cdef extern from "../src/max_emc.c":
 cdef class py_max_data:
 	cdef max_data* data
 
-cdef class maximize:
+cdef class py_maximize:
 	cdef max_data* common_data
 	cdef max_data* priv_data
 
