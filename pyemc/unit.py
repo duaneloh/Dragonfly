@@ -698,17 +698,17 @@ class TestIterate(unittest.TestCase):
         itr.free_iterate()
 
 class TestMaxEMC(unittest.TestCase):
-    def __init__(self, *args, **kwargs):
+    @classmethod
+    def setUpClass(cls):
         print('=== Initializing maximize() ===')
-        super(TestMaxEMC, self).__init__(*args, **kwargs)
-        self.maximize = max_emc.maximize(config_fname, quiet_setup=False)
+        cls.maximize = max_emc.py_maximize(config_fname, quiet_setup=False)
 
     def test_allocate_memory(self):
         print('=== Testing static allocate_memory() ===')
         zarr = np.zeros(3000)
         zvol = np.zeros(3*(145,))
         
-        data = max_emc.py_max_data(omp_flag=False)
+        data = max_emc.py_max_data(within_openmp=False)
         self.maximize.allocate_memory(data)
         npt.assert_array_equal(data.max_exp, zarr)
         npt.assert_array_equal(data.p_sum, zarr)
@@ -717,10 +717,10 @@ class TestMaxEMC(unittest.TestCase):
         npt.assert_array_equal(data.rmax, np.zeros(3000, dtype='i4'))
         npt.assert_array_equal(data.u, np.zeros(3240))
         npt.assert_array_equal(data.max_exp_p, -np.ones(3000)*sys.float_info.max)
-        npt.assert_array_equal(data.probab, np.zeros((3240,3000)))
+        self.assertEqual(data.probab.shape, (3240,3000))
         self.maximize.free_memory(data)
         
-        data = max_emc.py_max_data(omp_flag=True)
+        data = max_emc.py_max_data(within_openmp=True)
         self.maximize.allocate_memory(data)
         npt.assert_array_equal(data.info, zarr)
         npt.assert_array_equal(data.likelihood, zarr)
@@ -735,11 +735,33 @@ class TestMaxEMC(unittest.TestCase):
         
     def test_calculate_rescale(self):
         print('=== Testing static calculate_rescale() ===')
-        data = max_emc.py_max_data(omp_flag=False)
+        data = max_emc.py_max_data(within_openmp=False)
         self.maximize.allocate_memory(data)
         rescale = self.maximize.calculate_rescale(data)
         self.assertAlmostEqual(rescale, 0.9972006898)
         self.maximize.free_memory(data)
+
+    def test_calculate_prob(self):
+        print('=== Testing static calculate_prob() ===')
+        common_data = max_emc.py_max_data(within_openmp=False)
+        self.maximize.allocate_memory(common_data)
+        rescale = self.maximize.calculate_rescale(common_data)
+        priv_data = max_emc.py_max_data(within_openmp=True)
+        self.maximize.allocate_memory(priv_data)
+        self.maximize.calculate_prob(0, priv_data, common_data)
+        npt.assert_array_almost_equal(common_data.probab[0,:5], [-4300.60968803, -3913.03874035, -3341.71258934, -5798.14606903, -4048.21180691])
+        self.maximize.calculate_prob(1, priv_data, common_data)
+        npt.assert_array_equal(np.where(priv_data.rmax==1)[0][:5], [1, 2, 6, 9, 13])
+        self.maximize.free_memory(common_data)
+        self.maximize.free_memory(priv_data)
+
+    def test_normalize_prob(self):
+        print('=== Testing static normalize_prob() ===')
+        common_data = max_emc.py_max_data(within_openmp=False)
+        self.maximize.allocate_memory(common_data)
+        priv_data = max_emc.py_max_data(within_openmp=True)
+        self.maximize.allocate_memory(priv_data)
+        self.maximize.normalize_prob(priv_data, common_data)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Unit testing Dragonfly')
