@@ -205,7 +205,9 @@ void save_rotmodel(struct rotation *quat, double *m1, char *fname) {
 	rotate_model(rot, m1, s, rotmodel) ;
 	
 	// Write rotmodel to file
-	sprintf(rotfname, "data/%s-rot.bin", remove_ext(extract_fname(fname))) ;
+	char *base = remove_ext(extract_fname(fname)) ;
+	sprintf(rotfname, "data/%s-rot.bin", base) ;
+	free(base) ;
 	fp = fopen(rotfname, "wb") ;
 	fwrite(rotmodel, sizeof(double), vol, fp) ;
 	fclose(fp) ;
@@ -296,28 +298,29 @@ int main(int argc, char *argv[]) {
 	vol = s*s*s ;
 	
 	// Parse models
-	model1 = malloc(vol * sizeof(double)) ;
-	model1_rad = malloc(vol * sizeof(double)) ;
 	fp = fopen(intens_fname1, "rb") ;
 	if (fp == NULL) {
 		fprintf(stderr, "Unable to open first file: %s\n", intens_fname1) ;
 		return 1 ;
 	}
+	model1 = malloc(vol * sizeof(double)) ;
 	fread(model1, sizeof(double), vol, fp) ;
 	fclose(fp) ;
 	
-	model2 = malloc(vol * sizeof(double)) ;
-	model2_rad = malloc(vol * sizeof(double)) ;
 	fp = fopen(intens_fname2, "rb") ;
 	if (fp == NULL) {
 		fprintf(stderr, "Unable to open second file: %s\n", intens_fname2) ;
+		free(model1) ;
 		return 1 ;
 	}
+	model2 = malloc(vol * sizeof(double)) ;
 	fread(model2, sizeof(double), vol, fp) ;
 	fclose(fp) ;
 	fprintf(stderr, "Parsed models from %s and %s\n", intens_fname1, intens_fname2) ;
 	
 	// Radial average subtraction
+	model1_rad = malloc(vol * sizeof(double)) ;
+	model2_rad = malloc(vol * sizeof(double)) ;
 	subtract_radial_average(model1, model2, 1., model1_rad, model2_rad) ;
 	fprintf(stderr, "Radial average subtracted\n") ;
 	
@@ -338,10 +341,14 @@ int main(int argc, char *argv[]) {
 	
 	// Calculate radial_corr for best orientation and save rotated model
 	char fname[500] ;
-	if (output_fname == '\0')
-		sprintf(fname, "data/%s.dat", remove_ext(extract_fname(intens_fname1))) ;
-	else
+	if (output_fname == '\0') {
+		char *base = remove_ext(extract_fname(intens_fname1)) ;
+		sprintf(fname, "data/%s.dat", base) ;
+		free(base) ;
+	}
+	else {
 		sprintf(fname, "data/%s.dat", output_fname) ;
+	}
 	fprintf(stderr, "Saving FSC to %s\n", fname) ;
 	
 	rmin = 2 ;

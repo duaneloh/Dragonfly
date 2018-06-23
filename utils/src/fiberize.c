@@ -120,5 +120,9 @@ int main(int argc, char *argv[]) {
 	fwrite(temp_slice, sizeof(double), num_pix, fp) ;
 	fclose(fp) ;
 	
+	free(slice) ;
+	free(temp_slice) ;
+	free_detector(det) ;
+	
 	return 0 ;
 }

@@ -1,19 +1,19 @@
 #!/usr/bin/env python
 
+'''Module containing Classifier GUI'''
+
 import sys
 import os
 try:
-    from PyQt5 import QtCore, QtWidgets, QtGui
+    from PyQt5 import QtCore, QtWidgets, QtGui # pylint: disable=import-error
     os.environ['QT_API'] = 'pyqt5'
 except ImportError:
     import sip
     sip.setapi('QString', 2)
-    from PyQt4 import QtCore, QtGui
-    from PyQt4 import QtGui as QtWidgets
+    from PyQt4 import QtCore, QtGui # pylint: disable=import-error
+    from PyQt4 import QtGui as QtWidgets # pylint: disable=import-error
     os.environ['QT_API'] = 'pyqt'
 import qdarkstyle
-from py_src import reademc
-from py_src import readdet
 from py_src import manual
 from py_src import conversion
 from py_src import embedding
@@ -24,12 +24,17 @@ from py_src import read_config
 from py_src import frame_panel
 
 class Classifier(QtWidgets.QMainWindow):
-    def __init__(self, config_file, cmap='coolwarm', mask=False, class_fname='my_classes.dat'):
+    '''Classifier GUI which can be used to classify frames before 3D merging
+    The GUI is made up of many panels representing different methods, each of whom assigns one
+    of the 26 lower case alphabets as the class of a frame.
+    Techniques:
+        Manual - Manually classify patterns using keyboard
+        Conversion - Convert frames to different basis to ease classification
+        Embedding - Manifold embedding of converted frames
+        MLP - Multi-layer perceptron neural network classifier
+    '''
+    def __init__(self, config_file, mask=False):
         super(Classifier, self).__init__()
-        if cmap is None:
-            self.cmap = 'coolwarm'
-        else:
-            self.cmap = cmap
         self.config_file = config_file
         self.mode_dict = {
             '&Display': 0,
@@ -40,25 +45,15 @@ class Classifier(QtWidgets.QMainWindow):
         }
         self.converted = None
         self.mode_val = 0
-        
-        self.get_config_params()
-        if len(set(self.det_list)) == 1:
-            geom_list = [readdet.Det_reader(self.det_list[0], self.detd, self.ewald_rad, mask_flag=mask)]
-            geom_mapping = None
-        else:
-            print 'The Classifier GUI will likely have problems with multiple geometries'
-            print 'We recommend classifying patterns with a common geometry'
-            uniq = sorted(set(self.det_list))
-            geom_list = [readdet.Det_reader(fname, self.detd, self.ewald_rad, mask_flag=mask) for fname in uniq]
-            geom_mapping = [uniq.index(fname) for fname in self.det_list]
-        self.geom = geom_list[0]
-        self.emc_reader = reademc.EMC_reader(self.photons_list, geom_list, geom_mapping) 
-        self.num_frames = self.emc_reader.num_frames
-        self.classes = classes.Frame_classes(self.num_frames, fname=class_fname)
-        
-        self.init_UI()
+        self.cmap = None
 
-    def init_UI(self):
+        self._get_config_params()
+        py_utils.gen_det_and_emc(self, classifier=True, mask=mask)
+        self.classes = classes.FrameClasses(self.emc_reader.num_frames, fname=self.class_fname)
+
+        self._init_ui()
+
+    def _init_ui(self):
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setWindowTitle('Dragonfly Classifier')
         self.setGeometry(0, 0, 1100, 900)
@@ -66,30 +61,27 @@ class Classifier(QtWidgets.QMainWindow):
         hbox = QtWidgets.QHBoxLayout()
         hbox.setSpacing(0)
 
-        self.frame_panel = frame_panel.Frame_panel(self)
-        hbox.addWidget(self.frame_panel)
-
-        window.setLayout(hbox)
-        self.setCentralWidget(window)
-        self.show()
-
-        self.manual_panel = manual.Manual_panel(self)
-        self.conversion_panel = conversion.Conversion_panel(self)
-        self.embedding_panel = embedding.Embedding_panel(self)
-        self.mlp_panel = mlp.MLP_panel(self)
-
         # Menu items
         menubar = self.menuBar()
         menubar.setNativeMenuBar(False)
-        # Color map picker
         cmapmenu = menubar.addMenu('&Color Map')
         self.color_map = QtWidgets.QActionGroup(self, exclusive=True)
-        for i, s in enumerate(['coolwarm', 'cubehelix', 'CMRmap', 'gray', 'gray_r', 'jet']):
-            a = self.color_map.addAction(QtWidgets.QAction(s, self, checkable=True))
+        cmaplist = ['coolwarm', 'cubehelix', 'CMRmap', 'gray', 'gray_r', 'jet']
+        for i, cmap in enumerate(cmaplist):
+            action = self.color_map.addAction(QtWidgets.QAction(cmap, self, checkable=True))
             if i == 0:
-                a.setChecked(True)
-            a.triggered.connect(self.cmap_changed)
-            cmapmenu.addAction(a)
+                action.setChecked(True)
+            action.triggered.connect(self._cmap_changed)
+            cmapmenu.addAction(action)
+        self.cmap = cmaplist[0]
+
+        self.frame_panel = frame_panel.FramePanel(self)
+        hbox.addWidget(self.frame_panel)
+
+        self.manual_panel = manual.ManualPanel(self)
+        self.conversion_panel = conversion.ConversionPanel(self)
+        self.embedding_panel = embedding.EmbeddingPanel(self)
+        self.mlp_panel = mlp.MLPPanel(self)
 
         toolbox = QtWidgets.QToolBox(self)
         hbox.addWidget(toolbox)
@@ -99,9 +91,13 @@ class Classifier(QtWidgets.QMainWindow):
         toolbox.addItem(self.conversion_panel, '&Conversion')
         toolbox.addItem(self.embedding_panel, '&Embedding')
         toolbox.addItem(self.mlp_panel, 'M&LP')
-        toolbox.currentChanged.connect(self.tab_changed)
+        toolbox.currentChanged.connect(self._tab_changed)
 
-    def get_config_params(self):
+        window.setLayout(hbox)
+        self.setCentralWidget(window)
+        self.show()
+
+    def _get_config_params(self):
         section = 'classifier'
         try:
             read_config.get_filename(self.config_file, section, 'nonexistent_option')
@@ -110,40 +106,36 @@ class Classifier(QtWidgets.QMainWindow):
             section = 'emc'
         except read_config.ConfigParser.NoOptionError:
             pass
-        
+
         read_config.read_gui_config(self, section)
 
-    def tab_changed(self, index):
+    def _tab_changed(self, index):
         self.mode_val = index
         self.frame_panel.plot_frame()
 
-    def cmap_changed(self, event=None):
+    def _cmap_changed(self):
         self.cmap = self.color_map.checkedAction().text()
         self.frame_panel.plot_frame()
 
-    def keyPressEvent(self, event):
-        k = event.key()
-        m = int(event.modifiers())
-        
-        if QtGui.QKeySequence(m+k) == QtGui.QKeySequence('Ctrl+N'):
-            self.frame_panel.next_frame()
-        elif QtGui.QKeySequence(m+k) == QtGui.QKeySequence('Ctrl+P'):
-            self.frame_panel.prev_frame()
-        elif QtGui.QKeySequence(m+k) == QtGui.QKeySequence('Ctrl+R'):
-            self.frame_panel.rand_frame()
-        elif QtGui.QKeySequence(m+k) == QtGui.QKeySequence('Ctrl+Q'):
+    def keyPressEvent(self, event): # pylint: disable=C0103
+        '''Override of default keyPress event handler'''
+        key = event.key()
+        mod = int(event.modifiers())
+
+        if QtGui.QKeySequence(mod+key) == QtGui.QKeySequence('Ctrl+Q'):
             self.close()
         else:
             event.ignore()
 
-    def closeEvent(self, event):
-        self.quit(event)
+    def closeEvent(self, event): # pylint: disable=C0103
+        '''Override of default close event handler'''
+        self._quit(event)
 
-    def quit(self, event):
+    def _quit(self, event):
         if self.classes.unsaved:
             result = QtWidgets.QMessageBox.question(
-                self, 
-                'Warning', 
+                self,
+                'Warning',
                 'Unsaved changes to class list. Save?',
                 QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No | QtWidgets.QMessageBox.Cancel,
                 QtWidgets.QMessageBox.Cancel)
@@ -155,14 +147,18 @@ class Classifier(QtWidgets.QMainWindow):
             else:
                 event.ignore()
 
-if __name__ == '__main__':
-    parser = py_utils.my_argparser(description='Data classifier')
-    parser.add_argument('--cmap', help='Matplotlib color map (default: CMRmap)')
-    parser.add_argument('-M', '--mask', help='Whether to zero out masked pixels (default False)', action='store_true', default=False)
-    parser.add_argument('-C', '--class_fname', help='File containing classes for each frame', default='my_classes.dat')
+def main():
+    '''Parses command line arguments and launches Classifier GUI'''
+    parser = py_utils.MyArgparser(description='Data classifier')
+    parser.add_argument('-M', '--mask',
+                        help='Whether to zero out masked pixels (default False)',
+                        action='store_true', default=False)
     args = parser.special_parse_args()
-    
+
     app = QtWidgets.QApplication(sys.argv)
     app.setStyleSheet(qdarkstyle.load_stylesheet_from_environment())
-    Classifier(args.config_file, cmap=args.cmap, mask=args.mask, class_fname=args.class_fname)
+    Classifier(args.config_file, mask=args.mask)
     sys.exit(app.exec_())
+
+if __name__ == '__main__':
+    main()

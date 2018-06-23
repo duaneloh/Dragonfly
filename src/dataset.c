@@ -177,6 +177,7 @@ int parse_dataset(char *fname, struct detector *det, struct dataset *current) {
 	}
 	else {
 		fprintf(stderr, "Unknown dataset type %d\n", current->type) ;
+		fclose(fp) ;
 		return 1 ;
 	}
 	fclose(fp) ;
@@ -230,11 +231,14 @@ int parse_data(char *flist, struct detector *det, struct dataset *frames) {
 	
 	if (fscanf(fp, "%s\n", rel_fname) == 1) {
 		absolute_strcpy(flist_folder, data_fname, rel_fname) ;
-		if (parse_dataset(data_fname, det, frames))
+		if (parse_dataset(data_fname, det, frames)) {
+			fclose(fp) ;
 			return -1 ;
+		}
 	}
 	else {
 		fprintf(stderr, "No datasets found in %s\n", flist) ;
+		fclose(fp) ;
 		return -1 ;
 	}
 	
@@ -253,8 +257,10 @@ int parse_data(char *flist, struct detector *det, struct dataset *frames) {
 		curr->next = NULL ;
 		
 		//fprintf(stderr, "%s[%d]: %d\n", data_fname, num_datasets, det[0].mapping[num_datasets]) ;
-		if (parse_dataset(data_fname, &(det[det[0].mapping[num_datasets]]), curr))
+		if (parse_dataset(data_fname, &(det[det[0].mapping[num_datasets]]), curr)) {
+			fclose(fp) ;
 			return -1 ;
+		}
 		
 		curr->num_data_prev = frames->tot_num_data ;
 		frames->tot_num_data += curr->num_data ;

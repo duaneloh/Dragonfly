@@ -124,6 +124,7 @@ double parse_detector(char *fname, struct detector *det, int norm_flag) {
 	else {
 		if (det->detd == 0. || det->ewald_rad == 0.) {
 			fprintf(stderr, "Need new format detector to create 2D detector\n") ;
+			fclose(fp) ;
 			return -1. ;
 		}
 		fprintf(stderr, "Creating 2D detector\n") ;
@@ -203,11 +204,14 @@ double parse_detector_list(char *flist, struct detector **det_ptr, int norm_flag
 	//fprintf(stderr, "mapping: %d, %d, ...\n", det[0].mapping[0], det[0].mapping[1]) ;
 	for (j = 0 ; j < num_det ; ++j) {
 		det_qmax = parse_detector(name_list[j], &det[j], norm_flag) ;
-		if (det_qmax < 0.)
+		if (det_qmax < 0.) {
+			fclose(fp) ;
 			return -1. ;
+		}
 		if (det_qmax > qmax)
 			qmax = det_qmax ;
 	}
+	fclose(fp) ;
 	
 	return qmax ;
 }

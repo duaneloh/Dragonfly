@@ -164,6 +164,7 @@ int main(int argc, char *argv[]) {
 	free(indices) ;
 	free(object) ;
 	free(kernel) ;
+	free(intens) ;
 	
 	return 0 ;
 }
