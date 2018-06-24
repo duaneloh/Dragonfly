@@ -164,7 +164,7 @@ int main(int argc, char *argv[]) {
 	#pragma omp parallel default(shared)
 	{
 		int omp_rank = omp_get_thread_num() ;
-		long detn, d, t, i, dset = 0 ;
+		long detn, d, t, i, dset = 0, old_detn = -1 ;
 		double *priv_model = calloc(vol, sizeof(double)) ;
 		double *priv_weight = calloc(vol, sizeof(double)) ;
 		double *view = malloc(det->num_pix * sizeof(double)) ;
@@ -172,7 +172,11 @@ int main(int argc, char *argv[]) {
 		
 		while (curr != NULL) {
 			detn = det[0].mapping[dset] ;
-			view = realloc(view, det[detn].num_pix*sizeof(double)) ;
+			if (detn != old_detn) {
+				free(view) ;
+				view = malloc(det[detn].num_pix*sizeof(double)) ;
+				old_detn = detn ;
+			}
 			
 			#pragma omp for schedule(static,1)
 			for (d = 0 ; d < curr->num_data ; ++d) {
