@@ -40,7 +40,7 @@ char* remove_ext(char *fullName) {
 
 int main(int argc, char *argv[]) {
 	struct detector *det ;
-	struct dataset *curr, *frames = malloc(sizeof(struct dataset)) ;
+	struct dataset *curr, *frames ;
 	char config_fname[1024], powder_fname[1024] ;
 	double *powder ;
 	long t ;
@@ -52,6 +52,7 @@ int main(int argc, char *argv[]) {
 		return 1 ;
 	
 	generate_detectors(config_fname, "emc", &det, 1) ;
+	frames = malloc(sizeof(struct dataset)) ;
 	generate_data(config_fname, "in", "emc", det, frames) ;
 	
 	powder = malloc(det->num_pix * sizeof(double)) ;
@@ -78,6 +79,7 @@ int main(int argc, char *argv[]) {
 	
 	free_detector(det) ;
 	free_data(0, frames) ;
+	free(powder) ;
 	
 	return 0 ;
 }
