@@ -309,7 +309,7 @@ void normalize_prob(struct max_data *priv, struct max_data *common) {
 }
 
 void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
-	int dset = 0, t, d, pixel, detn ;
+	int dset = 0, t, d, pixel, detn, rotind ;
 	double temp ;
 	struct dataset *curr ;
 	double *prob = common->probab[r] ;
@@ -324,6 +324,7 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 	memset(priv->p_sum, 0, (det[0].num_det)*sizeof(double)) ;
 	for (detn = 0 ; detn < det[0].num_det ; ++detn) 
 		memset(priv->view[detn], 0, det[detn].num_pix*sizeof(double)) ;
+	rotind = (r*param->num_proc + param->rank) / param->modes ;
 	
 	while (curr != NULL) {
 		//Calculate slice for current detector
@@ -363,7 +364,7 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 				continue ;
 			
 			// Calculate mutual information of probability distribution
-			priv->info[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * log(prob[curr->num_data_prev+d] / quat->quat[(r*param->num_proc + param->rank)*5 + 4]) ;
+			priv->info[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * log(prob[curr->num_data_prev+d] / quat->quat[rotind*5 + 4]) ;
 			
 			if (curr->type == 0) {
 				// For all pixels with one photon
