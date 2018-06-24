@@ -206,6 +206,24 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self.iternum.editingFinished.connect(self._iternum_changed)
         self.iternum.setFixedWidth(48)
         hbox.addWidget(self.iternum)
+        if self.num_modes > 1:
+            hbox = QtWidgets.QHBoxLayout()
+            self.options.addLayout(hbox)
+            label = QtWidgets.QLabel('Mode', self)
+            hbox.addWidget(label)
+            self.mode_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+            self.mode_slider.setRange(0, self.num_modes-1)
+            self.mode_slider.sliderMoved.connect(self._modeslider_moved)
+            self.mode_slider.sliderReleased.connect(self._modenum_changed)
+            hbox.addWidget(self.mode_slider)
+            self.modenum = MySpinBox(self)
+            self.modenum.setValue(self.iter_slider.value())
+            self.modenum.setMinimum(0)
+            self.modenum.setMaximum(self.num_modes-1)
+            self.modenum.valueChanged.connect(self._modenum_changed)
+            self.modenum.editingFinished.connect(self._modenum_changed)
+            self.modenum.setFixedWidth(48)
+            hbox.addWidget(self.modenum)
 
         # -- Buttons
         hbox = QtWidgets.QHBoxLayout()
@@ -265,7 +283,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
 
         self.fig.clf()
 
-        if self.num_modes == 0:
+        if self.recon_type == '3d':
             subp = self.fig.add_subplot(131)
             vslice = self.vol[num, :, :]**exponent
             subp.imshow(vslice, vmin=rangemin, vmax=rangemax, cmap=cmap, interpolation='none')
@@ -283,7 +301,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
             subp.matshow(vslice, vmin=rangemin, vmax=rangemax, cmap=cmap, interpolation='none')
             subp.set_title("XY plane", y=1.01)
             subp.axis('off')
-        else:
+        elif self.recon_type == '2d':
             numx = int(np.ceil(2.*np.sqrt(self.num_modes / 2.)))
             numy = int(np.ceil(self.num_modes / float(numx)))
             total_numx = numx + int(np.ceil(numx / 2)) + 1
@@ -394,9 +412,13 @@ class ProgressViewer(QtWidgets.QMainWindow):
             sys.stderr.write("Unable to open %s\n"%fname)
             return
 
-        if self.num_modes == 0:
-            size = int(np.ceil(np.power(len(self.vol), 1./3.)))
-            self.vol = self.vol.reshape(size, size, size)
+        if self.recon_type == '3d':
+            size = int(np.ceil(np.power(len(self.vol)/self.num_modes, 1./3.)))
+            if self.num_modes > 1:
+                mode = self.modenum.value()
+                self.vol = self.vol[mode*size**3:(mode+1)*size**3].reshape(size, size, size)
+            else:
+                self.vol = self.vol.reshape(size, size, size)
             center = size/2
             if not self.image_exists:
                 self.layer_slider.setRange(0, size-1)
@@ -451,6 +473,18 @@ class ProgressViewer(QtWidgets.QMainWindow):
     def _iterslider_moved(self, value):
         self.iternum.setValue(value)
 
+    def _modenum_changed(self, value=None):
+        if value is None:
+            self.fname.setText(self.folder+'/output/intens_%.3d.bin' % self.iternum.value())
+        elif value == self.modenum.value():
+            self.mode_slider.setValue(value)
+            if self.need_replot:
+                self.fname.setText(self.folder+'/output/intens_%.3d.bin' % value)
+        self._parse_and_plot()
+
+    def _modeslider_moved(self, value):
+        self.modenum.setValue(value)
+
     def _range_changed(self):
         self.need_replot = True
 
@@ -466,9 +500,13 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.logfname = 'EMC.log'
 
         try:
+            self.recon_type = read_config.get_param(config, 'emc', 'recon_type').lower()
+        except read_config.ConfigParser.NoOptionError:
+            self.recon_type = '3d'
+        try:
             self.num_modes = int(read_config.get_param(config, 'emc', 'num_modes'))
         except read_config.ConfigParser.NoOptionError:
-            self.num_modes = 0
+            self.num_modes = 1
 
     def _parse_and_plot(self):
         if not self.image_exists or self.old_fname != self.fname.text():
