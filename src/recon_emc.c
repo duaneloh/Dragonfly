@@ -96,10 +96,11 @@ void write_log_file_header(int num_threads) {
 	else
 		fprintf(fp, "\tnum_data = %d/%d\n\tmean_count = %f\n\n", frames->tot_num_data-frames->num_blacklist, frames->tot_num_data, frames->tot_mean_count) ;
 	fprintf(fp, "System size:\n") ;
-	fprintf(fp, "\tnum_rot = %d\n\tnum_pix = %d/%d\n\tsystem_volume = %ld X %ld X %ld\n\n", 
-			quat->num_rot, 
-			det->rel_num_pix, det->num_pix, 
-			param->modes > 0 ? param->modes : iter->size, iter->size, iter->size) ;
+	fprintf(fp, "\tnum_rot = %d\n\tnum_pix = %d/%d\n\t", quat->num_rot, det->rel_num_pix, det->num_pix) ;
+	if (param->recon_type == RECON3D)
+		fprintf(fp, "system_volume = %d X %ld X %ld X %ld\n\n", param->modes, iter->size, iter->size, iter->size) ;
+	else if (param->recon_type == RECON2D)
+		fprintf(fp, "system_volume = %d X %ld X %ld\n\n", param->modes, iter->size, iter->size) ;
 	fprintf(fp, "Reconstruction parameters:\n") ;
 	fprintf(fp, "\tnum_threads = %d\n\tnum_proc = %d\n\talpha = %.6f\n\tbeta = %.6f\n\tneed_scaling = %s", 
 			num_threads, 
@@ -112,11 +113,11 @@ void write_log_file_header(int num_threads) {
 }
 
 void emc() {
-	long vol ;
-	if (param->modes > 0)
+	long vol = 0 ;
+	if (param->recon_type == RECON3D)
+		vol = param->modes * iter->size * iter->size * iter->size ;
+	else if (param->recon_type == RECON2D)
 		vol = param->modes * iter->size * iter->size ;
-	else
-		vol = iter->size * iter->size * iter->size ;
 	double likelihood ;
 	
 	for (param->iteration = param->start_iter ; param->iteration <= param->num_iter + param->start_iter - 1 ; ++param->iteration) {
@@ -133,7 +134,7 @@ void emc() {
 		
 		if (!param->rank)
 			update_model(likelihood) ;
-		if (param->need_scaling && param->modes == 0)
+		if (param->need_scaling && param->recon_type == RECON3D)
 			normalize_scale(iter) ;
 		print_recon_time("Updated 3D intensity", &tr2, &tr3, param->rank) ;
 		
@@ -149,11 +150,11 @@ void emc() {
 }
 
 void update_model(double likelihood) {
-	long x, vol ;
-	if (param->modes > 0)
+	long x, vol = 0 ;
+	if (param->recon_type == RECON3D)
+		vol = param->modes * iter->size * iter->size * iter->size ;
+	else if (param->recon_type == RECON2D)
 		vol = param->modes * iter->size * iter->size ;
-	else
-		vol = iter->size * iter->size * iter->size ;
 	double diff, change = 0., norm = 1. ;
 	char fname[1024] ;
 	FILE *fp ;
@@ -162,7 +163,7 @@ void update_model(double likelihood) {
 		if (iter->inter_weight[x] > 0.)
 			iter->model2[x] *= norm / iter->inter_weight[x] ;
 	
-	if (param->modes > 0) ;
+	if (param->recon_type == RECON2D) ;
 	else if (quat->icosahedral_flag)
 		symmetrize_icosahedral(iter->model2, iter->size) ;
 	else

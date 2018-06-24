@@ -26,7 +26,7 @@ static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
 
 void generate_params(char *config_fname, struct params *param) {
 	//char line[1024], section_name[1024], config_folder[1024], *token ;
-	char line[1024], section_name[1024], config_folder[1024] ;
+	char line[1024], section_name[1024], config_folder[1024], temp[8] ;
 	char *temp_fname = strndup(config_fname, 1024) ;
 	sprintf(config_folder, "%s/", dirname(temp_fname)) ;
 	free(temp_fname) ;
@@ -39,8 +39,9 @@ void generate_params(char *config_fname, struct params *param) {
 	param->alpha = 0. ;
 	param->beta = 1. ;
 	param->sigmasq = 0. ;
-	param->modes = 0 ;
+	param->modes = 1 ;
 	param->rot_per_mode = 0 ;
+	param->recon_type = RECON3D ;
 	sprintf(param->log_fname, "%s/EMC.log", config_folder) ;
 	sprintf(param->output_folder, "%s/data/", config_folder) ;
 	
@@ -55,6 +56,15 @@ void generate_params(char *config_fname, struct params *param) {
 				absolute_strcpy(config_folder, param->output_folder, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "log_file") == 0)
 				absolute_strcpy(config_folder, param->log_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "recon_type") == 0) {
+				strncpy(temp, strtok(NULL, " =\n"), 8) ;
+				if (strcmp(temp, "3d") == 0)
+					param->recon_type = RECON3D ;
+				else if (strcmp(temp, "2d") == 0)
+					param->recon_type = RECON2D ;
+				else
+					fprintf(stderr, "WARNING! Unknown recon_type %s. Assuming 3D reconstruction.\n", temp) ;
+			}
 			else if (strcmp(token, "need_scaling") == 0)
 				param->need_scaling = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "alpha") == 0)

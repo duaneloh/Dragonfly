@@ -31,21 +31,25 @@ int setup(char *s_config_fname, int continue_flag) {
 	fclose(fp) ;
 	generate_params(config_fname, param) ;
 	generate_output_dirs(param) ;
-	if (param->modes > 0) {
+	if (param->recon_type == RECON3D) {
+		det_flag = 1 ;
+		slice_gen = &slice_gen3d ;
+		slice_merge = &slice_merge3d ;
+	}
+	else if (param->recon_type == RECON2D) {
 		det_flag = -param->modes ;
 		slice_gen = &slice_gen2d ;
 		slice_merge = &slice_merge2d ;
 	}
 	else {
-		det_flag = 1 ;
-		slice_gen = &slice_gen3d ;
-		slice_merge = &slice_merge3d ;
+		fprintf(stderr, "recon_type not recognized\n") ;
+		return 1 ;
 	}
 	if ((qmax = generate_detectors(config_fname, "emc", &det, det_flag)) < 0.)
 		return 1 ;
 	if (generate_quaternion(config_fname, "emc", quat))
 		return 1 ;
-	divide_quat(param->rank, param->num_proc, quat) ;
+	divide_quat(param->rank, param->num_proc, param->modes, quat) ;
 	if (generate_data(config_fname, "emc", "in", det, frames))
 		return 1 ;
 	if (generate_data(config_fname, "emc", "merge", det, merge_frames))

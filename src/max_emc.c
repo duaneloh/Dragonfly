@@ -86,11 +86,11 @@ double maximize() {
 
 void allocate_memory(struct max_data *data) {
 	int d, r ;
-	long vol ;
-	if (param->modes > 0)
+	long vol = 0 ;
+	if (param->recon_type == RECON3D)
+		vol = param->modes * iter->size * iter->size * iter->size ;
+	else if (param->recon_type == RECON2D)
 		vol = param->modes * iter->size * iter->size ;
-	else
-		vol = iter->size * iter->size * iter->size ;
 	
 	data->rmax = calloc(frames->tot_num_data, sizeof(int)) ;
 	data->max_exp_p = malloc(frames->tot_num_data * sizeof(double)) ;
@@ -98,7 +98,7 @@ void allocate_memory(struct max_data *data) {
 	data->likelihood = calloc(frames->tot_num_data, sizeof(double)) ;
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
 		data->max_exp_p[d] = -DBL_MAX ;
-	if (param->modes)
+	if (param->modes > 1)
 		data->quat_norm = calloc(param->modes, sizeof(double)) ;
 	
 	if (!data->within_openmp) {
@@ -129,23 +129,31 @@ double calculate_rescale(struct max_data *data) {
 	int r, t ;
 	double total = 0. ;
 	char res_string[1024] ;
+	long vol = 0 ;
+	if (param->recon_type == RECON3D)
+		vol = iter->size * iter->size * iter->size ;
+	else if (param->recon_type == RECON2D)
+		vol = iter->size * iter->size ;
 	
 	// Calculate rescale factor by calculating mean model value over detector
 	// Only calculating based on first detector and dataset
 	#pragma omp parallel default(shared) private(r, t)
 	{
 		double *view = malloc(det[0].num_pix * sizeof(double)) ;
+		int mode, rotind ;
 		
 		#pragma omp for schedule(static,1) reduction(+:total)
 		for (r = 0 ; r < quat->num_rot_p ; ++r) {
+			rotind = (r*param->num_proc + param->rank) / param->modes ;
+			mode = (r*param->num_proc + param->rank) % param->modes ;
 			// Second argument being 0. tells slice_gen to generate un-rescaled tomograms
-			(*slice_gen)(&quat->quat[(r*param->num_proc + param->rank)*5], 0., view, iter->model1, iter->size, det) ;
+			(*slice_gen)(&quat->quat[rotind*5], 0., view, &iter->model1[mode*vol], iter->size, det) ;
 			
 			for (t = 0 ; t < det[0].num_pix ; ++t)
 			if (det[0].mask[t] < 1)
 				data->u[r] += view[t] ;
 			
-			total += quat->quat[(r*param->num_proc + param->rank)*5 + 4] * data->u[r] ;
+			total += quat->quat[rotind*5 + 4] * data->u[r] ;
 		}
 		
 		free(view) ;
@@ -153,9 +161,15 @@ double calculate_rescale(struct max_data *data) {
 	
 	MPI_Allreduce(MPI_IN_PLACE, &total, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 	
-	#pragma omp parallel for schedule(static,1) default(shared) private(r)
-	for (r = 0 ; r < quat->num_rot_p ; ++r) {
-		data->u[r] = log(quat->quat[(r*param->num_proc + param->rank)*5 + 4]) - data->u[r] ;
+	#pragma omp parallel default(shared) private(r)
+	{
+		int rotind ;
+		
+		#pragma omp for schedule(static,1) 
+		for (r = 0 ; r < quat->num_rot_p ; ++r) {
+			rotind = (r*param->num_proc + param->rank) / param->modes ;
+			data->u[r] = log(quat->quat[rotind*5 + 4]) - data->u[r] ;
+		}
 	}
 	
 	sprintf(res_string, "(= %.6e)", frames[0].mean_count / total) ;
@@ -165,16 +179,24 @@ double calculate_rescale(struct max_data *data) {
 }
 
 void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
-	int dset = 0, t, d, pixel, detn, old_detn = -1 ;
+	int dset = 0, t, d, pixel, mode, rotind, detn, old_detn = -1 ;
 	struct dataset *curr = frames ;
 	double *prob = common->probab[r] ;
+	long vol = 0 ;
+	if (param->recon_type == RECON3D)
+		vol = iter->size * iter->size * iter->size ;
+	else if (param->recon_type == RECON2D)
+		vol = iter->size * iter->size ;
+	
+	rotind = (r*param->num_proc + param->rank) / param->modes ;
+	mode = (r*param->num_proc + param->rank) % param->modes ;
 	
 	// Linked list of data sets from different files
 	while (curr != NULL) {
 		//Calculate slice for current detector
 		detn = det[0].mapping[dset] ;
 		if (detn != old_detn)
-			(*slice_gen)(&quat->quat[(r*param->num_proc + param->rank)*5], 1., priv->view[detn], iter->model1, iter->size, &det[detn]) ;
+			(*slice_gen)(&quat->quat[rotind*5], 1., priv->view[detn], &iter->model1[mode*vol], iter->size, &det[detn]) ;
 		old_detn = detn ;
 		
 		// For each frame in data set
@@ -231,8 +253,8 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 		dset++ ;
 	}
 	
-	if ((r*param->num_proc + param->rank)%(quat->num_rot/10) == 0)
-		fprintf(stderr, "\t\tFinished r = %d/%d\n", r*param->num_proc + param->rank, quat->num_rot) ;
+	if ((r*param->num_proc + param->rank)%(quat->num_rot * param->modes / 10) == 0)
+		fprintf(stderr, "\t\tFinished r = %d/%d\n", r*param->num_proc + param->rank, quat->num_rot * param->modes) ;
 	if (r == quat->num_rot_p - 1)
 		print_max_time("prob", "", param->rank == 0) ;
 }
@@ -373,14 +395,22 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 		dset++ ;
 	}
 	
-	if (param->modes > 0) {
+	if (param->modes > 1) {
 		for (detn = 0 ; detn < det[0].num_det ; ++detn)
-			priv->quat_norm[(r*param->num_proc + param->rank) / param->rot_per_mode] += priv->p_sum[detn] ;
+			priv->quat_norm[(r*param->num_proc + param->rank) % param->modes] += priv->p_sum[detn] ;
 	}
 }
 
 void merge_tomogram(int r, struct max_data *priv) {
-	int detn, t ;
+	int detn, t, mode, rotind ;
+	long vol = 0 ;
+	if (param->recon_type == RECON3D)
+		vol = iter->size * iter->size * iter->size ;
+	else if (param->recon_type == RECON2D)
+		vol = iter->size * iter->size ;
+	
+	rotind = (r*param->num_proc + param->rank) / param->modes ;
+	mode = (r*param->num_proc + param->rank) % param->modes ;
 	
 	// If no data frame has any probability for this orientation, don't merge
 	// Otherwise divide the updated tomogram by the sum over all probabilities and merge
@@ -389,18 +419,21 @@ void merge_tomogram(int r, struct max_data *priv) {
 			for (t = 0 ; t < det[detn].num_pix ; ++t)
 				priv->view[detn][t] /= priv->p_sum[detn] ;
 			
-			(*slice_merge)(&quat->quat[(r*param->num_proc + param->rank)*5], priv->view[detn], priv->model, priv->weight, iter->size, &det[detn]) ;
+			(*slice_merge)(&quat->quat[rotind*5], priv->view[detn], &priv->model[mode*vol], &priv->weight[mode*vol], iter->size, &det[detn]) ;
 		}
 	}
+	
+	if ((r*param->num_proc + param->rank)%(quat->num_rot * param->modes / 10) == 0)
+		fprintf(stderr, "\t\tFinished r = %d/%d\n", r*param->num_proc + param->rank, quat->num_rot * param->modes) ;
 }
 
 void combine_information_omp(struct max_data *priv, struct max_data *common) {
 	int d, omp_rank = omp_get_thread_num() ;
-	long x, vol ;
-	if (param->modes > 0)
+	long x, vol = 0 ;
+	if (param->recon_type == RECON3D)
+		vol = param->modes * iter->size * iter->size * iter->size ;
+	else if (param->recon_type == RECON2D)
 		vol = param->modes * iter->size * iter->size ;
-	else
-		vol = iter->size * iter->size * iter->size ;
 	
 	#pragma omp critical(model)
 	{
@@ -431,7 +464,7 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 		}
 	}
 	
-	if (param->modes > 0) {
+	if (param->modes > 1) {
 		#pragma omp critical(quat_norm)
 		for (d = 0 ; d < param->modes ; ++d)
 			common->quat_norm[d] += priv->quat_norm[d] ;
@@ -441,11 +474,11 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 
 double combine_information_mpi(struct max_data *data) {
 	int d ;
-	long vol ;
-	if (param->modes > 0)
+	long vol = 0 ;
+	if (param->recon_type == RECON3D)
+		vol = param->modes * iter->size * iter->size * iter->size ;
+	else if (param->recon_type == RECON2D)
 		vol = param->modes * iter->size * iter->size ;
-	else
-		vol = iter->size * iter->size * iter->size ;
 	double avg_likelihood = 0. ;
 	
 	// Combine 3D volumes from all MPI ranks
@@ -461,7 +494,7 @@ double combine_information_mpi(struct max_data *data) {
 	// Combine mutual info and likelihood from all MPI ranks
 	MPI_Allreduce(MPI_IN_PLACE, data->likelihood, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 	MPI_Allreduce(MPI_IN_PLACE, data->info, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
-	if (param->modes > 0)
+	if (param->modes > 1)
 		MPI_Allreduce(MPI_IN_PLACE, data->quat_norm, param->modes, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 	
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
@@ -498,13 +531,13 @@ void save_output(struct max_data *data) {
 		fclose(fp_scale) ;
 	}
 	
-	if (param->modes > 0 && param->rank == 0) {
+	if (param->modes > 1 && param->rank == 0) {
 		fprintf(stderr, "Mode occupancies: ") ;
 		for (r = 0 ; r < param->modes ; ++r)
 			fprintf(stderr, "%.3f ", data->quat_norm[r]/(frames->tot_num_data - frames->num_blacklist)) ;
 		fprintf(stderr, "\n") ;
 	}
-	//if (param->modes > 0)
+	//if (param->modes > 1)
 	//for (r = 0 ; r < quat->num_rot ; ++r)
 	//	quat->quat[r*5 + 4] = data->quat_norm[r/param->rot_per_mode] / (frames->tot_num_data - frames->num_blacklist) ;
 	
@@ -534,7 +567,7 @@ void free_memory(struct max_data *data) {
 	free(data->info) ;
 	free(data->likelihood) ;
 	free(data->rmax) ;
-	if (param->modes > 0)
+	if (param->modes > 1)
 		free(data->quat_norm) ;
 	
 	if (!data->within_openmp) {

@@ -803,8 +803,8 @@ int parse_quat(char *fname, struct rotation *quat) {
 	return quat->num_rot ;
 }
 
-void divide_quat(int rank, int num_proc, struct rotation *quat) {
-	quat->num_rot_p = quat->num_rot / num_proc ;
+void divide_quat(int rank, int num_proc, int num_modes, struct rotation *quat) {
+	quat->num_rot_p = num_modes * quat->num_rot / num_proc ;
 	if (rank < (quat->num_rot % num_proc))
 		quat->num_rot_p++ ;
 	if (num_proc > 1) {
@@ -847,9 +847,9 @@ static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
 }
 
 int generate_quaternion(char *config_fname, char *config_section, struct rotation *quat_ptr) {
-	int r, num, num_div = -1, num_modes = 0, num_rot = 0 ;
+	int r, num, num_div = -1, recon_type = 3, num_rot = 0 ;
 	char quat_fname[1024] = {'\0'} ;
-	char line[1024], section_name[1024], config_folder[1024], *token ;
+	char line[1024], temp[8], section_name[1024], config_folder[1024], *token ;
 	char *temp_fname = strndup(config_fname, 1024) ;
 	sprintf(config_folder, "%s/", dirname(temp_fname)) ;
 	free(temp_fname) ;
@@ -861,10 +861,15 @@ int generate_quaternion(char *config_fname, char *config_section, struct rotatio
 			continue ;
 		
 		if (strcmp(section_name, config_section) == 0) {
-			if (strcmp(token, "num_div") == 0)
+			if (strcmp(token, "recon_type") == 0) {
+				strncpy(temp, strtok(NULL, " =\n"), 8) ;
+				if (strcmp(temp, "3d") == 0)
+					recon_type = 3 ;
+				else if (strcmp(temp, "2d") == 0)
+					recon_type = 2 ;
+			}
+			else if (strcmp(token, "num_div") == 0)
 				num_div = atoi(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "num_modes") == 0)
-				num_modes = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "num_rot") == 0)
 				num_rot = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "in_quat_file") == 0)
@@ -875,17 +880,17 @@ int generate_quaternion(char *config_fname, char *config_section, struct rotatio
 	}
 	fclose(config_fp) ;
 	
-	if (num_modes > 0) {
+	if (recon_type == 2) {
 		if (num_rot == 0) {
-			fprintf(stderr, "Need num_rot if num_modes is specified\n") ;
+			fprintf(stderr, "Need num_rot if recon_type is 2d\n") ;
 			return 1 ;
 		}
-		fprintf(stderr, "Creating angles array instead of quaternions with %d modes\n", num_modes) ;
-		quat_ptr->num_rot = num_rot * num_modes ;
+		fprintf(stderr, "Creating angles array instead of quaternions\n") ;
+		quat_ptr->num_rot = num_rot ;
 		quat_ptr->quat = calloc(quat_ptr->num_rot * 5, sizeof(double)) ;
 		for (r = 0 ; r < quat_ptr->num_rot ; ++r) {
 			quat_ptr->quat[r*5+0] = 2. * M_PI * r / num_rot ;
-			quat_ptr->quat[r*5+4] = 1. / num_rot / num_modes ;
+			quat_ptr->quat[r*5+4] = 1. / num_rot ;
 		}
 		
 		return 0 ;
