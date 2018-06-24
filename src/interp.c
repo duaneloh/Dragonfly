@@ -145,14 +145,12 @@ void slice_merge3d(double *quaternion, double *slice, double *model3d, double *w
  * Generates slice[t] from a stack of 2D models, model[x] using given angle 
  * The locations of the pixels in slice[t] are given by det->pixels[t]
  * The logartihm of the rescaled slice is generated unless rescale is set to 0.
- * The mode of the model stack is determined by the quotient of angle / (2 \pi)
  */
 void slice_gen2d(double *angle_ptr, double rescale, double *slice, double *model, long size, struct detector *det) {
 	long t, i, j, x, y, center = size / 2 ;
 	double tx, ty, fx, fy, cx, cy ;
 	double rot_pix[2], rot[2][2] = {{0}} ;
 	double angle = *angle_ptr ;
-	int mode = angle / (2. * M_PI) ;
 	
 	make_rot_angle(angle, rot) ;
 	
@@ -180,10 +178,10 @@ void slice_gen2d(double *angle_ptr, double rescale, double *slice, double *model
 		cx = 1. - fx ;
 		cy = 1. - fy ;
 		
-		slice[t] = cx*cy*model[mode*size*size + x*size + y] +
-		           cx*fy*model[mode*size*size + x*size + ((y+1)%size)] +
-		           fx*cy*model[mode*size*size + ((x+1)%size)*size + y] +
-		           fx*fy*model[mode*size*size + ((x+1)%size)*size + ((y+1)%size)] ;
+		slice[t] = cx*cy*model[x*size + y] +
+		           cx*fy*model[x*size + ((y+1)%size)] +
+		           fx*cy*model[((x+1)%size)*size + y] +
+		           fx*fy*model[((x+1)%size)*size + ((y+1)%size)] ;
 		
 		// Correct for solid angle and polarization
 		slice[t] *= det->pixels[t*3 + 2] ;
@@ -202,14 +200,12 @@ void slice_gen2d(double *angle_ptr, double rescale, double *slice, double *model
  * Also adds to weight[x] containing the interpolation weights
  * The locations of the pixels in slice[t] are given by det->pixels[t]
  * Only pixels with a mask value < 2 are merged
- * The mode of model[x] is determined by the quotient of angle / (2 \pi)
  */
 void slice_merge2d(double *angle_ptr, double *slice, double *model, double *weight, long size, struct detector *det) {
 	long t, i, j, x, y, center = size/2 ;
 	double tx, ty, fx, fy, cx, cy, w, f ;
 	double rot_pix[2], rot[2][2] = {{0}} ;
 	double angle = *angle_ptr ;
-	int mode = angle / (2 * M_PI) ;
 	
 	make_rot_angle(angle, rot) ;
 	
@@ -243,20 +239,20 @@ void slice_merge2d(double *angle_ptr, double *slice, double *model, double *weig
 		w = slice[t] ;
 		
 		f = cx*cy ;
-		weight[mode*size*size + x*size + y] += f ;
-		model[mode*size*size + x*size + y] += f * w ;
+		weight[x*size + y] += f ;
+		model[x*size + y] += f * w ;
 		
 		f = cx*fy ;
-		weight[mode*size*size + x*size + ((y+1)%size)] += f ;
-		model[mode*size*size + x*size + ((y+1)%size)] += f * w ;
+		weight[x*size + ((y+1)%size)] += f ;
+		model[x*size + ((y+1)%size)] += f * w ;
 		
 		f = fx*cy ;
-		weight[mode*size*size + ((x+1)%size)*size + y] += f ;
-		model[mode*size*size + ((x+1)%size)*size + y] += f * w ;
+		weight[((x+1)%size)*size + y] += f ;
+		model[((x+1)%size)*size + y] += f * w ;
 		
 		f = fx*fy ;
-		weight[mode*size*size + ((x+1)%size)*size + ((y+1)%size)] += f ;
-		model[mode*size*size + ((x+1)%size)*size + ((y+1)%size)] += f * w ;
+		weight[((x+1)%size)*size + ((y+1)%size)] += f ;
+		model[((x+1)%size)*size + ((y+1)%size)] += f * w ;
 	}
 }
 
