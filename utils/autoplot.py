@@ -224,6 +224,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.modenum.editingFinished.connect(self._modenum_changed)
             self.modenum.setFixedWidth(48)
             hbox.addWidget(self.modenum)
+            self.old_modenum = self.modenum.value()
 
         # -- Buttons
         hbox = QtWidgets.QHBoxLayout()
@@ -313,8 +314,9 @@ class ProgressViewer(QtWidgets.QMainWindow):
                 subp = self.fig.add_subplot(gspec[mode/numx, mode%numx])
                 subp.imshow(self.vol[mode]**exponent, vmin=rangemin, vmax=rangemax,
                             cmap=cmap, interpolation='none')
-                subp.text(0.05, 0.85, '%d'%mode, transform=subp.transAxes, fontsize=10,
-                          color='w', bbox={'facecolor': 'black', 'pad': 0})
+                #subp.text(0.05, 0.85, '%d'%mode, transform=subp.transAxes, fontsize=10,
+                #          color='w', bbox={'facecolor': 'black', 'pad': 0})
+                subp.text(0.05, 0.85, '%d'%mode, transform=subp.transAxes, fontsize=10, color='w')
                 subp.axis('off')
                 self.subplot_list.append(subp)
             subp = self.fig.add_subplot(gspec[:, numx:])
@@ -436,6 +438,8 @@ class ProgressViewer(QtWidgets.QMainWindow):
                 self._layerslider_moved(center)
 
         self.old_fname = fname
+        if self.num_modes > 1:
+            self.old_modenum = self.modenum.value()
 
     def _add_logplot(self, gridpos, xval, yval, title='', yscale='log'):
         subp = self.log_fig.add_subplot(gridpos)
@@ -474,12 +478,8 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self.iternum.setValue(value)
 
     def _modenum_changed(self, value=None):
-        if value is None:
-            self.fname.setText(self.folder+'/output/intens_%.3d.bin' % self.iternum.value())
-        elif value == self.modenum.value():
+        if value == self.modenum.value():
             self.mode_slider.setValue(value)
-            if self.need_replot:
-                self.fname.setText(self.folder+'/output/intens_%.3d.bin' % value)
         self._parse_and_plot()
 
     def _modeslider_moved(self, value):
@@ -510,6 +510,9 @@ class ProgressViewer(QtWidgets.QMainWindow):
 
     def _parse_and_plot(self):
         if not self.image_exists or self.old_fname != self.fname.text():
+            self.parse()
+            self.plot_vol(int(self.layernum.text()))
+        elif self.num_modes > 1 and self.modenum.value() != self.old_modenum:
             self.parse()
             self.plot_vol(int(self.layernum.text()))
         elif self.need_replot:
