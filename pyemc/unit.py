@@ -385,18 +385,18 @@ class TestRotation(unittest.TestCase):
         print('=== Testing divide_quat() ===')
         rot = quat.rotation()
         rot.quat_gen(4)
-        rot.divide_quat(0, 1)
+        rot.divide_quat(0, 1, 1)
         self.assertEqual(rot.num_rot_p, 3240)
-        rot.divide_quat(5, 7)
+        rot.divide_quat(5, 7, 1)
         self.assertEqual(rot.num_rot_p, 463)
-        rot.divide_quat(6, 7)
+        rot.divide_quat(6, 7, 1)
         self.assertEqual(rot.num_rot_p, 462)
 
     def test_free_quat(self):
         print('=== Testing free_quat() ===')
         rot = quat.rotation()
         rot.quat_gen(4)
-        rot.divide_quat(6, 7)
+        rot.divide_quat(6, 7, 1)
         rot.free_quat()
         rot.free_quat()
         self.assertIsNone(rot.num_rot)
@@ -573,10 +573,10 @@ class TestInterp(unittest.TestCase):
         npt.assert_array_almost_equal(view[:5], [8.806124, 8.825862, 8.845226, 8.864229, 8.882885])
         
         angle = np.array([3.14*np.pi])
-        interp.slice_gen2d(angle, view, intens, det)
+        interp.slice_gen2d(angle, view, intens[1:], det)
         self.assertAlmostEqual(view.mean(), 31537.)
         npt.assert_array_almost_equal(view[:5], [34414.902109, 34489.21956, 34563.301629, 34637.146226, 34710.751266])
-        interp.slice_gen2d(angle, view, intens, det, rescale=1.)
+        interp.slice_gen2d(angle, view, intens[1:], det, rescale=1.)
         self.assertAlmostEqual(view.mean(), 10.349731872416205)
         npt.assert_array_almost_equal(view[:5], [10.446245, 10.448402, 10.450548, 10.452682, 10.454805])
         
@@ -608,6 +608,7 @@ class TestIterate(unittest.TestCase):
         qmax = det.generate_detectors(config_fname)
         dset.generate_data(config_fname)
         param.generate_params(config_fname)
+        dset.generate_blacklist(config_fname)
         itr.generate_iterate(config_fname, qmax, param, det, dset)
         return itr, det, dset, param, qmax
 
@@ -663,11 +664,11 @@ class TestIterate(unittest.TestCase):
         print('=== Testing normalize_scale() ===')
         itr, det, dset, param, qmax = self.allocate_iterate()
         itr.calc_scale(dset, det)
-        itr.normalize_scale()
+        itr.normalize_scale(dset)
         config = DragonflyConfig(config_fname)
         config.modify_entry('emc', 'need_scaling', '1')
         itr, det, dset, param, qmax = self.allocate_iterate()
-        itr.normalize_scale()
+        itr.normalize_scale(dset)
         config.remove_entry('emc', 'need_scaling')
 
     def test_parse_scale(self):
@@ -685,6 +686,7 @@ class TestIterate(unittest.TestCase):
     def test_parse_input(self):
         print('=== Testing parse_input() ===')
         itr, det, dset, param, qmax = self.allocate_iterate()
+        print(itr.modes)
         itr.parse_input('', -1.)
         self.assertAlmostEqual(itr.model1.mean(), 0.499965209377)
 

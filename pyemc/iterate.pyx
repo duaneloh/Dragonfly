@@ -46,8 +46,8 @@ cdef class iterate:
 			c_print_fname = NULL
 		decl.calc_scale(dset.dset, det.det, c_print_fname, self.iterate)
 
-	def normalize_scale(self):
-		decl.normalize_scale(self.iterate)
+	def normalize_scale(self, dataset dset):
+		decl.normalize_scale(dset.dset, self.iterate)
 
 	def parse_input(self, fname, double mean, int rank=0, print_fname=None):
 		cdef char* c_fname = fname
@@ -56,7 +56,7 @@ cdef class iterate:
 			c_print_fname = print_fname
 		else:
 			c_print_fname = NULL
-		decl.parse_input(c_fname, mean, c_print_fname, rank, 0, self.iterate)
+		decl.parse_input(c_fname, mean, c_print_fname, rank, 42, self.iterate)
 
 	def free_iterate(self):
 		decl.free_iterate(self.iterate)
@@ -67,7 +67,11 @@ cdef class iterate:
 	@property
 	def center(self): return self.iterate.center if self.iterate != NULL else None
 	@property
+	def vol(self): return self.iterate.vol if self.iterate != NULL else None
+	@property
 	def tot_num_data(self): return self.iterate.tot_num_data if self.iterate != NULL else None
+	@property
+	def modes(self): return self.iterate.modes if self.iterate != NULL else None
 	@property
 	def model1(self): return np.asarray(<double[:self.size**3]> self.iterate.model1).reshape(3*(self.size,)) if self.iterate != NULL else None
 	@property

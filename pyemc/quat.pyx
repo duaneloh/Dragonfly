@@ -31,8 +31,8 @@ cdef class rotation:
 		cdef char* c_fname = fname
 		return decl.parse_quat(c_fname, self.rot)
 
-	def divide_quat(self, int rank, int num_proc):
-		decl.divide_quat(rank, num_proc, self.rot)
+	def divide_quat(self, int rank, int num_proc, int num_modes):
+		decl.divide_quat(rank, num_proc, num_modes, self.rot)
 
 	def free_quat(self):
 		decl.free_quat(self.rot)

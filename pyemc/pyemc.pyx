@@ -61,7 +61,7 @@ def setup(bytes config_fname=b'config.ini', bint continue_flag=False):
 		pyemc.slice_merge = decl.slice_merge2d
 	qmax = det.generate_detectors(config_fname)
 	quat.generate_quaternion(config_fname)
-	quat.divide_quat(param.rank, param.num_proc)
+	quat.divide_quat(param.rank, param.num_proc, param.modes)
 	frames.generate_data(config_fname)
 	merge_frames.generate_data(config_fname, type_string='merge')
 	frames.generate_blacklist(config_fname)
@@ -167,7 +167,7 @@ def emc(int num_iter):
 		if not pyemc.param.rank:
 			update_model(likelihood)
 		if (pyemc.param.need_scaling and pyemc.param.modes == 0):
-			decl.normalize_scale(pyemc.iter)
+			decl.normalize_scale(pyemc.frames, pyemc.iter)
 		recon_emc.print_recon_time("Updated 3D intensity", &recon_emc.tr2, &recon_emc.tr3, pyemc.param.rank)
 		
 		MPI.COMM_WORLD.Bcast([<double[:1]>&pyemc.iter.rms_change, MPI.DOUBLE], 0)

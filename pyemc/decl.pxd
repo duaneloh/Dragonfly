@@ -65,13 +65,13 @@ cdef extern from '../src/quat.h' nogil:
 	int generate_quaternion(char*, char*, rotation*)
 	int quat_gen(int, rotation*)
 	int parse_quat(char*, rotation*)
-	void divide_quat(int, int, rotation*)
+	void divide_quat(int, int, int, rotation*)
 	void free_quat(rotation*)
 
 cdef extern from '../src/iterate.h' nogil:
 	struct iterate:
-		long size, center
-		int tot_num_data
+		long size, center, vol
+		int tot_num_data, modes
 		double *model1
 		double *model2
 		double *inter_weight
@@ -83,7 +83,7 @@ cdef extern from '../src/iterate.h' nogil:
 	void calculate_size(double, iterate*)
 	int parse_scale(char*, iterate*)
 	void calc_scale(dataset*, detector*, char*, iterate*)
-	void normalize_scale(iterate*)
+	void normalize_scale(dataset*, iterate*)
 	void parse_input(char*, double, char*, int, int, iterate*)
 	void free_iterate(iterate*)
 
