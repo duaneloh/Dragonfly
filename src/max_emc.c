@@ -86,11 +86,6 @@ double maximize() {
 
 void allocate_memory(struct max_data *data) {
 	int d, r ;
-	long vol = 0 ;
-	if (param->recon_type == RECON3D)
-		vol = param->modes * iter->size * iter->size * iter->size ;
-	else if (param->recon_type == RECON2D)
-		vol = param->modes * iter->size * iter->size ;
 	
 	data->rmax = calloc(frames->tot_num_data, sizeof(int)) ;
 	data->max_exp_p = malloc(frames->tot_num_data * sizeof(double)) ;
@@ -107,8 +102,8 @@ void allocate_memory(struct max_data *data) {
 		data->max_exp = calloc(frames->tot_num_data, sizeof(double)) ;
 		data->p_sum = calloc(frames->tot_num_data, sizeof(double)) ;
 		
-		memset(iter->model2, 0, vol*sizeof(double)) ;
-		memset(iter->inter_weight, 0, vol*sizeof(double)) ;
+		memset(iter->model2, 0, param->modes*iter->vol*sizeof(double)) ;
+		memset(iter->inter_weight, 0, param->modes*iter->vol*sizeof(double)) ;
 		for (r = 0 ; r < quat->num_rot_p ; ++r)
 			data->probab[r] = malloc(frames->tot_num_data * sizeof(double)) ;
 		print_max_time("alloc", "", param->rank == 0) ;
@@ -118,8 +113,8 @@ void allocate_memory(struct max_data *data) {
 		data->view = malloc(det[0].num_det * sizeof(double*)) ;
 		for (d = 0 ; d < det[0].num_det ; ++d)
 			data->view[d] = malloc(det[d].num_pix * sizeof(double)) ;
-		data->model = calloc(vol, sizeof(double)) ;
-		data->weight = calloc(vol, sizeof(double)) ;
+		data->model = calloc(param->modes*iter->vol, sizeof(double)) ;
+		data->weight = calloc(param->modes*iter->vol, sizeof(double)) ;
 		if (param->need_scaling)
 			data->scale = calloc(frames->tot_num_data, sizeof(double)) ;
 	}
@@ -129,11 +124,6 @@ double calculate_rescale(struct max_data *data) {
 	int r, t ;
 	double total = 0. ;
 	char res_string[1024] ;
-	long vol = 0 ;
-	if (param->recon_type == RECON3D)
-		vol = iter->size * iter->size * iter->size ;
-	else if (param->recon_type == RECON2D)
-		vol = iter->size * iter->size ;
 	
 	// Calculate rescale factor by calculating mean model value over detector
 	// Only calculating based on first detector and dataset
@@ -147,7 +137,7 @@ double calculate_rescale(struct max_data *data) {
 			rotind = (r*param->num_proc + param->rank) / param->modes ;
 			mode = (r*param->num_proc + param->rank) % param->modes ;
 			// Second argument being 0. tells slice_gen to generate un-rescaled tomograms
-			(*slice_gen)(&quat->quat[rotind*5], 0., view, &iter->model1[mode*vol], iter->size, det) ;
+			(*slice_gen)(&quat->quat[rotind*5], 0., view, &iter->model1[mode*iter->vol], iter->size, det) ;
 			
 			for (t = 0 ; t < det[0].num_pix ; ++t)
 			if (det[0].mask[t] < 1)
@@ -182,11 +172,6 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 	int dset = 0, t, d, pixel, mode, rotind, detn, old_detn = -1 ;
 	struct dataset *curr = frames ;
 	double *prob = common->probab[r] ;
-	long vol = 0 ;
-	if (param->recon_type == RECON3D)
-		vol = iter->size * iter->size * iter->size ;
-	else if (param->recon_type == RECON2D)
-		vol = iter->size * iter->size ;
 	
 	rotind = (r*param->num_proc + param->rank) / param->modes ;
 	mode = (r*param->num_proc + param->rank) % param->modes ;
@@ -196,7 +181,7 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 		//Calculate slice for current detector
 		detn = det[0].mapping[dset] ;
 		if (detn != old_detn)
-			(*slice_gen)(&quat->quat[rotind*5], 1., priv->view[detn], &iter->model1[mode*vol], iter->size, &det[detn]) ;
+			(*slice_gen)(&quat->quat[rotind*5], 1., priv->view[detn], &iter->model1[mode*iter->vol], iter->size, &det[detn]) ;
 		old_detn = detn ;
 		
 		// For each frame in data set
@@ -404,11 +389,6 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 
 void merge_tomogram(int r, struct max_data *priv) {
 	int detn, t, mode, rotind ;
-	long vol = 0 ;
-	if (param->recon_type == RECON3D)
-		vol = iter->size * iter->size * iter->size ;
-	else if (param->recon_type == RECON2D)
-		vol = iter->size * iter->size ;
 	
 	rotind = (r*param->num_proc + param->rank) / param->modes ;
 	mode = (r*param->num_proc + param->rank) % param->modes ;
@@ -420,7 +400,7 @@ void merge_tomogram(int r, struct max_data *priv) {
 			for (t = 0 ; t < det[detn].num_pix ; ++t)
 				priv->view[detn][t] /= priv->p_sum[detn] ;
 			
-			(*slice_merge)(&quat->quat[rotind*5], priv->view[detn], &priv->model[mode*vol], &priv->weight[mode*vol], iter->size, &det[detn]) ;
+			(*slice_merge)(&quat->quat[rotind*5], priv->view[detn], &priv->model[mode*iter->vol], &priv->weight[mode*iter->vol], iter->size, &det[detn]) ;
 		}
 	}
 	
@@ -430,15 +410,11 @@ void merge_tomogram(int r, struct max_data *priv) {
 
 void combine_information_omp(struct max_data *priv, struct max_data *common) {
 	int d, omp_rank = omp_get_thread_num() ;
-	long x, vol = 0 ;
-	if (param->recon_type == RECON3D)
-		vol = param->modes * iter->size * iter->size * iter->size ;
-	else if (param->recon_type == RECON2D)
-		vol = param->modes * iter->size * iter->size ;
+	long x ;
 	
 	#pragma omp critical(model)
 	{
-		for (x = 0 ; x < vol ; ++x) {
+		for (x = 0 ; x < param->modes * iter->vol ; ++x) {
 			iter->model2[x] += priv->model[x] ;
 			iter->inter_weight[x] += priv->weight[x] ;
 		}
@@ -475,21 +451,16 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 
 double combine_information_mpi(struct max_data *data) {
 	int d ;
-	long vol = 0 ;
-	if (param->recon_type == RECON3D)
-		vol = param->modes * iter->size * iter->size * iter->size ;
-	else if (param->recon_type == RECON2D)
-		vol = param->modes * iter->size * iter->size ;
 	double avg_likelihood = 0. ;
 	
 	// Combine 3D volumes from all MPI ranks
 	if (param->rank) {
-		MPI_Reduce(iter->model2, iter->model2, vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
-		MPI_Reduce(iter->inter_weight, iter->inter_weight, vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
+		MPI_Reduce(iter->model2, iter->model2, param->modes*iter->vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
+		MPI_Reduce(iter->inter_weight, iter->inter_weight, param->modes*iter->vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
 	}
 	else {
-		MPI_Reduce(MPI_IN_PLACE, iter->model2, vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
-		MPI_Reduce(MPI_IN_PLACE, iter->inter_weight, vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
+		MPI_Reduce(MPI_IN_PLACE, iter->model2, param->modes*iter->vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
+		MPI_Reduce(MPI_IN_PLACE, iter->inter_weight, param->modes*iter->vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
 	}
 	
 	// Combine mutual info and likelihood from all MPI ranks

@@ -113,17 +113,12 @@ void write_log_file_header(int num_threads) {
 }
 
 void emc() {
-	long vol = 0 ;
-	if (param->recon_type == RECON3D)
-		vol = param->modes * iter->size * iter->size * iter->size ;
-	else if (param->recon_type == RECON2D)
-		vol = param->modes * iter->size * iter->size ;
 	double likelihood ;
 	
 	for (param->iteration = param->start_iter ; param->iteration <= param->num_iter + param->start_iter - 1 ; ++param->iteration) {
 		gettimeofday(&tr1, NULL) ;
 		
-		MPI_Bcast(iter->model1, vol, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
+		MPI_Bcast(iter->model1, param->modes * iter->vol, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
 		
 		// Increasing beta by a factor of 'beta_jump' every 'beta_period' param->iterations
 		if (param->iteration % param->beta_period == 1 && param->iteration > 1)
@@ -135,7 +130,7 @@ void emc() {
 		if (!param->rank)
 			update_model(likelihood) ;
 		if (param->need_scaling && param->recon_type == RECON3D)
-			normalize_scale(iter) ;
+			normalize_scale(frames, iter) ;
 		print_recon_time("Updated 3D intensity", &tr2, &tr3, param->rank) ;
 		
 		MPI_Bcast(&iter->rms_change, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
@@ -150,28 +145,24 @@ void emc() {
 }
 
 void update_model(double likelihood) {
-	long x, vol = 0 ;
-	if (param->recon_type == RECON3D)
-		vol = param->modes * iter->size * iter->size * iter->size ;
-	else if (param->recon_type == RECON2D)
-		vol = param->modes * iter->size * iter->size ;
+	long x ;
 	double diff, change = 0., norm = 1. ;
 	char fname[1024] ;
 	FILE *fp ;
 	
-	for (x = 0 ; x < vol ; ++x)
+	for (x = 0 ; x < param->modes * iter->vol ; ++x)
 		if (iter->inter_weight[x] > 0.)
 			iter->model2[x] *= norm / iter->inter_weight[x] ;
 	
 	if (param->recon_type == RECON2D) ;
 	else if (quat->icosahedral_flag)
 		for (x = 0 ; x < param->modes ; ++x)
-			symmetrize_icosahedral(&iter->model2[x*iter->size*iter->size*iter->size], iter->size) ;
+			symmetrize_icosahedral(&iter->model2[x*iter->vol], iter->size) ;
 	else
 		for (x = 0 ; x < param->modes ; ++x)
-			symmetrize_friedel(&iter->model2[x*iter->size*iter->size*iter->size], iter->size) ;
+			symmetrize_friedel(&iter->model2[x*iter->vol], iter->size) ;
 	
-	for (x = 0 ; x < vol ; ++x) {
+	for (x = 0 ; x < param->modes * iter->vol ; ++x) {
 		diff = iter->model2[x] - iter->model1[x] ;
 		change += diff * diff ;
 		if (param->alpha > 0.)
@@ -179,16 +170,16 @@ void update_model(double likelihood) {
 		else
 			iter->model1[x] = iter->model2[x] ;
 	}
-	iter->rms_change = sqrt(change / vol) ;
+	iter->rms_change = sqrt(change / param->modes / iter->vol) ;
 	
 	sprintf(fname, "%s/output/intens_%.3d.bin", param->output_folder, param->iteration) ;
 	fp = fopen(fname, "w") ;
-	fwrite(iter->model1, sizeof(double), vol, fp) ;
+	fwrite(iter->model1, sizeof(double), param->modes * iter->vol, fp) ;
 	fclose(fp) ;
 	
 	sprintf(fname, "%s/weights/weights_%.3d.bin", param->output_folder, param->iteration) ;
 	fp = fopen(fname, "w") ;
-	fwrite(iter->inter_weight, sizeof(double), vol, fp) ;
+	fwrite(iter->inter_weight, sizeof(double), param->modes * iter->vol, fp) ;
 	fclose(fp) ;
 	
 	gettimeofday(&tr2, NULL) ;
