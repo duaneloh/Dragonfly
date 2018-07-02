@@ -2,6 +2,7 @@
 
 '''Module containing Classifier GUI'''
 
+from __future__ import print_function
 import sys
 import os
 try:
@@ -101,10 +102,10 @@ class Classifier(QtWidgets.QMainWindow):
         section = 'classifier'
         try:
             read_config.get_filename(self.config_file, section, 'nonexistent_option')
-        except read_config.ConfigParser.NoSectionError:
-            print 'No section named \'classifier\'. Taking parameters from \'emc\' section instead'
+        except read_config.configparser.NoSectionError:
+            print('No section named \'classifier\'. Taking parameters from \'emc\' section instead')
             section = 'emc'
-        except read_config.ConfigParser.NoOptionError:
+        except read_config.configparser.NoOptionError:
             pass
 
         read_config.read_gui_config(self, section)

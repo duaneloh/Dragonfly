@@ -11,7 +11,8 @@ import os
 import sys
 import csv
 import shutil
-import ConfigParser
+from six.moves import configparser
+from builtins import bytes
 from mpi4py import MPI
 
 import detector
@@ -24,9 +25,9 @@ import max_emc
 
 class DragonflyConfig():
     def __init__(self, fname):
-        self.config = ConfigParser.RawConfigParser()
+        self.config = configparser.RawConfigParser()
         self.fname = fname
-        self.config.read(fname)
+        self.config.read(fname.decode('utf-8'))
 
     def modify_entry(self, section, param, value):
         self.config.set(section, param, value)
@@ -58,13 +59,13 @@ class TestDetector(unittest.TestCase):
     def test_parse_detector(self):
         print('=== Testing parse_detector() ===')
         det = detector.detector()
-        self.assertAlmostEqual(det.parse_detector(recon_folder+'/data/det_sim.dat'), 70.32817314646061) 
+        self.assertAlmostEqual(det.parse_detector(recon_folder+b'/data/det_sim.dat'), 70.32817314646061) 
         self.assertEqual(det.num_dfiles, 0)
         self.det_sim_tests(det)
-        det.parse_detector(recon_folder+'/data/det_sim.dat')
+        det.parse_detector(recon_folder+b'/data/det_sim.dat')
         
-        det_fname = recon_folder+'/data/det_sim_test.dat'
-        with open(recon_folder+'/data/det_sim.dat', 'r') as f:
+        det_fname = recon_folder+b'/data/det_sim_test.dat'
+        with open(recon_folder+b'/data/det_sim.dat', 'r') as f:
             lines = f.readlines()
         lines[0] = lines[0].split()[0]+'\n'
         with open(det_fname, 'w') as f:
@@ -75,21 +76,21 @@ class TestDetector(unittest.TestCase):
 
     def test_parse_detector_list(self):
         print('=== Testing parse_detector_list() ===')
-        shutil.copyfile(recon_folder+'/data/det_sim.dat', recon_folder+'/data/det_sim_test.dat')
+        shutil.copyfile(recon_folder+b'/data/det_sim.dat', recon_folder+b'/data/det_sim_test.dat')
         list_fname = 'test_det_list.txt'
         
         det = detector.detector()
         with open(list_fname, 'w') as f:
-            f.writelines([recon_folder+'/data/det_sim.dat\n', recon_folder+'/data/det_sim.dat\n'])
-        self.assertAlmostEqual(det.parse_detector_list(list_fname), 70.32817314646061) 
+            f.writelines([(recon_folder+b'/data/det_sim.dat\n').decode('utf-8'), (recon_folder+b'/data/det_sim.dat\n').decode('utf-8')])
+        self.assertAlmostEqual(det.parse_detector_list(bytes(list_fname, 'utf-8')), 70.32817314646061) 
         self.assertEqual(det.num_dfiles, 2)
         self.det_sim_tests(det)
         self.assertIs(det.nth_det(1), None)
         
         det = detector.detector()
         with open(list_fname, 'w') as f:
-            f.writelines([recon_folder+'/data/det_sim.dat\n', recon_folder+'/data/det_sim_test.dat\n'])
-        det.parse_detector_list(list_fname)
+            f.writelines([(recon_folder+b'/data/det_sim.dat\n').decode('utf-8'), (recon_folder+b'/data/det_sim_test.dat\n').decode('utf-8')])
+        det.parse_detector_list(bytes(list_fname, 'utf-8'))
         self.assertEqual(det.num_dfiles, 2)
         self.assertEqual(det.num_det, 2)
         npt.assert_array_equal(det.mapping, [0,1]+1022*[0])
@@ -98,7 +99,7 @@ class TestDetector(unittest.TestCase):
         self.assertIs(det.nth_det(2), None)
         
         os.remove(list_fname)
-        os.remove(recon_folder+'/data/det_sim_test.dat')
+        os.remove(recon_folder+b'/data/det_sim_test.dat')
 
     def test_generate_detectors(self):
         print('=== Testing generate_detectors() ===')
@@ -109,7 +110,7 @@ class TestDetector(unittest.TestCase):
         det.generate_detectors(config_fname)
         
         det = detector.detector()
-        list_fname = recon_folder+'/det_list.txt'
+        list_fname = recon_folder+b'/det_list.txt'
         with open(list_fname, 'w') as f:
             f.writelines(['data/det_sim.dat\n', 'data/det_sim.dat\n'])
         config = DragonflyConfig(config_fname)
@@ -119,7 +120,7 @@ class TestDetector(unittest.TestCase):
         det.generate_detectors(config_fname)
         self.det_sim_tests(det)
         
-        shutil.copyfile(recon_folder+'/data/det_sim.dat', recon_folder+'/data/det_sim_test.dat')
+        shutil.copyfile(recon_folder+b'/data/det_sim.dat', recon_folder+b'/data/det_sim_test.dat')
         with open(list_fname, 'w') as f:
             f.writelines(['data/det_sim.dat\n', 'data/det_sim_test.dat\n'])
         det.generate_detectors(config_fname)
@@ -127,7 +128,7 @@ class TestDetector(unittest.TestCase):
         self.det_sim_tests(det.nth_det(1), single=False)
         
         os.remove(list_fname)
-        os.remove(recon_folder+'/data/det_sim_test.dat')
+        os.remove(recon_folder+b'/data/det_sim_test.dat')
         config.remove_entry('emc', 'in_detector_list')
         config.modify_entry('emc', 'in_detector_file', 'make_detector:::out_detector_file')
 
@@ -139,6 +140,7 @@ class TestDetector(unittest.TestCase):
         self.assertIsNone(det.num_pix)
         
         det = detector.detector()
+        print(config_fname)
         det.generate_detectors(config_fname)
         det.free_detector()
         det.free_detector()
@@ -147,14 +149,14 @@ class TestDetector(unittest.TestCase):
 class TestDataset(unittest.TestCase):
     def create_det(self):
         det = detector.detector()
-        det.parse_detector(recon_folder+'/data/det_sim.dat')
+        det.parse_detector(recon_folder+b'/data/det_sim.dat')
         return det
 
     def photons_tests(self, dset, num_dset=1, first_dset=True):
         # Output of $ ./make_data -T -t 4
         self.assertEqual(dset.num_data, 3000)
         self.assertEqual(dset.num_pix, 10201)
-        self.assertEqual(os.path.normpath(dset.filename), os.path.normpath(recon_folder+'/data/photons.emc'))
+        self.assertEqual(os.path.normpath(dset.filename), os.path.normpath(recon_folder+b'/data/photons.emc'))
         self.assertAlmostEqual(dset.mean_count, 1424.309)
         if first_dset:
             self.assertEqual(dset.tot_num_data, num_dset*3000)
@@ -184,11 +186,11 @@ class TestDataset(unittest.TestCase):
         self.photons_tests(dset)
         dset.generate_data(config_fname)
         
-        list_fname = recon_folder+'/test_photons_list.txt'
+        list_fname = recon_folder+b'/test_photons_list.txt'
         with open(list_fname, 'w') as f:
             f.writelines(['data/photons.emc\n', 'data/photons.emc\n'])
         config = DragonflyConfig(config_fname)
-        config.modify_entry('emc', 'in_photons_list', list_fname)
+        config.modify_entry('emc', 'in_photons_list', list_fname.decode('utf-8'))
         self.assertRaises(AssertionError, dset.generate_data, config_fname)
         config.remove_entry('emc', 'in_photons_file')
         dset.generate_data(config_fname)
@@ -204,17 +206,17 @@ class TestDataset(unittest.TestCase):
         print('=== Testing parse_dataset() ===')
         det = self.create_det()
         dset = dataset.dataset(det)
-        dset.parse_dataset(recon_folder+'/data/photons.emc')
+        dset.parse_dataset(recon_folder+b'/data/photons.emc')
         self.photons_tests(dset)
-        dset.parse_dataset(recon_folder+'/data/photons.emc')
+        dset.parse_dataset(recon_folder+b'/data/photons.emc')
 
     def test_parse_data(self):
         print('=== Testing parse_data() ===')
         det = self.create_det()
         dset = dataset.dataset(det)
-        list_fname = 'test_dset_flist.txt'
+        list_fname = b'test_dset_flist.txt'
         with open(list_fname, 'w') as f:
-            f.writelines([recon_folder+'/data/photons.emc\n', recon_folder+'/data/photons.emc\n'])
+            f.writelines([(recon_folder+b'/data/photons.emc\n').decode('utf-8'), (recon_folder+b'/data/photons.emc\n').decode('utf-8')])
         num_dsets = dset.parse_data(list_fname)
         self.photons_tests(dset, num_dsets)
         ndset = dset.next
@@ -226,7 +228,7 @@ class TestDataset(unittest.TestCase):
         print('=== Testing calc_sum_fact() ===')
         det = self.create_det()
         dset = dataset.dataset(det)
-        dset.parse_dataset(recon_folder+'/data/photons.emc')
+        dset.parse_dataset(recon_folder+b'/data/photons.emc')
         dset.calc_sum_fact()
         
         frame = np.zeros(dset.num_pix, dtype='i4')
@@ -243,16 +245,16 @@ class TestDataset(unittest.TestCase):
         print('=== Testing generate_blacklist() ===')
         det = self.create_det()
         dset = dataset.dataset(det)
-        dset.parse_dataset(recon_folder+'/data/photons.emc')
+        dset.parse_dataset(recon_folder+b'/data/photons.emc')
         dset.generate_blacklist(config_fname)
         self.assertEqual(dset.blacklist.shape[0], 3000)
         self.assertEqual(dset.blacklist.sum(), 0)
         dset.generate_blacklist(config_fname)
         
-        blist_fname = recon_folder+'/data/blacklist.dat'
+        blist_fname = recon_folder+b'/data/blacklist.dat'
         blist = np.zeros(dset.tot_num_data, dtype='u1')
         blist[:10] = 1
-        np.savetxt(blist_fname, blist, fmt='%d')
+        np.savetxt(blist_fname.decode('utf-8'), blist, fmt='%d')
         config = DragonflyConfig(config_fname)
         config.modify_entry('emc', 'blacklist_file', 'data/blacklist.dat')
         dset.generate_blacklist(config_fname)
@@ -271,25 +273,25 @@ class TestDataset(unittest.TestCase):
         print('=== Testing make_blacklist() ===')
         det = self.create_det()
         dset = dataset.dataset(det)
-        dset.parse_dataset(recon_folder+'/data/photons.emc')
-        dset.make_blacklist('')
+        dset.parse_dataset(recon_folder+b'/data/photons.emc')
+        dset.make_blacklist(b'')
         self.assertEqual(dset.blacklist.shape[0], 3000)
         self.assertEqual(dset.blacklist.sum(), 0)
         
-        dset.make_blacklist('', odd_flag=2)
+        dset.make_blacklist(b'', odd_flag=2)
         self.assertEqual(dset.blacklist.shape[0], 3000)
         self.assertEqual(dset.blacklist.sum(), 1500)
         npt.assert_array_equal(dset.blacklist[:4], [0,1,0,1])
         
-        dset.make_blacklist('', odd_flag=1)
+        dset.make_blacklist(b'', odd_flag=1)
         self.assertEqual(dset.blacklist.shape[0], 3000)
         self.assertEqual(dset.blacklist.sum(), 1500)
         npt.assert_array_equal(dset.blacklist[:4], [1,0,1,0])
         
-        blist_fname = recon_folder+'/data/blacklist.dat'
+        blist_fname = recon_folder+b'/data/blacklist.dat'
         blist = np.zeros(dset.tot_num_data, dtype='u1')
         blist[:10] = 1
-        np.savetxt(blist_fname, blist, fmt='%d')
+        np.savetxt(blist_fname.decode('utf-8'), blist, fmt='%d')
         dset.make_blacklist(blist_fname)
         self.assertEqual(dset.blacklist.shape[0], 3000)
         self.assertEqual(dset.blacklist.sum(), 10)
@@ -312,7 +314,7 @@ class TestDataset(unittest.TestCase):
         print('=== Testing free_data() ===')
         det = self.create_det()
         dset = dataset.dataset(det)
-        dset.parse_dataset(recon_folder+'/data/photons.emc')
+        dset.parse_dataset(recon_folder+b'/data/photons.emc')
         dset.free_data()
         dset.free_data()
         self.assertIsNone(dset.num_data)
@@ -331,7 +333,7 @@ class TestRotation(unittest.TestCase):
         rot.generate_quaternion(config_fname)
         self.quat_tests(rot)
         rot.generate_quaternion(config_fname)
-        quat_fname = recon_folder+'/data/quat.dat'
+        quat_fname = recon_folder+b'/data/quat.dat'
         with open(quat_fname, 'w') as f:
             w = csv.writer(f, delimiter=' ')
             w.writerow([rot.num_rot])
@@ -369,10 +371,10 @@ class TestRotation(unittest.TestCase):
     def test_parse_quat(self):
         print('=== Testing parse_quat() ===')
         rot = quat.rotation()
-        self.assertEqual(rot.parse_quat(''), -1)
+        self.assertEqual(rot.parse_quat(b''), -1)
         
         rot.quat_gen(4)
-        quat_fname = recon_folder+'/data/quat.dat'
+        quat_fname = recon_folder+b'/data/quat.dat'
         with open(quat_fname, 'w') as f:
             w = csv.writer(f, delimiter=' ')
             w.writerow([rot.num_rot])
@@ -408,8 +410,8 @@ class TestParams(unittest.TestCase):
         self.assertEqual(param.known_scale, 0)
         self.assertEqual(param.start_iter, 1)
         if default:
-            self.assertEqual(os.path.abspath(param.output_folder), os.path.abspath(recon_folder+'/data/'))
-            self.assertEqual(os.path.abspath(param.log_fname), os.path.abspath(recon_folder+'/EMC.log'))
+            self.assertEqual(os.path.abspath(param.output_folder), os.path.abspath(recon_folder+b'/data/'))
+            self.assertEqual(os.path.abspath(param.log_fname), os.path.abspath(recon_folder+b'/EMC.log'))
             self.assertEqual(param.need_scaling, 0)
             self.assertEqual(param.alpha, 0.)
             self.assertEqual(param.beta, 1.)
@@ -417,8 +419,8 @@ class TestParams(unittest.TestCase):
             self.assertEqual(param.beta_jump, 1.)
             self.assertEqual(param.sigmasq, 0.)
         else:
-            self.assertEqual(os.path.abspath(param.output_folder), os.path.abspath(recon_folder+'/other_data/'))
-            self.assertEqual(os.path.abspath(param.log_fname), os.path.abspath(recon_folder+'/other_EMC.log'))
+            self.assertEqual(os.path.abspath(param.output_folder), os.path.abspath(recon_folder+b'/other_data/'))
+            self.assertEqual(os.path.abspath(param.log_fname), os.path.abspath(recon_folder+b'/other_EMC.log'))
             self.assertEqual(param.need_scaling, 1)
             self.assertEqual(param.alpha, 0.5)
             self.assertEqual(param.beta, 0.5)
@@ -456,7 +458,7 @@ class TestParams(unittest.TestCase):
         print('=== Testing generate_output_dirs() ===')
         param = params.params()
         param.generate_params(config_fname)
-        flist = [recon_folder+'/data/'+d for d in ['output', 'weights', 'orientations', 'scale', 'likelihood', 'mutualInfo']]
+        flist = [recon_folder+b'/data/'+d for d in [b'output', b'weights', b'orientations', b'scale', b'likelihood', b'mutualInfo']]
         [shutil.rmtree(d) for d in flist if os.path.exists(d)]
         param.generate_output_dirs()
         self.assertTrue(np.array([os.path.exists(d) for d in flist]).all())
@@ -508,7 +510,7 @@ class TestInterp(unittest.TestCase):
         interp.rotate_model(np.array([[0,-1,0],[1,0,0],[0,0,1]], dtype='f8'), model, rotmodel)
         self.assertAlmostEqual(np.linalg.norm((np.rot90(model,1,axes=(1,0))-rotmodel)[1:-1,1:-1,1:-1].flatten()), 0.)
         
-        intens = 1.e-9*np.fromfile(recon_folder+'/data/intensities.bin').reshape(3*(145,))
+        intens = 1.e-9*np.fromfile(recon_folder+b'/data/intensities.bin').reshape(3*(145,))
         quat = np.array([np.sqrt(0.86),0.1,0.2,0.3])
         rot = interp.make_rot_quat(quat)
         rotmodel = np.zeros_like(intens)
@@ -518,8 +520,8 @@ class TestInterp(unittest.TestCase):
     def test_slice_gen3d(self):
         print('=== Testing slice_gen3d() ===')
         det = detector.detector()
-        det.parse_detector(recon_folder+'/data/det_sim.dat')
-        intens = 1.e-9*np.fromfile(recon_folder+'/data/intensities.bin').reshape(3*(145,))
+        det.parse_detector(recon_folder+b'/data/det_sim.dat')
+        intens = 1.e-9*np.fromfile(recon_folder+b'/data/intensities.bin').reshape(3*(145,))
         view = np.zeros(det.num_pix)
         
         quat = np.array([1.,0,0,0])
@@ -541,7 +543,7 @@ class TestInterp(unittest.TestCase):
     def test_slice_merge3d(self):
         print('=== Testing slice_merge3d() ===')
         det = detector.detector()
-        det.parse_detector(recon_folder+'/data/det_sim.dat')
+        det.parse_detector(recon_folder+b'/data/det_sim.dat')
         view = np.ascontiguousarray(det.pixels[:,3])
         quat = np.array([np.sqrt(0.86),0.1,0.2,0.3])
         model = np.zeros(3*(145,))
@@ -560,7 +562,7 @@ class TestInterp(unittest.TestCase):
     def test_slice_gen2d(self):
         print('=== Testing slice_gen2d() ===')
         det = detector.detector()
-        det.parse_detector(recon_folder+'/data/det_sim.dat', norm_flag=-3)
+        det.parse_detector(recon_folder+b'/data/det_sim.dat', norm_flag=-3)
         intens = np.arange(145*145*3).astype('f8').reshape(3,145,145)
         view = np.zeros(det.num_pix)
         
@@ -583,7 +585,7 @@ class TestInterp(unittest.TestCase):
     def test_slice_merge2d(self):
         print('=== Testing slice_merge2d() ===')
         det = detector.detector()
-        qmax = det.parse_detector(recon_folder+'/data/det_sim.dat', norm_flag=-3)
+        qmax = det.parse_detector(recon_folder+b'/data/det_sim.dat', norm_flag=-3)
         view = np.ascontiguousarray(det.pixels[:,2])
         angle = np.array([1.37*np.pi])
         model = np.zeros((3, 145, 145))
@@ -636,7 +638,7 @@ class TestIterate(unittest.TestCase):
         itr, det, dset, param, qmax = self.allocate_iterate()
         self.assertEqual(itr.size, 145)
         self.assertRaises(AssertionError, itr.generate_iterate, config_fname, qmax, param, det, dset, continue_flag=True)
-        itr.generate_iterate(config_fname, qmax, param, det, dset, config_section='foobar')
+        itr.generate_iterate(config_fname, qmax, param, det, dset, config_section=b'foobar')
         
         config = DragonflyConfig(config_fname)
         config.modify_entry('emc', 'size', '101')
@@ -658,7 +660,7 @@ class TestIterate(unittest.TestCase):
         npt.assert_array_equal(itr.scale, np.ones(dset.tot_num_data, dtype='f8'))
         npt.assert_array_equal(dset.count[:5], [1621, 1382, 1050, 2436, 1450])
         npt.assert_array_equal(dset.count[-5:], [1093, 1597, 1053, 1080, 1315])
-        itr.calc_scale(dset, det, print_fname=recon_folder+'/data/scale/scale_000.dat')
+        itr.calc_scale(dset, det, print_fname=recon_folder+b'/data/scale/scale_000.dat')
 
     def test_normalize_scale(self):
         print('=== Testing normalize_scale() ===')
@@ -675,11 +677,11 @@ class TestIterate(unittest.TestCase):
         print('=== Testing parse_scale() ===')
         itr, det, dset, param, qmax = self.allocate_iterate()
         itr.calc_scale(dset, det)
-        self.assertEqual(itr.parse_scale(''), 0)
+        self.assertEqual(itr.parse_scale(b''), 0)
         
-        scale_fname = recon_folder+'/data/scales.dat'
+        scale_fname = recon_folder+b'/data/scales.dat'
         rand_scales = np.random.random(dset.tot_num_data)
-        np.savetxt(scale_fname, rand_scales)
+        np.savetxt(scale_fname.decode('utf-8'), rand_scales)
         self.assertEqual(itr.parse_scale(scale_fname), 1)
         npt.assert_array_almost_equal(itr.scale, rand_scales)
 
@@ -687,7 +689,7 @@ class TestIterate(unittest.TestCase):
         print('=== Testing parse_input() ===')
         itr, det, dset, param, qmax = self.allocate_iterate()
         print(itr.modes)
-        itr.parse_input('', -1.)
+        itr.parse_input(b'', -1.)
         self.assertAlmostEqual(itr.model1.mean(), 0.499965209377)
 
     def test_free_iterate(self):
@@ -771,8 +773,9 @@ if __name__ == '__main__':
     parser.add_argument('unittest_args', nargs='*')
     args = parser.parse_args()
 
-    recon_folder = args.recon_folder
-    config_fname = recon_folder + '/config.ini'
+    recon_folder = bytes(args.recon_folder, 'utf-8')
+    config_fname = recon_folder + b'/config.ini'
+    print(config_fname)
     print('Testing using recon folder: %s'%recon_folder)
     sys.argv[1:] = args.unittest_args
     

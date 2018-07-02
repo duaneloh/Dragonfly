@@ -1,5 +1,6 @@
 '''Module to handle frame-by-frame classification'''
 
+from __future__ import print_function
 import sys
 import os
 import numpy as np
@@ -24,7 +25,7 @@ class FrameClasses(object):
         else:
             self.fname = fname
 
-        if self.fname is '' or not os.path.isfile(self.fname):
+        if self.fname == '' or not os.path.isfile(self.fname):
             sys.stderr.write('Initializing empty class list\n')
             self.clist = np.zeros((self.num_frames,), dtype='U')
         else:
@@ -57,4 +58,3 @@ class FrameClasses(object):
             if i%5 == 4:
                 summary += '\n'
         return summary
-

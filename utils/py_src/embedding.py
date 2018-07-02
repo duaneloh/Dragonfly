@@ -1,5 +1,6 @@
 '''Module containing embedding panel class in the Classifier GUI'''
 
+from __future__ import print_function
 import sys
 import numpy as np
 try:
@@ -90,7 +91,6 @@ class EmbeddingPanel(QtWidgets.QWidget):
         self.vbox.addStretch(1)
 
     def _do_embedding(self):
-        #pylint: disable=redefined-variable-type
         converted = self.conversion.converted
         if converted is None:
             #self.conversion.convert_frames()
@@ -98,7 +98,7 @@ class EmbeddingPanel(QtWidgets.QWidget):
             converted = self.conversion.converted
 
         method_ind = self.method.currentIndex()
-        print 'Doing %s' % self.method.currentText()
+        print('Doing %s' % self.method.currentText())
         if method_ind == 0:
             self.embedder = manifold.SpectralEmbedding(n_components=4, n_jobs=-1)
         elif method_ind == 1:
@@ -234,7 +234,6 @@ class EmbeddingPanel(QtWidgets.QWidget):
             self._end_track_positions()
 
     def _track_positions(self, event=None):
-        self.event = event
         x = event.xdata
         y = event.ydata
         self.click_points_list.append(
@@ -391,4 +390,3 @@ class EmbeddingPanel(QtWidgets.QWidget):
             self._refresh_classes()
         self.classes.gen_summary()
         self.classes.unsaved = True
-

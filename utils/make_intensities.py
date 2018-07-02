@@ -33,7 +33,7 @@ def main():
         num_threads = int(read_config.get_param(args.config_file,
                                                 'make_intensities',
                                                 'num_threads'))
-    except read_config.ConfigParser.NoOptionError:
+    except read_config.configparser.NoOptionError:
         num_threads = 4
     if args.yes:
         to_write = True

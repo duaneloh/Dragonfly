@@ -30,8 +30,8 @@ class FramePanel(QtWidgets.QWidget):
         output_folder - (Only for compare mode) Folder with output data
         need_scaling - (Only for compare mode) Whether reconstruction was done with scaling
     '''
-    def __init__(self, parent, compare=False, powder=False, *args, **kwargs):
-        super(FramePanel, self).__init__(parent, *args, **kwargs)
+    def __init__(self, parent, compare=False, powder=False, **kwargs):
+        super(FramePanel, self).__init__(parent, **kwargs)
 
         matplotlib.rcParams.update({
             'text.color': '#eff0f1',
@@ -157,10 +157,10 @@ class FramePanel(QtWidgets.QWidget):
             num = int(self.numstr.text())
         except ValueError:
             sys.stderr.write('Frame number must be integer\n')
-            return
+            return None
         if num < 0 or num >= self.emc_reader.num_frames:
             sys.stderr.write('Frame number %d out of range!\n' % num)
-            return
+            return None
         return num
 
     def _plot_slice(self, num):
@@ -219,7 +219,7 @@ class FramePanel(QtWidgets.QWidget):
     def _compare_flag_changed(self):
         self.plot_frame()
 
-    def _frame_focus(self, event):
+    def _frame_focus(self, event): # pylint: disable=unused-argument
         self.setFocus()
 
     def _save_powder(self):

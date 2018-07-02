@@ -1,5 +1,6 @@
 '''Module containing MLP panel for the classifier GUI'''
 
+from __future__ import print_function
 import sys
 import multiprocessing as mp
 import ctypes
@@ -89,7 +90,7 @@ class MLPPanel(QtWidgets.QWidget):
             return
         self.mlp.fit(self.train_data, self.train_labels)
         sys.stderr.write('Done training\n')
-        #print 'Score on training set =', self.mlp.score(self.train_data, self.train_labels)
+        #print('Score on training set =', self.mlp.score(self.train_data, self.train_labels))
         if not self.trained:
             self._add_predict_frame()
         self.trained = True
@@ -203,4 +204,3 @@ class MLPPanel(QtWidgets.QWidget):
     def _save_predictions(self):
         sys.stderr.write('Saving predictions list to %s\n'%str(self.predictions_fname.text()))
         np.savetxt(str(self.predictions_fname.text()), self.predictions, fmt='%s')
-

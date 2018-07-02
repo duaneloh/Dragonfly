@@ -1,5 +1,6 @@
 '''Module containing class to convert frames to polar representation and derivatives'''
 
+from __future__ import print_function
 import numpy as np
 
 class PolarConverter(object):
@@ -80,8 +81,8 @@ class PolarConverter(object):
             return self.compute_polar(input_frame, normed=True)
         elif method == 'raw':
             return self.compute_raw(input_frame)
-        else:
-            print 'Unknown method string: %s'%method
+        print('Unknown method string: %s'%method)
+        return None
 
     def compute_raw(self, input_frame):
         """Get pixels within supplied radius range
@@ -112,8 +113,7 @@ class PolarConverter(object):
         polar_arr = polar_arr.reshape(self.rad_max, -1)[self.r_min:self.r_max]
         if normed:
             return polar_arr / polar_arr.mean()
-        else:
-            return polar_arr
+        return polar_arr
 
     def compute_ang_corr(self, input_frame, normed=True, ang_max=10):
         """Compute the angular correlation from the polar representation of given pattern
@@ -139,4 +139,3 @@ class PolarConverter(object):
             else:
                 temp.append(np.absolute(np.fft.fft(corr))[1:ang_max])
         return np.array(temp)
-

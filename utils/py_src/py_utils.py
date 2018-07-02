@@ -1,11 +1,13 @@
 '''Miscellaneous utility functions called by one or more python modules'''
 
+from __future__ import print_function
+from builtins import input
 import time
-import ConfigParser
 import argparse
 import os
 import sys
 import logging
+from six.moves import configparser
 import numpy as np
 from . import readdet, reademc
 
@@ -55,10 +57,10 @@ class MyArgparser(argparse.ArgumentParser):
         args = self.parse_args()
         if not args.config_file:
             args.config_file = "config.ini"
-            logging.info("Config file not specified. Using " + args.config_file)
+            logging.info("Config file not specified. Using %s", args.config_file)
         if not args.main_dir:
             args.main_dir = os.path.split(os.path.abspath(args.config_file))[0]
-            logging.info("Main directory not specified. Using " + args.main_dir)
+            logging.info("Main directory not specified. Using %s", args.main_dir)
         return args
 
 def write_density(in_den_file, in_den, binary=True):
@@ -89,15 +91,15 @@ def check_to_overwrite(fname):
     no_val = set(['no', 'n', 'nope', 'nay', 'not'])
     if os.path.isfile(fname):
         sys.stdout.write("%s is present. Overwrite? [Y or Return/N]: " % fname)
-        choice = raw_input().lower()
+        choice = input().lower()
         if choice in yes_val:
             overwrite = True
-            print "Overwriting " + fname
-            logging.info("Overwriting " + fname)
+            print("Overwriting " + fname)
+            logging.info("Overwriting %s", fname)
         elif choice in no_val:
             overwrite = False
-            print "Not overwriting " + fname
-            logging.info("Not overwriting " + fname)
+            print("Not overwriting " + fname)
+            logging.info("Not overwriting %s", fname)
         else:
             sys.stdout.write("Please respond with 'yes' or 'no'")
             overwrite = False
@@ -111,11 +113,11 @@ def confirm_oversampling(ratio):
     done = False
     yes_val = set(['yes', 'y', '', 'yup', 'ya'])
     no_val = set(['no', 'n', 'nope', 'nay', 'not'])
-    print 'Oversampling ratio = %.2f is a little high. This is inefficient.' % ratio
-    print 'Please see http://www.github.com/duaneloh/Dragonfly/wiki/Oversampling for tips'
+    print('Oversampling ratio = %.2f is a little high. This is inefficient.' % ratio)
+    print('Please see http://www.github.com/duaneloh/Dragonfly/wiki/Oversampling for tips')
     sys.stdout.write('Continue anyway? [Y or Return/N]: ')
     while not done:
-        choice = raw_input().lower()
+        choice = input().lower()
         if choice in yes_val:
             proceed = True
             done = True
@@ -141,15 +143,14 @@ def create_new_recon_dir(tag="recon", num=1, prefix="./"):
     while os.path.exists(recon_dir):
         num += 1
         recon_dir = os.path.join(prefix, os.path.join(_name_recon_dir(tag, num)))
-    msg = 'New recon directory created with name: ' + recon_dir
-    logging.info(msg)
+    logging.info('New recon directory created with name: %s', recon_dir)
     os.mkdir(recon_dir)
     sub_dir = {"data":["scale", "orientations", "mutualInfo",
                        "weights", "output", "likelihood"],
                "images":[]}
     for key, val in sub_dir.items():
         os.mkdir(os.path.join(recon_dir, key))
-        if len(val) > 0:
+        if val:
             for valitem in val:
                 os.mkdir(os.path.join(recon_dir, key, valitem))
     if not os.path.exists(_name_recon_dir(tag, num)):
@@ -158,12 +159,11 @@ def create_new_recon_dir(tag="recon", num=1, prefix="./"):
 
 def increment_quat_file_sensibly(config_fname, incr):
     '''Increments num_div in config file by incr'''
-    config = ConfigParser.ConfigParser()
+    config = configparser.ConfigParser()
     config.read(config_fname)
 
     quat_num_div = int(config.get("emc", "num_div"))
-    msg = ["Setting quaternion from", str(quat_num_div), "to", str(quat_num_div+incr)]
-    logging.info(' '.join(msg))
+    logging.info("Setting quaternion from %s to %s", str(quat_num_div), str(quat_num_div+incr))
     quat_num_div += incr
     config.set("emc", "num_div", quat_num_div)
 
@@ -177,8 +177,8 @@ def gen_det_and_emc(gui, classifier=False, mask=False):
         geom_mapping = None
     else:
         if classifier:
-            print 'The Classifier GUI will likely have problems with multiple geometries'
-            print 'We recommend classifying patterns with a common geometry'
+            print('The Classifier GUI will likely have problems with multiple geometries')
+            print('We recommend classifying patterns with a common geometry')
         uniq = sorted(set(gui.det_list))
         geom_list = [readdet.DetReader(fname, gui.detd, gui.ewald_rad, mask_flag=mask)
                      for fname in uniq]

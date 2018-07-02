@@ -69,9 +69,9 @@ cdef class params:
 
 	# Properties related to configuration file
 	@property
-	def output_folder(self): return str(self.param.output_folder) if self.param != NULL else None
+	def output_folder(self): return <bytes>self.param.output_folder if self.param != NULL else None
 	@property
-	def log_fname(self): return str(self.param.log_fname) if self.param != NULL else None
+	def log_fname(self): return <bytes>self.param.log_fname if self.param != NULL else None
 	@property
 	def beta_period(self): return self.param.beta_period if self.param != NULL else None
 	@property

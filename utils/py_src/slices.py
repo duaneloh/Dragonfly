@@ -1,5 +1,6 @@
 '''Module containing class to generate tomographic slices'''
 
+from __future__ import print_function
 import numpy as np
 
 class SliceGenerator(object):
@@ -25,7 +26,7 @@ class SliceGenerator(object):
 
     def _init_model(self, iteration):
         model_fname = '%s/output/intens_%.3d.bin' % (self.folder, iteration)
-        print 'Parsing comparison model:', model_fname
+        print('Parsing comparison model:', model_fname)
         self.model = np.fromfile(model_fname, '=f8')
         size = int(np.round(self.model.shape[0]**(1./3.)))
         self.model = self.model.reshape(3 * (size,))
@@ -75,10 +76,9 @@ class SliceGenerator(object):
 
         if raw:
             return dslice, self.stats['info'][num]
-        else:
-            imslice = np.zeros(self.geom.frame_shape)
-            np.add.at(imslice, [self.geom.x, self.geom.y], dslice)
-            return imslice * self.geom.mask * self.stats['scale'][num], self.stats['info'][num]
+        imslice = np.zeros(self.geom.frame_shape)
+        np.add.at(imslice, [self.geom.x, self.geom.y], dslice)
+        return imslice * self.geom.mask * self.stats['scale'][num], self.stats['info'][num]
 
     def get_quat(self, iteration, num):
         '''Return best match quaternion for given iteration and frame number'''

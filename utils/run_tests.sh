@@ -20,6 +20,7 @@ cp ../sample_configs/testing.ini config.ini
 ./make_data -T -t 4
 
 cd ${root_dir}/pyemc
+python -V
 python setup.py build_ext --inplace
 res=$?
 if [ ${res} -ne 0 ]

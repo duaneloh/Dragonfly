@@ -1,5 +1,6 @@
 '''Module with EMC_writer class to save dense frames in EMC format'''
 
+from __future__ import print_function
 import os
 import numpy as np
 
@@ -31,7 +32,7 @@ class EMCWriter(object):
         self._fptrs = [open(fname, 'wb') for fname in temp_fnames]
 
         self.out_fname = out_fname
-        print 'Writing emc file to', out_fname
+        print('Writing emc file to', out_fname)
         self.num_data = 0
         self.num_pix = num_pix
         self.mean_count = 0.
@@ -53,7 +54,7 @@ class EMCWriter(object):
             return
 
         self.mean_count /= self.num_data
-        print 'num_data = %d, mean_count = %.4e' % (self.num_data, self.mean_count)
+        print('num_data = %d, mean_count = %.4e' % (self.num_data, self.mean_count))
         ones_arr = np.asarray(self.ones)
         multi_arr = np.asarray(self.multi)
 
@@ -103,4 +104,3 @@ class EMCWriter(object):
         place_ones.astype(np.int32).tofile(self._fptrs[0])
         place_multi.astype(np.int32).tofile(self._fptrs[1])
         count_multi.astype(np.int32).tofile(self._fptrs[2])
-

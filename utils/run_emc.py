@@ -2,6 +2,7 @@
 
 '''Module to wrap running of EMC command'''
 
+from __future__ import print_function
 import subprocess
 import argparse
 import logging
@@ -92,7 +93,7 @@ def main():
             logging.info(20*"=" + "\n" + cmd)
             subprocess.call(cmd, shell=True)
         else:
-            print cmd
+            print(cmd)
     else:
         cmd = ' '.join(openmp_cmd)
         if not args.dry_run:
@@ -100,7 +101,7 @@ def main():
             logging.info(20*"=" + "\n" + cmd)
             subprocess.call(cmd, shell=True)
         else:
-            print cmd
+            print(cmd)
 
 if __name__ == "__main__":
     main()

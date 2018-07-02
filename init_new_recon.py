@@ -6,6 +6,7 @@
     Use init_new_recon.py -h for additional options.
 '''
 
+from __future__ import print_function
 import os
 import sys
 import shutil
@@ -36,24 +37,24 @@ def main():
     new_recon_dir = py_utils.create_new_recon_dir(tag=args.recon_tag, num=args.run_tag,
                                                   prefix=args.recon_prefix)
 
-    print 80*"="
-    print "Initializing new directory and creating soft links to useful utilities."
-    print "Type './init_new_recon.py -h' for options"
-    print "See http://github.com/duaneloh/Dragonfly/wiki/FAQ for troubleshooting tips."
-    print 80*"="
+    print(80*"=")
+    print("Initializing new directory and creating soft links to useful utilities.")
+    print("Type './init_new_recon.py -h' for options")
+    print("See http://github.com/duaneloh/Dragonfly/wiki/FAQ for troubleshooting tips.")
+    print(80*"=")
 
     if args.recon_prefix != './':
-        print "Created new directory:", new_recon_dir
+        print("Created new directory:", new_recon_dir)
 
     if args.link_to_parent_data:
         try:
             os.symlink(os.path.join(curr_dir, new_recon_dir, "data"),
                        os.path.join("data", new_recon_dir))
         except OSError:
-            print "Failed to create following symlink"
+            print("Failed to create following symlink")
             print(os.path.join("data", new_recon_dir), "-->",
                   os.path.join(curr_dir, new_recon_dir, "data"))
-            print "Reconstructions not affected.."
+            print("Reconstructions not affected..")
 
     os.chdir(curr_dir)
     os.chdir(parent_dir)

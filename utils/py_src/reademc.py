@@ -1,5 +1,6 @@
 '''Module containing EMCReader class to parse .emc files'''
 
+from __future__ import print_function
 import sys
 import numpy as np
 import numpy.ma as ma
@@ -35,7 +36,7 @@ class EMCReader(object):
                     self.flist[i]['geom'] = geom_list[geom_mapping[i]]
                 self.multiple_geom = True
             except TypeError:
-                print 'Need mapping if multiple geometries are provided'
+                print('Need mapping if multiple geometries are provided')
                 raise
 
         self._assembled_masks = [self._assemble_frame(p['geom'].unassembled_mask, n, fresh=True)
@@ -153,4 +154,3 @@ class EMCReader(object):
             img = ma.masked_array(np.zeros(mask.shape, dtype='i4'), mask=mask)
         np.add.at(img, [geom.x, geom.y], data)
         return img
-

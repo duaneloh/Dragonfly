@@ -2,15 +2,18 @@ from setuptools import setup
 from setuptools.extension import Extension
 from Cython.Distutils import build_ext
 from Cython.Build import cythonize
+import sys
 import subprocess
 import glob
 
-gsl_cflags = subprocess.check_output('gsl-config --cflags', shell=True).rstrip().split()
-gsl_libs = subprocess.check_output('gsl-config --libs', shell=True).rstrip().split()
+gsl_cflags = subprocess.check_output('gsl-config --cflags', shell=True).decode(sys.stdout.encoding).rstrip().split()
+gsl_libs = subprocess.check_output('gsl-config --libs', shell=True).decode(sys.stdout.encoding).rstrip().split()
 compile_args = '-I/usr/include/python2.7 -fopenmp -O3 -Wall -Wno-cpp -Wno-unused-result -Wno-unused-function -DFIXED_SEED'.split() + gsl_cflags
 link_args = '-lpython2.7 -lm -fopenmp'.split() + gsl_libs
-mpi_compile_args = subprocess.check_output('mpicc --showme:compile', shell=True).rstrip().split()
-mpi_link_args = subprocess.check_output('mpicc --showme:link', shell=True).rstrip().split()
+#mpi_compile_args = subprocess.check_output('mpicc --showme:compile', shell=True).decode(sys.stdout.encoding).rstrip().split()
+#mpi_link_args = subprocess.check_output('mpicc --showme:link', shell=True).decode(sys.stdout.encoding).rstrip().split()
+mpi_compile_args = subprocess.check_output('mpicc -show', shell=True).decode(sys.stdout.encoding).rstrip().split()[1:]
+mpi_link_args = subprocess.check_output('mpicc -show', shell=True).decode(sys.stdout.encoding).rstrip().split()[1:]
 
 ext_modules = [
     Extension(name='detector', sources='detector.pyx ../src/detector.c'.split(),

@@ -2,6 +2,7 @@
 
 '''Module to calculate and save powder sum of frames'''
 
+from __future__ import print_function
 import numpy as np
 from py_src import py_utils
 from py_src import read_config
@@ -14,7 +15,7 @@ def main():
 
     try:
         photons_list = [read_config.get_filename(args.config_file, 'emc', "in_photons_file")]
-    except read_config.ConfigParser.NoOptionError:
+    except read_config.configparser.NoOptionError:
         with open(read_config.get_param(args.config_file, 'emc', "in_photons_list"), 'r') as fptr:
             photons_list = [line.rstrip() for line in fptr.readlines()]
 
@@ -31,9 +32,9 @@ def main():
         with open(photons_file, 'rb') as fptr:
             num_data = np.fromfile(fptr, dtype='i4', count=1)[0]
             num_pix = np.fromfile(fptr, dtype='i4', count=1)[0]
-            print photons_file+ ': num_data = %d, num_pix = %d' % (num_data, num_pix)
+            print(photons_file+ ': num_data = %d, num_pix = %d' % (num_data, num_pix))
             if num_pix != len(x):
-                print 'Detector and photons file dont agree on num_pix'
+                print('Detector and photons file dont agree on num_pix')
             fptr.seek(1024, 0)
             ones = np.fromfile(fptr, dtype='i4', count=num_data)
             multi = np.fromfile(fptr, dtype='i4', count=num_data)

@@ -24,7 +24,7 @@ cdef class detector:
 		self.det.num_dfiles = 0
 		self.det.mapping = [0]*1024
 
-	def generate_detectors(self, config_fname, norm_flag=1, config_section='emc'):
+	def generate_detectors(self, config_fname, norm_flag=1, config_section=b'emc'):
 		cdef char* c_config_fname = config_fname
 		cdef char* c_config_section = config_section
 		if self.det.num_det > 0: self.free_detector()

@@ -58,6 +58,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self.max_iternum = 0
         self.need_replot = False
         self.image_exists = False
+        self.old_modenum = None
         plt.style.use('dark_background')
 
         self.vol = None
@@ -491,21 +492,21 @@ class ProgressViewer(QtWidgets.QMainWindow):
     def _read_config(self, config):
         try:
             self.folder = read_config.get_filename(config, 'emc', 'output_folder')
-        except read_config.ConfigParser.NoOptionError:
+        except read_config.configparser.NoOptionError:
             self.folder = 'data/'
 
         try:
             self.logfname = read_config.get_filename(config, 'emc', 'log_file')
-        except read_config.ConfigParser.NoOptionError:
+        except read_config.configparser.NoOptionError:
             self.logfname = 'EMC.log'
 
         try:
             self.recon_type = read_config.get_param(config, 'emc', 'recon_type').lower()
-        except read_config.ConfigParser.NoOptionError:
+        except read_config.configparser.NoOptionError:
             self.recon_type = '3d'
         try:
             self.num_modes = int(read_config.get_param(config, 'emc', 'num_modes'))
-        except read_config.ConfigParser.NoOptionError:
+        except read_config.configparser.NoOptionError:
             self.num_modes = 1
 
     def _parse_and_plot(self):

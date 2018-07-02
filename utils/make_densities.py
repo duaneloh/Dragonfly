@@ -24,12 +24,12 @@ def main():
                                                          'make_densities',
                                                          'in_pdb_file'))
         pdb_code = None
-    except read_config.ConfigParser.NoOptionError:
+    except read_config.configparser.NoOptionError:
         pdb_code = read_config.get_filename(args.config_file, 'make_densities', 'pdb_code')
         pdb_file = 'aux/%s.pdb' % pdb_code.upper()
     try:
         num_threads = int(read_config.get_param(args.config_file, 'make_densities', 'num_threads'))
-    except read_config.ConfigParser.NoOptionError:
+    except read_config.configparser.NoOptionError:
         num_threads = 4
     aux_dir = os.path.join(args.main_dir,
                            read_config.get_filename(args.config_file,

@@ -1,9 +1,10 @@
 '''Module containing various functions used to parse configuration files'''
 
+from __future__ import print_function
 import logging
-import ConfigParser
 import os
 from collections import OrderedDict
+from six.moves import configparser
 import numpy as np
 
 class MultiOrderedDict(OrderedDict):
@@ -20,7 +21,7 @@ def get_param(config_file, section, tag):
     '''Get config file parameter
     Use get_filename() for getting file names rather than this general function
     '''
-    config = ConfigParser.ConfigParser()
+    config = configparser.ConfigParser()
     config.read(config_file)
     return config.get(section, tag)
 
@@ -28,7 +29,7 @@ def get_multi_params(config_file, section, tag):
     '''Gets parameter defined multiple times
     Returns list of all values if more than one
     '''
-    config = ConfigParser.RawConfigParser(dict_type=MultiOrderedDict)
+    config = configparser.RawConfigParser(dict_type=MultiOrderedDict)
     config.read(config_file)
     return config.get(section, tag)
 
@@ -46,7 +47,7 @@ def get_detector_config(config_file, show=False):
     '''Get detector parameters from config file
     Generates and returns a params dictionary
     '''
-    config = ConfigParser.ConfigParser()
+    config = configparser.ConfigParser()
     config.read(config_file)
     params = OrderedDict()
     params['wavelength'] = config.getfloat('parameters', 'lambda')
@@ -67,12 +68,12 @@ def get_detector_config(config_file, show=False):
     # Optional arguments
     try:
         params['ewald_rad'] = config.getfloat('parameters', 'ewald_rad')
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         params['ewald_rad'] = params['detd'] / params['pixsize']
 
     try:
         params['mask_fname'] = config.get('make_detector', 'in_mask_file')
-    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError):
+    except (configparser.NoOptionError, configparser.NoSectionError):
         params['mask_fname'] = None
 
     try:
@@ -83,7 +84,7 @@ def get_detector_config(config_file, show=False):
         else:
             params['detc_x'] = int(detcstr[0])
             params['detc_y'] = int(detcstr[1])
-    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError):
+    except (configparser.NoOptionError, configparser.NoSectionError):
         params['detc_x'] = (params['dets_x']-1)/2.
         params['detc_y'] = (params['dets_y']-1)/2.
 
@@ -132,8 +133,8 @@ def compute_polarization(polarization, polx, poly, norm):
         return 1. - (poly**2)/(norm**2)
     elif polarization.lower() == 'none':
         return 1. - (polx**2 + poly**2)/(2*norm**2)
-    else:
-        logging.info('Please set the polarization direction as x, y or none!')
+    logging.info('Please set the polarization direction as x, y or none!')
+    return None
 
 def read_gui_config(gui, section):
     ''' Read config file parameters needed for GUI operation
@@ -141,11 +142,11 @@ def read_gui_config(gui, section):
     # Photons file list
     try:
         pfile = get_filename(gui.config_file, section, 'in_photons_file')
-        print 'Using in_photons_file: %s' % pfile
+        print('Using in_photons_file: %s' % pfile)
         gui.photons_list = [pfile]
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         plist = get_filename(gui.config_file, section, 'in_photons_list')
-        print 'Using in_photons_list: %s' % plist
+        print('Using in_photons_list: %s' % plist)
         with open(plist, 'r') as fptr:
             gui.photons_list = [line.rstrip() for line in fptr.readlines()]
             gui.photons_list = [line for line in gui.photons_list if line]
@@ -154,11 +155,11 @@ def read_gui_config(gui, section):
     # Detector file list
     try:
         dfile = get_filename(gui.config_file, section, 'in_detector_file')
-        print 'Using in_detector_file: %s' % dfile
+        print('Using in_detector_file: %s' % dfile)
         gui.det_list = [dfile]
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         dlist = get_filename(gui.config_file, section, 'in_detector_list')
-        print 'Using in_detector_list: %s' % dlist
+        print('Using in_detector_list: %s' % dlist)
         with open(dlist, 'r') as fptr:
             gui.det_list = [line.rstrip() for line in fptr.readlines()]
             gui.det_list = [line for line in gui.det_list if line]
@@ -170,14 +171,14 @@ def read_gui_config(gui, section):
         prm = get_detector_config(gui.config_file)
         gui.ewald_rad = prm['ewald_rad']
         gui.detd = prm['detd']/prm['pixsize']
-    except (ConfigParser.NoOptionError, ConfigParser.NoSectionError):
+    except (configparser.NoOptionError, configparser.NoSectionError):
         gui.ewald_rad = None
         gui.detd = None
 
     # Output folder
     try:
         output_folder = get_filename(gui.config_file, section, 'output_folder')
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         output_folder = 'data/'
     gui.output_folder = os.path.realpath(output_folder)
 
@@ -187,7 +188,7 @@ def read_gui_config(gui, section):
         try:
             gui.blacklist = np.loadtxt(get_filename(gui.config_file, 'emc', 'blacklist_file'),
                                        dtype='u1')
-        except ConfigParser.NoOptionError:
+        except configparser.NoOptionError:
             gui.blacklist = None
 
         # Log file
@@ -196,17 +197,17 @@ def read_gui_config(gui, section):
         # Need scaling
         try:
             gui.need_scaling = bool(int(get_param(gui.config_file, 'emc', 'need_scaling')))
-        except ConfigParser.NoOptionError:
+        except configparser.NoOptionError:
             gui.need_scaling = False
     elif section == 'classifier':
         # Polar conversion parameters
         try:
             gui.polar_params = get_param(gui.config_file, 'classifier', 'polar_params').split()
-        except ConfigParser.NoOptionError:
+        except configparser.NoOptionError:
             gui.polar_params = ['5', '60', '2.', '10.']
 
         # Class list file
         try:
             gui.class_fname = get_filename(gui.config_file, 'classifier', 'in_class_file')
-        except ConfigParser.NoOptionError:
+        except configparser.NoOptionError:
             gui.class_fname = 'my_classes.dat'

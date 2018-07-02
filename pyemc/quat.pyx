@@ -18,7 +18,7 @@ cdef class rotation:
 		self.rot.icosahedral_flag = 0
 		self.rot.quat = NULL
 
-	def generate_quaternion(self, config_fname, config_section='emc'):
+	def generate_quaternion(self, config_fname, config_section=b'emc'):
 		cdef char* c_config_fname = config_fname
 		cdef char* c_config_section = config_section
 		ret = decl.generate_quaternion(c_config_fname, c_config_section, self.rot)

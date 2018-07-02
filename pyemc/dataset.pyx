@@ -1,4 +1,5 @@
 import numpy as np
+#from builtins import bytes
 
 cimport numpy as np
 from libc.stdint cimport uint8_t
@@ -23,7 +24,7 @@ cdef class dataset:
 		self.dset.blacklist = NULL
 		self.dset.sum_fact = NULL
 
-	def generate_data(self, config_fname, type_string='in', config_section='emc'):
+	def generate_data(self, config_fname, type_string=b'in', config_section=b'emc'):
 		cdef char* c_config_fname = config_fname
 		cdef char* c_config_section = config_section
 		cdef char* c_type_string = type_string
@@ -68,7 +69,7 @@ cdef class dataset:
 	@property
 	def mean_count(self): return self.dset.mean_count if self.dset != NULL else None
 	@property
-	def filename(self): return str(self.dset.filename) if self.dset != NULL else None
+	def filename(self): return <bytes>self.dset.filename if self.dset != NULL else None
 
 	# Sparse dataset
 	@property

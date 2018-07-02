@@ -1,8 +1,12 @@
+'''Various functions to read PDB files for Dragonfly'''
+
+from __future__ import print_function
+from builtins import range
 import sys
 import logging
 import os
 from collections import OrderedDict
-import urllib
+from six.moves.urllib.request import urlopen
 import numpy as np
 from scipy.interpolate import interp1d
 try:
@@ -13,11 +17,12 @@ except ImportError:
     WITH_PYFFTW = False
 
 def fetch_pdb(pdb_code):
-    print pdb_code
+    '''Get PDB file from aux directory if available, else download from RCSB'''
+    print(pdb_code)
     if os.path.isfile('aux/%s.pdb' % (pdb_code.upper())):
         pass
     else:
-        pdb_string = urllib.urlopen('http://www.rcsb.org/pdb/files/%s.pdb' % pdb_code.upper())
+        pdb_string = urlopen('http://www.rcsb.org/pdb/files/%s.pdb' % pdb_code.upper())
         with open('aux/%s.pdb' % pdb_code.upper()) as fptr:
             fptr.write(pdb_string)
 
@@ -47,6 +52,7 @@ def _find_mass(aux_dir, elem):
         for line, mass in lines:
             if line.lower() == elem.lower():
                 return float(mass)
+    return None
 
 def _make_scatt_list(atom_types, aux_dir, energy):
     scatt_list = OrderedDict()
@@ -106,8 +112,7 @@ def _apply_symmetry(atoms, sym_list, trans_list):
     total_ms = len(sym_list)*np.sum(mass) / 1.0e6
     logging.info("Mass of particle (MDa), %.3f", total_ms)
     out_atoms = np.zeros((len(sym_list),)+atoms.shape)
-    for i in xrange(len(sym_list)):
-        sym_op = sym_list[i]
+    for i, sym_op in enumerate(sym_list):
         trans = trans_list[i]
         vecs = sym_op.dot(org_atoms).T + trans
         to_app = np.concatenate((f0s, vecs, mass), axis=1)
@@ -115,6 +120,7 @@ def _apply_symmetry(atoms, sym_list, trans_list):
     return out_atoms.reshape(-1, 5)
 
 def atoms_to_density_map(atoms, voxel_size):
+    '''Create electron density map from atom coordinate list'''
     (x, y, z) = atoms[:, 1:4].T.copy()
     (x_min, x_max) = (x.min(), x.max())
     (y_min, y_max) = (y.min(), y.max())
@@ -127,9 +133,6 @@ def atoms_to_density_map(atoms, voxel_size):
     logging.info("Length of particle (voxels), %d", r_val)
     elec_den = atoms[:, 0].copy()
 
-    #x = (x-x_min)/voxel_size
-    #y = (y-y_min)/voxel_size
-    #z = (z-z_min)/voxel_size
     x = (x-0.5*(x_max+x_min-grid_len))/voxel_size
     y = (y-0.5*(y_max+y_min-grid_len))/voxel_size
     z = (z-0.5*(z_max+z_min-grid_len))/voxel_size
@@ -161,6 +164,7 @@ def atoms_to_density_map(atoms, voxel_size):
     return h_total
 
 def low_pass_filter_density_map(in_arr, damping=-1., thr=1.E-3, num_cycles=2, threads=4):
+    '''Convolve density map by Gaussian with given damping coefficient'''
     xl, yl, zl = in_arr.shape # pylint: disable=C0103
     xx, yy, zz = np.mgrid[-1:1:xl*1j, -1:1:yl*1j, -1:1:zl*1j] # pylint: disable=C0103
     fil = np.fft.ifftshift(np.exp(damping*(xx*xx + yy*yy + zz*zz)))
@@ -182,6 +186,9 @@ def low_pass_filter_density_map(in_arr, damping=-1., thr=1.E-3, num_cycles=2, th
     return out_arr.copy()
 
 def process(pdb_file, aux_dir, wavelength):
+    '''Get atom scattering list from PDB file
+    Generates list of coordinates, scattering f1 and mass for each atom
+    '''
     energy = _wavelength_in_A_to_eV(wavelength)
     atom_types = _find_atom_types(pdb_file)
     scatt_list = _make_scatt_list(atom_types, aux_dir, energy)
