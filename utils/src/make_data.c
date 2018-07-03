@@ -20,22 +20,22 @@
 #define FLUENCE 0
 #define COUNTS 1
 
-double rot[2][2] ;
-int num_data, size, scale_method, num_rot, do_gamma ;
+int testing_mode = 0 ;
+int size, num_rot, scale_method ;
 int **place_ones, **place_multi, *ones, *multi, **count_multi ;
-double fluence, rescale, mean_count, detd, background ;
 double *intens, *likelihood, *quat_list, *scale_factors ;
-char output_fname[1024], likelihood_fname[1024], scale_fname[1024] ;
 struct detector *det ;
+
+// Config file params
+int num_data, do_gamma ;
+double fluence, rescale, mean_count, background ;
+char output_fname[1024], likelihood_fname[1024], scale_fname[1024] ;
 
 void rescale_intens() ;
 void allocate_data_memory() ;
 double calc_dataset() ;
 void write_dataset() ;
 int setup(char*) ;
-void rand_quat(double[4], gsl_rng*) ;
-int poisson(double, gsl_rng*) ;
-double rand_scale() ;
 void free_mem() ;
 
 int main(int argc, char *argv[]) {
@@ -50,8 +50,7 @@ int main(int argc, char *argv[]) {
 	
 	omp_set_num_threads(omp_get_max_threads()) ;
 	strcpy(config_fname, "config.ini") ;
-	
-	while ((c = getopt(argc, argv, "c:t:h")) != -1) {
+	while ((c = getopt(argc, argv, "c:t:Th")) != -1) {
 		switch (c) {
 			case 't':
 				omp_set_num_threads(atoi(optarg)) ;
@@ -59,16 +58,19 @@ int main(int argc, char *argv[]) {
 			case 'c':
 				strcpy(config_fname, optarg) ;
 				break ;
+			case 'T':
+				testing_mode = 1 ;
+				fprintf(stderr, "====== Testing mode (fixed seed) ======\n") ;
+				break ;
 			case 'h':
 				fprintf(stderr, "Format: %s [-c config_fname] [-t num_threads] [-h]\n", argv[0]) ;
 				return 1 ;
 		}
 	}
-	
 	fprintf(stderr, "Generating data with parameters from %s\n", config_fname) ;
 	
 	if (setup(config_fname))
-		return 2 ;
+		return 1 ;
 	
 	gettimeofday(&t1, NULL) ;
 	
@@ -84,215 +86,6 @@ int main(int argc, char *argv[]) {
 	free_mem() ;
 	
 	return 0 ;
-}
-
-int setup(char *config_fname) {
-	int t ;
-	FILE *fp ;
-	char line[1024], *token ;
-	char det_fname[1024], model_fname[1024] ;
-	char out_det_fname[1024], out_model_fname[1024] ;
-	char quat_fname[1024] ;
-	double detd, pixsize, qmax, qmin, ewald_rad ;
-	int detsize, dets_x, dets_y ;
-
-	// Set default values
-	size = 0 ;
-	num_data = 0 ;
-	fluence = -1. ;
-	mean_count = -1. ;
-	do_gamma = 0 ;
-	background = 0. ;
-	output_fname[0] = '\0' ;
-	detsize = 0 ;
-	dets_x = 0 ;
-	dets_y = 0 ;
-	detd = 0. ;
-	pixsize = 0. ;
-	ewald_rad = -1. ;
-	quat_fname[0] = '\0' ;
-	num_rot = 0 ;
-	likelihood_fname[0] = '\0' ;
-	scale_fname[0] = '\0' ;
-
-	// Parse config file
-	fp = fopen(config_fname, "r") ;
-	if (fp == NULL) {
-		fprintf(stderr, "Config file %s not found.\n", config_fname) ;
-		return 1 ;
-	}
-	while (fgets(line, 1024, fp) != NULL) {
-		token = strtok(line, " =") ;
-		if (token[0] == '#' || token[0] == '\n' || token[0] == '[')
-			continue ;
-		
-		if (strcmp(token, "num_data") == 0)
-			num_data = atoi(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "detd") == 0)
-			detd = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "detsize") == 0) {
-			dets_x = atoi(strtok(NULL, " =\n")) ;
-			dets_y = dets_x ;
-			token = strtok(NULL, " =\n") ;
-			if (token == NULL)
-				detsize = dets_x ;
-			else {
-				dets_y = atoi(token) ;
-				detsize = dets_x > dets_y ? dets_x : dets_y ;
-			}
-		}
-		else if (strcmp(token, "pixsize") == 0)
-			pixsize = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "ewald_rad") == 0)
-			ewald_rad = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "mean_count") == 0)
-			mean_count = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "fluence") == 0)
-			fluence = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "bg_count") == 0)
-			background = atof(strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "out_photons_file") == 0)
-			strcpy(output_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "out_likelihood_file") == 0)
-			strcpy(likelihood_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "out_scale_file") == 0)
-			strcpy(scale_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "in_intensity_file") == 0)
-			strcpy(model_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "in_detector_file") == 0)
-			strcpy(det_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "out_intensity_file") == 0)
-			strcpy(out_model_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "out_detector_file") == 0)
-			strcpy(out_det_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "in_quat_list") == 0)
-			strcpy(quat_fname, strtok(NULL, " =\n")) ;
-		else if (strcmp(token, "gamma_fluence") == 0)
-			do_gamma = atoi(strtok(NULL, " =\n")) ;
-	}
-	fclose(fp) ;
-
-	// Update file names
-	if (strcmp(model_fname, "make_intensities:::out_intensity_file") == 0)
-		strcpy(model_fname, out_model_fname) ;
-	if (strcmp(det_fname, "make_detector:::out_detector_file") == 0)
-		strcpy(det_fname, out_det_fname) ;
-	char *config_folder = dirname(config_fname) ;
-	strcpy(line, det_fname) ;
-	sprintf(det_fname, "%s/%s", config_folder, line) ;
-	strcpy(line, output_fname) ;
-	sprintf(output_fname, "%s/%s", config_folder, line) ;
-	strcpy(line, model_fname) ;
-	sprintf(model_fname, "%s/%s", config_folder, line) ;
-
-	// Check for required parameters
-	if (detsize == 0 || pixsize == 0. || detd == 0.) {
-		fprintf(stderr, "Need detector parameters: detd, detsize, pixsize\n") ;
-		return 1 ;
-	}
-	if (num_data == 0) {
-		fprintf(stderr, "Need num_data (number of frames to be generated)\n") ;
-		return 1 ;
-	}
-	if (output_fname[0] == '\0') {
-		fprintf(stderr, "Need out_photons (name of output emc format file)\n") ;
-		return 1 ;
-	}
-	if (fluence < 0.) {
-		if (mean_count < 0.) {
-			fprintf(stderr, "Need either:\n") ;
-			fprintf(stderr, "\tfluence (incident beam intensity in photons/micron^2/pulse)\n") ;
-			fprintf(stderr, "\tmean_count (mean number of photons/frame)\n") ;
-			return 1 ;
-		}
-		else {
-			scale_method = COUNTS ;
-			fprintf(stderr, "Target mean_count = %f\n", mean_count) ;
-		}
-	}
-	else {
-		if (mean_count < 0.)
-			scale_method = FLUENCE ;
-		else {
-			fprintf(stderr, "Please specify only one of fluence of mean_count\n") ;
-			return 1 ;
-		}
-	}
-
-	// Parse detector
-	det = malloc(sizeof(struct detector)) ;
-	qmax = parse_detector(det_fname, det, 0) ;
-	if (qmax < 0.)
-		return 1 ;
-	background /= det->num_pix ;
-
-	// Calculate volume size
-	if (det->detd > 0.)
-		detd = det->detd ;
-	else
-		detd /= pixsize ;
-	if (det->ewald_rad > 0.)
-		ewald_rad = det->ewald_rad ;
-	double hx = (dets_x - 1) / 2 ;
-	double hy = (dets_y - 1) / 2 ;
-	qmax = 2. * sin(0.5 * atan(sqrt(hx*hx + hy*hy)/detd)) ;
-	qmin = 2. * sin(0.5 * atan(1./detd)) ;
-	if (ewald_rad == -1.)
-		size = 2 * ceil(qmax / qmin) + 3 ;
-	else
-		size = 2 * ceil(qmax / qmin * ewald_rad / detd) + 3 ;
-	fprintf(stderr, "Assuming %s has size %d\n", model_fname, size) ;
-	
-	if (likelihood_fname[0] != '\0')
-		fprintf(stderr, "Saving frame-by-frame likelihoods to %s\n", likelihood_fname) ;
-	if (do_gamma)
-		fprintf(stderr, "Assuming Gamma-distributed variable incident fluence\n") ;
-
-	// Parse intensity volume
-	fp = fopen(model_fname, "rb") ;
-	if (fp == NULL) {
-		fprintf(stderr, "model_fname: %s not found. Exiting...\n", model_fname) ;
-		return 1 ;
-	}
-	intens = malloc(size * size * size * sizeof(double)) ;
-	fread(intens, sizeof(double), size*size*size, fp) ;
-	fclose(fp) ;
-
-	// Parse quaternion if provided
-	if (quat_fname[0] != '\0') {
-		fprintf(stderr, "Picking discrete orientations from %s\n", quat_fname) ;
-		fp = fopen(quat_fname, "r") ;
-		if (fp == NULL) {
-			fprintf(stderr, "Unable to open %s\n", quat_fname) ;
-			return 1 ;
-		}
-		fscanf(fp, "%d\n", &num_rot) ;
-		quat_list = malloc(num_rot * 4 * sizeof(double)) ;
-		for (t = 0 ; t < num_rot*4 ; ++t)
-			fscanf(fp, "%lf", &quat_list[t]) ;
-		fclose(fp) ;
-	}
-	
-	return 0 ;
-}
-
-void free_mem() {
-	int d ;
-	
-	free(intens) ;
-	free_detector(det) ;
-	free(likelihood) ;
-	
-	free(ones) ;
-	free(multi) ;
-	for (d = 0 ; d < num_data ; ++d) {
-		free(place_ones[d]) ;
-		free(place_multi[d]) ;
-		free(count_multi[d]) ;
-	}
-	free(place_ones) ;
-	free(place_multi) ;
-	free(count_multi) ;
 }
 
 void rand_quat(double quat[4], gsl_rng *rng) {
@@ -317,12 +110,17 @@ void rescale_intens() {
 	int x ;
 	double rescale = 0., intens_ave = 0. ;
 	const gsl_rng_type *T = gsl_rng_default ;
-	struct timeval tval ;
 	gsl_rng *rng = gsl_rng_alloc(T) ;
 	unsigned long *seeds = malloc(omp_get_max_threads() * sizeof(unsigned long)) ;
 	
-	gettimeofday(&tval, NULL) ;
-	gsl_rng_set(rng, tval.tv_sec + tval.tv_usec) ;
+	if (testing_mode) {
+		gsl_rng_set(rng, 0x5EED) ;
+	}
+	else {
+		struct timeval tval ;
+		gettimeofday(&tval, NULL) ;
+		gsl_rng_set(rng, tval.tv_sec + tval.tv_usec) ;
+	}
 	for (x = 0 ; x < omp_get_max_threads() ; ++x)
 		seeds[x] = gsl_rng_get(rng) ;
 	
@@ -338,17 +136,17 @@ void rescale_intens() {
 		for (d = 0 ; d < NUM_AVE ; ++d) {
 			if (num_rot == 0) {
 				rand_quat(quat, rng) ;
-				slice_gen(quat, 0., view, intens, size, det) ;
+				slice_gen3d(quat, 0., view, intens, size, det) ;
 			}
 			else {
-				slice_gen(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], 0., view, intens, size, det) ;
+				slice_gen3d(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], 0., view, intens, size, det) ;
 			}
-            
+			
 			for (t = 0 ; t < det->num_pix ; ++t){
 				if (det->mask[t] > 1)
 					continue ;
 				intens_ave += view[t] ;
-            }
+			}
 		}
 		
 		free(view) ;
@@ -356,6 +154,7 @@ void rescale_intens() {
 	}
 	
 	free(seeds) ;
+	gsl_rng_free(rng) ;
 	intens_ave /= NUM_AVE ;
 	
     if (scale_method == FLUENCE) {
@@ -394,17 +193,22 @@ void allocate_data_memory() {
 		count_multi[d] = malloc((long) num_multi * sizeof(int)) ;
 	}
 }
-	
+
 double calc_dataset() {
 	int x ;
 	double actual_mean_count = 0. ;
 	const gsl_rng_type *T = gsl_rng_default ;
-	struct timeval tval ;
 	gsl_rng *rng = gsl_rng_alloc(T) ;
 	unsigned long *seeds = malloc(omp_get_max_threads() * sizeof(unsigned long)) ;
 	
-	gettimeofday(&tval, NULL) ;
-	gsl_rng_set(rng, tval.tv_sec + tval.tv_usec) ;
+	if (testing_mode) {
+		gsl_rng_set(rng, 0x5EED) ;
+	}
+	else {
+		struct timeval tval ;
+		gettimeofday(&tval, NULL) ;
+		gsl_rng_set(rng, tval.tv_sec + tval.tv_usec) ;
+	}
 	for (x = 0 ; x < omp_get_max_threads() ; ++x)
 		seeds[x] = gsl_rng_get(rng) ;
 	
@@ -420,10 +224,10 @@ double calc_dataset() {
 		for (d = 0 ; d < num_data ; ++d) {
 			if (num_rot == 0) {
 				rand_quat(quat, rng) ;
-				slice_gen(quat, 0., view, intens, size, det) ;
+				slice_gen3d(quat, 0., view, intens, size, det) ;
 			}
 			else {
-				slice_gen(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], 0., view, intens, size, det) ;
+				slice_gen3d(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], 0., view, intens, size, det) ;
 			}
 			
 			if (do_gamma)
@@ -468,6 +272,7 @@ double calc_dataset() {
 	}
 	 
 	free(seeds) ;
+	gsl_rng_free(rng) ;
 	fprintf(stderr, "\rFinished d = %d\n", num_data) ;
 	return actual_mean_count / num_data ;
 }
@@ -501,3 +306,266 @@ void write_dataset() {
 		fclose(fp) ;
 	}
 }
+
+char *generate_token(char *line, char *section_name) {
+	char *token = strtok(line, " =") ;
+	if (token[0] == '#' || token[0] == '\n')
+		return NULL ;
+	
+	if (line[0] == '[') {
+		token = strtok(line, "[]") ;
+		strcpy(section_name, token) ;
+		return NULL ;
+	}
+	
+	return token ;
+}
+
+int generate_size_params(char *config_fname) {
+	double qmin, qmax, hx, hy ;
+	double detd = 0., pixsize = 0., ewald_rad = -1. ;
+	int detsize = 0, dets_x = 0, dets_y = 0 ;
+	char line[1024], section_name[1024], *token ;
+	
+	FILE *config_fp = fopen(config_fname, "r") ;
+	while (fgets(line, 1024, config_fp) != NULL) {
+		if ((token = generate_token(line, section_name)) == NULL)
+			continue ;
+		
+		if (strcmp(section_name, "parameters") == 0) {
+			if (strcmp(token, "detd") == 0)
+				detd = atof(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "detsize") == 0) {
+				dets_x = atoi(strtok(NULL, " =\n")) ;
+				dets_y = dets_x ;
+				token = strtok(NULL, " =\n") ;
+				if (token == NULL)
+					detsize = dets_x ;
+				else {
+					dets_y = atoi(token) ;
+					detsize = dets_x > dets_y ? dets_x : dets_y ;
+				}
+			}
+			else if (strcmp(token, "pixsize") == 0)
+				pixsize = atof(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "ewald_rad") == 0)
+				ewald_rad = atof(strtok(NULL, " =\n")) ;
+		}
+	}
+	fclose(config_fp) ;
+	
+	if (detsize == 0 || pixsize == 0. || detd == 0.) {
+		fprintf(stderr, "Need detector parameters: detd, detsize, pixsize\n") ;
+		return 1 ;
+	}
+	
+	if (det->detd > 0.)
+		detd = det->detd ;
+	else
+		detd /= pixsize ;
+	if (det->ewald_rad > 0.)
+		ewald_rad = det->ewald_rad ;
+	hx = (dets_x - 1) / 2 ;
+	hy = (dets_y - 1) / 2 ;
+	qmax = 2. * sin(0.5 * atan(sqrt(hx*hx + hy*hy)/detd)) ;
+	qmin = 2. * sin(0.5 * atan(1./detd)) ;
+	if (ewald_rad == -1.)
+		size = 2 * ceil(qmax / qmin) + 3 ;
+	else
+		size = 2 * ceil(qmax / qmin * ewald_rad / detd) + 3 ;
+	fprintf(stderr, "Calculated size of %d voxels from config parameters\n", size) ;
+	
+	return 0 ;
+}
+
+int generate_intens(char *config_fname) {
+	FILE *fp ;
+	char intens_fname[1024], out_intens_fname[1024] ;
+	char line[1024], section_name[1024], *token ;
+	
+	FILE *config_fp = fopen(config_fname, "r") ;
+	while (fgets(line, 1024, config_fp) != NULL) {
+		if ((token = generate_token(line, section_name)) == NULL)
+			continue ;
+		
+		if (strcmp(section_name, "make_data") == 0) {
+			if (strcmp(token, "in_intensity_file") == 0)
+				strcpy(intens_fname, strtok(NULL, " =\n")) ;
+		}
+		else if (strcmp(section_name, "make_intensities") == 0) {
+			if (strcmp(token, "out_intensity_file") == 0)
+				strcpy(out_intens_fname, strtok(NULL, " =\n")) ;
+		}
+	}
+	fclose(config_fp) ;
+	if (strcmp(intens_fname, "make_intensities:::out_intensity_file") == 0)
+		strcpy(intens_fname, out_intens_fname) ;
+	
+	fp = fopen(intens_fname, "rb") ;
+	if (fp == NULL) {
+		fprintf(stderr, "in_intensity_file: %s not found.\n", intens_fname) ;
+		return 1 ;
+	}
+	intens = malloc(size * size * size * sizeof(double)) ;
+	fread(intens, sizeof(double), size*size*size, fp) ;
+	fclose(fp) ;
+
+	return 0 ;
+}
+
+int generate_quat_list(char *config_fname) {
+	int t ;
+	FILE *fp ;
+	char quat_fname[1024] = {'\0'} ;
+	char line[1024], section_name[1024], *token ;
+	
+	FILE *config_fp = fopen(config_fname, "r") ;
+	while (fgets(line, 1024, config_fp) != NULL) {
+		if ((token = generate_token(line, section_name)) == NULL)
+			continue ;
+		
+		if (strcmp(section_name, "make_data") == 0) {
+			if (strcmp(token, "in_quat_list") == 0)
+				strcpy(quat_fname, strtok(NULL, " =\n")) ;
+		}
+	}
+	fclose(config_fp) ;
+	
+	if (quat_fname[0] != '\0') {
+		fprintf(stderr, "Picking discrete orientations from %s\n", quat_fname) ;
+		fp = fopen(quat_fname, "r") ;
+		if (fp == NULL) {
+			fprintf(stderr, "Unable to open %s\n", quat_fname) ;
+			return 1 ;
+		}
+		fscanf(fp, "%d\n", &num_rot) ;
+		quat_list = malloc(num_rot * 4 * sizeof(double)) ;
+		for (t = 0 ; t < num_rot*4 ; ++t)
+			fscanf(fp, "%lf", &quat_list[t]) ;
+		fclose(fp) ;
+	}
+	
+	return 0 ;
+}
+
+int generate_globals(char *config_fname) {
+	char line[1024], section_name[1024], *token ;
+	
+	size = 0 ;
+	num_data = 0 ;
+	fluence = -1. ;
+	mean_count = -1. ;
+	do_gamma = 0 ;
+	background = 0. ;
+	num_rot = 0 ;
+	output_fname[0] = '\0' ;
+	likelihood_fname[0] = '\0' ;
+	scale_fname[0] = '\0' ;
+	
+	FILE *config_fp = fopen(config_fname, "r") ;
+	while (fgets(line, 1024, config_fp) != NULL) {
+		if ((token = generate_token(line, section_name)) == NULL)
+			continue ;
+		
+		if (strcmp(section_name, "make_data") == 0) {
+			if (strcmp(token, "num_data") == 0)
+				num_data = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "mean_count") == 0)
+				mean_count = atof(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "fluence") == 0)
+				fluence = atof(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "bg_count") == 0)
+				background = atof(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "gamma_fluence") == 0)
+				do_gamma = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "out_photons_file") == 0)
+				strcpy(output_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "out_likelihood_file") == 0)
+				strcpy(likelihood_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "out_scale_file") == 0)
+				strcpy(scale_fname, strtok(NULL, " =\n")) ;
+		}
+	}
+	fclose(config_fp) ;
+
+	// Check for required parameters
+	if (num_data == 0) {
+		fprintf(stderr, "Need num_data (number of frames to be generated)\n") ;
+		return 1 ;
+	}
+	if (output_fname[0] == '\0') {
+		fprintf(stderr, "Need out_photons_file (name of output emc format file)\n") ;
+		return 1 ;
+	}
+	if (fluence < 0.) {
+		if (mean_count < 0.) {
+			fprintf(stderr, "Need either:\n") ;
+			fprintf(stderr, "\tfluence (incident beam intensity in photons/micron^2/pulse)\n") ;
+			fprintf(stderr, "\tmean_count (mean number of photons/frame)\n") ;
+			return 1 ;
+		}
+		else {
+			scale_method = COUNTS ;
+			fprintf(stderr, "Target mean_count = %f\n", mean_count) ;
+		}
+	}
+	else {
+		if (mean_count < 0.)
+			scale_method = FLUENCE ;
+		else {
+			fprintf(stderr, "Please specify only one of fluence of mean_count\n") ;
+			return 1 ;
+		}
+	}
+	if (likelihood_fname[0] != '\0')
+		fprintf(stderr, "Saving frame-by-frame likelihoods to %s\n", likelihood_fname) ;
+	if (do_gamma)
+		fprintf(stderr, "Assuming Gamma-distributed variable incident fluence\n") ;
+	fprintf(stderr, "Parsed global parameters from config file\n") ;
+	
+	return 0 ;
+}
+
+int setup(char *config_fname) {
+	FILE *fp ;
+	
+	fp = fopen(config_fname, "r") ;
+	if (fp == NULL) {
+		fprintf(stderr, "Config file %s not found.\n", config_fname) ;
+		return 1 ;
+	}
+	fclose(fp) ;
+	if (generate_globals(config_fname))
+		return 1 ;
+	if (generate_detectors(config_fname, "make_data", &det, 0) < 0.)
+		return 1 ;
+	background /= det[0].num_pix ;
+	if (generate_size_params(config_fname))
+		return 1 ;
+	if (generate_intens(config_fname))
+		return 1 ;
+	if (generate_quat_list(config_fname))
+		return 1 ;
+
+	return 0 ;
+}
+
+void free_mem() {
+	int d ;
+	
+	free(intens) ;
+	free_detector(det) ;
+	free(likelihood) ;
+	
+	free(ones) ;
+	free(multi) ;
+	for (d = 0 ; d < num_data ; ++d) {
+		free(place_ones[d]) ;
+		free(place_multi[d]) ;
+		free(count_multi[d]) ;
+	}
+	free(place_ones) ;
+	free(place_multi) ;
+	free(count_multi) ;
+}
+

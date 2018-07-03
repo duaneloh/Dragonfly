@@ -10,20 +10,50 @@
 #include "../../src/detector.h"
 #include "../../src/dataset.h"
 #include "../../src/interp.h"
+#include "../../src/iterate.h"
 
-int size, center ;
 struct detector *det ;
 struct dataset *frames ;
+struct iterate *iter ;
 double *quat ;
-char output_fname[1024], dset_name[1024] ;
-char (*file_list)[1024] ;
+char output_fname[1024] ;
 
-int parse_quat(char *fname, int invert_quat) {
-	int r, t ;
+char *generate_token(char *line, char *section_name) {
+	char *token = strtok(line, " =") ;
+	if (token[0] == '#' || token[0] == '\n')
+		return NULL ;
 	
-	FILE *fp = fopen(fname, "r") ;
+	if (line[0] == '[') {
+		token = strtok(line, "[]") ;
+		strcpy(section_name, token) ;
+		return NULL ;
+	}
+	
+	return token ;
+}
+
+int generate_quat_list(char *config_fname) {
+	int r, t, invert_quat = 0 ;
+	char quat_fname[1024] = {'\0'} ;
+	char line[1024], section_name[1024], *token ;
+	
+	FILE *config_fp = fopen(config_fname, "r") ;
+	while (fgets(line, 1024, config_fp) != NULL) {
+		if ((token = generate_token(line, section_name)) == NULL)
+			continue ;
+		
+		if (strcmp(section_name, "merge") == 0) {
+			if (strcmp(token, "in_quat_file") == 0)
+				strcpy(quat_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "invert_quat") == 0)
+				invert_quat = atoi(strtok(NULL, " =\n")) ;
+		}
+	}
+	fclose(config_fp) ;
+	
+	FILE *fp = fopen(quat_fname, "r") ;
 	if (fp == NULL) {
-		fprintf(stderr, "quaternion file %s not found. Exiting.\n", fname) ;
+		fprintf(stderr, "in_quat_file %s not found. Exiting.\n", quat_fname) ;
 		return 1 ;
 	}
 	quat = malloc(frames->tot_num_data * 4 * sizeof(double)) ;
@@ -43,129 +73,56 @@ int parse_quat(char *fname, int invert_quat) {
 	return 0 ;
 }
 
+int generate_globals(char *config_fname) {
+	char line[1024], section_name[1024], *token ;
+	
+	frames = malloc(sizeof(struct dataset)) ;
+	iter = malloc(sizeof(struct iterate)) ;
+	
+	iter->size = -1 ;
+	iter->model2 = NULL ;
+	output_fname[0] = '\0' ;
+	
+	FILE *config_fp = fopen(config_fname, "r") ;
+	while (fgets(line, 1024, config_fp) != NULL) {
+		if ((token = generate_token(line, section_name)) == NULL)
+			continue ;
+		
+		if (strcmp(section_name, "merge") == 0) {
+			if (strcmp(token, "size") == 0)
+				iter->size = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "out_merge_file") == 0)
+				strcpy(output_fname, strtok(NULL, " =\n")) ;
+		}
+	}
+	fclose(config_fp) ;
+	
+	if (output_fname[0] == '\0') {
+		fprintf(stderr, "out_merge_file not specified.\n") ;
+		return 1 ;
+	}
+	
+	return 0 ;
+}
+
 int setup(char *fname) {
-	int invert_quat ;
 	double qmax = -1 ;
 	FILE *fp ;
-	char line[1024], *token ;
-	char det_fname[1024], out_det_fname[1024] ;
-	char quat_fname[1024], data_fname[1024] ;
-	char out_data_fname[1024], data_flist[1024] ;
-	char det_flist[1024], section_name[1024] ;
-
-	invert_quat = 0 ;
-	det_fname[0] = '\0' ;
-	det_flist[0] = '\0' ;
-	out_det_fname[0] = '\0' ;
-	quat_fname[0] = '\0' ;
-	output_fname[0] = '\0' ;
-	data_fname[0] = '\0' ;
-	data_flist[0] = '\0' ;
-
+	
 	fp = fopen(fname, "r") ;
 	if (fp == NULL) {
 		fprintf(stderr, "Config file %s not found.\n", fname) ;
 		return 1 ;
 	}
-	while (fgets(line, 1024, fp) != NULL) {
-		token = strtok(line, " =") ;
-		if (token[0] == '#' || token[0] == '\n') {
-			continue ;
-		}
-		else if (token[0] == '[') {
-			token = strtok(token, "[]") ;
-			strcpy(section_name, token) ;
-			continue ;
-		}
-		
-		if (strcmp(section_name, "merge") == 0) {
-			if (strcmp(token, "size") == 0)
-				size = atoi(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "in_photons_file") == 0)
-				strcpy(data_fname, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "in_photons_list") == 0)
-				strcpy(data_flist, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "in_detector_file") == 0)
-				strcpy(det_fname, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "in_detector_list") == 0)
-				strcpy(det_flist, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "in_quat_file") == 0)
-				strcpy(quat_fname, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "out_merge_file") == 0)
-				strcpy(output_fname, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "invert_quat") == 0)
-				invert_quat = atoi(strtok(NULL, " =\n")) ;
-			else
-				fprintf(stderr, "Unknown parameter in [merge]: %s\n", token) ;
-		}
-		else if (strcmp(section_name, "make_detector") == 0) {
-			if (strcmp(token, "out_detector_file") == 0)
-				strcpy(out_det_fname, strtok(NULL, " =\n")) ;
-		}
-		else if (strcmp(section_name, "make_data") == 0) {
-			if (strcmp(token, "out_photons_file") == 0)
-				strcpy(out_data_fname, strtok(NULL, " =\n")) ;
-		}
-	}
-
-	// Parse detector(s)
-	if (det_flist[0] != '\0' && det_fname[0] != '\0') {
-		fprintf(stderr, "Both in_detector_file and in_detector_list specified. Pick one.\n") ;
+	fclose(fp) ;
+	if (generate_globals(fname))
 		return 1 ;
-	}
-	else if (det_fname[0] != '\0') {
-		det = malloc(sizeof(struct detector)) ;
-		det[0].num_det = 1 ;
-		memset(det[0].mapping, 0, 1024*sizeof(int)) ;
-		if ((qmax = parse_detector(det_fname, det, 1)) < 0.)
-			return 1 ;
-	}
-	else if (det_flist[0] != '\0') {
-		if ((qmax = parse_detector_list(det_flist, &det, 1)) < 0.)
-			return 1 ;
-	}
-	else {
-		fprintf(stderr, "Need either in_detector_file or in_detector_list.\n") ;
+	if ((qmax = generate_detectors(fname, "merge", &det, 1)) < 0.)
 		return 1 ;
-	}
-
-	// Get volume size
-	if (size < 0) {
-		size = 2 * ceil(qmax) + 3 ;
-		fprintf(stderr, "Calculated volume size = %d\n", size) ;
-	}
-	else {
-		fprintf(stderr, "Provided volume size = %d\n", size) ;
-	}
-	center = size / 2 ;
-
-	// Parse dataset(s)
-	int num_datasets ;
-	frames = malloc(sizeof(struct dataset)) ;
-	frames->next = NULL ;
-	if (data_flist[0] != '\0' && data_fname[0] != '\0') {
-		fprintf(stderr, "Config file contains both in_photons_file and in_photons_list. Pick one.\n") ;
+	calculate_size(qmax, iter) ;
+	if (generate_data(fname, "merge", "in", det, frames))
 		return 1 ;
-	}
-	else if (data_flist[0] == '\0') {
-		if (parse_dataset(data_fname, det, frames))
-			return 1 ;
-		num_datasets = 1 ;
-	}
-	else if ((num_datasets = parse_data(data_flist, det, frames)) < 0) {
-		return 1 ;
-	}
-	else {
-		fprintf(stderr, "Need either in_photons_file or in_photons_list.\n") ;
-		return 1 ;
-	}
-	if (det[0].num_det != num_datasets) {
-		fprintf(stderr, "Number of detector files and emc files don't match (%d vs %d)\n", det[0].num_det, num_datasets) ;
-		return 1 ;
-	}
-
-	// Parse orientations
-	if (parse_quat(quat_fname, invert_quat))
+	if (generate_quat_list(fname))
 		return 1 ;
 	
 	return 0 ;
@@ -174,7 +131,6 @@ int setup(char *fname) {
 int main(int argc, char *argv[]) {
 	long i, vol ;
 	FILE *fp ;
-	struct dataset *curr ;
 	char config_fname[1024] ;
 	int c ;
 	extern char *optarg ;
@@ -200,26 +156,27 @@ int main(int argc, char *argv[]) {
 	fprintf(stderr, "Generating merge with parameters from %s\n", config_fname) ;
 	if (setup(config_fname))
 		return 1 ;
-	center = size / 2 ;
-	vol = (long)size*size*size ;
-	double *model = calloc(vol, sizeof(double)) ;
-	double *weight = calloc(vol, sizeof(double)) ;
+	iter->center = iter->size / 2 ;
+	vol = (long)iter->size*iter->size*iter->size ;
+	iter->model1 = calloc(vol, sizeof(double)) ;
+	iter->inter_weight = calloc(vol, sizeof(double)) ;
 
 	#pragma omp parallel default(shared)
 	{
 		int omp_rank = omp_get_thread_num() ;
-		long detn, d, t, i, dset = 0 ;
+		long detn, d, t, i, dset = 0, old_detn = -1 ;
 		double *priv_model = calloc(vol, sizeof(double)) ;
 		double *priv_weight = calloc(vol, sizeof(double)) ;
 		double *view = malloc(det->num_pix * sizeof(double)) ;
-		
-		if (omp_rank == 0)
-			curr = frames ;
-		#pragma omp barrier
+		struct dataset *curr = frames ;
 		
 		while (curr != NULL) {
 			detn = det[0].mapping[dset] ;
-			realloc(view, det[detn].num_pix*sizeof(double)) ;
+			if (detn != old_detn) {
+				free(view) ;
+				view = malloc(det[detn].num_pix*sizeof(double)) ;
+				old_detn = detn ;
+			}
 			
 			#pragma omp for schedule(static,1)
 			for (d = 0 ; d < curr->num_data ; ++d) {
@@ -229,15 +186,14 @@ int main(int argc, char *argv[]) {
 				for (t = 0 ; t < curr->multi[d] ; ++t)
 					view[curr->place_multi[curr->multi_accum[d]+t]] += curr->count_multi[curr->multi_accum[d]+t] ;
 				
-				slice_merge(&quat[4*d], view, priv_model, priv_weight, size, &det[detn]) ;
+				slice_merge3d(&quat[4*d], view, priv_model, priv_weight, iter->size, &det[detn]) ;
 				if (omp_rank == 0)
 					fprintf(stderr, "\rMerging %s : %ld/%d", curr->filename, d+1, curr->num_data) ;
 			}
 			if (omp_rank == 0)
 				fprintf(stderr, "\rMerging %s : %d/%d done\n", curr->filename, curr->num_data, curr->num_data) ;
 			
-			if (omp_rank == 0)
-				curr = curr->next ;
+			curr = curr->next ;
 			dset++ ;
 			#pragma omp barrier
 		}
@@ -245,8 +201,8 @@ int main(int argc, char *argv[]) {
 		#pragma omp critical(model)
 		{
 			for (i = 0 ; i < vol ; ++i) {
-				model[i] += priv_model[i] ;
-				weight[i] += priv_weight[i] ;
+				iter->model1[i] += priv_model[i] ;
+				iter->inter_weight[i] += priv_weight[i] ;
 			}
 		}
 		
@@ -256,22 +212,21 @@ int main(int argc, char *argv[]) {
 	}
 
 	for (i = 0 ; i < vol ; ++i)
-	if (weight[i] > 0.)
-		model[i] /= weight[i] ;
-	symmetrize_friedel(model, size) ;
+	if (iter->inter_weight[i] > 0.)
+		iter->model1[i] /= iter->inter_weight[i] ;
+	symmetrize_friedel(iter->model1, iter->size) ;
 	
 	fp = fopen(output_fname, "wb") ;
-	fwrite(model, sizeof(double), vol, fp) ;
+	fwrite(iter->model1, sizeof(double), vol, fp) ;
 	fclose(fp) ;
 	
 	fp = fopen("data/weights.bin", "wb") ;
-	fwrite(weight, sizeof(double), vol, fp) ;
+	fwrite(iter->inter_weight, sizeof(double), vol, fp) ;
 	fclose(fp) ;
 	
-	fprintf(stderr, "Saved %d-cubed model to %s\n", size, output_fname) ;
+	fprintf(stderr, "Saved %ld-cubed model to %s\n", iter->size, output_fname) ;
 	
-	free(model) ;
-	free(weight) ;
+	free_iterate(iter) ;
 	free(quat) ;
 	free_detector(det) ;
 	free_data(0, frames) ;

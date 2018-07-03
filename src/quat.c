@@ -1,38 +1,37 @@
 #include "quat.h"
 
-#define num_vert 120 
-#define num_edge 720
-#define num_face 1200
-#define num_cell 600
-// number of nearest neighbors = num_edge / num_vert * 2
-#define nnn 12
+#define NUM_VERT 120 
+#define NUM_EDGE 720
+#define NUM_FACE 1200
+#define NUM_CELL 600
+// number of nearest neighbors = NUM_EDGE / NUM_VERT * 2
+#define NNN 12
 
 struct q_point{
 	int vec[4][2] ;
 	double weight ;
 } ;
 
-double vertices[num_vert][4] ;
-int edges[num_edge][2] ;
-int faces[num_face][3] ;
-int cells[num_cell][4] ;
-int nn_list[num_vert][nnn] ;
-int edge2cell[num_edge][4] ;
-int face2cell[num_face][4] ;
+static double vertices[NUM_VERT][4] ;
+static int edges[NUM_EDGE][2] ;
+static int faces[NUM_FACE][3] ;
+static int cells[NUM_CELL][4] ;
+static int nn_list[NUM_VERT][NNN] ;
+static int edge2cell[NUM_EDGE][4] ;
+static int face2cell[NUM_FACE][4] ;
+static int vec_vertices[NUM_VERT][4][2] ;
 
-int vec_vertices[num_vert][4][2] ;
-double min_dist2 ;
+static struct q_point *vertice_points, *edge_points, *face_points, *cell_points ;
+static int num_edge_point, num_face_point, num_cell_point ;
 
-struct q_point *vertice_points, *edge_points, *face_points, *cell_points ;
-int num_edge_point, num_face_point, num_cell_point ;
-double f0, f1 ;
-
-void ver_even_permute(int num, int idx) {
+static void ver_even_permute(int num, int idx) {
 	int i, j, k, m, n ;
 	
 	// even permutations
-	int perm_idx[12][4] = { {0, 1, 2, 3}, {0, 2, 3, 1}, {0, 3, 1, 2}, {1, 2, 0, 3}, {1, 0, 3, 2}, {1, 3, 2, 0}, \
-				{2, 0, 1, 3}, {2, 3, 0, 1}, {2, 1, 3, 0}, {3, 1, 0, 2}, {3, 0, 2, 1}, {3, 2, 1, 0} } ;
+	int perm_idx[12][4] = {{0, 1, 2, 3}, {0, 2, 3, 1}, {0, 3, 1, 2},
+	                       {1, 2, 0, 3}, {1, 0, 3, 2}, {1, 3, 2, 0},
+	                       {2, 0, 1, 3}, {2, 3, 0, 1}, {2, 1, 3, 0},
+	                       {3, 1, 0, 2}, {3, 0, 2, 1}, {3, 2, 1, 0}} ;
 	double vert[4] ;
 	int vec_vert[4][2] ;
 	double tau = (sqrt(5.) + 1.) / 2. ;
@@ -65,7 +64,7 @@ void ver_even_permute(int num, int idx) {
 	}
 }	
 
-void make_vertex(int num) {
+static void make_vertex(int num) {
 	int h, i, j, k, idx = 0 ;
 	
 	// 16 vertices
@@ -113,30 +112,35 @@ void make_vertex(int num) {
 	ver_even_permute(num, idx) ;
 }
 
-void make_edge(int num) {
-	double tmp, epsilon = 1.e-6 ;
-	int i, j, k, edge_count = 0 ;
-	int nn_count[num_vert] ;
+static double calc_min_dist2(void) {
+	double tmp, val = 0. ;
+	int i, j ;
 	
 	for (i = 0 ; i < 4 ; i++)
-		min_dist2 += pow(vertices[0][i] - vertices[1][i], 2) ;
+		val += pow(vertices[0][i] - vertices[1][i], 2) ;
 	
-	for (i = 2 ; i < num_vert ; i++) {
+	for (i = 2 ; i < NUM_VERT ; i++) {
 		tmp = 0 ;
 		for (j = 0 ; j < 4 ; j++)
 			tmp += pow(vertices[0][j] - vertices[i][j], 2) ;
-		if (tmp < min_dist2)
-			min_dist2 = tmp ;
+		if (tmp < val)
+			val = tmp ;
 	}
 	
 	// offset by a small number to avoid the round-off error
-	min_dist2 += epsilon ;
+	return val + 1.e-6 ;
+}
 	
-	for (i = 0 ; i < num_vert ; i++)
+static void make_edge(int num, double min_dist2) {
+	double tmp ;
+	int i, j, k, edge_count = 0 ;
+	int nn_count[NUM_VERT] ;
+	
+	for (i = 0 ; i < NUM_VERT ; i++)
 		nn_count[i] = 0 ;
 	
-	for (i = 0 ; i < num_vert ; i++)
-	for (j = i + 1 ; j < num_vert ; j++) {
+	for (i = 0 ; i < NUM_VERT ; i++)
+	for (j = i + 1 ; j < NUM_VERT ; j++) {
 		tmp = 0 ;
 		for (k = 0 ; k < 4 ; k++)
 			tmp += pow(vertices[i][k] - vertices[j][k], 2) ;
@@ -156,13 +160,13 @@ void make_edge(int num) {
 	}
 }
 
-void make_face(int num) {
+static void make_face(int num, double min_dist2) {
 	int i, j, k, idx ;
 	int face_count = 0 ;
 	double tmp ;
 	
-	for (i = 0 ; i < num_edge ; i++)
-	for (j = 0 ; j < nnn ; j++) {
+	for (i = 0 ; i < NUM_EDGE ; i++)
+	for (j = 0 ; j < NNN ; j++) {
 		if (nn_list[edges[i][0]][j] <= edges[i][1])
 			continue ;
 		
@@ -181,13 +185,13 @@ void make_face(int num) {
 	}
 }
 
-void make_cell(int num) {
+static void make_cell(int num, double min_dist2) {
 	int i, j, k, idx ;
 	int cell_count = 0 ;
 	double tmp ;
 	
-	for (i = 0 ; i < num_face ; i++)
-	for (j = 0 ; j < nnn ; j++) {
+	for (i = 0 ; i < NUM_FACE ; i++)
+	for (j = 0 ; j < NNN ; j++) {
 		if (nn_list[faces[i][0]][j] <= faces[i][2])
 			continue ;
 		
@@ -216,13 +220,13 @@ void make_cell(int num) {
 	}
 }
 
-void make_map() {
+static void make_map(double min_dist2) {
 	int i, j, k, m, idx ;
 	double tmp ;
 	
 	// face2cell
-	for (i = 0 ; i < num_face ; i++)
-	for (j = 0 ; j < nnn ; j++) {
+	for (i = 0 ; i < NUM_FACE ; i++)
+	for (j = 0 ; j < NNN ; j++) {
 		idx = nn_list[faces[i][0]][j] ;
 		if (idx == faces[i][1] || idx == faces[i][2])
 			continue ;
@@ -250,8 +254,8 @@ void make_map() {
 	}
 	
 	// edge2cell
-	for (i = 0 ; i < num_edge ; i++)
-	for (j = 0 ; j < nnn ; j++) {
+	for (i = 0 ; i < NUM_EDGE ; i++)
+	for (j = 0 ; j < NNN ; j++) {
 		idx = nn_list[edges[i][0]][j] ;
 		if (idx == edges[i][1])
 			continue ;
@@ -267,7 +271,7 @@ void make_map() {
 		edge2cell[i][1] = edges[i][1] ;
 		edge2cell[i][2] = idx ;
 	
-		for (k = j + 1 ; k < nnn ; k++) {
+		for (k = j + 1 ; k < NNN ; k++) {
 			idx = nn_list[edges[i][0]][k] ;
 			if (idx == edge2cell[i][1])
 				continue ;
@@ -293,7 +297,7 @@ void make_map() {
 	}
 }
 
-double weight( double *v_q, double *v_c ) {
+static double weight( double *v_q, double *v_c ) {
 	int i ;
 	double w = 0, norm_q = 0, norm_c = 0 ;
 	
@@ -313,21 +317,22 @@ double weight( double *v_q, double *v_c ) {
 	return w ;
 }
 
-void quat_setup(int num, double **quat_ptr, int *num_rot_ptr) {
-	int i, j, k, m, visited_vert[num_vert] ;
+static void quat_setup(int num, double **quat_ptr, int *num_rot_ptr) {
+	int i, j, k, m, visited_vert[NUM_VERT] ;
 	double v_q[4], v_c[4], w ;
-	
-	f0 = 5./6 ;
-	f1 = 35./36 ;
+	double f0 = 5./6 ;
 	
 	*num_rot_ptr = 10*(5*num*num*num + num) ;
 	*quat_ptr = malloc((*num_rot_ptr) * 5 * sizeof(double)) ;
-	vertice_points = malloc(num_vert * sizeof(struct q_point)) ;
+	vertice_points = malloc(NUM_VERT * sizeof(struct q_point)) ;
+	num_edge_point = 0 ;
+	num_face_point = 0 ;
+	num_cell_point = 0 ;
 	
-	for (i = 0 ; i < num_vert ; i++)
+	for (i = 0 ; i < NUM_VERT ; i++)
 		visited_vert[i] = 0 ;
 	
-	for (i = 0 ; i < num_cell ; i++)
+	for (i = 0 ; i < NUM_CELL ; i++)
 	for (j = 0 ; j < 4 ; j++) {
 		if (visited_vert[cells[i][j]] == 1)
 			continue ;
@@ -351,16 +356,17 @@ void quat_setup(int num, double **quat_ptr, int *num_rot_ptr) {
 	}
 }
 
-void refine_edge(int num) {
+static void refine_edge(int num) {
 	int i, j, k ;
 	double v_q[4], v_c[4], w ;
 	double tau = (sqrt(5.) + 1.) / 2. ;
 	int vec_d_v[4][2], edge_point_count = 0 ;
+	double f1 = 35./36 ;
 	
-	num_edge_point = num_edge*(num - 1) ;
+	num_edge_point = NUM_EDGE*(num - 1) ;
 	edge_points = malloc(num_edge_point * sizeof(struct q_point)) ;
 	
-	for (i = 0 ; i < num_edge ; i++) {
+	for (i = 0 ; i < NUM_EDGE ; i++) {
 		for (j = 0 ; j < 4 ; j++) {
 			vec_d_v[j][0] = (vec_vertices[edges[i][1]][j][0] - vec_vertices[edges[i][0]][j][0]) / num ;
 			vec_d_v[j][1] = (vec_vertices[edges[i][1]][j][1] - vec_vertices[edges[i][0]][j][1]) / num ;
@@ -386,16 +392,16 @@ void refine_edge(int num) {
 	}
 }
 
-void refine_face(int num) {
+static void refine_face(int num) {
 	int i, j, k, m ;
 	double v_q[4], v_c[4], w ;
 	double tau = (sqrt(5.) + 1.) / 2. ;
 	int vec_d_v1[4][2], vec_d_v2[4][2], face_point_count = 0 ;
 	
-	num_face_point = num_face*(num - 2)*(num - 1)/2 ;
+	num_face_point = NUM_FACE*(num - 2)*(num - 1)/2 ;
 	face_points = malloc(num_face_point * sizeof(struct q_point)) ;
 	
-	for (i = 0 ; i < num_face ; i++) {
+	for (i = 0 ; i < NUM_FACE ; i++) {
 		for (j = 0 ; j < 4 ; j++) {
 			vec_d_v1[j][0] = (vec_vertices[faces[i][1]][j][0] - vec_vertices[faces[i][0]][j][0]) / num ;
 			vec_d_v1[j][1] = (vec_vertices[faces[i][1]][j][1] - vec_vertices[faces[i][0]][j][1]) / num ;
@@ -424,16 +430,16 @@ void refine_face(int num) {
 	}
 }
 
-void refine_cell(int num) {
+static void refine_cell(int num) {
 	int i, j, k, m, n ;
 	double v_q[4], v_c[4], w ;
 	double tau = (sqrt(5.) + 1.) / 2. ;
 	int vec_d_v1[4][2], vec_d_v2[4][2], vec_d_v3[4][2], cell_point_count = 0 ;
 	
-	num_cell_point = num_cell*(num - 3)*(num - 2)*(num - 1)/6 ;
+	num_cell_point = NUM_CELL*(num - 3)*(num - 2)*(num - 1)/6 ;
 	cell_points = malloc(num_cell_point * sizeof(struct q_point)) ;
 	
-	for (i = 0 ; i < num_cell ; i++) {
+	for (i = 0 ; i < NUM_CELL ; i++) {
 		for (j = 0 ; j < 4 ; j++) {
 			vec_d_v1[j][0] = (vec_vertices[cells[i][1]][j][0] - vec_vertices[cells[i][0]][j][0]) / num ;
 			vec_d_v1[j][1] = (vec_vertices[cells[i][1]][j][1] - vec_vertices[cells[i][0]][j][1]) / num ;
@@ -465,12 +471,12 @@ void refine_cell(int num) {
 	}
 }
 
-void print_quat(int num, double *quat) {
+static void print_quat(int num, double *quat) {
 	int r, rf, i, j, num_rot_test, flag, ct ;
 	double q_v[4], q_norm ;
 	double tau = (sqrt(5.) + 1.) / 2. ;
 	
-	num_rot_test = (num_vert + num_edge_point + num_face_point + num_cell_point) / 2 ;
+	num_rot_test = (NUM_VERT + num_edge_point + num_face_point + num_cell_point) / 2 ;
 	if (num_rot_test != 10*(5*num*num*num + num)) {
 		fprintf(stderr, "Inconsistency in calculation of num_rot.\n") ;
 		return ;
@@ -478,7 +484,7 @@ void print_quat(int num, double *quat) {
 	
 	// select half of the quaternions on vertices
 	ct = 0 ;
-	for (r = 0 ; r < num_vert ; r++) {
+	for (r = 0 ; r < NUM_VERT ; r++) {
 		flag = 0 ;
 		for (i = 0 ; i < 4 ; i++) {
 			for (j = 0 ; j < 2; j++) {
@@ -520,8 +526,7 @@ void print_quat(int num, double *quat) {
 		
 		ct += 1 ;
 	}
-	
-	if (ct != num_vert / 2) {
+	if (ct != NUM_VERT / 2) {
 		fprintf(stderr, "Inconsistent number of quaternions on vertices!!\n") ;
 		return ;
 	}
@@ -561,7 +566,7 @@ void print_quat(int num, double *quat) {
 		for (i = 0 ; i < 4 ; i++)
 			q_v[i] /= q_norm ;
 		
-		rf = ct + num_vert/2 ;
+		rf = ct + NUM_VERT/2 ;
 		quat[rf*5 + 0] = q_v[0] ;
 		quat[rf*5 + 1] = q_v[1] ;
 		quat[rf*5 + 2] = q_v[2] ;
@@ -570,7 +575,6 @@ void print_quat(int num, double *quat) {
 		
 		ct += 1 ;
 	}
-	
 	if (ct != num_edge_point / 2) {
 		fprintf(stderr, "Inconsistent number of quaternions on edges!!\n") ;
 		return ;
@@ -611,7 +615,7 @@ void print_quat(int num, double *quat) {
 		for (i = 0 ; i < 4 ; i++)
 			q_v[i] /= q_norm ;
 		
-		rf = ct + num_vert/2 + num_edge_point/2 ;
+		rf = ct + NUM_VERT/2 + num_edge_point/2 ;
 		quat[rf*5 + 0] = q_v[0] ;
 		quat[rf*5 + 1] = q_v[1] ;
 		quat[rf*5 + 2] = q_v[2] ;
@@ -620,7 +624,6 @@ void print_quat(int num, double *quat) {
 		
 		ct += 1 ;
 	}
-	
 	if (ct != num_face_point / 2) {
 		fprintf(stderr, "Inconsistent number of quaternions on faces!!\n") ;
 		return ;
@@ -661,7 +664,7 @@ void print_quat(int num, double *quat) {
 		for (i = 0 ; i < 4 ; i++)
 			q_v[i] /= q_norm ;
 		
-		rf = ct + num_vert/2 + num_edge_point/2 + num_face_point/2 ;
+		rf = ct + NUM_VERT/2 + num_edge_point/2 + num_face_point/2 ;
 		quat[rf*5 + 0] = q_v[0] ;
 		quat[rf*5 + 1] = q_v[1] ;
 		quat[rf*5 + 2] = q_v[2] ;
@@ -670,14 +673,13 @@ void print_quat(int num, double *quat) {
 		
 		ct += 1 ;
 	}
-	
 	if (ct != num_cell_point / 2) {
 		fprintf(stderr, "Inconsistent number of quaternions on cells!!\n") ;
 		return ;
 	}
 }
 
-int reduce_icosahedral(int n, double *quat) {
+static int reduce_icosahedral(int n, double *quat) {
 	int r, t, i, keep_quat, vnum = 8 ;
 	int old_num_rot = 10*(5*n*n*n + n), num_rot = 0 ;
 	double dist, dist0 ;
@@ -730,7 +732,7 @@ int reduce_icosahedral(int n, double *quat) {
 	return num_rot ;
 }
 
-void quat_free_mem(int num) {
+static void quat_free_mem(int num) {
 	free(vertice_points) ;
 	
 	if (num > 1)
@@ -743,13 +745,14 @@ void quat_free_mem(int num) {
 
 int quat_gen(int num_div, struct rotation *quat) {
 	int r ;
-	double total_weight = 0. ;
+	double min_dist2, total_weight = 0. ;
 	
 	make_vertex(num_div) ; 
-	make_edge(num_div) ;
-	make_face(num_div) ; 
-	make_cell(num_div) ;
-	make_map() ;
+	min_dist2 = calc_min_dist2() ;
+	make_edge(num_div, min_dist2) ;
+	make_face(num_div, min_dist2) ; 
+	make_cell(num_div, min_dist2) ;
+	make_map(min_dist2) ;
 	
 	quat_setup(num_div, &quat->quat, &quat->num_rot) ;
 	
@@ -800,8 +803,8 @@ int parse_quat(char *fname, struct rotation *quat) {
 	return quat->num_rot ;
 }
 
-void divide_quat(int rank, int num_proc, struct rotation *quat) {
-	quat->num_rot_p = quat->num_rot / num_proc ;
+void divide_quat(int rank, int num_proc, int num_modes, struct rotation *quat) {
+	quat->num_rot_p = num_modes * quat->num_rot / num_proc ;
 	if (rank < (quat->num_rot % num_proc))
 		quat->num_rot_p++ ;
 	if (num_proc > 1) {
@@ -812,5 +815,99 @@ void divide_quat(int rank, int num_proc, struct rotation *quat) {
 }
 
 void free_quat(struct rotation *quat) {
+	if (quat == NULL)
+		return ;
+	
 	free(quat->quat) ;
+	free(quat) ;
 }
+
+static char *generate_token(char *line, char *section_name) {
+	char *token = strtok(line, " =") ;
+	if (token[0] == '#' || token[0] == '\n')
+		return NULL ;
+	
+	if (line[0] == '[') {
+		token = strtok(line, "[]") ;
+		strcpy(section_name, token) ;
+		return NULL ;
+	}
+	
+	return token ;
+}
+
+static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
+	if (rel_path[0] == '/' || strstr(rel_path, ":::") != NULL) {
+		strcpy(path, rel_path) ;
+	}
+	else {
+		strcpy(&path[strlen(config_folder)], rel_path) ;
+		strncpy(path, config_folder, strlen(config_folder)) ;
+	}
+}
+
+int generate_quaternion(char *config_fname, char *config_section, struct rotation *quat_ptr) {
+	int r, num, num_div = -1, recon_type = 3, num_rot = 0 ;
+	char quat_fname[1024] = {'\0'} ;
+	char line[1024], temp[8], section_name[1024], config_folder[1024], *token ;
+	char *temp_fname = strndup(config_fname, 1024) ;
+	sprintf(config_folder, "%s/", dirname(temp_fname)) ;
+	free(temp_fname) ;
+	quat_ptr->icosahedral_flag = 0 ;
+	
+	FILE *config_fp = fopen(config_fname, "r") ;
+	while (fgets(line, 1024, config_fp) != NULL) {
+		if ((token = generate_token(line, section_name)) == NULL)
+			continue ;
+		
+		if (strcmp(section_name, config_section) == 0) {
+			if (strcmp(token, "recon_type") == 0) {
+				strncpy(temp, strtok(NULL, " =\n"), 8) ;
+				if (strcmp(temp, "3d") == 0)
+					recon_type = 3 ;
+				else if (strcmp(temp, "2d") == 0)
+					recon_type = 2 ;
+			}
+			else if (strcmp(token, "num_div") == 0)
+				num_div = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "num_rot") == 0)
+				num_rot = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "in_quat_file") == 0)
+				absolute_strcpy(config_folder, quat_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "sym_icosahedral") == 0)
+				quat_ptr->icosahedral_flag = atoi(strtok(NULL, " =\n")) ;
+		}
+	}
+	fclose(config_fp) ;
+	
+	if (recon_type == 2) {
+		if (num_rot == 0) {
+			fprintf(stderr, "Need num_rot if recon_type is 2d\n") ;
+			return 1 ;
+		}
+		fprintf(stderr, "Creating angles array instead of quaternions\n") ;
+		quat_ptr->num_rot = num_rot ;
+		quat_ptr->quat = calloc(quat_ptr->num_rot * 5, sizeof(double)) ;
+		for (r = 0 ; r < quat_ptr->num_rot ; ++r) {
+			quat_ptr->quat[r*5+0] = 2. * M_PI * r / num_rot ;
+			quat_ptr->quat[r*5+4] = 1. / num_rot ;
+		}
+		
+		return 0 ;
+	}
+	
+	if (num_div > 0 && quat_fname[0] != '\0') {
+		fprintf(stderr, "Config file contains both num_div as well as in_quat_file. Pick one.\n") ;
+		return 1 ;
+	}
+	else if (num_div > 0)
+		num = quat_gen(num_div, quat_ptr) ;
+	else
+		num = parse_quat(quat_fname, quat_ptr) ;
+	
+	if (num < 0)
+		return 1 ;
+	
+	return 0 ;
+}
+
