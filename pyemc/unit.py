@@ -733,8 +733,8 @@ class TestMaxEMC(unittest.TestCase):
         npt.assert_array_equal(data.max_exp_p, -np.ones(3000)*sys.float_info.max)
         npt.assert_array_equal(data.model, zvol)
         npt.assert_array_equal(data.weight, zvol)
-        self.assertEqual(len(data.view), 1)
-        self.assertEqual(len(data.view[0]), 10201)
+        self.assertEqual(len(data.all_views), 1)
+        self.assertEqual(len(data.all_views[0]), 10201)
         self.maximize.free_memory(data)
         
     def test_calculate_rescale(self):
