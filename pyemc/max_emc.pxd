@@ -2,6 +2,7 @@ from posix.time cimport timeval
 
 cdef extern from "../src/max_emc.c" nogil:
 	struct max_data:
+		int refinement
 		int within_openmp
 		
 		# Common only
@@ -13,7 +14,7 @@ cdef extern from "../src/max_emc.c" nogil:
 		double *model
 		double *weight
 		double *scale
-		double **view
+		double **all_views
 		
 		# Both
 		double *max_exp_p

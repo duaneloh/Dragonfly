@@ -40,10 +40,11 @@ def _silence_stderr(to=os.devnull):
 			_redirect_to(old_stderr)
 
 cdef class py_max_data:
-	def __init__(self, within_openmp=0):
+	def __init__(self, refinement=0, within_openmp=0):
 		self.data = <max_data*>malloc(sizeof(max_data))
 		
 		self.data.within_openmp = int(within_openmp)
+		self.data.refinement = int(refinement)
 		# Common only
 		self.data.max_exp = NULL
 		self.data.u = NULL
@@ -52,7 +53,7 @@ cdef class py_max_data:
 		self.data.model = NULL
 		self.data.weight = NULL
 		self.data.scale = NULL
-		self.data.view = NULL
+		self.data.all_views = NULL
 		# Both
 		self.data.max_exp_p = NULL
 		self.data.p_sum = NULL
@@ -92,13 +93,13 @@ cdef class py_max_data:
 	def scale(self):
 		return np.asarray(<double[:frames.tot_num_data]> self.data.scale) if self.data.scale != NULL else None
 	@property
-	def view(self):
-		if self.data.view == NULL:
+	def all_views(self):
+		if self.data.all_views == NULL:
 			return None
 		else:
 			retval = []
 			for i in range(det.num_det):
-				retval.append(<double[:det[i].num_pix]> self.data.view[i])
+				retval.append(<double[:det[i].num_pix]> self.data.all_views[i])
 			return retval
 	@property
 	def max_exp_p(self):
