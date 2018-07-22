@@ -185,3 +185,16 @@ def gen_det_and_emc(gui, classifier=False, mask=False):
         geom_mapping = [uniq.index(fname) for fname in gui.det_list]
     gui.geom = geom_list[0]
     gui.emc_reader = reademc.EMCReader(gui.photons_list, geom_list, geom_mapping)
+
+def increment_beta_sensibly(config_fname, incr):
+    config = ConfigParser.ConfigParser()
+    config.read(config_fname)
+
+    beta = float(config.get("emc", "beta"))
+    msg = ["Setting beta from", str(beta), "to", str(beta*incr)]
+    logging.info(' '.join(msg))
+    beta *= incr
+    config.set("emc", "beta", beta)
+    
+    with open("config.ini", "w") as fptr:
+        config.write(fptr)
