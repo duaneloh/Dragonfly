@@ -1,6 +1,6 @@
 #include "detector.h"
 
-double parse_detector(char *fname, struct detector *det, int norm_flag) {
+double parse_detector_core(char *fname, struct detector *det, int norm_flag) {
 	int t, d ;
 	double q, qmax = -1., mean_pol = 0. ;
 	char line[1024] ;
@@ -41,6 +41,13 @@ double parse_detector(char *fname, struct detector *det, int norm_flag) {
 	return sqrt(qmax) ;
 }
 
+double parse_detector(char *fname, struct detector *det, int norm_flag) {
+    double qmax = parse_detector_core(fname, det, norm_flag);
+    det->num_det = 1;
+    det->num_dfiles = 1;
+    return qmax;
+}
+
 double parse_detector_list(char *fname, struct detector **det_ptr, int norm_flag) {
 	int j, num_det = 0, num_dfiles, new_det ;
 	double det_qmax, qmax = -1. ;
@@ -77,7 +84,7 @@ double parse_detector_list(char *fname, struct detector **det_ptr, int norm_flag
 	det[0].num_dfiles = num_dfiles ;
 	//fprintf(stderr, "mapping: %d, %d, ...\n", det[0].mapping[0], det[0].mapping[1]) ;
 	for (j = 0 ; j < num_det ; ++j) {
-		det_qmax = parse_detector(name_list[j], &det[j], 1) ;
+		det_qmax = parse_detector_core(name_list[j], &det[j], 1) ;
 		if (det_qmax < 0.)
 			return -1. ;
 		if (det_qmax > qmax)
