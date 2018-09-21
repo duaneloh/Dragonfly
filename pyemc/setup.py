@@ -11,7 +11,7 @@ gsl_cflags = subprocess.check_output('gsl-config --cflags', shell=True).decode(s
 gsl_libs = subprocess.check_output('gsl-config --libs', shell=True).decode(sys.stdout.encoding).rstrip().split()
 compile_args = '-fopenmp -O3 -Wall -Wno-cpp -Wno-unused-result -Wno-unused-function -Wno-format-overflow -DFIXED_SEED'.split() + gsl_cflags
 include_dirs = [np.get_include()]
-link_args = '-lpython2.7 -lm -fopenmp'.split() + gsl_libs
+link_args = '-lm -fopenmp'.split() + gsl_libs
 #mpi_compile_args = subprocess.check_output('mpicc --showme:compile', shell=True).decode(sys.stdout.encoding).rstrip().split()
 #mpi_link_args = subprocess.check_output('mpicc --showme:link', shell=True).decode(sys.stdout.encoding).rstrip().split()
 mpi_compile_args = subprocess.check_output('mpicc -show', shell=True).decode(sys.stdout.encoding).rstrip().split()[1:]
