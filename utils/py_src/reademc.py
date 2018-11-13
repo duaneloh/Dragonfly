@@ -152,5 +152,5 @@ class EMCReader(object):
         else:
             mask = 1-self._assembled_masks[num]
             img = ma.masked_array(np.zeros(mask.shape, dtype='i4'), mask=mask)
-        np.add.at(img, [geom.x, geom.y], data)
+        np.add.at(img, (geom.x, geom.y), data)
         return img
