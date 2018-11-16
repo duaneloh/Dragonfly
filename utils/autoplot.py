@@ -312,7 +312,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
             gspec.update(wspace=0.02, hspace=0.02)
             self.subplot_list = []
             for mode in range(self.num_modes):
-                subp = self.fig.add_subplot(gspec[mode/numx, mode%numx])
+                subp = self.fig.add_subplot(gspec[mode//numx, mode%numx])
                 subp.imshow(self.vol[mode]**exponent, vmin=rangemin, vmax=rangemax,
                             cmap=cmap, interpolation='none')
                 #subp.text(0.05, 0.85, '%d'%mode, transform=subp.transAxes, fontsize=10,
