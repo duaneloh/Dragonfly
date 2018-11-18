@@ -1,0 +1,55 @@
+cmake_minimum_required(VERSION 3.0)
+project(dragonfly LANGUAGES C)
+
+if(CMAKE_COMPILER_IS_GNUCC)
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -Wall")
+endif(CMAKE_COMPILER_IS_GNUCC)
+
+find_package(OpenMP REQUIRED)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+
+find_package(MPI REQUIRED)
+include_directories(${MPI_INCLUDE_PATH})
+find_package(GSL REQUIRED)
+include_directories(${GSL_INCLUDE_DIRS})
+
+set(USE_HDF5 ON CACHE BOOL "If ON, build and support HDF5 input files")
+if(USE_HDF5)
+	find_package(HDF5)
+	if(HDF5_FOUND)
+		include_directories(${HDF5_INCLUDE_DIR})
+		link_directories(${HDF5_LINK_DIR})
+		add_definitions(-DWITH_HDF5)
+		message(STATUS "libhdf5 found. Supporting HDF5 input files")
+	else(HDF5_FOUND)
+		message(STATUS "libhdf5 not found. Compiling without HDF5 support")
+	endif(HDF5_FOUND)
+endif(USE_HDF5)
+
+# Compile object files
+#file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
+file(GLOB OBJSOURCE "src/*.c")
+list(FILTER OBJSOURCE EXCLUDE REGEX ".*emc.c")
+foreach(src ${OBJSOURCE})
+	string(REGEX REPLACE ".*/src/(.*).c" "\\1.o" obj ${src})
+	add_library(${obj} OBJECT ${src})
+	list(APPEND OBJECTS $<TARGET_OBJECTS:${obj}>)
+endforeach(src)
+
+# Compile emc program
+file(GLOB EMCSOURCE "src/*emc.c")
+add_executable(emc ${EMCSOURCE} ${OBJECTS})
+target_link_libraries(emc m)
+target_link_libraries(emc gslcblas)
+target_link_libraries(emc gsl)
+target_link_libraries(emc ${MPI_LIBRARIES})
+if (MPI_COMPILE_FLAGS)
+	set_target_properties(emc PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
+endif()
+if (MPI_LINK_FLAGS)
+	set_target_properties(emc PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
+endif()
+
+# Compile utilities
+add_subdirectory(utils)
