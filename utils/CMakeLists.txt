@@ -1,0 +1,18 @@
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/utils)
+file(GLOB UTILS_SRC "src/*.c")
+foreach(src ${UTILS_SRC})
+	string(REGEX REPLACE ".*/src/(.*).c" "\\1" util ${src})
+	
+	add_executable(${util} ${src})
+	target_link_libraries(${util} m)
+	target_link_libraries(${util} gslcblas)
+	target_link_libraries(${util} gsl)
+endforeach(src)
+
+# Add specific object libraries for different utilities
+target_sources(merge PUBLIC $<TARGET_OBJECTS:detector.o> $<TARGET_OBJECTS:dataset.o> $<TARGET_OBJECTS:interp.o> $<TARGET_OBJECTS:iterate.o>)
+target_sources(cosmic PUBLIC $<TARGET_OBJECTS:detector.o> $<TARGET_OBJECTS:dataset.o>)
+target_sources(make_data PUBLIC $<TARGET_OBJECTS:detector.o> $<TARGET_OBJECTS:interp.o>)
+target_sources(fiberize PUBLIC $<TARGET_OBJECTS:detector.o> $<TARGET_OBJECTS:interp.o>)
+target_sources(compare PUBLIC $<TARGET_OBJECTS:quat.o> $<TARGET_OBJECTS:interp.o>)
+target_sources(make_quaternion PUBLIC $<TARGET_OBJECTS:quat.o>)
