@@ -24,77 +24,12 @@ static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
 	}
 }
 
-double generate_detectors(char *config_fname, char *config_section, struct detector **det_list, int norm_flag) {
-	double qmax ;
-	char det_fname[1024] = {'\0'}, det_flist[1024] = {'\0'}, out_det_fname[1024] = {'\0'} ;
-	char line[1024], section_name[1024], config_folder[1024], *token ;
-	char *temp_fname = strndup(config_fname, 1024) ;
-	sprintf(config_folder, "%s/", dirname(temp_fname)) ;
-	free(temp_fname) ;
-	
-	FILE *config_fp = fopen(config_fname, "r") ;
-	while (fgets(line, 1024, config_fp) != NULL) {
-		if ((token = generate_token(line, section_name)) == NULL)
-			continue ;
-		
-		if (strcmp(section_name, "make_detector") == 0) {
-			if (strcmp(token, "out_detector_file") == 0)
-				absolute_strcpy(config_folder, out_det_fname, strtok(NULL, " =\n")) ;
-		}
-		else if (strcmp(section_name, config_section) == 0) {
-			if (strcmp(token, "in_detector_file") == 0)
-				absolute_strcpy(config_folder, det_fname, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "in_detector_list") == 0)
-				absolute_strcpy(config_folder, det_flist, strtok(NULL, " =\n")) ;
-		}
-	}
-	fclose(config_fp) ;
-	
-	if (strcmp(det_fname, "make_detector:::out_detector_file") == 0)
-		strcpy(det_fname, out_det_fname) ;
-	
-	if (det_flist[0] != '\0' && det_fname[0] != '\0') {
-		fprintf(stderr, "Both in_detector_file and in_detector_list specified. Pick one.\n") ;
-		return -1. ;
-	}
-	else if (det_fname[0] != '\0') {
-		fprintf(stderr, "Parsing detector file: %s\n", det_fname) ;
-		*det_list = malloc(sizeof(struct detector)) ;
-		(*det_list)[0].num_det = 1 ;
-		(*det_list)[0].num_dfiles = 0 ;
-		memset((*det_list)[0].mapping, 0, 1024*sizeof(int)) ;
-		if ((qmax = parse_detector(det_fname, det_list[0], norm_flag)) < 0.)
-			return qmax ;
-	}
-	else if (det_flist[0] != '\0') {
-		if ((qmax = parse_detector_list(det_flist, det_list, norm_flag)) < 0.)
-			return qmax ;
-	}
-	else {
-		fprintf(stderr, "Need either in_detector_file or in_detector_list.\n") ;
-		return -1. ;
-	}
-	
-	fprintf(stderr, "Number of unique detectors = %d\n", (*det_list)[0].num_det) ;
-	fprintf(stderr, "Number of detector files in list = %d\n", (*det_list)[0].num_dfiles) ;
-	
-	return qmax ;
-}
-
-double parse_detector(char *fname, struct detector *det, int norm_flag) {
+double parse_asciidetector(char *fname, struct detector *det, int norm_flag) {
 	int t, d ;
 	double temp, q, qmax = -1., mean_pol = 0. ;
 	char line[1024] ;
 	
-	det->rel_num_pix = 0 ;
-	det->detd = 0. ;
-	det->ewald_rad = 0. ;
-	
 	FILE *fp = fopen(fname, "r") ;
-	if (fp == NULL) {
-		fprintf(stderr, "det_fname %s not found. Exiting...1\n", fname) ;
-		return -1. ;
-	}
 	fgets(line, 1024, fp) ;
 	sscanf(line, "%d %lf %lf\n", &det->num_pix, &det->detd, &det->ewald_rad) ;
 	if (norm_flag >= 0) {
@@ -160,6 +95,92 @@ double parse_detector(char *fname, struct detector *det, int norm_flag) {
 	return sqrt(qmax) ;
 }
 
+double parse_h5detector(char *fname, struct detector *det, int norm_flag) {
+	fprintf(stderr, "H5 detector\n") ;
+	return -1. ;
+}
+
+double generate_detectors(char *config_fname, char *config_section, struct detector **det_list, int norm_flag) {
+	double qmax ;
+	char det_fname[1024] = {'\0'}, det_flist[1024] = {'\0'}, out_det_fname[1024] = {'\0'} ;
+	char line[1024], section_name[1024], config_folder[1024], *token ;
+	char *temp_fname = strndup(config_fname, 1024) ;
+	sprintf(config_folder, "%s/", dirname(temp_fname)) ;
+	free(temp_fname) ;
+	
+	FILE *config_fp = fopen(config_fname, "r") ;
+	while (fgets(line, 1024, config_fp) != NULL) {
+		if ((token = generate_token(line, section_name)) == NULL)
+			continue ;
+		
+		if (strcmp(section_name, "make_detector") == 0) {
+			if (strcmp(token, "out_detector_file") == 0)
+				absolute_strcpy(config_folder, out_det_fname, strtok(NULL, " =\n")) ;
+		}
+		else if (strcmp(section_name, config_section) == 0) {
+			if (strcmp(token, "in_detector_file") == 0)
+				absolute_strcpy(config_folder, det_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "in_detector_list") == 0)
+				absolute_strcpy(config_folder, det_flist, strtok(NULL, " =\n")) ;
+		}
+	}
+	fclose(config_fp) ;
+	
+	if (strcmp(det_fname, "make_detector:::out_detector_file") == 0)
+		strcpy(det_fname, out_det_fname) ;
+	
+	if (det_flist[0] != '\0' && det_fname[0] != '\0') {
+		fprintf(stderr, "Both in_detector_file and in_detector_list specified. Pick one.\n") ;
+		return -1. ;
+	}
+	else if (det_fname[0] != '\0') {
+		fprintf(stderr, "Parsing detector file: %s\n", det_fname) ;
+		*det_list = malloc(sizeof(struct detector)) ;
+		(*det_list)[0].num_det = 1 ;
+		(*det_list)[0].num_dfiles = 0 ;
+		memset((*det_list)[0].mapping, 0, 1024*sizeof(int)) ;
+		if ((qmax = parse_detector(det_fname, det_list[0], norm_flag)) < 0.)
+			return qmax ;
+	}
+	else if (det_flist[0] != '\0') {
+		if ((qmax = parse_detector_list(det_flist, det_list, norm_flag)) < 0.)
+			return qmax ;
+	}
+	else {
+		fprintf(stderr, "Need either in_detector_file or in_detector_list.\n") ;
+		return -1. ;
+	}
+	
+	fprintf(stderr, "Number of unique detectors = %d\n", (*det_list)[0].num_det) ;
+	fprintf(stderr, "Number of detector files in list = %d\n", (*det_list)[0].num_dfiles) ;
+	
+	return qmax ;
+}
+
+double parse_detector(char *fname, struct detector *det, int norm_flag) {
+	double qmax = -1. ;
+	char line[1024], hdfheader[8] = {137, 'H', 'D', 'F', '\r', '\n', 26, '\n'} ;
+	
+	det->rel_num_pix = 0 ;
+	det->detd = 0. ;
+	det->ewald_rad = 0. ;
+	
+	FILE *fp = fopen(fname, "r") ;
+	if (fp == NULL) {
+		fprintf(stderr, "det_fname %s not found. Exiting...1\n", fname) ;
+		return -1. ;
+	}
+	fread(line, 8, sizeof(char), fp) ;
+	fclose(fp) ;
+	
+	if (strncmp(line, hdfheader, 8) == 0)
+		qmax = parse_h5detector(fname, det, norm_flag) ;
+	else
+		qmax = parse_asciidetector(fname, det, norm_flag) ;
+
+	return qmax ;
+}
+
 double parse_detector_list(char *flist, struct detector **det_ptr, int norm_flag) {
 	int j, num_det = 0, num_dfiles, new_det ;
 	double det_qmax, qmax = -1. ;
@@ -193,7 +214,6 @@ double parse_detector_list(char *flist, struct detector **det_ptr, int norm_flag
 			det_mapping[num_dfiles] = num_det ;
 			num_det++ ;
 		}
-		//fprintf(stderr, "mapping[%d] = %d/%d, %s\n", num_dfiles, det_mapping[num_dfiles], num_det, name_list[det_mapping[num_dfiles]]) ;
 	}
 	
 	*det_ptr = malloc(num_det * sizeof(struct detector)) ;
@@ -201,7 +221,6 @@ double parse_detector_list(char *flist, struct detector **det_ptr, int norm_flag
 	memcpy(det[0].mapping, det_mapping, 1024*sizeof(int)) ;
 	det[0].num_det = num_det ;
 	det[0].num_dfiles = num_dfiles ;
-	//fprintf(stderr, "mapping: %d, %d, ...\n", det[0].mapping[0], det[0].mapping[1]) ;
 	for (j = 0 ; j < num_det ; ++j) {
 		det_qmax = parse_detector(name_list[j], &det[j], norm_flag) ;
 		if (det_qmax < 0.) {
