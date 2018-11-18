@@ -4,9 +4,9 @@ foreach(src ${UTILS_SRC})
 	string(REGEX REPLACE ".*/src/(.*).c" "\\1" util ${src})
 	
 	add_executable(${util} ${src})
-	target_link_libraries(${util} m)
-	target_link_libraries(${util} gslcblas)
 	target_link_libraries(${util} gsl)
+	target_link_libraries(${util} gslcblas)
+	target_link_libraries(${util} m)
 endforeach(src)
 
 # Add specific object libraries for different utilities
