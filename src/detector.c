@@ -104,6 +104,7 @@ double parse_asciidetector(char *fname, struct detector *det, int norm_flag) {
 	return sqrt(qmax) ;
 }
 
+#ifdef WITH_HDF5
 double parse_h5detector(char *fname, struct detector *det, int norm_flag) {
 	hid_t file, dset, dtype, dspace, mspace ;
 	int i, ndims ;
@@ -201,6 +202,7 @@ double parse_h5detector(char *fname, struct detector *det, int norm_flag) {
 	
 	return sqrt(qmax) ;
 }
+#endif //WITH_HDF5
 
 double generate_detectors(char *config_fname, char *config_section, struct detector **det_list, int norm_flag) {
 	double qmax ;
@@ -275,10 +277,17 @@ double parse_detector(char *fname, struct detector *det, int norm_flag) {
 	fread(line, 8, sizeof(char), fp) ;
 	fclose(fp) ;
 	
-	if (strncmp(line, hdfheader, 8) == 0)
+	if (strncmp(line, hdfheader, 8) == 0) {
+#ifdef WITH_HDF5
 		qmax = parse_h5detector(fname, det, norm_flag) ;
-	else
+#else
+		fprintf(stderr, "H5 detector support not compiled\n") ;
+		return -1. ;
+#endif // WITH_HDF5
+	}
+	else {
 		qmax = parse_asciidetector(fname, det, norm_flag) ;
+	}
 
 	return qmax ;
 }
