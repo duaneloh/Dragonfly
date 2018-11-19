@@ -147,7 +147,7 @@ void emc() {
 void update_model(double likelihood) {
 	long x ;
 	double diff, change = 0., norm = 1. ;
-	char fname[1024] ;
+	char fname[2048] ;
 	FILE *fp ;
 	
 	for (x = 0 ; x < param->modes * iter->vol ; ++x)

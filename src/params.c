@@ -26,7 +26,7 @@ static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
 
 void generate_params(char *config_fname, struct params *param) {
 	//char line[1024], section_name[1024], config_folder[1024], *token ;
-	char line[1024], section_name[1024], config_folder[1024], temp[8] ;
+	char line[2048], section_name[1024], config_folder[1024], temp[8] ;
 	char *temp_fname = strndup(config_fname, 1024) ;
 	sprintf(config_folder, "%s/", dirname(temp_fname)) ;
 	free(temp_fname) ;
@@ -46,7 +46,7 @@ void generate_params(char *config_fname, struct params *param) {
 	sprintf(param->output_folder, "%s/data/", config_folder) ;
 	
 	FILE *config_fp = fopen(config_fname, "r") ;
-	while (fgets(line, 1024, config_fp) != NULL) {
+	while (fgets(line, 2048, config_fp) != NULL) {
 		char *token ;
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
@@ -92,7 +92,7 @@ void generate_params(char *config_fname, struct params *param) {
 }
 
 void generate_output_dirs(struct params *param) {
-	char line[1024] ;
+	char line[2048] ;
 	
 	sprintf(line, "%s/output", param->output_folder) ;
 	mkdir(line, 0750) ;

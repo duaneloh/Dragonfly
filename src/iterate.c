@@ -27,8 +27,8 @@ static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
 int generate_iterate(char *config_fname, char *config_section, int continue_flag, double qmax, struct params *param, struct detector *det, struct dataset *dset, struct iterate *iter) {
 	FILE *fp ;
 	double model_mean ;
-	char input_fname[1024] = {'\0'}, scale_fname[1024] = {'\0'} ;
-	char line[1024], section_name[1024], config_folder[1024], *token ;
+	char input_fname[2048] = {'\0'}, scale_fname[2048] = {'\0'} ;
+	char line[2048], section_name[1024], config_folder[1024], *token ;
 	char *temp_fname = strndup(config_fname, 1024) ;
 	sprintf(config_folder, "%s/", dirname(temp_fname)) ;
 	free(temp_fname) ;
@@ -37,7 +37,7 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 	iter->modes = param->modes ;
 	
 	FILE *config_fp = fopen(config_fname, "r") ;
-	while (fgets(line, 1024, config_fp) != NULL) {
+	while (fgets(line, 2048, config_fp) != NULL) {
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
 		
@@ -62,7 +62,7 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 		}
 		else {
 			while (!feof(fp))
-				fgets(line, 1024, fp) ;
+				fgets(line, 2048, fp) ;
 			sscanf(line, "%d", &param->start_iter) ;
 			fclose(fp) ;
 			

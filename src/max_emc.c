@@ -624,7 +624,7 @@ void save_output(struct max_data *data) {
 	int d, r ;
 	
 	if (param->need_scaling) {	
-		char fname[100] ;
+		char fname[2048] ;
 		sprintf(fname, "%s/scale/scale_%.3d.dat", param->output_folder, param->iteration) ;
 		FILE *fp_scale = fopen(fname, "w") ;
 		for (d = 0 ; d < frames->tot_num_data ; ++d)
@@ -643,7 +643,7 @@ void save_output(struct max_data *data) {
 	//	quat->quat[r*5 + 4] = data->quat_norm[r/param->rot_per_mode] / (frames->tot_num_data - frames->num_blacklist) ;
 	
 	// Print frame-by-frame mutual information, likelihood, and most likely orientations to file
-	char fname[1024] ;
+	char fname[2048] ;
 	sprintf(fname, "%s/mutualInfo/info_%.3d.dat", param->output_folder, param->iteration) ;
 	FILE *fp_info = fopen(fname, "w") ;
 	sprintf(fname, "%s/likelihood/likelihood_%.3d.dat", param->output_folder, param->iteration) ;
