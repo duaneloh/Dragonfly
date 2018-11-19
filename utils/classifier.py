@@ -48,7 +48,10 @@ class Classifier(QtWidgets.QMainWindow):
         self.cmap = None
 
         self._get_config_params()
-        py_utils.gen_det_and_emc(self, classifier=True, mask=mask)
+        if self.stack_size == 0:
+            py_utils.gen_det_and_emc(self, classifier=True, mask=mask)
+        else:
+            py_utils.gen_stack(self)
         self.classes = classes.FrameClasses(self.emc_reader.num_frames, fname=self.class_fname)
 
         self._init_ui()

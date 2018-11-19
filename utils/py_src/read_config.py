@@ -211,3 +211,9 @@ def read_gui_config(gui, section):
             gui.class_fname = get_filename(gui.config_file, 'classifier', 'in_class_file')
         except configparser.NoOptionError:
             gui.class_fname = 'my_classes.dat'
+
+        # Check whether slices
+        try:
+            gui.stack_size = int(get_param(gui.config_file, 'classifier', 'stack_size'))
+        except configparser.NoOptionError:
+            gui.stack_size = 0

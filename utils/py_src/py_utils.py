@@ -9,7 +9,7 @@ import sys
 import logging
 from six.moves import configparser
 import numpy as np
-from . import readdet, reademc
+from . import readdet, reademc, readvol
 
 class MyTimer(object):
     '''Class to report elapsed time for logging'''
@@ -185,6 +185,18 @@ def gen_det_and_emc(gui, classifier=False, mask=False):
         geom_mapping = [uniq.index(fname) for fname in gui.det_list]
     gui.geom = geom_list[0]
     gui.emc_reader = reademc.EMCReader(gui.photons_list, geom_list, geom_mapping)
+
+class DummyGeom(object):
+    pass
+
+def gen_stack(gui):
+    size = gui.stack_size
+    gui.emc_reader = readvol.VolReader(gui.photons_list[0], size)
+    gui.geom = DummyGeom()
+    ix, iy = np.indices((size,size))
+    gui.geom.cx = ix.ravel().astype('f8') - size//2
+    gui.geom.cy = iy.ravel().astype('f8') - size//2
+    gui.geom.unassembled_mask = np.ones(size*size)
 
 def increment_beta_sensibly(config_fname, incr):
     config = ConfigParser.ConfigParser()
