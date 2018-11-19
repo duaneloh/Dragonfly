@@ -49,8 +49,8 @@ class FramePanel(QtWidgets.QWidget):
             'axes.labelcolor': '#eff0f1',
             #'axes.facecolor': '#232629',
             #'figure.facecolor': '#232629'})
-            'axes.facecolor': '#112244',
-            'figure.facecolor': '#112244'})
+            'axes.facecolor': '#2a2a2f',
+            'figure.facecolor': '#2a2a2f'})
 
         self.parent = parent
         self.emc_reader = self.parent.emc_reader
