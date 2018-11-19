@@ -24,9 +24,42 @@ static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
 	}
 }
 
+static double preprocess_detector(struct detector *det, int norm_flag) {
+	int t, stride ;
+	double q, qmax = -1., mean_pol = 0. ;
+	
+	det->rel_num_pix = 0 ;
+	if (norm_flag < 0)
+		stride = 3 ;
+	else
+		stride = 4 ;
+	
+	for (t = 0 ; t < det->num_pix ; ++t) {
+		if (det->mask[t] < 1)
+			det->rel_num_pix++ ;
+		if (det->mask[t] < 2) {
+			if (stride == 3)
+				q = pow(det->pixels[t*3+0], 2.) + pow(det->pixels[t*3+1], 2.) ;
+			else
+				q = pow(det->pixels[t*stride+0], 2.) + pow(det->pixels[t*stride+1], 2.) + pow(det->pixels[t*stride+2], 2.) ;
+			if (q > qmax)
+				qmax = q ;
+		}
+		mean_pol += det->pixels[t*stride + stride-1] ;
+	}
+	
+	if (norm_flag == 1 || norm_flag < 0) {
+		mean_pol /= det->num_pix ;
+		for (t = 0 ; t < det->num_pix ; ++t)
+			det->pixels[t*stride + stride-1] /= mean_pol ;
+	}
+	
+	return qmax ;
+}
+
 double parse_asciidetector(char *fname, struct detector *det, int norm_flag) {
 	int t, d ;
-	double temp, q, qmax = -1., mean_pol = 0. ;
+	double temp, qmax ;
 	char line[1024] ;
 	
 	FILE *fp = fopen(fname, "r") ;
@@ -39,22 +72,9 @@ double parse_asciidetector(char *fname, struct detector *det, int norm_flag) {
 			for (d = 0 ; d < 4 ; ++d)
 				fscanf(fp, "%lf", &det->pixels[t*4 + d]) ;
 			fscanf(fp, "%" SCNu8, &det->mask[t]) ;
-			
-			if (det->mask[t] < 1)
-				det->rel_num_pix++ ;
-			if (det->mask[t] < 2) {
-				q = pow(det->pixels[t*4+0], 2.) + pow(det->pixels[t*4+1], 2.) + pow(det->pixels[t*4+2], 2.) ;
-				if (q > qmax)
-					qmax = q ;
-			}
-			mean_pol += det->pixels[t*4 + 3] ;
 		}
 		
-		if (norm_flag == 1) {
-			mean_pol /= det->num_pix ;
-			for (t = 0 ; t < det->num_pix ; ++t)
-				det->pixels[t*4 + 3] /= mean_pol ;
-		}
+		qmax = preprocess_detector(det, norm_flag) ;
 	}
 	else {
 		if (det->detd == 0. || det->ewald_rad == 0.) {
@@ -75,20 +95,9 @@ double parse_asciidetector(char *fname, struct detector *det, int norm_flag) {
 			// Mapping 3D q-space voxels to 2D
 			det->pixels[t*3+0] *= det->detd / (temp + det->ewald_rad) ;
 			det->pixels[t*3+1] *= det->detd / (temp + det->ewald_rad) ;
-			
-			if (det->mask[t] < 1)
-				det->rel_num_pix++ ;
-			if (det->mask[t] < 2) {
-				q = pow(det->pixels[t*3+0], 2.) + pow(det->pixels[t*3+1], 2.) ;
-				if (q > qmax)
-					qmax = q ;
-			}
-			mean_pol += det->pixels[t*3 + 2] ;
 		}
 		
-		mean_pol /= det->num_pix ;
-		for (t = 0 ; t < det->num_pix ; ++t)
-			det->pixels[t*3 + 2] /= mean_pol ;
+		qmax = preprocess_detector(det, norm_flag) ;
 	}
 	fclose(fp) ;
 	
@@ -96,8 +105,101 @@ double parse_asciidetector(char *fname, struct detector *det, int norm_flag) {
 }
 
 double parse_h5detector(char *fname, struct detector *det, int norm_flag) {
-	fprintf(stderr, "H5 detector\n") ;
-	return -1. ;
+	hid_t file, dset, dtype, dspace, mspace ;
+	int i, ndims ;
+	double qmax, temp ;
+	det->num_pix = 1 ;
+	
+	file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT) ;
+	dset = H5Dopen(file, "/qx", H5P_DEFAULT) ;
+	dtype = H5Dget_type(dset) ;
+	dspace = H5Dget_space(dset) ;
+	ndims = H5Sget_simple_extent_ndims(dspace) ;
+	
+	hsize_t dims[ndims] ;
+	H5Sget_simple_extent_dims(dspace, dims, NULL) ;
+	for (i = 0 ; i < ndims ; ++i)
+		det->num_pix *= dims[i] ;
+	fprintf(stderr, "H5 detector with %d pixels\n", det->num_pix) ;
+	
+	det->pixels = calloc(4 * det->num_pix, sizeof(double)) ;
+	det->mask = malloc(det->num_pix * sizeof(uint8_t)) ;
+	hsize_t pixdims[1] = {4*det->num_pix}, start[1] = {0}, count[1] = {det->num_pix}, stride[1] = {4} ;
+	mspace = H5Screate_simple(1, pixdims, NULL) ;
+	H5Sselect_hyperslab(mspace, H5S_SELECT_SET, start, stride, count, NULL) ;
+	H5Dread(dset, dtype, mspace, dspace, H5P_DEFAULT, det->pixels) ;
+	
+	dset = H5Dopen(file, "/qy", H5P_DEFAULT) ;
+	start[0] = 1 ;
+	H5Sselect_hyperslab(mspace, H5S_SELECT_SET, start, stride, count, NULL) ;
+	H5Dread(dset, dtype, mspace, dspace, H5P_DEFAULT, det->pixels) ;
+	H5Dclose(dset) ;
+	
+	dset = H5Dopen(file, "/qz", H5P_DEFAULT) ;
+	start[0] = 2 ;
+	H5Sselect_hyperslab(mspace, H5S_SELECT_SET, start, stride, count, NULL) ;
+	H5Dread(dset, dtype, mspace, dspace, H5P_DEFAULT, det->pixels) ;
+	H5Dclose(dset) ;
+	
+	dset = H5Dopen(file, "/corr", H5P_DEFAULT) ;
+	start[0] = 3 ;
+	H5Sselect_hyperslab(mspace, H5S_SELECT_SET, start, stride, count, NULL) ;
+	H5Dread(dset, dtype, mspace, dspace, H5P_DEFAULT, det->pixels) ;
+	H5Dclose(dset) ;
+	
+	dset = H5Dopen(file, "/mask", H5P_DEFAULT) ;
+	dtype = H5Dget_type(dset) ;
+	size_t typesize = H5Tget_size(dtype) ;
+	dspace = H5Dget_space(dset) ;
+	if (typesize == 1) {
+		uint8_t *mask_buffer = det->mask ;
+		H5Dread(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, mask_buffer) ;
+	}
+	else if (typesize == 2) {
+		uint16_t *mask_buffer = malloc(det->num_pix * typesize) ;
+		H5Dread(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, mask_buffer) ;
+		for (i = 0 ; i < det->num_pix ; ++i)
+			det->mask[i] = (uint8_t) mask_buffer[i] ;
+	}
+	else if (typesize == 4) {
+		uint32_t *mask_buffer = malloc(det->num_pix * typesize) ;
+		H5Dread(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, mask_buffer) ;
+		for (i = 0 ; i < det->num_pix ; ++i)
+			det->mask[i] = (uint8_t) mask_buffer[i] ;
+	}
+	else {
+		uint64_t *mask_buffer = malloc(det->num_pix * typesize) ;
+		H5Dread(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, mask_buffer) ;
+		for (i = 0 ; i < det->num_pix ; ++i)
+			det->mask[i] = (uint8_t) mask_buffer[i] ;
+	}
+	H5Dclose(dset) ;
+	
+	dset = H5Dopen(file, "/detd", H5P_DEFAULT) ;
+	dtype = H5Dget_type(dset) ;
+	dspace = H5Dget_space(dset) ;
+	H5Dread(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, &(det->detd)) ;
+	
+	dset = H5Dopen(file, "/ewald_rad", H5P_DEFAULT) ;
+	dtype = H5Dget_type(dset) ;
+	dspace = H5Dget_space(dset) ;
+	H5Dread(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, &(det->ewald_rad)) ;
+	
+	if (norm_flag < 0) { // 2D detector
+		for (i = 0 ; i < det->num_pix ; ++i) {
+			det->pixels[i*3+0] = det->pixels[i*4+0] ;
+			det->pixels[i*3+1] = det->pixels[i*4+1] ;
+			temp = det->pixels[i*4+2] ;
+			det->pixels[i*3+2] = det->pixels[i*4+3] ;
+			
+			det->pixels[i*3+0] *= det->detd / (temp + det->ewald_rad) ;
+			det->pixels[i*3+1] *= det->detd / (temp + det->ewald_rad) ;
+		}
+	}
+	
+	qmax = preprocess_detector(det, norm_flag) ;
+	
+	return sqrt(qmax) ;
 }
 
 double generate_detectors(char *config_fname, char *config_section, struct detector **det_list, int norm_flag) {

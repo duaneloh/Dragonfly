@@ -6,6 +6,7 @@
 #include <math.h>
 #include <omp.h>
 #include <gsl/gsl_rng.h>
+#include <hdf5.h>
 
 #include "../../src/detector.h"
 #include "../../src/dataset.h"

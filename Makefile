@@ -9,8 +9,12 @@ ifneq (,$(findstring icc, $(CC)))
 else
 	OMP_FLAG = -fopenmp
 endif
-CFLAGS = $(shell gsl-config --cflags) -O3 -Wall $(OMP_FLAG)
-LIBS = $(shell gsl-config --libs) $(OMP_FLAG) -Wl,-rpath,$(shell gsl-config --prefix)/lib
+GSL_CFLAGS = $(shell gsl-config --cflags)
+GSL_LIBS = $(shell gsl-config --libs) -Wl,-rpath,$(shell gsl-config --prefix)/lib 
+H5_CFLAGS = $(shell pkg-config --cflags hdf5)
+H5_LIBS = $(shell pkg-config --libs hdf5)
+CFLAGS = -O3 -Wall $(OMP_FLAG) -Wno-unused-result $(GSL_CFLAGS) $(H5_CFLAGS)
+LIBS = $(GSL_LIBS) $(H5_LIBS) $(OMP_FLAG)
 
 # Derive source files and targets
 # ============================================================
