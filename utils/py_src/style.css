@@ -1,0 +1,45 @@
+QMenuBar, QMenuBar *,
+#frame, #frame * {
+  background: #2a2a2f;
+  color: white;
+  padding: 4px;
+  margin: 0;
+}
+
+  #frame QPushButton {
+    border: 1px solid white;
+    border-radius: 4px;
+  }
+
+  #frame QPushButton:hover {
+    background: #444444;
+  }
+
+  #frame QLineEdit {
+    border: none;
+    padding: 1px;
+    border-bottom: 1px solid white;
+  }
+
+  #frame QLineEdit:focus {
+    border-bottom: 2px solid white;
+  }
+
+  #frame QTextEdit {
+    background: #444444;
+  }
+  
+  #frame QLabel {
+    padding-right: 0px;
+  }
+
+#green, #green * {
+  background: #113322;
+  color white;
+  padding: 4px;
+  margin: 0;
+}
+
+#plots, #plots * {
+  background: #232629;
+}

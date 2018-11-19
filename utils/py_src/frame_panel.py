@@ -40,15 +40,17 @@ class FramePanel(QtWidgets.QWidget):
         need_scaling - (Only for compare mode) Whether reconstruction was done with scaling
     '''
     def __init__(self, parent, compare=False, powder=False, **kwargs):
-        super(FramePanel, self).__init__(parent, **kwargs)
+        super(FramePanel, self).__init__(**kwargs)
 
         matplotlib.rcParams.update({
             'text.color': '#eff0f1',
             'xtick.color': '#eff0f1',
             'ytick.color': '#eff0f1',
             'axes.labelcolor': '#eff0f1',
-            'axes.facecolor': '#232629',
-            'figure.facecolor': '#232629'})
+            #'axes.facecolor': '#232629',
+            #'figure.facecolor': '#232629'})
+            'axes.facecolor': '#2a2a2f',
+            'figure.facecolor': '#2a2a2f'})
 
         self.parent = parent
         self.emc_reader = self.parent.emc_reader
@@ -72,7 +74,6 @@ class FramePanel(QtWidgets.QWidget):
         self.fig = Figure(figsize=(6, 6))
         self.fig.subplots_adjust(left=0.05, right=0.99, top=0.9, bottom=0.05)
         self.canvas = FigureCanvas(self.fig)
-        #self.navbar = NavigationToolbar2QT(self.canvas, self)
         self.navbar = MyNavigationToolbar(self.canvas, self)
         self.canvas.mpl_connect('button_press_event', self._frame_focus)
         vbox.addWidget(self.navbar)
@@ -157,6 +158,7 @@ class FramePanel(QtWidgets.QWidget):
         subp.imshow(frame.T, vmin=0, vmax=float(self.rangestr.text()),
                     interpolation='none', cmap=self.parent.cmap)
         subp.set_title(self._get_plot_title(frame, num, mode))
+        self.fig.tight_layout()
         self.canvas.draw()
 
     def get_num(self):

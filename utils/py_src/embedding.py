@@ -79,7 +79,7 @@ class EmbeddingPanel(QtWidgets.QWidget):
         self.x_axis_num = QtWidgets.QComboBox(self)
         for i in range(4):
             self.x_axis_num.addItem(str(i))
-        self.x_axis_num.currentIndexChanged.connect(self.gen_hist)
+        self.x_axis_num.currentIndexChanged.connect(self._gen_hist)
         hbox.addWidget(self.x_axis_num)
         label = QtWidgets.QLabel('Y-axis:', self)
         hbox.addWidget(label)
@@ -87,7 +87,7 @@ class EmbeddingPanel(QtWidgets.QWidget):
         for i in range(4):
             self.y_axis_num.addItem(str(i))
         self.y_axis_num.setCurrentIndex(1)
-        self.y_axis_num.currentIndexChanged.connect(self.gen_hist)
+        self.y_axis_num.currentIndexChanged.connect(self._gen_hist)
         hbox.addWidget(self.y_axis_num)
         hbox.addStretch(1)
 

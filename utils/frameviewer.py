@@ -12,7 +12,6 @@ except ImportError:
     from PyQt4 import QtCore, QtGui # pylint: disable=import-error
     from PyQt4 import QtGui as QtWidgets # pylint: disable=import-error
     os.environ['QT_API'] = 'pyqt'
-import qdarkstyle
 from py_src import py_utils
 from py_src import read_config
 from py_src import frame_panel
@@ -38,7 +37,11 @@ class Frameviewer(QtWidgets.QMainWindow):
     def _init_ui(self):
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setWindowTitle('Dragonfly Frame Viewer')
-        window = QtWidgets.QWidget()
+        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'py_src/style.css'), 'r') as f:
+            self.css = f.read()
+        self.setStyleSheet(self.css)
+        self.window = QtWidgets.QWidget()
+        self.window.setObjectName('frame')
 
         # Menu bar
         menubar = self.menuBar()
@@ -56,16 +59,25 @@ class Frameviewer(QtWidgets.QMainWindow):
 
         # Frame panel
         self.hbox = QtWidgets.QHBoxLayout()
+        self.hbox.setContentsMargins(0, 0, 0, 0)
         self.frame_panel = frame_panel.FramePanel(self, powder=self.do_powder,
                                                   compare=self.do_compare)
         self.hbox.addWidget(self.frame_panel)
 
-        window.setLayout(self.hbox)
-        self.setCentralWidget(window)
+        self.window.setLayout(self.hbox)
+        self.setCentralWidget(self.window)
         self.show()
 
     def _cmap_changed(self):
         self.cmap = self.color_map.checkedAction().text()
+        '''
+        if self.cmap == 'cubehelix':
+            self.window.setObjectName('green')
+            self.setStyleSheet(self.css)
+        else:
+            self.window.setObjectName('frame')
+            self.setStyleSheet(self.css)
+        '''
         self.frame_panel.plot_frame()
 
     def keyPressEvent(self, event): # pylint: disable=C0103
@@ -93,7 +105,6 @@ def main():
     args = parser.special_parse_args()
 
     app = QtWidgets.QApplication(sys.argv)
-    app.setStyleSheet(qdarkstyle.load_stylesheet_from_environment())
     Frameviewer(args.config_file, mask=args.mask, do_powder=args.powder, do_compare=args.compare)
     sys.exit(app.exec_())
 

@@ -14,7 +14,6 @@ except ImportError:
     from PyQt4 import QtCore, QtGui # pylint: disable=import-error
     from PyQt4 import QtGui as QtWidgets # pylint: disable=import-error
     os.environ['QT_API'] = 'pyqt'
-import qdarkstyle
 from py_src import manual
 from py_src import conversion
 from py_src import embedding
@@ -49,7 +48,10 @@ class Classifier(QtWidgets.QMainWindow):
         self.cmap = None
 
         self._get_config_params()
-        py_utils.gen_det_and_emc(self, classifier=True, mask=mask)
+        if self.stack_size == 0:
+            py_utils.gen_det_and_emc(self, classifier=True, mask=mask)
+        else:
+            py_utils.gen_stack(self)
         self.classes = classes.FrameClasses(self.emc_reader.num_frames, fname=self.class_fname)
 
         self._init_ui()
@@ -57,10 +59,15 @@ class Classifier(QtWidgets.QMainWindow):
     def _init_ui(self):
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setWindowTitle('Dragonfly Classifier')
+        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'py_src/style.css'), 'r') as f:
+            self.css = f.read()
+        self.setStyleSheet(self.css)
         self.setGeometry(0, 0, 1100, 900)
         window = QtWidgets.QWidget()
+        window.setObjectName('frame')
         hbox = QtWidgets.QHBoxLayout()
         hbox.setSpacing(0)
+        hbox.setContentsMargins(0, 0, 0, 0)
 
         # Menu items
         menubar = self.menuBar()
@@ -105,6 +112,8 @@ class Classifier(QtWidgets.QMainWindow):
         except read_config.configparser.NoSectionError:
             print('No section named \'classifier\'. Taking parameters from \'emc\' section instead')
             section = 'emc'
+            self.class_fname = 'my_classes.dat'
+            self.polar_params = ['5', '60', '2.', '10.']
         except read_config.configparser.NoOptionError:
             pass
 
@@ -157,7 +166,6 @@ def main():
     args = parser.special_parse_args()
 
     app = QtWidgets.QApplication(sys.argv)
-    app.setStyleSheet(qdarkstyle.load_stylesheet_from_environment())
     Classifier(args.config_file, mask=args.mask)
     sys.exit(app.exec_())
 

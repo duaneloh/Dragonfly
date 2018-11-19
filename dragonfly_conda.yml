@@ -73,6 +73,3 @@ dependencies:
   - wheel=0.31.1=py27_0
   - xz=5.2.4=h14c3975_4
   - zlib=1.2.11=ha838bed_2
-  - pip:
-    - qdarkstyle==2.5.4
-
