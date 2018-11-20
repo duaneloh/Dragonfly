@@ -11,7 +11,7 @@ import os
 import sys
 import shutil
 import argparse
-sys.path.append(os.path.join(os.path.dirname(sys.argv[0]), "utils"))
+sys.path.append(os.path.dirname(__file__))
 from py_src import py_utils # pylint: disable=import-error
 
 def main():
@@ -33,10 +33,9 @@ def main():
     args.recon_prefix = os.path.realpath(args.recon_prefix)
 
     curr_dir = os.getcwd()
-    parent_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
+    parent_dir = os.path.realpath(os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), os.pardir))
     new_recon_dir = py_utils.create_new_recon_dir(tag=args.recon_tag, num=args.run_tag,
                                                   prefix=args.recon_prefix)
-
     print(80*"=")
     print("Initializing new directory and creating soft links to useful utilities.")
     print("Type './init_new_recon.py -h' for options")
@@ -56,11 +55,14 @@ def main():
                   os.path.join(curr_dir, new_recon_dir, "data"))
             print("Reconstructions not affected..")
 
-    os.chdir(curr_dir)
-    os.chdir(parent_dir)
-    os.system("make")
-    (reld, ln_dirs,) = (parent_dir, ["aux", "emc"])
-    (relc, copies,) = (parent_dir, ["config.ini"])
+    os.chdir(new_recon_dir)
+    src = os.path.join(parent_dir, 'aux')
+    os.symlink(src, 'aux')
+    src = os.path.join(parent_dir, 'bin/emc')
+    os.symlink(src, 'emc')
+    src = os.path.join(parent_dir, 'config.ini')
+    shutil.copy(src, 'config.ini')
+
     if not args.exp:
         (relu, ln_utils,) = (os.path.join(parent_dir, "utils"), ["make_detector.py",
                                                                  "make_densities.py",
@@ -81,16 +83,9 @@ def main():
                                                                  "classifier.py",
                                                                  "convert"])
 
-    os.chdir(new_recon_dir)
-    for lnd in ln_dirs:
-        src = os.path.join(reld, lnd)
-        os.symlink(src, lnd)
     for lnu in ln_utils:
         src = os.path.join(relu, lnu)
         os.symlink(src, lnu)
-    for lnc in copies:
-        src = os.path.join(relc, lnc)
-        shutil.copy(src, lnc)
 
     os.chdir(curr_dir)
 
