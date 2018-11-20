@@ -12,8 +12,13 @@ endif
 GSL_CFLAGS = $(shell gsl-config --cflags)
 GSL_LIBS = $(shell gsl-config --libs) -Wl,-rpath,$(shell gsl-config --prefix)/lib 
 H5_CFLAGS = $(shell pkg-config --cflags hdf5)
-H5_LIBS = $(shell pkg-config --libs hdf5)
-CFLAGS = -O3 -Wall $(OMP_FLAG) -Wno-unused-result $(GSL_CFLAGS) $(H5_CFLAGS)
+ifeq ($(H5_CFLAGS),)
+	H5_CFLAGS =
+	H5_LIBS = -lhdf5
+else
+	H5_LIBS = $(shell pkg-config --libs hdf5)
+endif
+CFLAGS = -O3 -Wall $(OMP_FLAG) -Wno-unused-result $(GSL_CFLAGS) $(H5_CFLAGS) -DWITH_HDF5
 LIBS = $(GSL_LIBS) $(H5_LIBS) $(OMP_FLAG)
 
 # Derive source files and targets
