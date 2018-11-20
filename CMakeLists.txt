@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.1)
 project(dragonfly LANGUAGES C)
 
 if(CMAKE_COMPILER_IS_GNUCC)
@@ -60,9 +60,10 @@ if (MPI_LINK_FLAGS)
 endif()
 
 # Install emc, aux and dragonfly_init
-install(TARGETS emc DESTINATION dragonfly)
+set(CMAKE_INSTALL_MESSAGE LAZY)
+install(TARGETS emc DESTINATION dragonfly/bin)
+install(PROGRAMS dragonfly_init DESTINATION dragonfly/bin)
 install(DIRECTORY aux DESTINATION dragonfly)
-install(PROGRAMS dragonfly_init DESTINATION dragonfly)
 install(FILES config.ini DESTINATION dragonfly)
 
 # Compile and install utilities
