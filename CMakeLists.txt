@@ -20,6 +20,7 @@ include_directories(${GSL_INCLUDE_DIRS})
 
 set(USE_HDF5 ON CACHE BOOL "If ON, build and support HDF5 input files")
 if(USE_HDF5)
+	set(HDF5_USE_STATIC_LIBRARIES TRUE)
 	set(HDF5_PREFER_PARALLEL TRUE)
 	find_package(HDF5)
 	if(HDF5_FOUND)
@@ -34,7 +35,6 @@ if(USE_HDF5)
 endif(USE_HDF5)
 
 # Compile object files
-#file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
 file(GLOB OBJSOURCE "src/*.c")
 list(FILTER OBJSOURCE EXCLUDE REGEX ".*emc.c")
 foreach(src ${OBJSOURCE})
@@ -50,7 +50,6 @@ target_link_libraries(emc GSL::gsl GSL::gslcblas)
 target_link_libraries(emc m)
 if(HDF5_FOUND)
 	target_link_libraries(emc ${HDF5_C_LIBRARIES})
-	#target_link_libraries(emc hdf5)
 endif()
 target_link_libraries(emc ${MPI_LIBRARIES})
 if (MPI_COMPILE_FLAGS)
@@ -60,5 +59,12 @@ if (MPI_LINK_FLAGS)
 	set_target_properties(emc PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
 endif()
 
-# Compile utilities
+# Install emc, aux and dragonfly_init
+install(TARGETS emc DESTINATION dragonfly)
+install(DIRECTORY aux DESTINATION dragonfly)
+install(PROGRAMS dragonfly_init DESTINATION dragonfly)
+install(FILES config.ini DESTINATION dragonfly)
+
+# Compile and install utilities
 add_subdirectory(utils)
+

@@ -1,11 +1,11 @@
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/utils)
-file(GLOB UTILS_SRC "src/*.c")
-foreach(src ${UTILS_SRC})
+file(GLOB utils_src "src/*.c")
+foreach(src ${utils_src})
 	string(REGEX REPLACE ".*/src/(.*).c" "\\1" util ${src})
+	list(APPEND c_utils ${util})
 	
 	add_executable(${util} ${src})
-	target_link_libraries(${util} gsl)
-	target_link_libraries(${util} gslcblas)
+	target_link_libraries(${util} GSL::gsl GSL::gslcblas)
 	target_link_libraries(${util} m)
 endforeach(src)
 
@@ -22,3 +22,10 @@ if(HDF5_FOUND)
 	target_link_libraries(make_data ${HDF5_C_LIBRARIES})
 	target_link_libraries(fiberize ${HDF5_C_LIBRARIES})
 endif()
+
+# Install C and Python utilities
+file(GLOB py_utils "*.py")
+file(GLOB py_src "py_src/*.py" "py_src/style.css")
+install(TARGETS ${c_utils} DESTINATION dragonfly/utils)
+install(PROGRAMS ${py_utils} DESTINATION dragonfly/utils)
+install(FILES ${py_src} DESTINATION dragonfly/utils/py_src)
