@@ -1,8 +1,16 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.6)
+# Version 3.6 required for list(FILTER)
+set(CMAKE_INSTALL_MESSAGE LAZY)
 project(dragonfly LANGUAGES C)
 
+if(GLOBAL_INSTALL)
+	set(CMAKE_INSTALL_PREFIX /usr/local)
+else(GLOBAL_INSTALL)
+	set(CMAKE_INSTALL_PREFIX $ENV{HOME}/.local)
+endif(GLOBAL_INSTALL)
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -Wall")
 if(CMAKE_COMPILER_IS_GNUCC)
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -Wall")
 	if(CMAKE_C_COMPILER_VERSION VERSION_GREATER 4.4)
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-result")
 		#endif(CMAKE_CXX_COMPILER_VERSION)
@@ -60,7 +68,6 @@ if (MPI_LINK_FLAGS)
 endif()
 
 # Install emc, aux and dragonfly_init
-set(CMAKE_INSTALL_MESSAGE LAZY)
 install(TARGETS emc DESTINATION dragonfly/bin)
 install(PROGRAMS dragonfly_init DESTINATION dragonfly/bin)
 install(DIRECTORY aux DESTINATION dragonfly)
