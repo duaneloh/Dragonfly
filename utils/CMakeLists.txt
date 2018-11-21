@@ -29,3 +29,8 @@ file(GLOB py_src "py_src/*.py" "py_src/style.css")
 install(TARGETS ${c_utils} DESTINATION dragonfly/utils)
 install(PROGRAMS ${py_utils} DESTINATION dragonfly/utils)
 install(FILES ${py_src} DESTINATION dragonfly/utils/py_src)
+
+install(CODE "MESSAGE(\"============================================================\")")
+install(CODE "MESSAGE(\"Finished installation. Add the following to your profile file:\")")
+install(CODE "MESSAGE(\"export PATH=${CMAKE_INSTALL_PREFIX}/dragonfly/bin:$PATH\")")
+install(CODE "MESSAGE(\"============================================================\")")
