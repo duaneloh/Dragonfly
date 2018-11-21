@@ -8,7 +8,9 @@
 #include <stdint.h>
 #include <libgen.h>
 #include <math.h>
+#ifdef WITH_HDF5
 #include <hdf5.h>
+#endif // WITH_HDF5
 
 struct detector {
 	int num_pix, rel_num_pix ;
