@@ -72,8 +72,7 @@ def main():
                                                                  "sim_setup.py",
                                                                  "autoplot.py",
                                                                  "frameviewer.py",
-                                                                 "powder.py",
-                                                                 "convert"])
+                                                                 "powder.py"])
     else:
         (relu, ln_utils,) = (os.path.join(parent_dir, "utils"), ["make_detector.py",
                                                                  "run_emc.py",
