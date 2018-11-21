@@ -35,9 +35,11 @@ endif()
 
 # Install C and Python utilities
 file(GLOB py_utils "*.py")
+file(GLOB convert_utils "convert/*.py")
 file(GLOB py_src "py_src/*.py" "py_src/style.css")
 install(TARGETS ${c_utils} DESTINATION dragonfly/utils)
 install(PROGRAMS ${py_utils} DESTINATION dragonfly/utils)
+install(PROGRAMS ${convert_utils} DESTINATION dragonfly/utils/convert)
 install(FILES ${py_src} DESTINATION dragonfly/utils/py_src)
 
 install(CODE "MESSAGE(\"============================================================\")")
