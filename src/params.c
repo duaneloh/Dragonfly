@@ -42,6 +42,7 @@ void generate_params(char *config_fname, struct params *param) {
 	param->modes = 1 ;
 	param->rot_per_mode = 0 ;
 	param->recon_type = RECON3D ;
+	param->friedel_sym = 0 ;
 	sprintf(param->log_fname, "%s/EMC.log", config_folder) ;
 	sprintf(param->output_folder, "%s/data/", config_folder) ;
 	
@@ -84,6 +85,8 @@ void generate_params(char *config_fname, struct params *param) {
 				param->sigmasq *= param->sigmasq ;
 				fprintf(stderr, "sigma_squared = %f\n", param->sigmasq) ;
 			}
+			else if (strcmp(token, "friedel_sym") == 0)
+				param->friedel_sym = atoi(strtok(NULL, " =\n")) ;
 		}
 	}
 	fclose(config_fp) ;

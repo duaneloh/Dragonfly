@@ -367,6 +367,24 @@ void symmetrize_friedel(double *array, int size) {
 	}
 }
 
+/* In-place Friedel symmetrization for 2D stack:
+ * I(q) and I(-q) are replaced by their average for each 2D layer independently
+ */
+void symmetrize_friedel2d(double *array, int num_layers, int size) {
+	int x, y, z, min = 0, center = size/2 ;
+	double ave_intens ;
+	if (size % 2 == 0)
+		min = 1 ;
+	
+	for (x = 0; x < num_layers; ++x)
+	for (y = min ; y < size ; ++y)
+	for (z = min ; z <= center ; ++z) {
+		ave_intens = .5 * (array[x*size*size + y*size + z] + array[x*size*size + (2*center-y)*size + (2*center-z)]) ;
+		array[x*size*size + y*size + z] = ave_intens ;
+		array[x*size*size + (2*center-y)*size +  (2*center-z)] = ave_intens ;
+	}
+}
+
 static double icos_list[60][3][3] = {
 	{{1., 0., 0.}, {0., 1., 0.}, {0., 0., 1.}},
 	{{-1., 0., 0.}, {0., -1., 0.}, {0., 0., 1.}},

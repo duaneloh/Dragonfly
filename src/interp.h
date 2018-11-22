@@ -19,5 +19,6 @@ void slice_merge2d(double*, double*, double*, double*, long, struct detector*) ;
 void rotate_model(double[3][3], double*, int, double*) ;
 void symmetrize_icosahedral(double*, int) ;
 void symmetrize_friedel(double*, int) ;
+void symmetrize_friedel2d(double*, int, int) ;
 
 #endif //INTERP_H
