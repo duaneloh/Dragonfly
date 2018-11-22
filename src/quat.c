@@ -804,7 +804,7 @@ int parse_quat(char *fname, struct rotation *quat) {
 }
 
 void divide_quat(int rank, int num_proc, int num_modes, struct rotation *quat) {
-	quat->num_rot_p = num_modes * quat->num_rot / num_proc ;
+	quat->num_rot_p = num_modes * (quat->num_rot / num_proc) ;
 	if (rank < (quat->num_rot % num_proc))
 		quat->num_rot_p++ ;
 	if (num_proc > 1) {
