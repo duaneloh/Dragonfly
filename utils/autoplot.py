@@ -607,24 +607,36 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self._plot_vol()
 
     def _load_volume(self):
-        fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Load 3D Volume',
-                                                         'data/', 'Binary data (*.bin)')
+        fpath = QtWidgets.QFileDialog.getOpenFileName(self, 'Load 3D Volume',
+                                                      'data/', 'Binary data (*.bin)')
+        if os.environ['QT_API'] == 'pyqt5':
+            fname = fpath[0]
+        else:
+            fname = fpath
         if fname:
             self.fname.setText(fname)
             self._parse_and_plot()
 
     def _save_plot(self):
         default_name = 'images/'+os.path.splitext(os.path.basename(self.fname.text()))[0]+'.png'
-        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Volume Image',
-                                                         default_name, 'Image (*.png)')
+        fpath = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Volume Image',
+                                                      default_name, 'Image (*.png)')
+        if os.environ['QT_API'] == 'pyqt5':
+            fname = fpath[0]
+        else:
+            fname = fpath
         if fname:
             self.fig.savefig(fname, bbox_inches='tight', dpi=120)
             sys.stderr.write('Saved to %s\n'%fname)
 
     def _save_log_plot(self):
         default_name = 'images/log_fig.png'
-        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Log Plots',
-                                                         default_name, 'Image (*.png)')
+        fpath = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Log Plots',
+                                                      default_name, 'Image (*.png)')
+        if os.environ['QT_API'] == 'pyqt5':
+            fname = fpath[0]
+        else:
+            fname = fpath
         if fname:
             self.log_fig.savefig(fname, bbox_inches='tight', dpi=120)
             sys.stderr.write("Saved to %s\n"%fname)
