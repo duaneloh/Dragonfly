@@ -27,8 +27,8 @@ class EMCWriter(object):
 
     def __init__(self, out_fname, num_pix):
         out_folder = os.path.dirname(out_fname)
-        temp_fnames = [os.path.join(out_folder, fname)
-                       for fname in ['temp.po', 'temp.pm', 'temp.cm']]
+        temp_fnames = [os.path.join(out_folder, fname) + str(os.getpid())
+                       for fname in ['.po.', '.pm.', '.cm.']]
         self._fptrs = [open(fname, 'wb') for fname in temp_fnames]
 
         self.out_fname = out_fname
