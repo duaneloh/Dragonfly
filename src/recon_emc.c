@@ -156,10 +156,10 @@ void update_model(double likelihood) {
 	
 	if (param->recon_type == RECON2D && param->friedel_sym)
 		symmetrize_friedel2d(iter->model2, param->modes, iter->size) ;
-	else if (quat->icosahedral_flag)
+	else if (param->recon_type == RECON3D && quat->icosahedral_flag)
 		for (x = 0 ; x < param->modes ; ++x)
 			symmetrize_icosahedral(&iter->model2[x*iter->vol], iter->size) ;
-	else
+	else if (param->recon_type == RECON3D)
 		for (x = 0 ; x < param->modes ; ++x)
 			symmetrize_friedel(&iter->model2[x*iter->vol], iter->size) ;
 	
