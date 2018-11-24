@@ -109,5 +109,9 @@ void generate_output_dirs(struct params *param) {
 	mkdir(line, 0750) ;
 	sprintf(line, "%s/likelihood", param->output_folder) ;
 	mkdir(line, 0750) ;
+	if (param->modes > 1) {
+		sprintf(line, "%s/modes", param->output_folder) ;
+		mkdir(line, 0750) ;
+	}
 }
 
