@@ -117,7 +117,7 @@ class EMCReader(object):
             powder = self._assemble_frame(powder, 0, **kwargs)
         return powder
 
-    def _read_frame(self, file_num, frame_num, raw_flag=False, **kwargs):
+    def _read_frame(self, file_num, frame_num, raw=False, **kwargs):
         pdict = self.flist[file_num]
         with open(pdict['fname'], 'rb') as fptr:
             num_data = np.fromfile(fptr, dtype='i4', count=1)[0]
@@ -144,7 +144,7 @@ class EMCReader(object):
         np.add.at(frame, place_ones, 1)
         np.add.at(frame, place_multi, count_multi)
         frame *= pdict['geom'].unassembled_mask
-        if not raw_flag:
+        if not raw:
             frame = self._assemble_frame(frame, file_num, **kwargs)
         return frame
 
