@@ -76,7 +76,7 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 	
 	if (param->need_scaling) {
 		if (!param->rank && param->start_iter == 1) {
-			sprintf(line, "%s/scale/scale_000.dat", param->output_folder) ;
+			sprintf(line, "%s/scale_000.dat", param->output_folder) ;
 			calc_scale(dset, det, line, iter) ;
 		}
 		else {
@@ -94,7 +94,7 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 	}
 	
 	if (!param->rank && param->start_iter == 1) {
-		sprintf(line, "%s/output/intens_000.bin", param->output_folder) ;
+		sprintf(line, "%s/intens_000.bin", param->output_folder) ;
 		model_mean = dset[0].mean_count / det[0].rel_num_pix * 2. ;
 #ifdef FIXED_SEED
 		model_mean *= -1. ;
