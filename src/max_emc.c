@@ -212,7 +212,7 @@ void allocate_memory(struct max_data *data) {
 			data->max_exp_p[d] = -DBL_MAX ;
 	}
 	if (param->modes > 1)
-		data->quat_norm = calloc(param->modes, sizeof(double)) ;
+		data->quat_norm = calloc(param->modes * frames->tot_num_data, sizeof(double)) ;
 	
 	if (!data->within_openmp) { // common_data
 		data->u = calloc(quat->num_rot_p, sizeof(double)) ;
@@ -287,10 +287,10 @@ double calculate_rescale(struct max_data *data) {
 		}
 	}
 	
-	sprintf(res_string, "(= %.6e)", frames[0].mean_count / total) ;
+	sprintf(res_string, "(= %.6e)", frames[0].mean_count / total * param->modes) ;
 	print_max_time("rescale", res_string, param->rank == 0) ;
 	
-	return frames[0].mean_count / total ;
+	return frames[0].mean_count / total * param->modes ;
 }
 
 void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
@@ -420,7 +420,7 @@ void normalize_prob(struct max_data *priv, struct max_data *common) {
 }
 
 void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
-	int dset = 0, t, d, pixel, detn, rotind ;
+	int dset = 0, t, d, curr_d, pixel, detn, rotind, mode ;
 	double temp ;
 	struct dataset *curr ;
 	double *view, *prob = common->probab[r] ;
@@ -436,81 +436,84 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 	for (detn = 0 ; detn < det[0].num_det ; ++detn) 
 		memset(priv->all_views[detn], 0, det[detn].num_pix*sizeof(double)) ;
 	rotind = (r*param->num_proc + param->rank) / param->modes ;
+	mode = (r*param->num_proc + param->rank) % param->modes ;
 	
 	while (curr != NULL) {
 		//Calculate slice for current detector
 		detn = det[0].mapping[dset] ;
 		view = priv->all_views[detn] ;
 		
-		for (d = 0 ; d < curr->num_data ; ++d) {
+		for (curr_d = 0 ; curr_d < curr->num_data ; ++curr_d) {
+			// Calculate frame number in full list
+			d = curr->num_data_prev + curr_d ;
+			
 			// check if frame is blacklisted
-			if (frames->blacklist[curr->num_data_prev+d])
+			if (frames->blacklist[d])
 				continue ;
 			
 			// Exponentiate log-likelihood and normalize to get probabilities
-			temp = prob[curr->num_data_prev+d] ;
+			temp = prob[d] ;
 			if (frames->type < 2)
-				prob[curr->num_data_prev+d] = exp(param->beta*(prob[curr->num_data_prev+d] - common->max_exp[curr->num_data_prev+d])) / common->p_sum[curr->num_data_prev+d] ; 
+				prob[d] = exp(param->beta*(prob[d] - common->max_exp[d])) / common->p_sum[d] ; 
 			else
-				prob[curr->num_data_prev+d] = exp(param->beta*(prob[curr->num_data_prev+d] - common->max_exp[curr->num_data_prev+d]) / 2. / param->sigmasq) / common->p_sum[curr->num_data_prev+d] ;
+				prob[d] = exp(param->beta*(prob[d] - common->max_exp[d]) / 2. / param->sigmasq) / common->p_sum[d] ;
 			
 			//if (param->need_scaling)
-			//	priv->likelihood[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * (temp - frames->sum_fact[curr->num_data_prev+d] + frames->count[curr->num_data_prev+d]*log(iter->scale[curr->num_data_prev+d])) ;
+			//	priv->likelihood[d] += prob[d] * (temp - frames->sum_fact[d] + frames->count[d]*log(iter->scale[d])) ;
 			//else
-			priv->likelihood[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * (temp - frames->sum_fact[curr->num_data_prev+d]) ;
+			priv->likelihood[d] += prob[d] * (temp - frames->sum_fact[d]) ;
 			
 			// Calculate denominator for update rule
 			if (param->need_scaling) {
-				priv->p_sum[detn] += prob[curr->num_data_prev+d] * iter->scale[curr->num_data_prev+d] ;
+				priv->p_sum[detn] += prob[d] * iter->scale[d] ;
 				// Calculate denominator for scale factor update rule
 				if (param->iteration > 1)
-					priv->scale[curr->num_data_prev+d] -= prob[curr->num_data_prev+d] * common->u[r] ;
+					priv->scale[d] -= prob[d] * common->u[r] ;
 				else
-					priv->scale[curr->num_data_prev+d] -= prob[curr->num_data_prev+d] * common->u[r] * iter->rescale ;
+					priv->scale[d] -= prob[d] * common->u[r] * iter->rescale ;
 			}
 			else
-				priv->p_sum[detn] += prob[curr->num_data_prev+d] ; 
+				priv->p_sum[detn] += prob[d] ; 
 			
 			// Skip if probability is very low (saves time)
-			if (!(prob[curr->num_data_prev+d] > PROB_MIN))
+			if (!(prob[d] > PROB_MIN))
 				continue ;
 			
+			// If multiple modes, calculate occupancy of frame into each mode
+			if (param->modes > 1)
+				priv->quat_norm[d*param->modes + mode] += prob[d] ;
+			
 			// Calculate mutual information of probability distribution
-			priv->info[curr->num_data_prev+d] += prob[curr->num_data_prev+d] * log(prob[curr->num_data_prev+d] / quat->quat[rotind*5 + 4]) ;
+			priv->info[d] += prob[d] * log(prob[d] / quat->quat[rotind*5 + 4]) ;
 			
 			if (curr->type == 0) {
 				// For all pixels with one photon
 				for (t = 0 ; t < curr->ones[d] ; ++t) {
 					pixel = curr->place_ones[curr->ones_accum[d] + t] ;
 					if (det[detn].mask[pixel] < 2)
-						view[pixel] += prob[curr->num_data_prev+d] ;
+						view[pixel] += prob[d] ;
 				}
 				
 				// For all pixels with count_multi photons
 				for (t = 0 ; t < curr->multi[d] ; ++t) {
 					pixel = curr->place_multi[curr->multi_accum[d] + t] ;
 					if (det[detn].mask[pixel] < 2)
-						view[pixel] += curr->count_multi[curr->multi_accum[d] + t] * prob[curr->num_data_prev+d] ;
+						view[pixel] += curr->count_multi[curr->multi_accum[d] + t] * prob[d] ;
 				}
 			}
 			else if (curr->type == 1) {
 				for (t = 0 ; t < curr->num_pix ; ++t)
-					view[t] += curr->int_frames[d*curr->num_pix + t] * prob[curr->num_data_prev+d] ;
+					view[t] += curr->int_frames[d*curr->num_pix + t] * prob[d] ;
 			}
 			else if (curr->type == 2) { // Gaussian EMC update without scaling
 				for (t = 0 ; t < curr->num_pix ; ++t)
 				if (det[detn].mask[t] < 2)
-					view[t] += curr->frames[d*curr->num_pix + t] * prob[curr->num_data_prev+d] ;
+					view[t] += curr->frames[d*curr->num_pix + t] * prob[d] ;
 			}
 		}
 		
 		curr = curr->next ;
 		dset++ ;
-	}
-	
-	if (param->modes > 1) {
-		for (detn = 0 ; detn < det[0].num_det ; ++detn)
-			priv->quat_norm[(r*param->num_proc + param->rank) % param->modes] += priv->p_sum[detn] ;
 	}
 }
 
@@ -572,7 +575,7 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 	
 	if (param->modes > 1) {
 		#pragma omp critical(quat_norm)
-		for (d = 0 ; d < param->modes ; ++d)
+		for (d = 0 ; d < frames->tot_num_data * param->modes ; ++d)
 			common->quat_norm[d] += priv->quat_norm[d] ;
 	}
 	print_max_time("update", "", param->rank == 0 && omp_rank == 0) ;
@@ -596,7 +599,7 @@ double combine_information_mpi(struct max_data *data) {
 	MPI_Allreduce(MPI_IN_PLACE, data->likelihood, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 	MPI_Allreduce(MPI_IN_PLACE, data->info, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 	if (param->modes > 1)
-		MPI_Allreduce(MPI_IN_PLACE, data->quat_norm, param->modes, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
+		MPI_Allreduce(MPI_IN_PLACE, data->quat_norm, frames->tot_num_data*param->modes, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 	
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
 	if (!frames->blacklist[d]) {
@@ -621,7 +624,7 @@ double combine_information_mpi(struct max_data *data) {
 }
 
 void save_output(struct max_data *data) {
-	int d, r ;
+	int d ;
 	
 	if (param->need_scaling) {	
 		char fname[2048] ;
@@ -632,16 +635,18 @@ void save_output(struct max_data *data) {
 		fclose(fp_scale) ;
 	}
 	
-	if (param->modes > 1 && param->rank == 0) {
+	/*
+	if (param->modes > 1) {
+		int r ;
 		fprintf(stderr, "Mode occupancies: ") ;
 		for (r = 0 ; r < param->modes ; ++r)
 			fprintf(stderr, "%.3f ", data->quat_norm[r]/(frames->tot_num_data - frames->num_blacklist)) ;
 		fprintf(stderr, "\n") ;
+		for (r = 0 ; r < quat->num_rot ; ++r)
+			quat->quat[r*5 + 4] = data->quat_norm[r/param->rot_per_mode] / (frames->tot_num_data - frames->num_blacklist) ;
 	}
-	//if (param->modes > 1)
-	//for (r = 0 ; r < quat->num_rot ; ++r)
-	//	quat->quat[r*5 + 4] = data->quat_norm[r/param->rot_per_mode] / (frames->tot_num_data - frames->num_blacklist) ;
-	
+	*/
+
 	// Print frame-by-frame mutual information, likelihood, and most likely orientations to file
 	char fname[2048] ;
 	sprintf(fname, "%s/mutualInfo/info_%.3d.dat", param->output_folder, param->iteration) ;
@@ -660,6 +665,14 @@ void save_output(struct max_data *data) {
 	fclose(fp_rmax) ;
 	fclose(fp_info) ;
 	fclose(fp_likelihood) ;
+	
+	// Write frame-by-frame mode occupancies to file
+	if (param->modes > 1) {
+		sprintf(fname, "%s/modes/occupancies_%.3d.bin", param->output_folder, param->iteration) ;
+		FILE *fp_modes = fopen(fname, "w") ;
+		fwrite(data->quat_norm, sizeof(double), frames->tot_num_data*param->modes, fp_modes) ;
+		fclose(fp_modes) ;
+	}
 }
 
 void free_memory(struct max_data *data) {
