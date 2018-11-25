@@ -24,11 +24,147 @@ static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
 	}
 }
 
+static int parse_binarydataset(char *fname, struct detector *det, struct dataset *current) {
+	int d ;
+	
+	FILE *fp = fopen(fname, "rb") ;
+	fread(&(current->num_data), sizeof(int), 1, fp) ;
+	fread(&(current->num_pix), sizeof(int) , 1, fp) ;
+	current->tot_num_data = current->num_data ;
+	if (current->num_pix != det->num_pix)
+		fprintf(stderr, "WARNING! The detector file and photons file %s do not "
+		                "have the same number of pixels\n", current->filename) ;
+	fread(&(current->type), sizeof(int), 1, fp) ;
+	fseek(fp, 1024, SEEK_SET) ;
+	if (current->type == 0) { // Sparse
+		current->ones = malloc(current->num_data * sizeof(int)) ;
+		current->multi = malloc(current->num_data * sizeof(int)) ;
+		fread(current->ones, sizeof(int), current->num_data, fp) ;
+		fread(current->multi, sizeof(int), current->num_data, fp) ;
+		
+		current->ones_accum = malloc(current->num_data * sizeof(long)) ;
+		current->multi_accum = malloc(current->num_data * sizeof(long)) ;
+		current->ones_accum[0] = 0 ;
+		current->multi_accum[0] = 0 ;
+		for (d = 1 ; d < current->num_data ; ++d) {
+			current->ones_accum[d] = current->ones_accum[d-1] + current->ones[d-1] ;
+			current->multi_accum[d] = current->multi_accum[d-1] + current->multi[d-1] ;
+		}
+		current->ones_total = current->ones_accum[current->num_data-1] + current->ones[current->num_data-1] ;
+		current->multi_total = current->multi_accum[current->num_data-1] + current->multi[current->num_data-1] ;
+		
+		current->place_ones = malloc(current->ones_total * sizeof(int)) ;
+		current->place_multi = malloc(current->multi_total * sizeof(int)) ;
+		current->count_multi = malloc(current->multi_total * sizeof(int)) ;
+		fread(current->place_ones, sizeof(int), current->ones_total, fp) ;
+		fread(current->place_multi, sizeof(int), current->multi_total, fp) ;
+		fread(current->count_multi, sizeof(int), current->multi_total, fp) ;
+	}
+	else if (current->type == 1) { // Dense integer
+		fprintf(stderr, "%s is a dense integer emc file\n", current->filename) ;
+		current->int_frames = malloc(current->num_pix * current->num_data * sizeof(int)) ;
+		fread(current->int_frames, sizeof(int), current->num_pix * current->num_data, fp) ;
+	}
+	else if (current->type == 2) { // Dense double
+		fprintf(stderr, "%s is a dense double precision emc file\n", current->filename) ;
+		current->frames = malloc(current->num_pix * current->num_data * sizeof(double)) ;
+		fread(current->frames, sizeof(double), current->num_pix * current->num_data, fp) ;
+	}
+	else {
+		fprintf(stderr, "Unknown dataset type %d\n", current->type) ;
+		fclose(fp) ;
+		return 1 ;
+	}
+	fclose(fp) ;
+
+	return 0 ;
+}
+
+static int parse_h5dataset(char *fname, struct detector *det, struct dataset *current) {
+	int d ;
+	hid_t file, dset, dspace, dtype ;
+	hsize_t bufsize ;
+	hvl_t *buffer ;
+	
+	file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT) ;
+	
+	dset = H5Dopen(file, "num_pix", H5P_DEFAULT) ;
+	H5Dread(dset, H5T_STD_I32LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &(current->num_pix)) ;
+	H5Dclose(dset) ;
+	if (current->num_pix != det->num_pix)
+		fprintf(stderr, "WARNING! The detector file and photons file %s do not "
+		                "have the same number of pixels\n", current->filename) ;
+	
+	dset = H5Dopen(file, "place_ones", H5P_DEFAULT) ;
+	dtype = H5Tvlen_create(H5T_STD_I32LE) ;
+	dspace = H5Dget_space(dset) ;
+	H5Sget_simple_extent_dims(dspace, &bufsize, NULL) ;
+	current->num_data = bufsize ;
+	current->tot_num_data = current->num_data ;
+	buffer = malloc(current->num_data * sizeof(hvl_t)) ;
+	H5Dread(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, buffer) ;
+	current->ones = malloc(current->num_data * sizeof(int)) ;
+	current->ones_accum = malloc(current->num_data * sizeof(long)) ;
+	H5Dvlen_get_buf_size(dset, dtype, dspace, &bufsize) ;
+	current->ones_total = bufsize / sizeof(int) ;
+	current->place_ones = malloc(current->ones_total * sizeof(int)) ;
+	current->ones_accum[0] = 0 ;
+	current->ones[0] = buffer[0].len ;
+	memcpy(current->place_ones, buffer[0].p, sizeof(int)*buffer[0].len) ;
+	free(buffer[0].p) ;
+	for (d = 1 ; d < current->num_data ; ++d) {
+		current->ones[d] = buffer[d].len ;
+		current->ones_accum[d] = current->ones_accum[d-1] + current->ones[d-1] ;
+		memcpy(&current->place_ones[current->ones_accum[d]], buffer[d].p, sizeof(int)*buffer[d].len) ;
+		free(buffer[d].p) ;
+	}
+	if (current->ones_total != current->ones_accum[current->num_data-1] + current->ones[current->num_data-1])
+		fprintf(stderr, "WARNING: ones_total mismatch in %s\n", current->filename) ;
+	H5Dclose(dset) ;
+	
+	dset = H5Dopen(file, "place_multi", H5P_DEFAULT) ;
+	H5Dread(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, buffer) ;
+	current->multi = malloc(current->num_data * sizeof(int)) ;
+	current->multi_accum = malloc(current->num_data * sizeof(long)) ;
+	H5Dvlen_get_buf_size(dset, dtype, dspace, &bufsize) ;
+	current->multi_total = bufsize / sizeof(int) ;
+	current->place_multi = malloc(current->multi_total * sizeof(int)) ;
+	current->multi_accum[0] = 0 ;
+	current->multi[0] = buffer[0].len ;
+	memcpy(current->place_multi, buffer[0].p, sizeof(int)*buffer[0].len) ;
+	free(buffer[0].p) ;
+	for (d = 1 ; d < current->num_data ; ++d) {
+		current->multi[d] = buffer[d].len ;
+		current->multi_accum[d] = current->multi_accum[d-1] + current->multi[d-1] ;
+		memcpy(&current->place_multi[current->multi_accum[d]], buffer[d].p, sizeof(int)*buffer[d].len) ;
+		free(buffer[d].p) ;
+	}
+	if (current->multi_total != current->multi_accum[current->num_data-1] + current->multi[current->num_data-1])
+		fprintf(stderr, "WARNING: multi_total mismatch in %s\n", current->filename) ;
+	H5Dclose(dset) ;
+	
+	dset = H5Dopen(file, "count_multi", H5P_DEFAULT) ;
+	H5Dread(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, buffer) ;
+	current->count_multi = malloc(current->multi_total * sizeof(int)) ;
+	for (d = 0 ; d < current->num_data ; ++d) {
+		memcpy(&current->count_multi[current->multi_accum[d]], buffer[d].p, sizeof(int)*buffer[d].len) ;
+		free(buffer[d].p) ;
+	}
+	H5Dclose(dset) ;
+	free(buffer) ;
+	
+	H5Sclose(dspace) ;
+	H5Tclose(dtype) ;
+	H5Fclose(file) ;
+	
+	return 0 ;
+}
+
 int generate_data(char *config_fname, char *config_section, char *type_string, struct detector *det_list, struct dataset *frames_list) {
 	int num_datasets = 0 ;
 	char data_fname[1024] = {'\0'}, data_flist[1024] = {'\0'}, out_data_fname[1024] = {'\0'} ;
 	char fname_opt[64], flist_opt[64] ;
-	char line[1024], section_name[1024], config_folder[1024], *token ;
+	char line[1024] = {'\0'}, section_name[1024], config_folder[1024], *token ;
 	char *temp_fname = strndup(config_fname, 1024) ;
 	sprintf(config_folder, "%s/", dirname(temp_fname)) ;
 	free(temp_fname) ;
@@ -57,7 +193,7 @@ int generate_data(char *config_fname, char *config_section, char *type_string, s
 		strcpy(data_fname, out_data_fname) ;
 	
 	if (data_flist[0] != '\0' && data_fname[0] != '\0') {
-		fprintf(stderr, "Config file contains both in_photons_file and in_photons_list. Pick one.\n") ;
+		fprintf(stderr, "Config file contains both %s and %s. Pick one.\n", fname_opt, flist_opt) ;
 		return 1 ;
 	}
 	else if (data_fname[0] != '\0') {
@@ -116,15 +252,17 @@ void calc_sum_fact(struct detector *det, struct dataset *frames) {
 			for (d = 0 ; d < curr->num_data ; ++d)
 				frames->sum_fact[curr->num_data_prev+d] = 0. ;
 		}
-			
+		
 		curr = curr->next ;
 	}
 }
 
 int parse_dataset(char *fname, struct detector *det, struct dataset *current) {
-	int d ;
-	current->ones_total = 0, current->multi_total = 0 ;
+	int err ;
+	long d, t ;
+	char line[1024], hdfheader[8] = {137, 'H', 'D', 'F', '\r', '\n', 26, '\n'} ;
 	
+	current->ones_total = 0, current->multi_total = 0 ;
 	strcpy(current->filename, fname) ;
 	
 	FILE *fp = fopen(fname, "r") ;
@@ -132,58 +270,25 @@ int parse_dataset(char *fname, struct detector *det, struct dataset *current) {
 		fprintf(stderr, "data_fname %s not found. Exiting.\n", fname) ;
 		return 1 ;
 	}
+	fread(line, 8, sizeof(char), fp) ;
+	fclose(fp) ;
 	
-	fread(&(current->num_data), sizeof(int), 1, fp) ;
-	fread(&(current->num_pix), sizeof(int) , 1, fp) ;
-	current->tot_num_data = current->num_data ;
-	if (current->num_pix != det->num_pix)
-		fprintf(stderr, "WARNING! The detector file and photons file %s do not "
-		                "have the same number of pixels\n", current->filename) ;
-	fread(&(current->type), sizeof(int), 1, fp) ;
-	fseek(fp, 1024, SEEK_SET) ;
-	if (current->type == 0) { // Sparse
-		current->ones = malloc(current->num_data * sizeof(int)) ;
-		current->multi = malloc(current->num_data * sizeof(int)) ;
-		fread(current->ones, sizeof(int), current->num_data, fp) ;
-		fread(current->multi, sizeof(int), current->num_data, fp) ;
-		
-		current->ones_accum = malloc(current->num_data * sizeof(long)) ;
-		current->multi_accum = malloc(current->num_data * sizeof(long)) ;
-		current->ones_accum[0] = 0 ;
-		current->multi_accum[0] = 0 ;
-		for (d = 1 ; d < current->num_data ; ++d) {
-			current->ones_accum[d] = current->ones_accum[d-1] + current->ones[d-1] ;
-			current->multi_accum[d] = current->multi_accum[d-1] + current->multi[d-1] ;
-		}
-		current->ones_total = current->ones_accum[current->num_data-1] + current->ones[current->num_data-1] ;
-		current->multi_total = current->multi_accum[current->num_data-1] + current->multi[current->num_data-1] ;
-		
-		current->place_ones = malloc(current->ones_total * sizeof(int)) ;
-		current->place_multi = malloc(current->multi_total * sizeof(int)) ;
-		current->count_multi = malloc(current->multi_total * sizeof(int)) ;
-		fread(current->place_ones, sizeof(int), current->ones_total, fp) ;
-		fread(current->place_multi, sizeof(int), current->multi_total, fp) ;
-		fread(current->count_multi, sizeof(int), current->multi_total, fp) ;
-	}
-	else if (current->type == 1) { // Dense integer
-		fprintf(stderr, "%s is a dense integer emc file\n", current->filename) ;
-		current->int_frames = malloc(current->num_pix * current->num_data * sizeof(int)) ;
-		fread(current->int_frames, sizeof(int), current->num_pix * current->num_data, fp) ;
-	}
-	else if (current->type == 2) { // Dense double
-		fprintf(stderr, "%s is a dense double precision emc file\n", current->filename) ;
-		current->frames = malloc(current->num_pix * current->num_data * sizeof(double)) ;
-		fread(current->frames, sizeof(double), current->num_pix * current->num_data, fp) ;
+	if (strncmp(line, hdfheader, 8) == 0) {
+#ifdef WITH_HDF5
+		fprintf(stderr, "Parsing HDF5 dataset %s\n", fname) ;
+		err = parse_h5dataset(fname, det, current) ;
+#else
+		fprintf(stderr, "H5 dataset support not compiled\n") ;
+		return 1 ;
+#endif // WITH_HDF5
 	}
 	else {
-		fprintf(stderr, "Unknown dataset type %d\n", current->type) ;
-		fclose(fp) ;
-		return 1 ;
+		err = parse_binarydataset(fname, det, current) ;
 	}
-	fclose(fp) ;
-
+	if (err)
+		return err ;
+	
 	// Calculate mean count in the presence of mask
-	long t ;
 	current->mean_count = 0. ;
 	for (d = 0 ; d < current->num_data ; ++d) {
 		if (current->type == 0) {
@@ -212,7 +317,7 @@ int parse_dataset(char *fname, struct detector *det, struct dataset *current) {
 	current->blacklist = NULL ;
 	current->sum_fact = NULL ;
 	
-	return 0 ;
+	return err ;
 }
 
 int parse_data(char *flist, struct detector *det, struct dataset *frames) {
@@ -229,7 +334,7 @@ int parse_data(char *flist, struct detector *det, struct dataset *frames) {
 		return -1 ;
 	}
 	
-	if (fscanf(fp, "%s\n", rel_fname) == 1) {
+	if (fscanf(fp, "%1023s\n", rel_fname) == 1) {
 		absolute_strcpy(flist_folder, data_fname, rel_fname) ;
 		if (parse_dataset(data_fname, det, frames)) {
 			fclose(fp) ;
@@ -248,7 +353,7 @@ int parse_data(char *flist, struct detector *det, struct dataset *frames) {
 	frames->num_data_prev = 0 ;
 	int num_datasets = 1 ;
 	
-	while (fscanf(fp, "%s\n", rel_fname) == 1) {
+	while (fscanf(fp, "%1023s\n", rel_fname) == 1) {
 		if (strlen(rel_fname) == 0)
 			continue ;
 		absolute_strcpy(flist_folder, data_fname, rel_fname) ;
