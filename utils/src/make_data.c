@@ -325,21 +325,18 @@ void write_dataset() {
 	char fname[2048] ;
 	sprintf(fname, "%s.h5", output_fname) ;
 	hid_t file, dset, dspace, dtype ;
-	hsize_t dsize[1] = {num_data} ;
+	hsize_t dsize[1] = {1} ;
 	hvl_t *po, *pm, *cm;
+	
 	file = H5Fcreate(fname, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT) ;
 	dspace = H5Screate_simple(1, dsize, NULL) ;
 	
-	dset = H5Dcreate(file, "ones", H5T_STD_I32LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
-	H5Dwrite(dset, H5T_STD_I32LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, ones) ;
+	dset = H5Dcreate(file, "num_pix", H5T_STD_I32LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
+	H5Dwrite(dset, H5T_STD_I32LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &(det->num_pix)) ;
 	H5Dclose(dset) ;
-	fprintf(stderr, "Written ones\n") ;
 	
-	dset = H5Dcreate(file, "multi", H5T_STD_I32LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
-	H5Dwrite(dset, H5T_STD_I32LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, multi) ;
-	H5Dclose(dset) ;
-	fprintf(stderr, "Written multi\n") ;
-	
+	dsize[0] = num_data ;
+	dspace = H5Screate_simple(1, dsize, NULL) ;
 	dtype = H5Tvlen_create(H5T_STD_I32LE) ;
 	po = malloc(num_data * sizeof(hvl_t)) ;
 	pm = malloc(num_data * sizeof(hvl_t)) ;
@@ -356,19 +353,16 @@ void write_dataset() {
 	H5Dwrite(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, po) ;
 	H5Dclose(dset) ;
 	free(po) ;
-	fprintf(stderr, "Written place_ones\n") ;
 	
 	dset = H5Dcreate(file, "place_multi", dtype, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
 	H5Dwrite(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, pm) ;
 	H5Dclose(dset) ;
 	free(pm) ;
-	fprintf(stderr, "Written place_multi\n") ;
 	
 	dset = H5Dcreate(file, "count_multi", dtype, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
 	H5Dwrite(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, cm) ;
 	H5Dclose(dset) ;
 	free(cm) ;
-	fprintf(stderr, "Written count_multi\n") ;
 	
 	H5Sclose(dspace) ;
 	H5Tclose(dtype) ;
