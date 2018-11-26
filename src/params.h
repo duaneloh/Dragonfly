@@ -18,7 +18,7 @@ struct params {
 	
 	// Algorithm parameters
 	int beta_period, need_scaling, known_scale ;
-	double alpha, beta, beta_jump ;
+	double alpha, beta_start, beta, beta_jump ;
 	int friedel_sym ; // Symmetrization for 2D recon
 	
 	// Gaussian EMC parameter

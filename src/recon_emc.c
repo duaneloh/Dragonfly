@@ -122,7 +122,8 @@ void emc() {
 		
 		// Increasing beta by a factor of 'beta_jump' every 'beta_period' param->iterations
 		if (param->iteration % param->beta_period == 1 && param->iteration > 1)
-			param->beta *= param->beta_jump ;
+			//param->beta *= param->beta_jump ;
+			param->beta = param->beta_start * pow(param->beta_jump, param->iteration / param->beta_period) ;
 		
 		likelihood = maximize() ;
 		print_recon_time("Completed maximize", &tr1, &tr2, param->rank) ;
