@@ -139,6 +139,11 @@ def compute_polarization(polarization, polx, poly, norm):
 def read_gui_config(gui, section):
     ''' Read config file parameters needed for GUI operation
     '''
+    # Defaults
+    gui.polar_params = ['5', '60', '2.', '10.']
+    gui.class_fname = 'my_classes.dat'
+    gui.stack_size = 0
+
     # Photons file list
     try:
         pfile = get_filename(gui.config_file, section, 'in_photons_file')
