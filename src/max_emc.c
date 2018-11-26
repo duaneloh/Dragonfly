@@ -491,27 +491,27 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 			
 			if (curr->type == 0) {
 				// For all pixels with one photon
-				for (t = 0 ; t < curr->ones[d] ; ++t) {
-					pixel = curr->place_ones[curr->ones_accum[d] + t] ;
+				for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
+					pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
 					if (det[detn].mask[pixel] < 2)
 						view[pixel] += prob[d] ;
 				}
 				
 				// For all pixels with count_multi photons
-				for (t = 0 ; t < curr->multi[d] ; ++t) {
-					pixel = curr->place_multi[curr->multi_accum[d] + t] ;
+				for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
+					pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
 					if (det[detn].mask[pixel] < 2)
-						view[pixel] += curr->count_multi[curr->multi_accum[d] + t] * prob[d] ;
+						view[pixel] += curr->count_multi[curr->multi_accum[curr_d] + t] * prob[d] ;
 				}
 			}
 			else if (curr->type == 1) {
 				for (t = 0 ; t < curr->num_pix ; ++t)
-					view[t] += curr->int_frames[d*curr->num_pix + t] * prob[d] ;
+					view[t] += curr->int_frames[curr_d*curr->num_pix + t] * prob[d] ;
 			}
 			else if (curr->type == 2) { // Gaussian EMC update without scaling
 				for (t = 0 ; t < curr->num_pix ; ++t)
 				if (det[detn].mask[t] < 2)
-					view[t] += curr->frames[d*curr->num_pix + t] * prob[d] ;
+					view[t] += curr->frames[curr_d*curr->num_pix + t] * prob[d] ;
 			}
 		}
 		
