@@ -294,7 +294,7 @@ double calculate_rescale(struct max_data *data) {
 }
 
 void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
-	int dset = 0, t, d, pixel, mode, rotind, detn, old_detn = -1 ;
+	int dset = 0, t, d, curr_d, pixel, mode, rotind, detn, old_detn = -1 ;
 	struct dataset *curr = frames ;
 	double *view, *prob = common->probab[r] ;
 	
@@ -311,52 +311,55 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 		old_detn = detn ;
 		
 		// For each frame in data set
-		for (d = 0 ; d < curr->num_data ; ++d) {
+		for (curr_d = 0 ; curr_d < curr->num_data ; ++curr_d) {
+			// Calculate frame number in full list
+			d = curr->num_data_prev + curr_d ;
+
 			// check if frame is blacklisted
-			if (frames->blacklist[curr->num_data_prev+d])
+			if (frames->blacklist[d])
 				continue ;
 			
 			if (curr->type < 2) {
 				// need_scaling is for if we want to assume variable incident intensity
 				if (param->need_scaling && (param->iteration > 1 || param->known_scale))
-					prob[curr->num_data_prev+d] = common->u[r] * iter->scale[curr->num_data_prev+d] ;
+					prob[d] = common->u[r] * iter->scale[d] ;
 				else
-					prob[curr->num_data_prev+d] = common->u[r] * iter->rescale ;
+					prob[d] = common->u[r] * iter->rescale ;
 			}
 			else {
-				prob[curr->num_data_prev+d] = 0. ;
+				prob[d] = 0. ;
 			}
 			
 			if (curr->type == 0) {
 				// For each pixel with one photon
-				for (t = 0 ; t < curr->ones[d] ; ++t) {
-					pixel = curr->place_ones[curr->ones_accum[d] + t] ;
+				for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
+					pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
 					if (det[detn].mask[pixel] < 1)
-						prob[curr->num_data_prev+d] += view[pixel] ;
+						prob[d] += view[pixel] ;
 				}
 				
 				// For each pixel with count_multi photons
-				for (t = 0 ; t < curr->multi[d] ; ++t) {
-					pixel = curr->place_multi[curr->multi_accum[d] + t] ;
+				for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
+					pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
 					if (det[detn].mask[pixel] < 1)
-						prob[curr->num_data_prev+d] += curr->count_multi[curr->multi_accum[d] + t] * view[pixel] ;
+						prob[d] += curr->count_multi[curr->multi_accum[curr_d] + t] * view[pixel] ;
 				}
 			}
 			else if (curr->type == 1) {
 				for (t = 0 ; t < det[detn].num_pix ; ++t)
 				if (det[detn].mask[t] < 1)
-					prob[curr->num_data_prev+d] += curr->int_frames[d*curr->num_pix + t] * view[t] ;
+					prob[d] += curr->int_frames[curr_d*curr->num_pix + t] * view[t] ;
 			}
 			else if (curr->type == 2) { // Gaussian EMC for double precision data without scaling
 				for (t = 0 ; t < det[detn].num_pix ; ++t)
 				if (det[detn].mask[t] < 1)
-					prob[curr->num_data_prev+d] -= pow(curr->frames[d*curr->num_pix + t] - view[t]*iter->rescale, 2.) ;
+					prob[d] -= pow(curr->frames[curr_d*curr->num_pix + t] - view[t]*iter->rescale, 2.) ;
 			}
 			
 			// Note maximum log-likelihood for each frame among 'r's tested by this MPI rank and OMP rank
-			if (prob[curr->num_data_prev+d] > priv->max_exp_p[curr->num_data_prev+d]) {
-				priv->max_exp_p[curr->num_data_prev+d] = prob[curr->num_data_prev+d] ;
-				priv->rmax[curr->num_data_prev+d] = r*param->num_proc + param->rank ;
+			if (prob[d] > priv->max_exp_p[d]) {
+				priv->max_exp_p[d] = prob[d] ;
+				priv->rmax[d] = r*param->num_proc + param->rank ;
 			}
 		}
 		
