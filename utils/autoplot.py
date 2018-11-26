@@ -392,7 +392,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self.iternum.setMaximum(1)
         self.iternum.valueChanged.connect(self._iternum_changed)
         self.iternum.editingFinished.connect(self._iternum_changed)
-        self.iternum.setFixedWidth(48)
+        self.iternum.setFixedWidth(60)
         hbox.addWidget(self.iternum)
         if self.recon_type == '3d':
             hbox = QtWidgets.QHBoxLayout()
@@ -410,7 +410,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.layernum.setMaximum(200)
             self.layernum.valueChanged.connect(self._layernum_changed)
             self.layernum.editingFinished.connect(self._layernum_changed)
-            self.layernum.setFixedWidth(48)
+            self.layernum.setFixedWidth(60)
             hbox.addWidget(self.layernum)
         if self.num_modes > 1:
             hbox = QtWidgets.QHBoxLayout()
@@ -428,7 +428,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.modenum.setMaximum(self.num_modes-1)
             self.modenum.valueChanged.connect(self._modenum_changed)
             self.modenum.editingFinished.connect(self._modenum_changed)
-            self.modenum.setFixedWidth(48)
+            self.modenum.setFixedWidth(60)
             hbox.addWidget(self.modenum)
             self.old_modenum = self.modenum.value()
 
