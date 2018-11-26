@@ -199,7 +199,7 @@ class LogPlotter(object):
         self._add_logplot(grid[:, 0], iternum, loglines[:, 2],
                           'RMS change')
         self._add_logplot(grid[0, 1], iternum, loglines[:, 3],
-                          r'Mutual info. $I(K,\Omega | W)$')
+                          r'Mutual info. $I(K,\Omega | W)$', yscale='symlog')
         self._add_logplot(grid[1, 1], iternum, loglines[:, 4],
                           'Avg log-likelihood', yscale='symlog')
 
@@ -379,23 +379,6 @@ class ProgressViewer(QtWidgets.QMainWindow):
         # -- Sliders
         hbox = QtWidgets.QHBoxLayout()
         vbox.addLayout(hbox)
-        label = QtWidgets.QLabel('Layer num.', self)
-        hbox.addWidget(label)
-        self.layer_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        self.layer_slider.setRange(0, 200)
-        self.layer_slider.sliderMoved.connect(self._layerslider_moved)
-        self.layer_slider.sliderReleased.connect(self._layernum_changed)
-        hbox.addWidget(self.layer_slider)
-        self.layernum = MySpinBox(self)
-        self.layernum.setValue(self.layer_slider.value())
-        self.layernum.setMinimum(0)
-        self.layernum.setMaximum(200)
-        self.layernum.valueChanged.connect(self._layernum_changed)
-        self.layernum.editingFinished.connect(self._layernum_changed)
-        self.layernum.setFixedWidth(48)
-        hbox.addWidget(self.layernum)
-        hbox = QtWidgets.QHBoxLayout()
-        vbox.addLayout(hbox)
         label = QtWidgets.QLabel('Iteration', self)
         hbox.addWidget(label)
         self.iter_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
@@ -411,6 +394,24 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self.iternum.editingFinished.connect(self._iternum_changed)
         self.iternum.setFixedWidth(48)
         hbox.addWidget(self.iternum)
+        if self.recon_type == '3d':
+            hbox = QtWidgets.QHBoxLayout()
+            vbox.addLayout(hbox)
+            label = QtWidgets.QLabel('Layer num.', self)
+            hbox.addWidget(label)
+            self.layer_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+            self.layer_slider.setRange(0, 200)
+            self.layer_slider.sliderMoved.connect(self._layerslider_moved)
+            self.layer_slider.sliderReleased.connect(self._layernum_changed)
+            hbox.addWidget(self.layer_slider)
+            self.layernum = MySpinBox(self)
+            self.layernum.setValue(self.layer_slider.value())
+            self.layernum.setMinimum(0)
+            self.layernum.setMaximum(200)
+            self.layernum.valueChanged.connect(self._layernum_changed)
+            self.layernum.editingFinished.connect(self._layernum_changed)
+            self.layernum.setFixedWidth(48)
+            hbox.addWidget(self.layernum)
         if self.num_modes > 1:
             hbox = QtWidgets.QHBoxLayout()
             vbox.addLayout(hbox)
@@ -531,32 +532,47 @@ class ProgressViewer(QtWidgets.QMainWindow):
         except read_config.configparser.NoOptionError:
             self.num_modes = 1
 
-    def _update_layers(self, size, center):
-        self.layer_slider.setRange(0, size-1)
-        self.layernum.setMaximum(size-1)
-        self.layer_slider.setValue(center)
-        self._layerslider_moved(center)
+    def _init_sliders(self, slider_type, numvals, init):
+        if slider_type == 'layer':
+            self.layer_slider.setRange(0, numvals-1)
+            self.layernum.setMaximum(numvals-1)
+            self.layer_slider.setValue(init)
+            self._layerslider_moved(init)
+        elif slider_type == 'mode':
+            self.mode_slider.setRange(0, numvals-1)
+            self.modenum.setMaximum(numvals-1)
+            self.mode_slider.setValue(init)
+            self._modeslider_moved(init)
 
     def _plot_vol(self, num=None):
-        if num is None:
+        if self.recon_type == '2d':
+            self.canvas.mpl_connect('button_press_event', self._select_mode)
+            if num is None:
+                num = int(self.modenum.text())
+        elif num is None:
             num = int(self.layernum.text())
         self.vol_plotter.plot(num,
                               (float(self.rangemin.text()), 
                                float(self.rangestr.text())),
                               float(self.expstr.text()),
                               self.color_map.checkedAction().text())
-        if self.recon_type == '2d':
-            self.canvas.mpl_connect('button_press_event', self._select_mode)
 
     def _parse_and_plot(self):
         if not self.vol_plotter.image_exists or self.old_fname != self.fname.text():
-            self.old_fname, size, center = self.vol_plotter.parse(self.fname.text())
-            self._update_layers(size, center)
+            self.old_fname, size, center = self.vol_plotter.parse(self.fname.text(),
+                                            modenum=self.modenum.value())
+            if self.recon_type == '3d':
+                self._init_sliders('layer', size, center)
+            elif self.num_modes > 1:
+                self._init_sliders('mode', self.num_modes, self.modenum.value())
             self._plot_vol()
         elif self.num_modes > 1 and self.modenum.value() != self.old_modenum:
             self.old_fname, size, center = self.vol_plotter.parse(self.fname.text(),
                                              modenum=self.modenum.value())
-            self._update_layers(size, center)
+            if self.recon_type == '3d':
+                self._init_sliders('layer', size, center)
+            elif self.num_modes > 1:
+                self._init_sliders('mode', self.num_modes, self.modenum.value())
             self._plot_vol()
         elif self.need_replot:
             self._plot_vol()
@@ -564,6 +580,8 @@ class ProgressViewer(QtWidgets.QMainWindow):
             pass
 
     def _check_for_new(self):
+        if not os.path.isfile(self.logfname.text()):
+            return
         with open(self.logfname.text(), 'r') as fptr:
             last_line = fptr.readlines()[-1].rstrip().split()
         try:
@@ -596,14 +614,18 @@ class ProgressViewer(QtWidgets.QMainWindow):
         for i, subp in enumerate(self.vol_plotter.subplot_list):
             if event.inaxes is subp:
                 curr_mode = i
-        if curr_mode >= 0 and curr_mode != self.layernum.value():
-            self.layer_slider.setValue(curr_mode)
-            self.layernum.setValue(curr_mode)
+        if curr_mode >= 0 and curr_mode != self.modenum.value():
+            self.mode_slider.setValue(curr_mode)
+            self.modenum.setValue(curr_mode)
             self._plot_vol(curr_mode)
 
     def _force_plot(self):
-        self.old_fname, size, center = self.vol_plotter.parse(self.fname.text())
-        self._update_layers(size, center)
+        self.old_fname, size, center = self.vol_plotter.parse(self.fname.text(),
+                                        modenum=self.modenum.value())
+        if self.recon_type == '3d':
+            self._init_sliders('layer', size, center)
+        elif self.num_modes > 1:
+            self._init_sliders('mode', self.num_modes, self.modenum.value())
         self._plot_vol()
 
     def _load_volume(self):
