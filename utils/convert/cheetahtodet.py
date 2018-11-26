@@ -24,7 +24,7 @@ from py_src import read_config
 
 if __name__ == '__main__':
     logging.basicConfig(filename='recon.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-    parser = py_utils.my_argparser(description='cheetahtodet')
+    parser = py_utils.MyArgparser(description='cheetahtodet')
     parser.add_argument('h5_name', help='HDF5 file to convert to detector format')
     parser.add_argument('-M', '--mask', help='Path to detector style mask (0:good, 1:no_orient, 2:bad) in h5 file')
     parser.add_argument('--mask_dset', help='Data set in mask file. Default: /data/data', default='data/data')
