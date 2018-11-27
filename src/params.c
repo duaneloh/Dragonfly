@@ -36,6 +36,7 @@ void generate_params(char *config_fname, struct params *param) {
 	param->beta_period = 100 ;
 	param->beta_jump = 1. ;
 	param->need_scaling = 0 ;
+	param->update_scale = 1 ;
 	param->alpha = 0. ;
 	param->beta = 1. ;
 	param->beta_start = 1. ;
@@ -69,6 +70,8 @@ void generate_params(char *config_fname, struct params *param) {
 			}
 			else if (strcmp(token, "need_scaling") == 0)
 				param->need_scaling = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "update_scale") == 0)
+				param->update_scale = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "alpha") == 0)
 				param->alpha = atof(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "beta") == 0)

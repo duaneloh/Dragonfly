@@ -238,7 +238,7 @@ void allocate_memory(struct max_data *data) {
 			data->all_views[d] = malloc(det[d].num_pix * sizeof(double)) ;
 		data->model = calloc(param->modes*iter->vol, sizeof(double)) ;
 		data->weight = calloc(param->modes*iter->vol, sizeof(double)) ;
-		if (param->need_scaling)
+		if (param->need_scaling && param->update_scale)
 			data->scale = calloc(frames->tot_num_data, sizeof(double)) ;
 		if (!data->refinement) // Global search
 			data->p_sum = calloc(det[0].num_det, sizeof(double)) ;
@@ -469,11 +469,14 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 			// Calculate denominator for update rule
 			if (param->need_scaling) {
 				priv->p_sum[detn] += prob[d] * iter->scale[d] ;
+				
 				// Calculate denominator for scale factor update rule
-				if (param->iteration > 1)
-					priv->scale[d] -= prob[d] * common->u[r] ;
-				else
-					priv->scale[d] -= prob[d] * common->u[r] * iter->rescale ;
+				if (param->update_scale) {
+					if (param->iteration > 1)
+						priv->scale[d] -= prob[d] * common->u[r] ;
+					else
+						priv->scale[d] -= prob[d] * common->u[r] * iter->rescale ;
+				}
 			}
 			else
 				priv->p_sum[detn] += prob[d] ; 
@@ -563,7 +566,7 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 		}
 	}
 	
-	if (param->need_scaling) {
+	if (param->need_scaling && param->update_scale) {
 		if (omp_rank == 0)
 			memset(iter->scale, 0, frames->tot_num_data * sizeof(double)) ;
 		#pragma omp barrier
@@ -611,7 +614,7 @@ double combine_information_mpi(struct max_data *data) {
 	}
 	
 	// Calculate updated scale factor using count[d] (total photons in frame d)
-	if (param->need_scaling) {
+	if (param->need_scaling && param->update_scale) {
 		// Combine scale factor information from all MPI ranks
 		MPI_Allreduce(MPI_IN_PLACE, iter->scale, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 		
@@ -629,6 +632,7 @@ double combine_information_mpi(struct max_data *data) {
 void save_output(struct max_data *data) {
 	int d ;
 	
+	// Write scale factors to file even when not updating them
 	if (param->need_scaling) {	
 		char fname[2048] ;
 		sprintf(fname, "%s/scale/scale_%.3d.dat", param->output_folder, param->iteration) ;
@@ -701,7 +705,7 @@ void free_memory(struct max_data *data) {
 		for (d = 0 ; d < det[0].num_det ; ++d)
 			free(data->all_views[d]) ;
 		free(data->all_views) ;
-		if (param->need_scaling)
+		if (param->need_scaling && param->update_scale)
 			free(data->scale) ;
 		free(data->model) ;
 		free(data->weight) ;

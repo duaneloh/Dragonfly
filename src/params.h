@@ -17,7 +17,7 @@ struct params {
 	int recon_type ;
 	
 	// Algorithm parameters
-	int beta_period, need_scaling, known_scale ;
+	int beta_period, need_scaling, known_scale, update_scale ;
 	double alpha, beta_start, beta, beta_jump ;
 	int friedel_sym ; // Symmetrization for 2D recon
 	

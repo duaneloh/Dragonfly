@@ -83,6 +83,14 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 			calc_scale(dset, det, NULL, iter) ;
 		}
 		param->known_scale = parse_scale(scale_fname, iter) ;
+		
+		if (param->update_scale == 0 && param->known_scale == 0) {
+			fprintf(stderr, "If not updating scales, need input scale_file.\n") ;
+			return 1 ;
+		}
+		else if (param->update_scale == 0) {
+			fprintf(stderr, "Not updating these scale factors\n") ;
+		}
 	}
 	
 	if (!param->rank && param->start_iter == 1) {
