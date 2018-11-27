@@ -490,7 +490,7 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 				priv->quat_norm[d*param->modes + mode] += prob[d] ;
 			
 			// Calculate mutual information of probability distribution
-			priv->info[d] += prob[d] * log(prob[d] / quat->quat[rotind*5 + 4]) ;
+			priv->info[d] += prob[d] * log(prob[d] / quat->quat[rotind*5 + 4] * param->modes) ;
 			
 			if (curr->type == 0) {
 				// For all pixels with one photon
