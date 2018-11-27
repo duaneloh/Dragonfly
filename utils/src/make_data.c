@@ -21,7 +21,7 @@
 #define FLUENCE 0
 #define COUNTS 1
 
-int testing_mode = 0, answer_yes = 0 ;
+int testing_mode = 0, answer_yes = 0, hdf5_output ;
 int size, num_rot, scale_method ;
 int **place_ones, **place_multi, *ones, *multi, **count_multi ;
 double *intens, *likelihood, *quat_list, *scale_factors ;
@@ -293,80 +293,82 @@ double calc_dataset(int *num_counts) {
 }
 
 void write_dataset() {
-	int d, header[256] = {0} ;
-	header[0] = num_data ;
-	header[1] = det->num_pix ;
-	
-	FILE *fp = fopen(output_fname, "wb") ;
-	fwrite(header, sizeof(int), 256, fp) ;
-	fwrite(ones, sizeof(int), num_data, fp) ;
-	fwrite(multi, sizeof(int), num_data, fp) ;
-	for (d = 0 ; d < num_data ; ++d)
-		fwrite(place_ones[d], sizeof(int), ones[d], fp) ;
-	for (d = 0 ; d < num_data ; ++d)
-		fwrite(place_multi[d], sizeof(int), multi[d], fp) ;
-	for (d = 0 ; d < num_data ; ++d)
-		fwrite(count_multi[d], sizeof(int), multi[d], fp) ;
-	fclose(fp) ;
-	
-	if (likelihood_fname[0] != '\0') {
-		fp = fopen(likelihood_fname, "wb") ;
-		fwrite(likelihood, sizeof(double), num_data, fp) ;
-		fclose(fp) ;
-	}
-	if (scale_fname[0] != '\0') {
-		fp = fopen(scale_fname, "w") ;
+	if (hdf5_output == 0) {
+		int d, header[256] = {0} ;
+		header[0] = num_data ;
+		header[1] = det->num_pix ;
+		
+		FILE *fp = fopen(output_fname, "wb") ;
+		fwrite(header, sizeof(int), 256, fp) ;
+		fwrite(ones, sizeof(int), num_data, fp) ;
+		fwrite(multi, sizeof(int), num_data, fp) ;
 		for (d = 0 ; d < num_data ; ++d)
-			fprintf(fp, "%13.10f\n", scale_factors[d]) ;
+			fwrite(place_ones[d], sizeof(int), ones[d], fp) ;
+		for (d = 0 ; d < num_data ; ++d)
+			fwrite(place_multi[d], sizeof(int), multi[d], fp) ;
+		for (d = 0 ; d < num_data ; ++d)
+			fwrite(count_multi[d], sizeof(int), multi[d], fp) ;
 		fclose(fp) ;
+		
+		if (likelihood_fname[0] != '\0') {
+			fp = fopen(likelihood_fname, "wb") ;
+			fwrite(likelihood, sizeof(double), num_data, fp) ;
+			fclose(fp) ;
+		}
+		if (scale_fname[0] != '\0') {
+			fp = fopen(scale_fname, "w") ;
+			for (d = 0 ; d < num_data ; ++d)
+				fprintf(fp, "%13.10f\n", scale_factors[d]) ;
+			fclose(fp) ;
+		}
 	}
-
 #ifdef WITH_HDF5
-	char fname[2048] ;
-	sprintf(fname, "%s.h5", output_fname) ;
-	hid_t file, dset, dspace, dtype ;
-	hsize_t dsize[1] = {1} ;
-	hvl_t *po, *pm, *cm;
-	
-	file = H5Fcreate(fname, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT) ;
-	dspace = H5Screate_simple(1, dsize, NULL) ;
-	
-	dset = H5Dcreate(file, "num_pix", H5T_STD_I32LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
-	H5Dwrite(dset, H5T_STD_I32LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &(det->num_pix)) ;
-	H5Dclose(dset) ;
-	
-	dsize[0] = num_data ;
-	dspace = H5Screate_simple(1, dsize, NULL) ;
-	dtype = H5Tvlen_create(H5T_STD_I32LE) ;
-	po = malloc(num_data * sizeof(hvl_t)) ;
-	pm = malloc(num_data * sizeof(hvl_t)) ;
-	cm = malloc(num_data * sizeof(hvl_t)) ;
-	for (d = 0 ; d < num_data ; ++d) {
-		po[d].len = ones[d] ;
-		po[d].p = place_ones[d] ;
-		pm[d].len = multi[d] ;
-		pm[d].p = place_multi[d] ;
-		cm[d].len = multi[d] ;
-		cm[d].p = count_multi[d] ;
+	else {
+		int d ;
+		hid_t file, dset, dspace, dtype ;
+		hsize_t dsize[1] = {1} ;
+		hvl_t *po, *pm, *cm;
+		
+		file = H5Fcreate(output_fname, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT) ;
+		dspace = H5Screate_simple(1, dsize, NULL) ;
+		
+		dset = H5Dcreate(file, "num_pix", H5T_STD_I32LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
+		H5Dwrite(dset, H5T_STD_I32LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &(det->num_pix)) ;
+		H5Dclose(dset) ;
+		
+		dsize[0] = num_data ;
+		dspace = H5Screate_simple(1, dsize, NULL) ;
+		dtype = H5Tvlen_create(H5T_STD_I32LE) ;
+		po = malloc(num_data * sizeof(hvl_t)) ;
+		pm = malloc(num_data * sizeof(hvl_t)) ;
+		cm = malloc(num_data * sizeof(hvl_t)) ;
+		for (d = 0 ; d < num_data ; ++d) {
+			po[d].len = ones[d] ;
+			po[d].p = place_ones[d] ;
+			pm[d].len = multi[d] ;
+			pm[d].p = place_multi[d] ;
+			cm[d].len = multi[d] ;
+			cm[d].p = count_multi[d] ;
+		}
+		dset = H5Dcreate(file, "place_ones", dtype, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
+		H5Dwrite(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, po) ;
+		H5Dclose(dset) ;
+		free(po) ;
+		
+		dset = H5Dcreate(file, "place_multi", dtype, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
+		H5Dwrite(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, pm) ;
+		H5Dclose(dset) ;
+		free(pm) ;
+		
+		dset = H5Dcreate(file, "count_multi", dtype, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
+		H5Dwrite(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, cm) ;
+		H5Dclose(dset) ;
+		free(cm) ;
+		
+		H5Sclose(dspace) ;
+		H5Tclose(dtype) ;
+		H5Fclose(file) ;
 	}
-	dset = H5Dcreate(file, "place_ones", dtype, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
-	H5Dwrite(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, po) ;
-	H5Dclose(dset) ;
-	free(po) ;
-	
-	dset = H5Dcreate(file, "place_multi", dtype, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
-	H5Dwrite(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, pm) ;
-	H5Dclose(dset) ;
-	free(pm) ;
-	
-	dset = H5Dcreate(file, "count_multi", dtype, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
-	H5Dwrite(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, cm) ;
-	H5Dclose(dset) ;
-	free(cm) ;
-	
-	H5Sclose(dspace) ;
-	H5Tclose(dtype) ;
-	H5Fclose(file) ;
 #endif
 }
 
@@ -602,7 +604,19 @@ int generate_globals(char *config_fname) {
 		fprintf(stderr, "Saving frame-by-frame likelihoods to %s\n", likelihood_fname) ;
 	if (do_gamma)
 		fprintf(stderr, "Assuming Gamma-distributed variable incident fluence\n") ;
-	fprintf(stderr, "Parsed global parameters from config file\n") ;
+	char *extension = strrchr(output_fname, '.') ;
+	if (extension == NULL || strncmp(extension, ".h5", 2) != 0) {
+		hdf5_output = 0 ;
+	}
+	else {
+#ifdef WITH_HDF5
+		fprintf(stderr, "Writing sparse HDF5 file\n") ;
+		hdf5_output = 1 ;
+#else // WITH_HDF5
+		fprintf(stderr, "HDF5 support not compiled\n") ;
+		return 1 ;
+#endif // WITH_HDF5
+	}
 	
 	return 0 ;
 }
