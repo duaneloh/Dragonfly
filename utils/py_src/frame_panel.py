@@ -140,7 +140,7 @@ class FramePanel(QtWidgets.QWidget):
             num = self.get_num()
             if num is None:
                 return
-            frame = self.emc_reader.get_frame(num)
+            frame = self.emc_reader.get_frame(num, zoomed=True)
 
         try:
             for point in self.parent.embedding_panel.roi_list:
