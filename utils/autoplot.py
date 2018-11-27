@@ -190,8 +190,8 @@ class LogPlotter(object):
         orient = []
         for i in range(len(loglines)):
             if os.path.isfile(self.folder+'/output_%.3d.h5' % (i+1)):
-                with h5py.File(self.folder+'/output_%.3d.h5', 'r') as fptr:
-                    orient.append(f['orientations'][:])
+                with h5py.File(self.folder+'/output_%.3d.h5' % (i+1), 'r') as fptr:
+                    orient.append(fptr['orientations'][:])
             else:
                 fname = self.folder+'/orientations/orientations_%.3d.bin' % (i+1)
                 with open(fname, 'r') as fptr:
