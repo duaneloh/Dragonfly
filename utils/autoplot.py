@@ -559,12 +559,15 @@ class ProgressViewer(QtWidgets.QMainWindow):
 
     def _parse_and_plot(self):
         if not self.vol_plotter.image_exists or self.old_fname != self.fname.text():
+            if self.num_modes > 1:
+                self._init_sliders('mode', self.num_modes, self.modenum.value())
+                modenum = self.modenum.value()
+            else:
+                modenum = 0
             self.old_fname, size, center = self.vol_plotter.parse(self.fname.text(),
-                                            modenum=self.modenum.value())
+                                            modenum=modenum)
             if self.recon_type == '3d':
                 self._init_sliders('layer', size, center)
-            elif self.num_modes > 1:
-                self._init_sliders('mode', self.num_modes, self.modenum.value())
             self._plot_vol()
         elif self.num_modes > 1 and self.modenum.value() != self.old_modenum:
             self.old_fname, size, center = self.vol_plotter.parse(self.fname.text(),
