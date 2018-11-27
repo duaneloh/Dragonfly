@@ -60,10 +60,13 @@ class EMCReader(object):
             pdict['multi_accum'] = np.cumsum(multi)
             if i > 0:
                 pdict['num_data'] += self.flist[i-1]['num_data']
+            geom = pdict['geom']
+            xsel, ysel = geom.x[geom.unassembled_mask.astype(np.bool)], geom.y[geom.unassembled_mask.astype(np.bool)]
+            pdict['zoom_bounds'] = (xsel.min(), xsel.max()+1, ysel.min(), ysel.max()+1)
 
         self.num_frames = self.flist[-1]['num_data']
 
-    def get_frame(self, num, raw=False):
+    def get_frame(self, num, **kwargs):
         """Get particular frame from file list
         The method determines the file with that frame number and reads it
 
@@ -81,9 +84,9 @@ class EMCReader(object):
         else:
             frame_num = num - self.flist[file_num-1]['num_data']
 
-        return self._read_frame(file_num, frame_num, raw_flag=raw)
+        return self._read_frame(file_num, frame_num, **kwargs)
 
-    def get_powder(self, raw=False):
+    def get_powder(self, raw=False, **kwargs):
         """Get virtual powder sum of all frames in file list
 
         Arguments:
@@ -111,10 +114,10 @@ class EMCReader(object):
 
         powder *= self.flist[0]['geom'].unassembled_mask
         if not raw:
-            powder = self._assemble_frame(powder, 0)
+            powder = self._assemble_frame(powder, 0, **kwargs)
         return powder
 
-    def _read_frame(self, file_num, frame_num, raw_flag):
+    def _read_frame(self, file_num, frame_num, raw_flag=False, **kwargs):
         pdict = self.flist[file_num]
         with open(pdict['fname'], 'rb') as fptr:
             num_data = np.fromfile(fptr, dtype='i4', count=1)[0]
@@ -142,10 +145,10 @@ class EMCReader(object):
         np.add.at(frame, place_multi, count_multi)
         frame *= pdict['geom'].unassembled_mask
         if not raw_flag:
-            frame = self._assemble_frame(frame, file_num)
+            frame = self._assemble_frame(frame, file_num, **kwargs)
         return frame
 
-    def _assemble_frame(self, data, num, fresh=False):
+    def _assemble_frame(self, data, num, fresh=False, zoomed=False):
         geom = self.flist[num]['geom']
         if fresh:
             img = np.zeros(geom.frame_shape, dtype=data.dtype)
@@ -153,4 +156,8 @@ class EMCReader(object):
             mask = 1-self._assembled_masks[num]
             img = ma.masked_array(np.zeros(mask.shape, dtype='i4'), mask=mask)
         np.add.at(img, (geom.x, geom.y), data)
-        return img
+        if zoomed:
+            b = self.flist[num]['zoom_bounds']
+            return img[b[0]:b[1], b[2]:b[3]]
+        else:
+            return img
