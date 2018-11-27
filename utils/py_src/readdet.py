@@ -94,14 +94,17 @@ class DetReader(object):
         self.unassembled_mask = mask
         self.raw_mask = raw_mask.astype('u1')
 
+    @property
     def coords_xy(self):
         '''Return 2D pixel coordinates'''
         return self.cx, self.cy
 
+    @property
     def qvals_xyz(self):
         '''Return 3D voxel values'''
         return self.qx, self.qy, self.qz
 
+    @property
     def indexes_xy(self):
         '''Return 2D integer coordinates (for assembly)
         Corner of the detector at (0,0)'''
