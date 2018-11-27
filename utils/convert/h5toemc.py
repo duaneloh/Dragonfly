@@ -81,7 +81,7 @@ def bin_image(array, binning):
 
 if __name__ == '__main__':
     logging.basicConfig(filename='recon.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-    parser = py_utils.my_argparser(description='h5toemc')
+    parser = py_utils.MyArgparser(description='h5toemc')
     parser.add_argument('h5_name', help='HDF5 file to convert to emc format')
     parser.add_argument('-d', '--dset_name', help='Name of HDF5 dataset containing photon data', default=None)
     parser.add_argument('-s', '--sel_file', help='Path to text file containing indices of frames\nor a set of 0 or 1 values. Default: Do all', default=None)
