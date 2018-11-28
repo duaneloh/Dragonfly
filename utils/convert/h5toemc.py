@@ -84,6 +84,7 @@ if __name__ == '__main__':
     parser = py_utils.MyArgparser(description='h5toemc')
     parser.add_argument('h5_name', help='HDF5 file to convert to emc format')
     parser.add_argument('-d', '--dset_name', help='Name of HDF5 dataset containing photon data', default=None)
+    parser.add_argument('-b', '--binning', help='Downsampling binning factor (must divide array size)', default=None, type=int)
     parser.add_argument('-s', '--sel_file', help='Path to text file containing indices of frames\nor a set of 0 or 1 values. Default: Do all', default=None)
     parser.add_argument('-S', '--sel_dset', help='Same as --sel_file, but pointing to the name of an HDF5 dataset', default=None)
     parser.add_argument('-l', '--list', help='h5_name is list of h5 files rather than a single one', action='store_true', default=False)
@@ -133,7 +134,10 @@ if __name__ == '__main__':
             else:
                 photons = dset[:]
             photons[photons<0] = 0
-            emcwriter.write_frame(photons.flatten())
+            if args.binning is None:
+                emcwriter.write_frame(photons.flatten())
+            else:
+                emcwriter.write_frame(bin_image(photons, args.binning).flatten())
             if not args.list:
                 sys.stderr.write('\rFinished %d/%d' % (i+1, num_frames))
 
