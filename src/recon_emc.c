@@ -87,31 +87,6 @@ int parse_arguments(int argc, char *argv[], int *continue_flag, int *num_threads
 	return num_iter ;
 }
 
-void write_log_file_header(int num_threads) {
-	FILE *fp = fopen(param->log_fname, "w") ;
-	fprintf(fp, "Cryptotomography with the EMC algorithm using MPI+OpenMP\n\n") ;
-	fprintf(fp, "Data parameters:\n") ;
-	if (frames->num_blacklist == 0)
-		fprintf(fp, "\tnum_data = %d\n\tmean_count = %f\n\n", frames->tot_num_data, frames->tot_mean_count) ;
-	else
-		fprintf(fp, "\tnum_data = %d/%d\n\tmean_count = %f\n\n", frames->tot_num_data-frames->num_blacklist, frames->tot_num_data, frames->tot_mean_count) ;
-	fprintf(fp, "System size:\n") ;
-	fprintf(fp, "\tnum_rot = %d\n\tnum_pix = %d/%d\n\t", quat->num_rot, det->rel_num_pix, det->num_pix) ;
-	if (param->recon_type == RECON3D)
-		fprintf(fp, "system_volume = %d X %ld X %ld X %ld\n\n", param->modes, iter->size, iter->size, iter->size) ;
-	else if (param->recon_type == RECON2D)
-		fprintf(fp, "system_volume = %d X %ld X %ld\n\n", param->modes, iter->size, iter->size) ;
-	fprintf(fp, "Reconstruction parameters:\n") ;
-	fprintf(fp, "\tnum_threads = %d\n\tnum_proc = %d\n\talpha = %.6f\n\tbeta = %.6f\n\tneed_scaling = %s", 
-			num_threads, 
-			param->num_proc, 
-			param->alpha, 
-			param->beta, 
-			param->need_scaling?"yes":"no") ;
-	fprintf(fp, "\n\nIter\ttime\trms_change\tinfo_rate\tlog-likelihood\tnum_rot\tbeta\n") ;
-	fclose(fp) ;
-}
-
 void emc() {
 	double likelihood ;
 	
@@ -148,8 +123,6 @@ void emc() {
 void update_model(double likelihood) {
 	long x ;
 	double diff, change = 0., norm = 1. ;
-	char fname[2048] ;
-	FILE *fp ;
 	
 	for (x = 0 ; x < param->modes * iter->vol ; ++x)
 		if (iter->inter_weight[x] > 0.)
@@ -174,21 +147,9 @@ void update_model(double likelihood) {
 	}
 	iter->rms_change = sqrt(change / param->modes / iter->vol) ;
 	
-	sprintf(fname, "%s/output/intens_%.3d.bin", param->output_folder, param->iteration) ;
-	fp = fopen(fname, "w") ;
-	fwrite(iter->model1, sizeof(double), param->modes * iter->vol, fp) ;
-	fclose(fp) ;
-	
-	sprintf(fname, "%s/weights/weights_%.3d.bin", param->output_folder, param->iteration) ;
-	fp = fopen(fname, "w") ;
-	fwrite(iter->inter_weight, sizeof(double), param->modes * iter->vol, fp) ;
-	fclose(fp) ;
+	save_models() ;
 	
 	gettimeofday(&tr2, NULL) ;
 	
-	fp = fopen(param->log_fname, "a") ;
-	fprintf(fp, "%d\t", param->iteration) ;
-	fprintf(fp, "%4.2f\t", (double)(tr2.tv_sec - tr1.tv_sec) + 1.e-6*(tr2.tv_usec - tr1.tv_usec)) ;
-	fprintf(fp, "%1.4e\t%f\t%.6e\t%-7d\t%f\n", iter->rms_change, iter->mutual_info, likelihood, quat->num_rot, param->beta) ;
-	fclose(fp) ;
+	update_log_file((double)(tr2.tv_sec - tr1.tv_sec) + 1.e-6*(tr2.tv_usec - tr1.tv_usec), likelihood) ;
 }

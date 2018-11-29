@@ -9,22 +9,6 @@
 #include <gsl/gsl_sf_bessel.h>
 #include "emc.h"
 
-struct max_data {
-	int refinement, within_openmp ;
-	
-	// Common only
-	double *max_exp, *u, **probab ;
-	
-	// Private only
-	double *model, *weight, *scale ;
-	double **all_views ;
-	
-	// Both
-	double *max_exp_p, *p_sum ;
-	double *info, *likelihood ;
-	int *rmax ;
-	double *quat_norm ;
-} ;
 static struct timeval tm1, tm2 ;
 
 static void allocate_memory(struct max_data*) ;
@@ -36,7 +20,6 @@ static void merge_tomogram(int, struct max_data*) ;
 //static void refine_frame(int, struct dataset*, struct max_data*, struct max_data*) ;
 static void combine_information_omp(struct max_data*, struct max_data*) ;
 static double combine_information_mpi(struct max_data*) ;
-static void save_output(struct max_data*) ;
 static void free_memory(struct max_data*) ;
 static void print_max_time(char*, char*, int) ;
 
@@ -84,7 +67,7 @@ double maximize() {
 
 	avg_likelihood = combine_information_mpi(common_data) ;
 	if (!param->rank)
-		save_output(common_data) ;
+		save_metrics(common_data) ;
 	free_memory(common_data) ;
 	
 	return avg_likelihood ;
@@ -129,7 +112,7 @@ double refine_maximize() {
 	
 	avg_likelihood = combine_information_mpi(common_data) ;
 	if (!param->rank)
-		save_output(common_data) ;
+		save_metrics(common_data) ;
 	free_memory(common_data) ;
 	
 	return avg_likelihood ;
@@ -627,59 +610,6 @@ double combine_information_mpi(struct max_data *data) {
 	avg_likelihood /= (frames->tot_num_data - frames->num_blacklist) ;
 	
 	return avg_likelihood ;
-}
-
-void save_output(struct max_data *data) {
-	int d ;
-	
-	// Write scale factors to file even when not updating them
-	if (param->need_scaling) {	
-		char fname[2048] ;
-		sprintf(fname, "%s/scale/scale_%.3d.dat", param->output_folder, param->iteration) ;
-		FILE *fp_scale = fopen(fname, "w") ;
-		for (d = 0 ; d < frames->tot_num_data ; ++d)
-			fprintf(fp_scale, "%.15e\n", iter->scale[d]) ;
-		fclose(fp_scale) ;
-	}
-	
-	/*
-	if (param->modes > 1) {
-		int r ;
-		fprintf(stderr, "Mode occupancies: ") ;
-		for (r = 0 ; r < param->modes ; ++r)
-			fprintf(stderr, "%.3f ", data->quat_norm[r]/(frames->tot_num_data - frames->num_blacklist)) ;
-		fprintf(stderr, "\n") ;
-		for (r = 0 ; r < quat->num_rot ; ++r)
-			quat->quat[r*5 + 4] = data->quat_norm[r/param->rot_per_mode] / (frames->tot_num_data - frames->num_blacklist) ;
-	}
-	*/
-
-	// Print frame-by-frame mutual information, likelihood, and most likely orientations to file
-	char fname[2048] ;
-	sprintf(fname, "%s/mutualInfo/info_%.3d.dat", param->output_folder, param->iteration) ;
-	FILE *fp_info = fopen(fname, "w") ;
-	sprintf(fname, "%s/likelihood/likelihood_%.3d.dat", param->output_folder, param->iteration) ;
-	FILE *fp_likelihood = fopen(fname, "w") ;
-	sprintf(fname, "%s/orientations/orientations_%.3d.bin", param->output_folder, param->iteration) ;
-	FILE *fp_rmax = fopen(fname, "w") ;
-	
-	fwrite(data->rmax, sizeof(int), frames->tot_num_data, fp_rmax) ;
-	for (d = 0 ; d < frames->tot_num_data ; ++d) {
-		fprintf(fp_info, "%.6e\n", data->info[d]) ;
-		fprintf(fp_likelihood, "%.6e\n", data->likelihood[d]) ;
-	}
-	
-	fclose(fp_rmax) ;
-	fclose(fp_info) ;
-	fclose(fp_likelihood) ;
-	
-	// Write frame-by-frame mode occupancies to file
-	if (param->modes > 1) {
-		sprintf(fname, "%s/modes/occupancies_%.3d.bin", param->output_folder, param->iteration) ;
-		FILE *fp_modes = fopen(fname, "w") ;
-		fwrite(data->quat_norm, sizeof(double), frames->tot_num_data*param->modes, fp_modes) ;
-		fclose(fp_modes) ;
-	}
 }
 
 void free_memory(struct max_data *data) {
