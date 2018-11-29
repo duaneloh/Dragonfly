@@ -199,8 +199,9 @@ class LogPlotter(object):
         self._add_logplot(grid[:, 0], iternum, loglines[:, 2],
                           'RMS change')
         self._add_logplot(grid[0, 1], iternum, loglines[:, 3],
-                          r'Mutual info. $I(K,\Omega | W)$', yscale='symlog')
-        self._add_logplot(grid[1, 1], iternum, loglines[:, 4],
+                          r'Mutual info. $I(K,\Omega | W)$', yscale='linear')
+
+        self._add_logplot(grid[1, 1], iternum[1:], loglines[1:, 4],
                           'Avg log-likelihood', yscale='symlog')
 
         # Plot most likely orientation convergence plot
