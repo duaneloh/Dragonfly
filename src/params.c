@@ -75,8 +75,6 @@ void generate_params(char *config_fname, struct params *param) {
 			}
 			else if (strcmp(token, "need_scaling") == 0)
 				param->need_scaling = atoi(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "update_scale") == 0)
-				param->update_scale = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "alpha") == 0)
 				param->alpha = atof(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "beta") == 0)
@@ -96,6 +94,10 @@ void generate_params(char *config_fname, struct params *param) {
 			}
 			else if (strcmp(token, "friedel_sym") == 0)
 				param->friedel_sym = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "update_scale") == 0)
+				param->update_scale = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "hdf5_output") == 0)
+				param->hdf5_out = atoi(strtok(NULL, " =\n")) ;
 		}
 	}
 	fclose(config_fp) ;
