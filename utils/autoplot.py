@@ -49,6 +49,7 @@ class VolumePlotter(object):
         self.canvas = fig.canvas
         self.vol = None
         self.old_modenum = None
+        self.main_subp = None
         self.recon_type = recon_type
         self.num_modes = num_modes
         self.need_replot = False
@@ -126,20 +127,29 @@ class VolumePlotter(object):
                 subp = self.fig.add_subplot(gspec[mode//numx, mode%numx])
                 subp.imshow(self.vol[mode]**exponent, vmin=rangemin, vmax=rangemax,
                             cmap=cmap, interpolation='none')
-                #subp.text(0.05, 0.85, '%d'%mode, transform=subp.transAxes, fontsize=10,
-                #          color='w', bbox={'facecolor': 'black', 'pad': 0})
                 subp.text(0.05, 0.85, '%d'%mode, transform=subp.transAxes, fontsize=10, color='w')
                 subp.axis('off')
                 self.subplot_list.append(subp)
-            subp = self.fig.add_subplot(gspec[:, numx:])
-            subp.imshow(self.vol[num]**exponent, vmin=rangemin, vmax=rangemax,
+            self.main_subp = self.fig.add_subplot(gspec[:, numx:])
+            self.main_subp.imshow(self.vol[num]**exponent, vmin=rangemin, vmax=rangemax,
                         cmap=cmap, interpolation='none')
-            subp.set_title('Class %d'%num)
-            subp.axis('off')
+            self.main_subp.set_title('Class %d'%num)
+            self.main_subp.axis('off')
 
         self.canvas.draw()
         self.image_exists = True
         self.need_replot = False
+
+    def update_mode(self, mode, vrange, exponent, cmap):
+        if self.main_subp is None:
+            return
+        rangemin, rangemax = tuple(vrange)
+        self.main_subp.clear()
+        self.main_subp.imshow(self.vol[mode]**exponent, vmin=rangemin, vmax=rangemax,
+                        cmap=cmap, interpolation='none')
+        self.main_subp.set_title('Class %d'%mode)
+        self.main_subp.axis('off')
+        self.canvas.draw()
 
 class LogPlotter(object):
     def __init__(self, fig, folder='data/'):
@@ -505,7 +515,10 @@ class ProgressViewer(QtWidgets.QMainWindow):
     def _modenum_changed(self, value=None):
         if value == self.modenum.value():
             self.mode_slider.setValue(value)
-        self._parse_and_plot()
+        if self.recon_type == '3d':
+            self._parse_and_plot()
+        else:
+            self._plot_vol(update=True)
 
     def _modeslider_moved(self, value):
         self.modenum.setValue(value)
@@ -545,18 +558,20 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.mode_slider.setValue(init)
             self._modeslider_moved(init)
 
-    def _plot_vol(self, num=None):
+    def _plot_vol(self, num=None, update=False):
         if self.recon_type == '2d':
             self.canvas.mpl_connect('button_press_event', self._select_mode)
             if num is None:
                 num = int(self.modenum.text())
         elif num is None:
             num = int(self.layernum.text())
-        self.vol_plotter.plot(num,
-                              (float(self.rangemin.text()), 
-                               float(self.rangestr.text())),
-                              float(self.expstr.text()),
-                              self.color_map.checkedAction().text())
+        argsdict = {'vrange': (float(self.rangemin.text()), float(self.rangestr.text())),
+                    'exponent': float(self.expstr.text()),
+                    'cmap': self.color_map.checkedAction().text()}
+        if update:
+            self.vol_plotter.update_mode(num, **argsdict)
+        else:
+            self.vol_plotter.plot(num, **argsdict)
 
     def _parse_and_plot(self):
         if not self.vol_plotter.image_exists or self.old_fname != self.fname.text():
@@ -618,10 +633,10 @@ class ProgressViewer(QtWidgets.QMainWindow):
         for i, subp in enumerate(self.vol_plotter.subplot_list):
             if event.inaxes is subp:
                 curr_mode = i
+
         if curr_mode >= 0 and curr_mode != self.modenum.value():
             self.mode_slider.setValue(curr_mode)
             self.modenum.setValue(curr_mode)
-            self._plot_vol(curr_mode)
 
     def _force_plot(self):
         self.old_fname, size, center = self.vol_plotter.parse(self.fname.text(),
