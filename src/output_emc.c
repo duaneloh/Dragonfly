@@ -135,21 +135,26 @@ void save_models() {
 	if (param->hdf5_out) {
 		hid_t file, dset, dspace ;
 		char name[2048] ;
-		hsize_t out_size[4] ;
-		out_size[0] = param->modes ;
-		out_size[1] = iter->size ;
-		out_size[2] = iter->size ;
-		out_size[3] = iter->size ;
+		hsize_t out_size3d[4], out_size2d[3] ;
+		out_size3d[0] = param->modes ;
+		out_size3d[1] = iter->size ;
+		out_size3d[2] = iter->size ;
+		out_size3d[3] = iter->size ;
+		out_size2d[0] = param->modes ;
+		out_size2d[1] = iter->size ;
+		out_size2d[2] = iter->size ;
 		
 		sprintf(name, "%s/output_%.3d.h5", param->output_folder, param->iteration) ;
 		file = H5Fopen(name, H5F_ACC_RDWR, H5P_DEFAULT) ;
 		
-		dspace = H5Screate_simple(4, out_size, NULL) ;
+		if (param->recon_type == RECON2D)
+			dspace = H5Screate_simple(3, out_size2d, NULL) ;
+		else
+			dspace = H5Screate_simple(4, out_size3d, NULL) ;
 		dset = H5Dcreate(file, "/intens", H5T_IEEE_F64LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
 		H5Dwrite(dset, H5T_IEEE_F64LE, H5S_ALL, dspace, H5P_DEFAULT, iter->model1) ;
 		H5Dclose(dset) ;
 		
-		dspace = H5Screate_simple(4, out_size, NULL) ;
 		dset = H5Dcreate(file, "/inter_weight", H5T_IEEE_F64LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
 		H5Dwrite(dset, H5T_IEEE_F64LE, H5S_ALL, dspace, H5P_DEFAULT, iter->inter_weight) ;
 		H5Dclose(dset) ;
