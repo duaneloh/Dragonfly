@@ -454,12 +454,8 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 				priv->p_sum[detn] += prob[d] * iter->scale[d] ;
 				
 				// Calculate denominator for scale factor update rule
-				if (param->update_scale) {
-					if (param->iteration > 1)
-						priv->scale[d] -= prob[d] * common->u[r] ;
-					else
-						priv->scale[d] -= prob[d] * common->u[r] * iter->rescale ;
-				}
+				if (param->update_scale)
+					priv->scale[d] -= prob[d] * common->u[r] * iter->rescale ;
 			}
 			else
 				priv->p_sum[detn] += prob[d] ; 
