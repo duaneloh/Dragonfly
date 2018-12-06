@@ -238,6 +238,7 @@ class LogPlotter(object):
         subp.set_ylabel(title)
         ylim = subp.get_ylim()
         subp.set_ylim(ylim)
+        subp.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
         for i in self.beta_change:
             subp.plot([i+1, i+1], ylim, 'w--', lw=1)
         for i in self.num_rot_change[:-1]:
