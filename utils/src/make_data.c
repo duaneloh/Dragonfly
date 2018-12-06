@@ -32,14 +32,14 @@ double fluence, rescale, mean_count, background ;
 char output_fname[1024], likelihood_fname[1024], scale_fname[1024] ;
 
 void rescale_intens() ;
-void allocate_data_memory() ;
+void allocate_data_memory(int*) ;
 double calc_dataset() ;
 void write_dataset() ;
 int setup(char*) ;
 void free_mem() ;
 
 int main(int argc, char *argv[]) {
-	int c ;
+	int c, num_counts[2] = {0} ;
 	double actual_mean_count ;
 	struct timeval t1, t2 ;
 	gsl_rng_env_setup() ;
@@ -75,8 +75,8 @@ int main(int argc, char *argv[]) {
 	gettimeofday(&t1, NULL) ;
 	
 	rescale_intens() ;
-	allocate_data_memory() ;
-	actual_mean_count = calc_dataset() ;
+	allocate_data_memory(num_counts) ;
+	actual_mean_count = calc_dataset(num_counts) ;
 	write_dataset() ;
 	
 	gettimeofday(&t2, NULL) ;
@@ -169,9 +169,8 @@ void rescale_intens() {
 		intens[x] *= rescale ;
 }
 
-void allocate_data_memory() {
+void allocate_data_memory(int *num_counts) {
 	int d ;
-	long num_ones, num_multi ;
 	
 	ones = calloc(num_data, sizeof(int)) ;
 	multi = calloc(num_data, sizeof(int)) ;
@@ -181,20 +180,20 @@ void allocate_data_memory() {
 	likelihood = calloc(num_data, sizeof(double)) ;
 	scale_factors = malloc(num_data * sizeof(double)) ;
 	
-	num_multi = (mean_count + background*det->num_pix) > det->num_pix ?
-	            det->num_pix :
-	            (mean_count + background*det->num_pix) ;
-	num_ones = 10*num_multi > det->num_pix ? det->num_pix : 10*num_multi ;
-	fprintf(stderr, "Assuming maximum of %ld and %ld ones and multi pixels respectively.\n", num_ones, num_multi) ;
+	num_counts[1] = (mean_count + background*det->num_pix) > det->num_pix ?
+	                det->num_pix :
+	                (mean_count + background*det->num_pix) ;
+	num_counts[0] = 10*num_counts[1] > det->num_pix ? det->num_pix : 10*num_counts[1];
+	fprintf(stderr, "Assuming maximum of %d and %d ones and multi pixels respectively.\n", num_counts[0], num_counts[1]) ;
 	
 	for (d = 0 ; d < num_data ; ++d) {
-		place_ones[d] = malloc((long) num_ones * sizeof(int)) ;
-		place_multi[d] = malloc((long) num_multi * sizeof(int)) ;
-		count_multi[d] = malloc((long) num_multi * sizeof(int)) ;
+		place_ones[d] = malloc((size_t) num_counts[0] * sizeof(int)) ;
+		place_multi[d] = malloc((size_t) num_counts[1] * sizeof(int)) ;
+		count_multi[d] = malloc((size_t) num_counts[1] * sizeof(int)) ;
 	}
 }
 
-double calc_dataset() {
+double calc_dataset(int *num_counts) {
 	int x ;
 	double actual_mean_count = 0. ;
 	const gsl_rng_type *T = gsl_rng_default ;
@@ -215,6 +214,7 @@ double calc_dataset() {
 	#pragma omp parallel default(shared)
 	{
 		int photons, d, t, rank = omp_get_thread_num() ;
+		int curr_counts[2] ;
 		double scale = 1., quat[4], val ;
 		double *view = malloc(det->num_pix * sizeof(double)) ;
 		gsl_rng *rng = gsl_rng_alloc(T) ;
@@ -229,6 +229,8 @@ double calc_dataset() {
 			else {
 				slice_gen3d(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], 0., view, intens, size, det) ;
 			}
+			curr_counts[0] = num_counts[0] ;
+			curr_counts[1] = num_counts[1] ;
 			
 			if (do_gamma)
 				scale = gsl_ran_gamma(rng, 2., 0.5) ;
@@ -258,6 +260,15 @@ double calc_dataset() {
 					}
 					if (scale_fname[0] != '\0')
 						scale_factors[d] = scale ;
+					if (ones[d] >= curr_counts[0]) {
+						curr_counts[0] *= 2 ;
+						place_ones[d] = realloc(place_ones[d], curr_counts[0]*sizeof(int)) ;
+					}
+					if (multi[d] >= curr_counts[1]) {
+						curr_counts[1] *= 2 ;
+						place_multi[d] = realloc(place_multi[d], curr_counts[1]*sizeof(int)) ;
+						count_multi[d] = realloc(count_multi[d], curr_counts[1]*sizeof(int)) ;
+					}
 				}
 			}
 			
