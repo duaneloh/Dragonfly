@@ -91,8 +91,6 @@ void generate_params(char *config_fname, struct params *param) {
 				param->friedel_sym = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "update_scale") == 0)
 				param->update_scale = atoi(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "hdf5_output") == 0)
-				param->hdf5_out = atoi(strtok(NULL, " =\n")) ;
 		}
 	}
 	fclose(config_fp) ;
