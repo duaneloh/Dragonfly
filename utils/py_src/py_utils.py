@@ -145,14 +145,8 @@ def create_new_recon_dir(tag="recon", num=1, prefix="./"):
         recon_dir = os.path.join(prefix, os.path.join(_name_recon_dir(tag, num)))
     logging.info('New recon directory created with name: %s', recon_dir)
     os.mkdir(recon_dir)
-    sub_dir = {"data":["scale", "orientations", "mutualInfo",
-                       "weights", "output", "likelihood"],
-               "images":[]}
-    for key, val in sub_dir.items():
-        os.mkdir(os.path.join(recon_dir, key))
-        if val:
-            for valitem in val:
-                os.mkdir(os.path.join(recon_dir, key, valitem))
+    os.mkdir(os.path.join(recon_dir, 'data'))
+    os.mkdir(os.path.join(recon_dir, 'images'))
     if not os.path.exists(_name_recon_dir(tag, num)):
         os.symlink(recon_dir, _name_recon_dir(tag, num))
     return recon_dir
