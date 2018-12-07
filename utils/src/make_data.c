@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <ctype.h>
 #include <inttypes.h>
 #include <limits.h>
 #include <omp.h>
@@ -499,6 +500,22 @@ int generate_globals(char *config_fname) {
 	}
 	fclose(config_fp) ;
 
+	// Check for file overwrite
+	if (access(output_fname, F_OK) != -1) {
+		char answer = 'n' ;
+		printf("Output file %s exists. Overwrite? [y/N]: ", output_fname) ;
+		scanf("%c", &answer) ;
+		while (1) {
+			if (tolower(answer) == 'n' || answer == '\n')
+				return 1 ;
+			else if (tolower(answer) != 'y')
+				printf("Invalid character '%c': ", answer) ;
+			else
+				break ;
+			scanf(" %c", &answer) ;
+		}
+	}
+	
 	// Check for required parameters
 	if (num_data == 0) {
 		fprintf(stderr, "Need num_data (number of frames to be generated)\n") ;
