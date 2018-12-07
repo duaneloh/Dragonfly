@@ -7,6 +7,7 @@ import sys
 import os
 import argparse
 import numpy as np
+import h5py
 try:
     from PyQt5 import QtCore, QtWidgets, QtGui # pylint: disable=import-error
     import matplotlib
@@ -60,22 +61,31 @@ class VolumePlotter(object):
         Can be either 3D volume or 2d slice stack depending on mode in config file
         '''
         if os.path.isfile(fname):
-            self.vol = np.fromfile(fname, dtype='f8')
+            if h5py.is_hdf5(fname):
+                h5_output = True
+                with h5py.File(fname, 'r') as f:
+                    self.vol = f['intens'][modenum]
+                size = self.vol.shape[-1]
+            else:
+                h5_output = False
+                self.vol = np.fromfile(fname, dtype='f8')
         else:
             sys.stderr.write("Unable to open %s\n"%fname)
             return 0, 0
 
         if self.recon_type == '3d':
-            size = int(np.ceil(np.power(len(self.vol)/self.num_modes, 1./3.)))
-            if self.num_modes > 1:
-                self.vol = self.vol[modenum*size**3:(modenum+1)*size**3].reshape(size, size, size)
-            else:
-                self.vol = self.vol.reshape(size, size, size)
+            if not h5_output:
+                size = int(np.ceil(np.power(len(self.vol)/self.num_modes, 1./3.)))
+                if self.num_modes > 1:
+                    self.vol = self.vol[modenum*size**3:(modenum+1)*size**3].reshape(size, size, size)
+                else:
+                    self.vol = self.vol.reshape(size, size, size)
             center = size/2
             return_val = (fname, size, center)
         else:
-            size = int(np.ceil(np.power(len(self.vol)/self.num_modes, 1./2.)))
-            self.vol = self.vol.reshape(self.num_modes, size, size)
+            if not h5_output:
+                size = int(np.ceil(np.power(len(self.vol)/self.num_modes, 1./2.)))
+                self.vol = self.vol.reshape(self.num_modes, size, size)
             center = 0
             return_val = (fname, self.num_modes, center)
 
@@ -179,9 +189,13 @@ class LogPlotter(object):
         # Read orientation files for the first n iterations
         orient = []
         for i in range(len(loglines)):
-            fname = self.folder+'/orientations/orientations_%.3d.bin' % (i+1)
-            with open(fname, 'r') as fptr:
-                orient.append(np.fromfile(fptr, '=i4'))
+            if os.path.isfile(self.folder+'/output_%.3d.h5' % (i+1)):
+                with h5py.File(self.folder+'/output_%.3d.h5', 'r') as fptr:
+                    orient.append(f['orientations'][:])
+            else:
+                fname = self.folder+'/orientations/orientations_%.3d.bin' % (i+1)
+                with open(fname, 'r') as fptr:
+                    orient.append(np.fromfile(fptr, '=i4'))
         olengths = np.array([len(ori) for ori in orient])
         max_length = olengths.max()
 
@@ -503,11 +517,11 @@ class ProgressViewer(QtWidgets.QMainWindow):
 
     def _iternum_changed(self, value=None):
         if value is None:
-            self.fname.setText(self.folder+'/output/intens_%.3d.bin' % self.iternum.value())
+            self.fname.setText(self._gen_model_fname(self.iternum.value()))
         elif value == self.iternum.value():
             self.iter_slider.setValue(value)
             if self.need_replot:
-                self.fname.setText(self.folder+'/output/intens_%.3d.bin' % value)
+                self.fname.setText(self._gen_model_fname(self.iternum.value()))
         self._parse_and_plot()
 
     def _iterslider_moved(self, value):
@@ -526,6 +540,13 @@ class ProgressViewer(QtWidgets.QMainWindow):
 
     def _range_changed(self):
         self.need_replot = True
+
+    def _gen_model_fname(self, num):
+        h5_fname = self.folder+'/output_%.3d.h5' % num
+        if os.path.isfile(h5_fname):
+            return h5_fname
+        else:
+            return self.folder+'/output/intens_%.3d.bin' % num
 
     def _read_config(self, config):
         try:
@@ -610,7 +631,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
             iteration = 0
 
         if iteration > 0 and self.max_iternum != iteration:
-            self.fname.setText(self.folder+'/output/intens_%.3d.bin' % iteration)
+            self.fname.setText(self._gen_model_fname(iteration))
             self.max_iternum = iteration
             self.iter_slider.setRange(0, self.max_iternum)
             self.iternum.setMaximum(self.max_iternum)
