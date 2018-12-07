@@ -23,35 +23,6 @@ void write_log_file_header(int num_threads) {
 			param->need_scaling?"yes":"no") ;
 	fprintf(fp, "\n\nIter\ttime\trms_change\tinfo_rate\tlog-likelihood\tnum_rot\tbeta\n") ;
 	fclose(fp) ;
-
-#ifdef WITH_HDF5
-	char fname[2048] ;
-	hid_t file, dset, dspace, dcpl ;
-	hsize_t init_size[1] = {0} ;
-	hsize_t max_size[1] = {H5S_UNLIMITED} ;
-	hsize_t chunk_size[1] = {1} ;
-	
-	sprintf(fname, "%s.h5", param->log_fname) ;
-	file = H5Fcreate(fname, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT) ;
-	H5Gcreate(file, "metrics", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
-	H5Gcreate(file, "params", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
-	dspace = H5Screate_simple(1, init_size, max_size) ;
-	dcpl = H5Pcreate(H5P_DATASET_CREATE) ;
-	H5Pset_chunk(dcpl, 1, chunk_size) ;
-	dset = H5Dcreate(file, "/metrics/iter_time", H5T_IEEE_F64LE, dspace, H5P_DEFAULT, dcpl, H5P_DEFAULT) ;
-	H5Dclose(dset) ;
-	dset = H5Dcreate(file, "/metrics/rms_change", H5T_IEEE_F64LE, dspace, H5P_DEFAULT, dcpl, H5P_DEFAULT) ;
-	H5Dclose(dset) ;
-	dset = H5Dcreate(file, "/metrics/mutual_info", H5T_IEEE_F64LE, dspace, H5P_DEFAULT, dcpl, H5P_DEFAULT) ;
-	H5Dclose(dset) ;
-	dset = H5Dcreate(file, "/metrics/likelihood", H5T_IEEE_F64LE, dspace, H5P_DEFAULT, dcpl, H5P_DEFAULT) ;
-	H5Dclose(dset) ;
-	dset = H5Dcreate(file, "/params/num_rot", H5T_STD_I32LE, dspace, H5P_DEFAULT, dcpl, H5P_DEFAULT) ;
-	H5Dclose(dset) ;
-	dset = H5Dcreate(file, "/params/beta", H5T_IEEE_F64LE, dspace, H5P_DEFAULT, dcpl, H5P_DEFAULT) ;
-	H5Dclose(dset) ;
-	H5Fclose(file) ;
-#endif //WITH_HDF5
 }
 
 void update_log_file(double iter_time, double likelihood) {
@@ -60,52 +31,6 @@ void update_log_file(double iter_time, double likelihood) {
 	fprintf(fp, "%4.2f\t", iter_time) ;
 	fprintf(fp, "%1.4e\t%f\t%.6e\t%-7d\t%f\n", iter->rms_change, iter->mutual_info, likelihood, quat->num_rot, param->beta) ;
 	fclose(fp) ;
-
-#ifdef WITH_HDF5
-	hid_t file, dset, dspace, wspace ;
-	char fname[2048] ;
-	hsize_t new_size[1] = {param->iteration} ;
-	hsize_t sel_start[1] = {param->iteration - 1} ;
-	hsize_t sel_count[1] = {1} ;
-	
-	sprintf(fname, "%s.h5", param->log_fname) ;
-	file = H5Fopen(fname, H5F_ACC_RDWR, H5P_DEFAULT) ;
-	
-	dset = H5Dopen(file, "/metrics/iter_time", H5P_DEFAULT) ;
-	H5Dset_extent(dset, new_size) ;
-	dspace = H5Dget_space(dset) ;
-	H5Sselect_hyperslab(dspace, H5S_SELECT_SET, sel_start, NULL, sel_count, NULL) ;
-	wspace = H5Screate_simple(1, sel_count, NULL) ;
-	H5Dwrite(dset, H5T_IEEE_F64LE, wspace, dspace, H5P_DEFAULT, &iter_time) ;
-	H5Dclose(dset) ;
-	
-	dset = H5Dopen(file, "/metrics/rms_change", H5P_DEFAULT) ;
-	H5Dset_extent(dset, new_size) ;
-	H5Dwrite(dset, H5T_IEEE_F64LE, wspace, dspace, H5P_DEFAULT, &(iter->rms_change)) ;
-	H5Dclose(dset) ;
-	
-	dset = H5Dopen(file, "/metrics/mutual_info", H5P_DEFAULT) ;
-	H5Dset_extent(dset, new_size) ;
-	H5Dwrite(dset, H5T_IEEE_F64LE, wspace, dspace, H5P_DEFAULT, &(iter->mutual_info)) ;
-	H5Dclose(dset) ;
-	
-	dset = H5Dopen(file, "/metrics/likelihood", H5P_DEFAULT) ;
-	H5Dset_extent(dset, new_size) ;
-	H5Dwrite(dset, H5T_IEEE_F64LE, wspace, dspace, H5P_DEFAULT, &likelihood) ;
-	H5Dclose(dset) ;
-	
-	dset = H5Dopen(file, "/params/num_rot", H5P_DEFAULT) ;
-	H5Dset_extent(dset, new_size) ;
-	H5Dwrite(dset, H5T_STD_I32LE, wspace, dspace, H5P_DEFAULT, &(quat->num_rot)) ;
-	H5Dclose(dset) ;
-	
-	dset = H5Dopen(file, "/params/beta", H5P_DEFAULT) ;
-	H5Dset_extent(dset, new_size) ;
-	H5Dwrite(dset, H5T_IEEE_F64LE, wspace, dspace, H5P_DEFAULT, &(param->beta)) ;
-	H5Dclose(dset) ;
-	
-	H5Fclose(file) ;
-#endif //WITH_HDF5
 }
 
 void save_models() {
