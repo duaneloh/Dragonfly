@@ -57,7 +57,7 @@ static double preprocess_detector(struct detector *det, int norm_flag) {
 	return qmax ;
 }
 
-double parse_asciidetector(char *fname, struct detector *det, int norm_flag) {
+static double parse_asciidetector(char *fname, struct detector *det, int norm_flag) {
 	int t, d ;
 	double temp, qmax ;
 	char line[1024] ;
@@ -105,7 +105,7 @@ double parse_asciidetector(char *fname, struct detector *det, int norm_flag) {
 }
 
 #ifdef WITH_HDF5
-double parse_h5detector(char *fname, struct detector *det, int norm_flag) {
+static double parse_h5detector(char *fname, struct detector *det, int norm_flag) {
 	hid_t file, dset, dtype, dspace, mspace ;
 	int i, ndims ;
 	double qmax, temp ;
