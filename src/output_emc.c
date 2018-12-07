@@ -52,11 +52,6 @@ void write_log_file_header(int num_threads) {
 		dset = H5Dcreate(file, "/params/beta", H5T_IEEE_F64LE, dspace, H5P_DEFAULT, dcpl, H5P_DEFAULT) ;
 		H5Dclose(dset) ;
 		H5Fclose(file) ;
-		
-		sprintf(fname, "%s/output.h5", param->output_folder) ;
-		file = H5Fcreate(fname, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT) ;
-		H5Gcreate(file, "iterations", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
-		H5Fclose(file) ;
 	}
 #endif //WITH_HDF5
 }
@@ -118,6 +113,7 @@ void update_log_file(double iter_time, double likelihood) {
 }
 
 void save_models() {
+#ifndef WITH_HDF5
 	FILE *fp ;
 	char fname[2048] ;
 	
@@ -130,8 +126,7 @@ void save_models() {
 	fp = fopen(fname, "w") ;
 	fwrite(iter->inter_weight, sizeof(double), param->modes * iter->vol, fp) ;
 	fclose(fp) ;
-	
-#ifdef WITH_HDF5
+#else // WITH_HDF5
 	if (param->hdf5_out) {
 		hid_t file, dset, dspace ;
 		char name[2048] ;
@@ -165,6 +160,7 @@ void save_models() {
 }
 
 void save_metrics(struct max_data *data) {
+#ifndef WITH_HDF5
 	int d ;
 	
 	// Print frame-by-frame mutual information, likelihood, and most likely orientations to file
@@ -203,8 +199,7 @@ void save_metrics(struct max_data *data) {
 		fwrite(data->quat_norm, sizeof(double), frames->tot_num_data*param->modes, fp_modes) ;
 		fclose(fp_modes) ;
 	}
-	
-#ifdef WITH_HDF5
+#else // WITH_HDF5
 	if (param->hdf5_out) {
 		char name[2048] ;
 		hid_t file, dset, dspace ;
