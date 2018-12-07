@@ -21,7 +21,7 @@
 #define FLUENCE 0
 #define COUNTS 1
 
-int testing_mode = 0 ;
+int testing_mode = 0, answer_yes = 0 ;
 int size, num_rot, scale_method ;
 int **place_ones, **place_multi, *ones, *multi, **count_multi ;
 double *intens, *likelihood, *quat_list, *scale_factors ;
@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
 	
 	omp_set_num_threads(omp_get_max_threads()) ;
 	strcpy(config_fname, "config.ini") ;
-	while ((c = getopt(argc, argv, "c:t:Th")) != -1) {
+	while ((c = getopt(argc, argv, "c:t:Tyh")) != -1) {
 		switch (c) {
 			case 't':
 				omp_set_num_threads(atoi(optarg)) ;
@@ -63,8 +63,11 @@ int main(int argc, char *argv[]) {
 				testing_mode = 1 ;
 				fprintf(stderr, "====== Testing mode (fixed seed) ======\n") ;
 				break ;
+			case 'y':
+				answer_yes = 1 ;
+				break ;
 			case 'h':
-				fprintf(stderr, "Format: %s [-c config_fname] [-t num_threads] [-h]\n", argv[0]) ;
+				fprintf(stderr, "Format: %s [-c config_fname] [-t num_threads] [-y] [-h]\n", argv[0]) ;
 				return 1 ;
 		}
 	}
@@ -501,7 +504,7 @@ int generate_globals(char *config_fname) {
 	fclose(config_fp) ;
 
 	// Check for file overwrite
-	if (access(output_fname, F_OK) != -1) {
+	if (access(output_fname, F_OK) != -1 && answer_yes == 0) {
 		char answer = 'n' ;
 		printf("Output file %s exists. Overwrite? [y/N]: ", output_fname) ;
 		scanf("%c", &answer) ;
@@ -515,6 +518,8 @@ int generate_globals(char *config_fname) {
 			scanf(" %c", &answer) ;
 		}
 	}
+	if (access(output_fname, F_OK) != -1)
+		fprintf(stderr, "Overwriting %s\n", output_fname) ;
 	
 	// Check for required parameters
 	if (num_data == 0) {

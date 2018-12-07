@@ -51,25 +51,25 @@ def main():
         cmd = "utils/make_densities.py -c " + args.config_file + " -v" + yes
         logging.info(20*"=" + "\n")
         logging.info(20*"=" + "\n" + cmd)
-        subprocess.call(cmd, shell=True)
+        subprocess.call(cmd)
 
     if not args.skip_intensities:
         cmd = "utils/make_intensities.py -c " + args.config_file + " -v" + yes
         logging.info(20*"=" + "\n")
         logging.info(20*"=" + "\n" + cmd)
-        subprocess.call(cmd, shell=True)
+        subprocess.call(cmd)
 
     if not args.skip_detector:
         cmd = "utils/make_detector.py -c " + args.config_file + " -v" + yes
         logging.info(20*"=" + "\n")
         logging.info(20*"=" + "\n" + cmd)
-        subprocess.call(cmd, shell=True)
+        subprocess.call(cmd)
 
     if not args.skip_data:
-        cmd = "utils/make_data -c " + args.config_file
+        cmd = "utils/make_data -c " + args.config_file + yes
         logging.info(20*"=" + "\n")
         logging.info(20*"=" + "\n" + cmd)
-        subprocess.call(cmd, shell=True)
+        subprocess.call(cmd)
 
     os.chdir(curr_dir)
 
