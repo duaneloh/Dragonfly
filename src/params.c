@@ -45,11 +45,6 @@ void generate_params(char *config_fname, struct params *param) {
 	param->rot_per_mode = 0 ;
 	param->recon_type = RECON3D ;
 	param->friedel_sym = 0 ;
-#ifdef WITH_HDF5
-	param->hdf5_out = 1 ;
-#else
-	param->hdf5_out = 0 ;
-#endif // WITH_HDF5
 	sprintf(param->log_fname, "%s/EMC.log", config_folder) ;
 	sprintf(param->output_folder, "%s/data/", config_folder) ;
 	
