@@ -30,7 +30,9 @@ int setup(char *s_config_fname, int continue_flag) {
 	}
 	fclose(fp) ;
 	generate_params(config_fname, param) ;
+#ifndef WITH_HDF5
 	generate_output_dirs(param) ;
+#endif // WITH_HDF5
 	if (param->recon_type == RECON3D) {
 		det_flag = 1 ;
 		slice_gen = &slice_gen3d ;
