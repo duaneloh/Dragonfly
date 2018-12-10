@@ -80,6 +80,7 @@ static int parse_binarydataset(char *fname, struct detector *det, struct dataset
 	return 0 ;
 }
 
+#ifdef WITH_HDF5
 static int parse_h5dataset(char *fname, struct detector *det, struct dataset *current) {
 	int d ;
 	hid_t file, dset, dspace, dtype ;
@@ -159,6 +160,7 @@ static int parse_h5dataset(char *fname, struct detector *det, struct dataset *cu
 	
 	return 0 ;
 }
+#endif // WITH_HDF5
 
 int generate_data(char *config_fname, char *config_section, char *type_string, struct detector *det_list, struct dataset *frames_list) {
 	int num_datasets = 0 ;
