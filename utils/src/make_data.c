@@ -29,7 +29,7 @@ struct detector *det ;
 
 // Config file params
 int num_data, do_gamma ;
-double fluence, rescale, mean_count, *background ;
+double fluence, rescale, mean_count ;
 char output_fname[1024], likelihood_fname[1024], scale_fname[1024] ;
 
 void rescale_intens() ;
@@ -185,7 +185,7 @@ void allocate_data_memory(int *num_counts) {
 	likelihood = calloc(num_data, sizeof(double)) ;
 	scale_factors = malloc(num_data * sizeof(double)) ;
 	for (t = 0 ; t < det->num_pix ; ++t)
-		bg_count += background[t] ;
+		bg_count += det->background[t] ;
 	
 	num_counts[1] = (mean_count + bg_count) > det->num_pix ?
 	                det->num_pix :
@@ -247,7 +247,7 @@ double calc_dataset(int *num_counts) {
 					if (det->mask[t] > 1)
 						continue ;
 					
-					val = view[t]*scale + background[t] ;
+					val = view[t]*scale + det->background[t] ;
 					photons = gsl_ran_poisson(rng, val) ;
 					
 					if (photons == 1) {
@@ -518,8 +518,6 @@ int generate_quat_list(char *config_fname) {
 
 int generate_globals(char *config_fname) {
 	char line[1024], section_name[1024], *token ;
-	double bg_count = -1. ;
-	char bg_fname[1024] ;
 	
 	size = 0 ;
 	num_data = 0 ;
@@ -527,11 +525,9 @@ int generate_globals(char *config_fname) {
 	mean_count = -1. ;
 	do_gamma = 0 ;
 	num_rot = 0 ;
-	background = calloc(det->num_pix, sizeof(double)) ;
 	output_fname[0] = '\0' ;
 	likelihood_fname[0] = '\0' ;
 	scale_fname[0] = '\0' ;
-	bg_fname[0] = '\0' ;
 	
 	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
@@ -545,10 +541,6 @@ int generate_globals(char *config_fname) {
 				mean_count = atof(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "fluence") == 0)
 				fluence = atof(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "bg_count") == 0)
-				bg_count = atof(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "bg_frame") == 0)
-				strcpy(bg_fname, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "gamma_fluence") == 0)
 				do_gamma = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "out_photons_file") == 0)
@@ -607,22 +599,6 @@ int generate_globals(char *config_fname) {
 			fprintf(stderr, "Please specify only one of fluence of mean_count\n") ;
 			return 1 ;
 		}
-	}
-	
-	// Generate background frame
-	if (bg_count != -1. && bg_fname[0] != '\0') {
-		fprintf(stderr, "Both bg_count and bg_frame defined. Pick one.\n") ;
-		return 1 ;
-	}
-	else if (bg_count != -1.) {
-		int t ;
-		for (t = 0 ; t < det->num_pix ; ++t)
-			background[t] = bg_count / det->num_pix ;
-	}
-	else if (bg_fname[0] != '\0') {
-		FILE *fp = fopen(bg_fname, "r") ;
-		fread(background, sizeof(double), det->num_pix, fp) ;
-		fclose(fp) ;
 	}
 	
 	if (likelihood_fname[0] != '\0')
