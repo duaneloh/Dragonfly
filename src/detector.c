@@ -54,6 +54,8 @@ static double preprocess_detector(struct detector *det, int norm_flag) {
 			det->pixels[t*stride + stride-1] /= mean_pol ;
 	}
 	
+	det->background = calloc(det->num_pix, sizeof(double)) ;
+	
 	return qmax ;
 }
 
@@ -202,9 +204,51 @@ static double parse_h5detector(char *fname, struct detector *det, int norm_flag)
 }
 #endif //WITH_HDF5
 
+static int parse_background(char *fname, struct detector *det) {
+	FILE *fp = fopen(fname, "r") ;
+	if (fp == NULL) {
+		fprintf(stderr, "Could not find background file %s\n", fname) ;
+		return 1 ;
+	}
+	fread(det->background, sizeof(double), det->num_pix, fp) ;
+	fclose(fp) ;
+	
+	return 0 ;
+}
+
+static int parse_background_list(char *flist, struct detector **det_list) {
+	int i = 0, ndet = (*det_list)[0].num_det ;
+	char abs_fname[1024] ;
+	char flist_folder[1024], rel_fname[1024] ;
+	char *temp_fname = strndup(flist, 1024) ;
+	sprintf(flist_folder, "%s/", dirname(temp_fname)) ;
+	free(temp_fname) ;
+	
+	FILE *fp = fopen(flist, "r") ;
+	if (fp == NULL) {
+		fprintf(stderr, "Unable to open background_list %s\n", flist) ;
+		return 1 ;
+	}
+	while (fscanf(fp, "%1023s\n", rel_fname) == 1) {
+		absolute_strcpy(flist_folder, abs_fname, rel_fname) ;
+		if (i < ndet) {
+			if (parse_background(abs_fname, det_list[i]))
+				return 1 ;
+		}
+		i++ ;
+	}
+	if (i != ndet) {
+		fprintf(stderr, "Mismatch of number of background and unique detector files (%d vs %d)\n", i, ndet) ;
+		return 1 ;
+	}
+	
+	return 0 ;
+}
+
 double generate_detectors(char *config_fname, char *config_section, struct detector **det_list, int norm_flag) {
 	double qmax ;
 	char det_fname[1024] = {'\0'}, det_flist[1024] = {'\0'}, out_det_fname[1024] = {'\0'} ;
+	char bg_fname[1024] = {'\0'}, bg_flist[1024] = {'\0'} ;
 	char line[1024], section_name[1024], config_folder[1024], *token ;
 	char *temp_fname = strndup(config_fname, 1024) ;
 	sprintf(config_folder, "%s/", dirname(temp_fname)) ;
@@ -224,6 +268,10 @@ double generate_detectors(char *config_fname, char *config_section, struct detec
 				absolute_strcpy(config_folder, det_fname, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "in_detector_list") == 0)
 				absolute_strcpy(config_folder, det_flist, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "background_file") == 0)
+				absolute_strcpy(config_folder, bg_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "background_list") == 0)
+				absolute_strcpy(config_folder, bg_flist, strtok(NULL, " =\n")) ;
 		}
 	}
 	fclose(config_fp) ;
@@ -251,6 +299,23 @@ double generate_detectors(char *config_fname, char *config_section, struct detec
 	else {
 		fprintf(stderr, "Need either in_detector_file or in_detector_list.\n") ;
 		return -1. ;
+	}
+	
+	if (bg_flist[0] != '\0' && bg_fname[0] != '\0') {
+		fprintf(stderr, "Both background_file and background_list specified. Pick one.\n") ;
+		return -1. ;
+	}
+	else if (bg_fname[0] != '\0') {
+		if ((*det_list)[0].num_det > 1)
+			fprintf(stderr, "Multiple detectors and single background file. Assuming same background for all detectors\n") ;
+		fprintf(stderr, "Parsing background file: %s\n", bg_fname) ;
+		if (parse_background(bg_fname, det_list[0]))
+			return -1. ;
+	}
+	else if (bg_flist[0] != '\0') {
+		fprintf(stderr, "Parsing background file list: %s\n", bg_flist) ;
+		if (parse_background_list(bg_flist, det_list))
+			return -1. ;
 	}
 	
 	fprintf(stderr, "Number of unique detectors = %d\n", (*det_list)[0].num_det) ;
@@ -294,14 +359,13 @@ double parse_detector_list(char *flist, struct detector **det_ptr, int norm_flag
 	int j, num_det = 0, num_dfiles, new_det ;
 	double det_qmax, qmax = -1. ;
 	char name_list[1024][1024] ;
-	char flist_folder[1024] ;
+	char flist_folder[1024], rel_fname[1024] ;
 	int det_mapping[1024] = {0} ;
 	struct detector *det ;
 	
 	char *temp_fname = strndup(flist, 1024) ;
 	sprintf(flist_folder, "%s/", dirname(temp_fname)) ;
 	free(temp_fname) ;
-	char rel_fname[1024] ;
 	
 	FILE *fp = fopen(flist, "r") ;
 	if (fp == NULL) {
