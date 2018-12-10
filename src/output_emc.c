@@ -33,6 +33,65 @@ void update_log_file(double iter_time, double likelihood) {
 	fclose(fp) ;
 }
 
+void save_initial_iterate() {
+#ifndef WITH_HDF5
+	FILE *fp ;
+	char fname[2048] ;
+	long tot_vol = iter->modes * iter->vol ;
+	
+	sprintf(fname, "%s/output/intens_000.bin", param->output_folder) ;
+	fp = fopen(fname, "w") ;
+	fwrite(iter->model1, sizeof(double), tot_vol, fp) ;
+	fclose(fp) ;
+	
+	if (param->need_scaling) {
+		sprintf(fname, "%s/scale/scale_000.dat", param->output_folder) ;
+		fp = fopen(fname, "w") ;
+		for (d = 0 ; d < iter->tot_num_data ; ++d)
+			fprintf(fp, "%.6e\n", iter->scale[d]) ;
+		fclose(fp) ;
+		fprintf(stderr, "Written initial scale factors to %s\n", fname) ;
+	}
+	
+#else // WITH_HDF5
+	
+	hid_t file, dset, dspace ;
+	char name[2048] ;
+	hsize_t out_size3d[4], out_size2d[3], len[1] ;
+	len[0] = frames->tot_num_data ;
+	out_size3d[0] = param->modes ;
+	out_size3d[1] = iter->size ;
+	out_size3d[2] = iter->size ;
+	out_size3d[3] = iter->size ;
+	out_size2d[0] = param->modes ;
+	out_size2d[1] = iter->size ;
+	out_size2d[2] = iter->size ;
+	
+	sprintf(name, "%s/output_000.h5", param->output_folder) ;
+	file = H5Fcreate(name, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT) ;
+	
+	if (param->recon_type == RECON2D)
+		dspace = H5Screate_simple(3, out_size2d, NULL) ;
+	else
+		dspace = H5Screate_simple(4, out_size3d, NULL) ;
+	dset = H5Dcreate(file, "/intens", H5T_IEEE_F64LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
+	H5Dwrite(dset, H5T_IEEE_F64LE, H5S_ALL, dspace, H5P_DEFAULT, iter->model1) ;
+	H5Dclose(dset) ;
+	H5Sclose(dspace) ;
+	
+	if (param->need_scaling) {
+		dspace = H5Screate_simple(1, len, NULL) ;
+		dset = H5Dcreate(file, "scale", H5T_STD_I32LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
+		H5Dwrite(dset, H5T_IEEE_F64LE, H5S_ALL, dspace, H5P_DEFAULT, iter->scale) ;
+		H5Dclose(dset) ;
+		H5Sclose(dspace) ;
+	}
+	
+	fprintf(stderr, "Written initial iterate to %s\n", name) ;
+	H5Fclose(file) ;
+#endif // WITH_HDF5
+}
+
 void save_models() {
 #ifndef WITH_HDF5
 	FILE *fp ;
@@ -76,6 +135,7 @@ void save_models() {
 	H5Dwrite(dset, H5T_IEEE_F64LE, H5S_ALL, dspace, H5P_DEFAULT, iter->inter_weight) ;
 	H5Dclose(dset) ;
 	
+	H5Sclose(dspace) ;
 	H5Fclose(file) ;
 #endif //WITH_HDF5
 }
@@ -158,6 +218,7 @@ void save_metrics(struct max_data *data) {
 		H5Dclose(dset) ;
 	}
 	
+	H5Sclose(dspace) ;
 	H5Fclose(file) ;
 #endif //WITH_HDF5
 }

@@ -75,13 +75,7 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 	}
 	
 	if (param->need_scaling) {
-		if (!param->rank && param->start_iter == 1) {
-			sprintf(line, "%s/scale_000.dat", param->output_folder) ;
-			calc_scale(dset, det, line, iter) ;
-		}
-		else {
-			calc_scale(dset, det, NULL, iter) ;
-		}
+		calc_scale(dset, det, iter) ;
 		param->known_scale = parse_scale(scale_fname, iter) ;
 		
 		if (param->update_scale == 0 && param->known_scale == 0) {
@@ -93,17 +87,11 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 		}
 	}
 	
-	if (!param->rank && param->start_iter == 1) {
-		sprintf(line, "%s/intens_000.bin", param->output_folder) ;
-		model_mean = dset[0].mean_count / det[0].rel_num_pix * 2. ;
+	model_mean = dset[0].mean_count / det[0].rel_num_pix * 2. ;
 #ifdef FIXED_SEED
-		model_mean *= -1. ;
+	model_mean *= -1. ;
 #endif // FIXED_SEED
-		parse_input(input_fname, model_mean, line, param->rank, param->recon_type, iter) ;
-	}
-	else {
-		parse_input(input_fname, 1., NULL, param->rank, param->recon_type, iter) ;
-	}
+	parse_input(input_fname, model_mean, param->rank, param->recon_type, iter) ;
 	
 	return 0 ;
 }
@@ -138,7 +126,7 @@ int parse_scale(char *fname, struct iterate *iter) {
 	return flag ;
 }
 
-void calc_scale(struct dataset *frames, struct detector *det, char* print_fname, struct iterate *iter) {
+void calc_scale(struct dataset *frames, struct detector *det, struct iterate *iter) {
 	int d, t ;
 	struct dataset *curr ;
 	curr = frames ;
@@ -177,14 +165,6 @@ void calc_scale(struct dataset *frames, struct detector *det, char* print_fname,
 		
 		curr = curr->next ;
 	}
-	
-	if (print_fname != NULL) {
-		FILE *fp = fopen(print_fname, "w") ;
-		for (d = 0 ; d < iter->tot_num_data ; ++d)
-			fprintf(fp, "%.6e\n", iter->scale[d]) ;
-		fclose(fp) ;
-		fprintf(stderr, "Written initial scale factors to %s\n", print_fname) ;
-	}
 }
 
 void normalize_scale(struct dataset *dset, struct iterate *iter) {
@@ -207,7 +187,7 @@ void normalize_scale(struct dataset *dset, struct iterate *iter) {
 	iter->rms_change *= mean_scale ;
 }
 
-void parse_input(char *fname, double mean, char *print_fname, int rank, int recon_type, struct iterate *iter) {
+void parse_input(char *fname, double mean, int rank, int recon_type, struct iterate *iter) {
 	iter->vol = 0 ;
 	if (recon_type == RECON3D)
 		iter->vol = iter->size * iter->size * iter->size ;
@@ -251,12 +231,6 @@ void parse_input(char *fname, double mean, char *print_fname, int rank, int reco
 			fprintf(stderr, "Starting from %s\n", fname) ;
 			
 			fread(iter->model1, sizeof(double), tot_vol, fp) ;
-			fclose(fp) ;
-		}
-		
-		if (print_fname != NULL) {
-			FILE *fp = fopen(print_fname, "wb") ;
-			fwrite(iter->model1, sizeof(double), tot_vol, fp) ;
 			fclose(fp) ;
 		}
 	}
