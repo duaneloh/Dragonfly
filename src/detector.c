@@ -178,12 +178,10 @@ static double parse_h5detector(char *fname, struct detector *det, int norm_flag)
 	
 	dset = H5Dopen(file, "/detd", H5P_DEFAULT) ;
 	dtype = H5Dget_type(dset) ;
-	dspace = H5Dget_space(dset) ;
 	H5Dread(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, &(det->detd)) ;
 	
 	dset = H5Dopen(file, "/ewald_rad", H5P_DEFAULT) ;
 	dtype = H5Dget_type(dset) ;
-	dspace = H5Dget_space(dset) ;
 	H5Dread(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, &(det->ewald_rad)) ;
 	
 	if (norm_flag < 0) { // 2D detector
@@ -311,7 +309,7 @@ double parse_detector_list(char *flist, struct detector **det_ptr, int norm_flag
 		return -1. ;
 	}
 	for (num_dfiles = 0 ; num_dfiles < 1024 ; ++num_dfiles) {
-		if (feof(fp) || fscanf(fp, "%s\n", rel_fname) != 1)
+		if (feof(fp) || fscanf(fp, "%1023s\n", rel_fname) != 1)
 			break ;
 		new_det = 1 ;
 		absolute_strcpy(flist_folder, name_list[num_det], rel_fname) ;
