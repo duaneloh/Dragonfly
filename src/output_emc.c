@@ -107,6 +107,16 @@ void save_models() {
 	fwrite(iter->inter_weight, sizeof(double), param->modes * iter->vol, fp) ;
 	fclose(fp) ;
 
+	// Write scale factors to file even when not updating them
+	if (param->need_scaling) {	
+		char fname[2048] ;
+		sprintf(fname, "%s/scale/scale_%.3d.dat", param->output_folder, param->iteration) ;
+		FILE *fp_scale = fopen(fname, "w") ;
+		for (d = 0 ; d < frames->tot_num_data ; ++d)
+			fprintf(fp_scale, "%.15e\n", iter->scale[d]) ;
+		fclose(fp_scale) ;
+	}
+	
 #else // WITH_HDF5
 
 	hid_t file, dset, dspace ;
@@ -133,9 +143,19 @@ void save_models() {
 	
 	dset = H5Dcreate(file, "/inter_weight", H5T_IEEE_F64LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
 	H5Dwrite(dset, H5T_IEEE_F64LE, H5S_ALL, dspace, H5P_DEFAULT, iter->inter_weight) ;
+	H5Sclose(dspace) ;
 	H5Dclose(dset) ;
 	
-	H5Sclose(dspace) ;
+	if (param->need_scaling) {
+		hsize_t len[1] ;
+		len[0] = frames->tot_num_data ;
+		dspace = H5Screate_simple(1, len, NULL) ;
+		dset = H5Dcreate(file, "scale", H5T_IEEE_F64LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
+		H5Dwrite(dset, H5T_IEEE_F64LE, H5S_ALL, dspace, H5P_DEFAULT, iter->scale) ;
+		H5Sclose(dspace) ;
+		H5Dclose(dset) ;
+	}
+	
 	H5Fclose(file) ;
 #endif //WITH_HDF5
 }
@@ -162,16 +182,6 @@ void save_metrics(struct max_data *data) {
 	fclose(fp_rmax) ;
 	fclose(fp_info) ;
 	fclose(fp_likelihood) ;
-	
-	// Write scale factors to file even when not updating them
-	if (param->need_scaling) {	
-		char fname[2048] ;
-		sprintf(fname, "%s/scale/scale_%.3d.dat", param->output_folder, param->iteration) ;
-		FILE *fp_scale = fopen(fname, "w") ;
-		for (d = 0 ; d < frames->tot_num_data ; ++d)
-			fprintf(fp_scale, "%.15e\n", iter->scale[d]) ;
-		fclose(fp_scale) ;
-	}
 	
 	// Write frame-by-frame mode occupancies to file
 	if (param->modes > 1) {
@@ -203,12 +213,6 @@ void save_metrics(struct max_data *data) {
 	dset = H5Dcreate(file, "likelihood", H5T_IEEE_F64LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
 	H5Dwrite(dset, H5T_IEEE_F64LE, H5S_ALL, dspace, H5P_DEFAULT, data->likelihood) ;
 	H5Dclose(dset) ;
-	
-	if (param->need_scaling) {
-		dset = H5Dcreate(file, "scale", H5T_IEEE_F64LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
-		H5Dwrite(dset, H5T_IEEE_F64LE, H5S_ALL, dspace, H5P_DEFAULT, iter->scale) ;
-		H5Dclose(dset) ;
-	}
 	
 	if (param->modes > 1) {
 		len[0] = param->modes * frames->tot_num_data ;
