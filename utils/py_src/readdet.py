@@ -3,6 +3,11 @@
 import sys
 import numpy as np
 import pandas
+try:
+    import h5py
+    HDF5_MODE = True
+except ImportError:
+    HDF5_MODE = False
 
 class DetReader(object):
     """Dragonfly detector file reader
@@ -31,8 +36,54 @@ class DetReader(object):
         self.det_fname = det_fname
         self.detd = detd_pix
         self.ewald_rad = ewald_rad
+        if HDF5_MODE and h5py.is_hdf5(det_fname):
+            self._init_h5geom(mask_flag, keep_mask_1)
+        elif os.path.splitext(det_fname)[1] == '.h5':
+            fheader = np.fromfile(det_fname, '=c', count=8)
+            if fheader == chr(137)+'HDF\r\n'+chr(26)+'\n':
+                if not HDF5_MODE:
+                    print('Unable to parse HDF5 detector')
+                    raise(IOError)
+                else:
+                    self._init_h5geom(mask_flag, keep_mask_1)
+            else:
+                self._init_asciigeom(mask_flag, keep_mask_1)
+        else:
+            self._init_asciigeom(mask_flag, keep_mask_1)
+
+    def _init_asciigeom(self, mask_flag, keep_mask_1):
+        """ (Internal) Detector file parser
+        Arguments:
+            mask_flag (bool, optional) - Whether to read the mask column
+            keep_mask_1 (bool, optional) - Whether to keep mask=1 within the boolean mask
+        """
         self._check_header()
-        self._init_geom(mask_flag, keep_mask_1)
+        sys.stderr.write('Reading %s...'%self.det_fname)
+        if mask_flag:
+            sys.stderr.write('with mask...')
+        dframe = pandas.read_csv(
+            self.det_fname,
+            delim_whitespace=True, skiprows=1, engine='c', header=None,
+            names=['qx', 'qy', 'qz', 'corr', 'mask'],
+            dtype={'qx':'f8', 'qy':'f8', 'qz':'f8', 'corr':'f8', 'mask':'u1'})
+        self.qx, self.qy, self.qz, self.corr = tuple([np.array(dframe[key]) # pylint: disable=C0103
+                                                      for key in ['qx', 'qy', 'qz', 'corr']])
+        self.raw_mask = np.array(dframe['mask']).astype('u1')
+        sys.stderr.write('done\n')
+        self._process_geom(mask_flag, keep_mask_1)
+
+    def _init_h5geom(self,  mask_flag, keep_mask_1):
+        sys.stderr.write('Reading %s...'%self.det_fname)
+        if mask_flag:
+            sys.stderr.write('with mask...')
+        with h5py.File(self.det_fname, 'r') as fptr:
+            self.qx = fptr['qx'][:]
+            self.qy = fptr['qy'][:]
+            self.qz = fptr['qz'][:]
+            self.corr = fptr['corr'][:]
+            self.raw_mask = fptr['mask'][:].astype('u1')
+        sys.stderr.write('done\n')
+        self._process_geom(mask_flag, keep_mask_1)
 
     def _check_header(self):
         with open(self.det_fname, 'r') as fptr:
@@ -46,42 +97,18 @@ class DetReader(object):
             if self.ewald_rad is None:
                 raise TypeError('Old type detector file. Need ewald_rad')
 
-    def _init_geom(self, mask_flag, keep_mask_1):
-        """ (Internal) Detector file parser
-        Arguments:
-            mask_flag (bool, optional) - Whether to read the mask column
-            keep_mask_1 (bool, optional) - Whether to keep mask=1 within the boolean mask
-        """
-        sys.stderr.write('Reading %s...'%self.det_fname)
+    def _process_geom(self, mask_flag, keep_mask_1):
         if mask_flag:
-            sys.stderr.write('with mask...')
-        dframe = pandas.read_csv(
-            self.det_fname,
-            delim_whitespace=True, skiprows=1, engine='c', header=None,
-            names=['qx', 'qy', 'qz', 'corr', 'mask'],
-            dtype={'qx':'f8', 'qy':'f8', 'qz':'f8', 'corr':'f8', 'mask':'u1'})
-        self.qx, self.qy, self.qz, self.corr = tuple([np.array(dframe[key]) # pylint: disable=C0103
-                                                      for key in ['qx', 'qy', 'qz', 'corr']])
-        sys.stderr.write('done\n')
-
-        if mask_flag:
-            raw_mask = np.array(dframe['mask'])
-            mask = np.copy(raw_mask)
-            #self.qx, self.qy, self.qz, self.corr, raw_mask =
-            #   np.loadtxt(self.det_fname, skiprows=1, unpack=True)
-            #mask = np.copy(raw_mask).astype('u1')
+            mask = np.copy(self.raw_mask)
             if keep_mask_1:
                 mask[mask == 1] = 0 # To keep both 0 and 1
-                mask = mask / 2 # To keep both 0 and 1
+                mask = mask // 2 # To keep both 0 and 1
             else:
                 mask[mask == 2] = 1 # To keep only mask==0
             mask = 1 - mask
         else:
-            #self.qx, self.qy, self.qz, self.corr =
-            #   np.loadtxt(self.det_fname, usecols=(0,1,2,3), skiprows=1, unpack=True)
-            raw_mask = np.zeros(self.qx.shape)
+            raw_mask = np.zeros(self.qx.shape, dtype='u1')
             mask = np.ones(self.qx.shape, dtype='u1')
-        #sys.stderr.write('done\n')
 
         self.cx = self.qx*self.detd/(self.qz+self.ewald_rad) # pylint: disable=C0103
         self.cy = self.qy*self.detd/(self.qz+self.ewald_rad) # pylint: disable=C0103
@@ -92,7 +119,6 @@ class DetReader(object):
         self.mask = np.ones(self.frame_shape, dtype='u1')
         self.mask[self.x, self.y] = mask.flatten()
         self.unassembled_mask = mask
-        self.raw_mask = raw_mask.astype('u1')
 
     @property
     def coords_xy(self):

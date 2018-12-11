@@ -29,7 +29,7 @@ struct detector *det ;
 
 // Config file params
 int num_data, do_gamma ;
-double fluence, rescale, mean_count, background ;
+double fluence, rescale, mean_count ;
 char output_fname[1024], likelihood_fname[1024], scale_fname[1024] ;
 
 void rescale_intens() ;
@@ -174,7 +174,8 @@ void rescale_intens() {
 }
 
 void allocate_data_memory(int *num_counts) {
-	int d ;
+	int d, t ;
+	double bg_count = 0. ;
 	
 	ones = calloc(num_data, sizeof(int)) ;
 	multi = calloc(num_data, sizeof(int)) ;
@@ -183,10 +184,12 @@ void allocate_data_memory(int *num_counts) {
 	count_multi = malloc(num_data * sizeof(int*)) ;
 	likelihood = calloc(num_data, sizeof(double)) ;
 	scale_factors = malloc(num_data * sizeof(double)) ;
+	for (t = 0 ; t < det->num_pix ; ++t)
+		bg_count += det->background[t] ;
 	
-	num_counts[1] = (mean_count + background*det->num_pix) > det->num_pix ?
+	num_counts[1] = (mean_count + bg_count) > det->num_pix ?
 	                det->num_pix :
-	                (mean_count + background*det->num_pix) ;
+	                (mean_count + bg_count) ;
 	num_counts[0] = 10*num_counts[1] > det->num_pix ? det->num_pix : 10*num_counts[1];
 	fprintf(stderr, "Assuming maximum of %d and %d ones and multi pixels respectively.\n", num_counts[0], num_counts[1]) ;
 	
@@ -244,7 +247,7 @@ double calc_dataset(int *num_counts) {
 					if (det->mask[t] > 1)
 						continue ;
 					
-					val = view[t]*scale + background ;
+					val = view[t]*scale + det->background[t] ;
 					photons = gsl_ran_poisson(rng, val) ;
 					
 					if (photons == 1) {
@@ -521,7 +524,6 @@ int generate_globals(char *config_fname) {
 	fluence = -1. ;
 	mean_count = -1. ;
 	do_gamma = 0 ;
-	background = 0. ;
 	num_rot = 0 ;
 	output_fname[0] = '\0' ;
 	likelihood_fname[0] = '\0' ;
@@ -539,8 +541,6 @@ int generate_globals(char *config_fname) {
 				mean_count = atof(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "fluence") == 0)
 				fluence = atof(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "bg_count") == 0)
-				background = atof(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "gamma_fluence") == 0)
 				do_gamma = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "out_photons_file") == 0)
@@ -600,10 +600,13 @@ int generate_globals(char *config_fname) {
 			return 1 ;
 		}
 	}
+	
 	if (likelihood_fname[0] != '\0')
 		fprintf(stderr, "Saving frame-by-frame likelihoods to %s\n", likelihood_fname) ;
 	if (do_gamma)
 		fprintf(stderr, "Assuming Gamma-distributed variable incident fluence\n") ;
+	
+	// Checking output file extension
 	char *extension = strrchr(output_fname, '.') ;
 	if (extension == NULL || strncmp(extension, ".h5", 2) != 0) {
 		hdf5_output = 0 ;
@@ -630,11 +633,10 @@ int setup(char *config_fname) {
 		return 1 ;
 	}
 	fclose(fp) ;
-	if (generate_globals(config_fname))
-		return 1 ;
 	if (generate_detectors(config_fname, "make_data", &det, 0) < 0.)
 		return 1 ;
-	background /= det[0].num_pix ;
+	if (generate_globals(config_fname))
+		return 1 ;
 	if (generate_size_params(config_fname))
 		return 1 ;
 	if (generate_intens(config_fname))

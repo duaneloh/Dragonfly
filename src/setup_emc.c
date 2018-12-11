@@ -59,6 +59,8 @@ int setup(char *s_config_fname, int continue_flag) {
 	generate_blacklist(config_fname, frames) ;
 	if (generate_iterate(config_fname, "emc", continue_flag, qmax, param, det, frames, iter))
 		return 1 ;
+	if (!param->rank && param->start_iter == 1)
+		save_initial_iterate() ;
 
 	gettimeofday(&t2, NULL) ;
 	fprintf(stderr, "Completed setup: %f s\n", (double)(t2.tv_sec - t1.tv_sec) + 1.e-6*(t2.tv_usec - t1.tv_usec)) ;

@@ -20,6 +20,9 @@ struct detector {
 	
 	// Only relevant for first detector in list
 	int num_det, num_dfiles, mapping[1024] ;
+	
+	// Background input for EMC
+	double *background ;
 } ;
 
 double generate_detectors(char*, char*, struct detector**, int) ;

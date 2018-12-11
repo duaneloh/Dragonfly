@@ -8,6 +8,11 @@ import logging
 import numpy as np
 from py_src import read_config
 from py_src import py_utils
+try:
+    import h5py
+    HDF5_MODE = True
+except ImportError:
+    HDF5_MODE = False
 
 def main():
     '''Parses command line arguments and config file to generate detector file'''
@@ -56,15 +61,30 @@ def main():
             mask[(rad > min(pm['detc_x'], pm['detc_y'])) & (mask == 0)] = 1
         timer.reset_and_report("Creating detector") if args.vb else timer.reset()
 
-        with open(det_file, "w") as fptr:
-            #fptr.write(str(pm['dets_x']*pm['dets_y']) + "\n")
-            fptr.write("%d %.6f %.6f\n" % (pm['dets_x']*pm['dets_y'],
-                                           pm['detd']/pm['pixsize'],
-                                           pm['ewald_rad']))
-            for par0, par1, par2, par3, par4 in zip(qx, qy, qz, solid_angle, mask):
-                txt = "%21.15e %21.15e %21.15e %21.15e %d\n"%(par0, par1, par2, par3, par4)
-                fptr.write(txt)
-        timer.reset_and_report("Writing detector") if args.vb else timer.reset()
+        if HDF5_MODE:
+            if os.path.splitext(det_file)[1] != '.h5':
+                det_file += '.h5'
+            with h5py.File(det_file, "w") as fptr:
+                fptr['qx'] = qx
+                fptr['qy'] = qy
+                fptr['qz'] = qz
+                fptr['corr'] = solid_angle
+                fptr['mask'] = mask
+                fptr['detd'] = pm['detd']/pm['pixsize']
+                fptr['ewald_rad'] = pm['ewald_rad']
+        else:
+            if os.path.splitext(det_file)[1] == '.h5':
+                det_file = os.path.splitext(det_file)[0] + '.dat'
+                print('WARNING: h5py could not be imported. Writing detector to %s' % det_file)
+            with open(det_file, "w") as fptr:
+                #fptr.write(str(pm['dets_x']*pm['dets_y']) + "\n")
+                fptr.write("%d %.6f %.6f\n" % (pm['dets_x']*pm['dets_y'],
+                                               pm['detd']/pm['pixsize'],
+                                               pm['ewald_rad']))
+                for par0, par1, par2, par3, par4 in zip(qx, qy, qz, solid_angle, mask):
+                    txt = "%21.15e %21.15e %21.15e %21.15e %d\n"%(par0, par1, par2, par3, par4)
+                    fptr.write(txt)
+        timer.reset_and_report("Writing detector to %s" % det_file) if args.vb else timer.reset()
 
         timer.report_time_since_beginning() if args.vb else timer.reset()
     else:

@@ -49,6 +49,7 @@ void update_model(double) ;
 // output_emc.c
 void write_log_file_header(int) ;
 void update_log_file(double, double) ;
+void save_initial_iterate() ;
 void save_models() ;
 void save_metrics(struct max_data*) ;
 

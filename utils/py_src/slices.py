@@ -1,7 +1,13 @@
 '''Module containing class to generate tomographic slices'''
 
 from __future__ import print_function
+import os
 import numpy as np
+try:
+    import h5py
+    HDF5_MODE = True
+except ImportError:
+    HDF5_MODE = False
 
 class SliceGenerator(object):
     '''Class to generate slices from 3D intensity distribution for given orientation
@@ -25,24 +31,38 @@ class SliceGenerator(object):
         self.model = self.stats = None
 
     def _init_model(self, iteration):
-        model_fname = '%s/output/intens_%.3d.bin' % (self.folder, iteration)
-        print('Parsing comparison model:', model_fname)
-        self.model = np.fromfile(model_fname, '=f8')
-        size = int(np.round(self.model.shape[0]**(1./3.)))
-        self.model = self.model.reshape(3 * (size,))
-
         self.stats = {'rmax': None, 'scale': None, 'info': None}
-        self.stats['rmax'] = np.fromfile('%s/orientations/orientations_%.3d.bin' %
-                                         (self.folder, iteration), '=i4')
-        if self.need_scaling:
-            try:
-                self.stats['scale'] = np.loadtxt('%s/scale/scale_%.3d.dat' %
-                                                 (self.folder, iteration))
-            except IOError:
+
+        model_fname = '%s/output/intens_%.3d.bin' % (self.folder, iteration)
+        h5model_fname = '%s/output_%.3d.h5' % (self.folder, iteration)
+        if os.path.isfile(model_fname):
+            print('Parsing comparison model:', model_fname)
+            self.model = np.fromfile(model_fname, '=f8')
+            size = int(np.round(self.model.shape[0]**(1./3.)))
+            self.model = self.model.reshape(3 * (size,))
+
+            self.stats['rmax'] = np.fromfile('%s/orientations/orientations_%.3d.bin' %
+                                             (self.folder, iteration), '=i4')
+            if self.need_scaling:
+                try:
+                    self.stats['scale'] = np.loadtxt('%s/scale/scale_%.3d.dat' %
+                                                     (self.folder, iteration))
+                except IOError:
+                    self.stats['scale'] = np.ones(self.stats['rmax'].shape)
+            else:
                 self.stats['scale'] = np.ones(self.stats['rmax'].shape)
-        else:
-            self.stats['scale'] = np.ones(self.stats['rmax'].shape)
-        self.stats['info'] = np.loadtxt('%s/mutualInfo/info_%.3d.dat' % (self.folder, iteration))
+            self.stats['info'] = np.loadtxt('%s/mutualInfo/info_%.3d.dat' % (self.folder, iteration))
+        elif os.path.isfile(h5model_fname):
+            print('Parsing comparison output:', h5model_fname)
+            if not HDF5_MODE:
+                print('Cannot parse HDF5 file without h5py')
+                raise(IOError)
+            with h5py.File(h5model_fname, 'r') as fptr:
+                self.model = fptr['intens'][0]
+                self.stats['rmax'] = fptr['orientations'][:]
+                self.stats['info'] = fptr['mutual_info'][:]
+                if self.need_scaling:
+                    self.stats['scale'] = fptr['scale'][:]
 
         self.current_iteration = iteration
 
@@ -77,8 +97,9 @@ class SliceGenerator(object):
         if raw:
             return dslice, self.stats['info'][num]
         imslice = np.zeros(self.geom.frame_shape)
-        np.add.at(imslice, [self.geom.x, self.geom.y], dslice)
-        return imslice * self.geom.mask * self.stats['scale'][num], self.stats['info'][num]
+        np.add.at(imslice, (self.geom.x, self.geom.y), dslice)
+        #return imslice * self.geom.mask * self.stats['scale'][num], self.stats['info'][num]
+        return imslice * self.geom.mask, self.stats['info'][num]
 
     def get_quat(self, iteration, num):
         '''Return best match quaternion for given iteration and frame number'''

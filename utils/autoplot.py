@@ -476,7 +476,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         button.clicked.connect(self._parse_and_plot)
         hbox.addWidget(button)
         button = QtWidgets.QPushButton('Reparse', self)
-        button.clicked.connect(self._force_plot)
+        button.clicked.connect(lambda: self._parse_and_plot(force=True))
         hbox.addWidget(button)
         button = QtWidgets.QPushButton('Quit', self)
         button.clicked.connect(self.close)
@@ -595,8 +595,8 @@ class ProgressViewer(QtWidgets.QMainWindow):
         else:
             self.vol_plotter.plot(num, **argsdict)
 
-    def _parse_and_plot(self):
-        if not self.vol_plotter.image_exists or self.old_fname != self.fname.text():
+    def _parse_and_plot(self, force=False):
+        if force or not self.vol_plotter.image_exists or self.old_fname != self.fname.text():
             if self.num_modes > 1:
                 self._init_sliders('mode', self.num_modes, self.modenum.value())
                 modenum = self.modenum.value()
@@ -659,15 +659,6 @@ class ProgressViewer(QtWidgets.QMainWindow):
         if curr_mode >= 0 and curr_mode != self.modenum.value():
             self.mode_slider.setValue(curr_mode)
             self.modenum.setValue(curr_mode)
-
-    def _force_plot(self):
-        self.old_fname, size, center = self.vol_plotter.parse(self.fname.text(),
-                                        modenum=self.modenum.value())
-        if self.recon_type == '3d':
-            self._init_sliders('layer', size, center)
-        elif self.num_modes > 1:
-            self._init_sliders('mode', self.num_modes, self.modenum.value())
-        self._plot_vol()
 
     def _load_volume(self):
         fpath = QtWidgets.QFileDialog.getOpenFileName(self, 'Load 3D Volume',
