@@ -136,16 +136,16 @@ void save_metrics(struct max_data *data) {
 	H5Dwrite(dset, H5T_STD_I32LE, H5S_ALL, dspace, H5P_DEFAULT, data->rmax) ;
 	H5Dclose(dset) ;
 	
-	dset = H5Dcreate(file, "mutual_info", H5T_STD_I32LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
+	dset = H5Dcreate(file, "mutual_info", H5T_IEEE_F64LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
 	H5Dwrite(dset, H5T_IEEE_F64LE, H5S_ALL, dspace, H5P_DEFAULT, data->info) ;
 	H5Dclose(dset) ;
 	
-	dset = H5Dcreate(file, "likelihood", H5T_STD_I32LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
+	dset = H5Dcreate(file, "likelihood", H5T_IEEE_F64LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
 	H5Dwrite(dset, H5T_IEEE_F64LE, H5S_ALL, dspace, H5P_DEFAULT, data->likelihood) ;
 	H5Dclose(dset) ;
 	
 	if (param->need_scaling) {
-		dset = H5Dcreate(file, "scale", H5T_STD_I32LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
+		dset = H5Dcreate(file, "scale", H5T_IEEE_F64LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
 		H5Dwrite(dset, H5T_IEEE_F64LE, H5S_ALL, dspace, H5P_DEFAULT, iter->scale) ;
 		H5Dclose(dset) ;
 	}
@@ -153,7 +153,7 @@ void save_metrics(struct max_data *data) {
 	if (param->modes > 1) {
 		len[0] = param->modes * frames->tot_num_data ;
 		dspace = H5Screate_simple(1, len, NULL) ;
-		dset = H5Dcreate(file, "occupancies", H5T_STD_I32LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
+		dset = H5Dcreate(file, "occupancies", H5T_IEEE_F64LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
 		H5Dwrite(dset, H5T_IEEE_F64LE, H5S_ALL, dspace, H5P_DEFAULT, data->quat_norm) ;
 		H5Dclose(dset) ;
 	}
