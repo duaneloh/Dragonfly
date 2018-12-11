@@ -278,6 +278,7 @@ int parse_dataset(char *fname, struct detector *det, struct dataset *current) {
 	if (strncmp(line, hdfheader, 8) == 0) {
 #ifdef WITH_HDF5
 		fprintf(stderr, "Parsing HDF5 dataset %s\n", fname) ;
+		current->type = 0 ;
 		err = parse_h5dataset(fname, det, current) ;
 #else
 		fprintf(stderr, "H5 dataset support not compiled\n") ;
