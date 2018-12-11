@@ -205,14 +205,37 @@ static double parse_h5detector(char *fname, struct detector *det, int norm_flag)
 #endif //WITH_HDF5
 
 static int parse_background(char *fname, struct detector *det) {
-	FILE *fp = fopen(fname, "r") ;
+	char line[8], hdfheader[8] = {137, 'H', 'D', 'F', '\r', '\n', 26, '\n'} ;
+	FILE *fp ;
+	
+	fp = fopen(fname, "r") ;
 	if (fp == NULL) {
 		fprintf(stderr, "Could not find background file %s\n", fname) ;
 		return 1 ;
 	}
-	fread(det->background, sizeof(double), det->num_pix, fp) ;
+	fread(line, 8, sizeof(char), fp) ;
 	fclose(fp) ;
 	
+	if (strncmp(line, hdfheader, 8) == 0) {
+#ifdef WITH_HDF5
+		fprintf(stderr, "Parsing HDF5 background file\n") ;
+		hid_t file, dset ;
+		file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT) ;
+		dset = H5Dopen(file, "/background", H5P_DEFAULT) ;
+		H5Dread(dset, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, det->background) ;
+		H5Dclose(dset) ;
+		H5Fclose(file) ;
+#else
+		fprintf(stderr, "H5 background file support not compiled\n") ;
+		return 1 ;
+#endif // WITH_HDF5
+	}
+	else {
+		fp = fopen(fname, "r") ;
+		fread(det->background, sizeof(double), det->num_pix, fp) ;
+		fclose(fp) ;
+	}
+
 	return 0 ;
 }
 
