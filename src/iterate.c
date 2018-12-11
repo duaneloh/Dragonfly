@@ -66,9 +66,15 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 			sscanf(line, "%d", &param->start_iter) ;
 			fclose(fp) ;
 			
+#ifdef WITH_HDF5
+			sprintf(input_fname, "%s/output_%.3d.h5", param->output_folder, param->start_iter) ;
+			if (param->need_scaling)
+				sprintf(scale_fname, "%s/output_%.3d.h5", param->output_folder, param->start_iter) ;
+#else // WITH_HDF5
 			sprintf(input_fname, "%s/output/intens_%.3d.bin", param->output_folder, param->start_iter) ;
 			if (param->need_scaling)
 				sprintf(scale_fname, "%s/scale/scale_%.3d.dat", param->output_folder, param->start_iter) ;
+#endif // WITH_HDF5
 			param->start_iter += 1 ;
 			fprintf(stderr, "Continuing from previous run starting from iteration %d.\n", param->start_iter) ;
 		}
@@ -117,10 +123,20 @@ int parse_scale(char *fname, struct iterate *iter) {
 	else {
 		fprintf(stderr, "Using scale factors from %s\n", fname) ;
 		flag = 1 ;
+#ifdef WITH_HDF5
+		fclose(fp) ;
+		hid_t file, dset, dspace ;
+		file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT) ;
+		dset = H5Dopen(file, "/scale", H5P_DEFAULT) ;
+		H5Dread(dset, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, iter->scale) ;
+		H5Dclose(dset) ;
+		H5Fclose(file) ;
+#else // WITH_HDF5
 		int d ;
 		for (d = 0 ; d < iter->tot_num_data ; ++d)
 			fscanf(fp, "%lf", &iter->scale[d]) ;
 		fclose(fp) ;
+#endif // WITH_HDF5
 	}
 	
 	return flag ;
@@ -228,10 +244,20 @@ void parse_input(char *fname, double mean, int rank, int recon_type, struct iter
 			gsl_rng_free(rng) ;
 		}
 		else {
+#ifdef WITH_HDF5
+			fclose(fp) ;
+			hid_t file, dset ;
+			file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT) ;
+			dset = H5Dopen(file, "/intens", H5P_DEFAULT) ;
+			H5Dread(dset, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, iter->model1) ;
+			H5Dclose(dset) ;
+			H5Fclose(file) ;
+#else // WITH_HDF5
 			fprintf(stderr, "Starting from %s\n", fname) ;
 			
 			fread(iter->model1, sizeof(double), tot_vol, fp) ;
 			fclose(fp) ;
+#endif // WITH_HDF5
 		}
 	}
 }
