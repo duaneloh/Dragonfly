@@ -379,8 +379,8 @@ double parse_detector(char *fname, struct detector *det, int norm_flag) {
 }
 
 double parse_detector_list(char *flist, struct detector **det_ptr, int norm_flag) {
-	int j, num_det = 0, num_dfiles, new_det ;
-	double det_qmax, qmax = -1. ;
+	int j, num_det = 0, num_dfiles, new_det, norm_all = 0 ;
+	double det_qmax, qmax = -1., mean_pol = 0. ;
 	char name_list[1024][1024] ;
 	char flist_folder[1024], rel_fname[1024] ;
 	int det_mapping[1024] = {0} ;
@@ -412,6 +412,12 @@ double parse_detector_list(char *flist, struct detector **det_ptr, int norm_flag
 		}
 	}
 	
+	// If multiple detectors require normalization, do it for all detectors together
+	if (norm_flag == 1 && num_det > 1) {
+		norm_flag = 0 ;
+		norm_all = 1 ;
+	}
+	
 	*det_ptr = malloc(num_det * sizeof(struct detector)) ;
 	det = *det_ptr ;
 	memcpy(det[0].mapping, det_mapping, 1024*sizeof(int)) ;
@@ -427,6 +433,22 @@ double parse_detector_list(char *flist, struct detector **det_ptr, int norm_flag
 			qmax = det_qmax ;
 	}
 	fclose(fp) ;
+	
+	if (norm_all) {
+		// norm_all only activated for norm_flag == 1 which implies 3D detector
+		fprintf(stderr, "Normalizing corr over all detectors\n") ;
+		double mean_pol = 0. ;
+		int t, tot_num_pix = 0 ;
+		for (j = 0 ; j < num_det ; ++j) {
+			tot_num_pix += det[j].num_pix ;
+			for (t = 0 ; t < det[j].num_pix ; ++t)
+				mean_pol += det[j].pixels[t*4+3] ;
+		}
+		mean_pol /= tot_num_pix ;
+		for (j = 0 ; j < num_det ; ++j)
+		for (t = 0 ; t < det[j].num_pix ; ++t)
+			det[j].pixels[t*4+3] /= mean_pol ;
+	}
 	
 	return qmax ;
 }
