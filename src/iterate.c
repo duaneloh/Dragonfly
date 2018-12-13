@@ -125,7 +125,7 @@ int parse_scale(char *fname, struct iterate *iter) {
 		flag = 1 ;
 #ifdef WITH_HDF5
 		fclose(fp) ;
-		hid_t file, dset, dspace ;
+		hid_t file, dset ;
 		file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT) ;
 		dset = H5Dopen(file, "/scale", H5P_DEFAULT) ;
 		H5Dread(dset, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, iter->scale) ;
