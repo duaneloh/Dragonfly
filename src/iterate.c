@@ -98,6 +98,7 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 	model_mean *= -1. ;
 #endif // FIXED_SEED
 	parse_input(input_fname, model_mean, param->rank, param->recon_type, iter) ;
+	calc_powder(dset, det, iter) ;
 	
 	return 0 ;
 }
@@ -140,6 +141,32 @@ int parse_scale(char *fname, struct iterate *iter) {
 	}
 	
 	return flag ;
+}
+
+void calc_powder(struct dataset *frames, struct detector *det, struct iterate *iter) {
+	int dset = 0, detn, d, t, pixel ;
+	struct dataset *curr = frames ;
+	
+	for (detn = 0 ; detn < det[0].num_det ; ++detn)
+		det[detn].powder = calloc(det[detn].num_pix, sizeof(double)) ;
+	
+	while (curr != NULL) {
+		detn = det[0].mapping[dset] ;
+		for (d = 0 ; d < curr->num_data ; ++d) {
+			for (t = 0 ; t < curr->ones[d] ; ++t) {
+				pixel = curr->place_ones[curr->ones_accum[d] + t] ;
+				if (det[detn].mask[pixel] < 1)
+					det[detn].powder[pixel]++ ;
+			}
+			for (t = 0 ; t < curr->ones[d] ; ++t) {
+				pixel = curr->place_multi[curr->multi_accum[d] + t] ;
+				if (det[detn].mask[pixel] < 1)
+					det[detn].powder[pixel] += curr->count_multi[curr->multi_accum[d] + t] ;
+			}
+		}
+		dset++ ;
+		curr = curr->next ;
+	}
 }
 
 void calc_scale(struct dataset *frames, struct detector *det, struct iterate *iter) {
