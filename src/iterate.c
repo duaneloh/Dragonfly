@@ -145,6 +145,7 @@ int parse_scale(char *fname, struct iterate *iter) {
 
 void calc_powder(struct dataset *frames, struct detector *det, struct iterate *iter) {
 	int dset = 0, detn, d, t, pixel ;
+	int *nframes = calloc(det[0].num_det, sizeof(int)) ;
 	struct dataset *curr = frames ;
 	
 	for (detn = 0 ; detn < det[0].num_det ; ++detn)
@@ -153,24 +154,31 @@ void calc_powder(struct dataset *frames, struct detector *det, struct iterate *i
 	while (curr != NULL) {
 		detn = det[0].mapping[dset] ;
 		for (d = 0 ; d < curr->num_data ; ++d) {
+			nframes[detn]++ ;
 			for (t = 0 ; t < curr->ones[d] ; ++t) {
 				pixel = curr->place_ones[curr->ones_accum[d] + t] ;
 				if (det[detn].mask[pixel] < 1)
 					det[detn].powder[pixel]++ ;
 			}
-			for (t = 0 ; t < curr->ones[d] ; ++t) {
+			for (t = 0 ; t < curr->multi[d] ; ++t) {
 				pixel = curr->place_multi[curr->multi_accum[d] + t] ;
 				if (det[detn].mask[pixel] < 1)
 					det[detn].powder[pixel] += curr->count_multi[curr->multi_accum[d] + t] ;
 			}
 		}
+		
 		dset++ ;
 		curr = curr->next ;
 	}
+	
+	for (detn = 0 ; detn < det[0].num_det ; ++detn)
+		for (t = 0 ; t < det[detn].num_pix ; ++t)
+			det[detn].powder[t] /= nframes[detn] ;
+	free(nframes) ;
 }
 
 void calc_scale(struct dataset *frames, struct detector *det, struct iterate *iter) {
-	int d, t ;
+	int dset = 0, detn, d, t ;
 	struct dataset *curr ;
 	curr = frames ;
 	
@@ -179,15 +187,16 @@ void calc_scale(struct dataset *frames, struct detector *det, struct iterate *it
 	frames->count = calloc(iter->tot_num_data, sizeof(int)) ;
 	
 	while (curr != NULL) {
+		detn = det[0].mapping[dset] ;
 		if (curr->type == 0) {
 			for (d = 0 ; d < curr->num_data ; ++d) {
 				iter->scale[curr->num_data_prev + d] = 1. ;
 				for (t = 0 ; t < curr->ones[d] ; ++t)
-				if (det->mask[curr->place_ones[curr->ones_accum[d] + t]] < 1)
+				if (det[detn].mask[curr->place_ones[curr->ones_accum[d] + t]] < 1)
 					frames->count[curr->num_data_prev + d]++ ;
 				
 				for (t = 0 ; t < curr->multi[d] ; ++t)
-				if (det->mask[curr->place_multi[curr->multi_accum[d] + t]] < 1)
+				if (det[detn].mask[curr->place_multi[curr->multi_accum[d] + t]] < 1)
 					frames->count[curr->num_data_prev + d] += curr->count_multi[curr->multi_accum[d] + t] ;
 			}
 		}
@@ -206,6 +215,7 @@ void calc_scale(struct dataset *frames, struct detector *det, struct iterate *it
 			}
 		}
 		
+		dset++ ;
 		curr = curr->next ;
 	}
 }
