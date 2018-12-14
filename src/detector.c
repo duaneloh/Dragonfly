@@ -354,6 +354,7 @@ double parse_detector(char *fname, struct detector *det, int norm_flag) {
 	det->rel_num_pix = 0 ;
 	det->detd = 0. ;
 	det->ewald_rad = 0. ;
+	det->powder = NULL ;
 	
 	FILE *fp = fopen(fname, "r") ;
 	if (fp == NULL) {
@@ -380,7 +381,7 @@ double parse_detector(char *fname, struct detector *det, int norm_flag) {
 
 double parse_detector_list(char *flist, struct detector **det_ptr, int norm_flag) {
 	int j, num_det = 0, num_dfiles, new_det, norm_all = 0 ;
-	double det_qmax, qmax = -1., mean_pol = 0. ;
+	double det_qmax, qmax = -1. ;
 	char name_list[1024][1024] ;
 	char flist_folder[1024], rel_fname[1024] ;
 	int det_mapping[1024] = {0} ;
@@ -462,6 +463,8 @@ void free_detector(struct detector *det) {
 	for (detn = 0 ; detn < det[0].num_det ; ++detn) {
 		free(det[detn].pixels) ;
 		free(det[detn].mask) ;
+		if (det[detn].powder != NULL)
+			free(det[detn].powder) ;
 	}
 	free(det) ;
 }
