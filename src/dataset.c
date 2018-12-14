@@ -232,22 +232,24 @@ int generate_data(char *config_fname, char *config_section, char *type_string, s
 }
 
 void calc_sum_fact(struct detector *det, struct dataset *frames) {
-	int d, t ;
+	int dset = 0, d, t, detn ;
 	struct dataset *curr = frames ;
 	
 	frames->sum_fact = calloc(frames->tot_num_data, sizeof(double)) ;
 	
 	while (curr != NULL) {
+		detn = det[0].mapping[dset] ;
+		
 		if (curr->type == 0) {
 			for (d = 0 ; d < curr->num_data ; ++d)
 			for (t = 0 ; t < curr->multi[d] ; ++t)
-			if (det->mask[curr->place_multi[curr->multi_accum[d] + t]] < 1)
+			if (det[detn].mask[curr->place_multi[curr->multi_accum[d] + t]] < 1)
 				frames->sum_fact[curr->num_data_prev+d] += gsl_sf_lnfact(curr->count_multi[curr->multi_accum[d] + t]) ;
 		}
 		else if (curr->type == 1) {
 			for (d = 0 ; d < curr->num_data ; ++d)
 			for (t = 0 ; t < curr->num_pix ; ++t)
-			if (det->mask[t] < 1)
+			if (det[detn].mask[t] < 1)
 				frames->sum_fact[curr->num_data_prev+d] += gsl_sf_lnfact(curr->int_frames[d*curr->num_pix + t]) ;
 		}
 		else if (curr->type == 2) {
@@ -255,6 +257,7 @@ void calc_sum_fact(struct detector *det, struct dataset *frames) {
 				frames->sum_fact[curr->num_data_prev+d] = 0. ;
 		}
 		
+		dset++ ;
 		curr = curr->next ;
 	}
 }
