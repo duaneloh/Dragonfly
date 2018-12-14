@@ -26,6 +26,7 @@ struct max_data {
 	// Private only
 	double *model, *weight, *scale ;
 	double **all_views ;
+	uint8_t **mask ;
 	
 	// Both
 	double *max_exp_p, *p_sum ;
