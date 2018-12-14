@@ -507,17 +507,17 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 	}
 }
 
-void likelihood_rt(int r, struct max_data *priv, struct max_data *common, double **Q_list, int grad_also) {
+void likelihood_rt(int r, struct max_data *priv, struct max_data *common, double **views, double **Q_list, int grad_also) {
 	int dset = 0, t, d, curr_d, pixel, detn ;
 	double val, *like, *view, *prob = common->probab[r] ;
 	struct dataset *curr = frames ;
 	
-	// If grad_also: Assume all_views and Q_list are zeroed, 
+	// If grad_also: Assume views and Q_list are zeroed, 
 	// 	and need to fill with gradient and likelihood respectively
-	// Otherwise: Calculate likelihood in Q_list using values in all_views
+	// Otherwise: Calculate likelihood in Q_list using values in views
 	for (detn = 0 ; detn < det[0].num_det ; ++detn) {
 		like = Q_list[detn] ;
-		view = priv->all_views[detn] ;
+		view = views[detn] ;
 		if (grad_also) {
 			memset(view, 0, det[detn].num_pix*sizeof(double)) ;
 			memset(like, 0, det[detn].num_pix*sizeof(double)) ;
@@ -537,7 +537,7 @@ void likelihood_rt(int r, struct max_data *priv, struct max_data *common, double
 	while (curr != NULL) {
 		detn = det[0].mapping[dset] ;
 		like = Q_list[detn] ;
-		view = priv->all_views[detn] ;
+		view = views[detn] ;
 		
 		for (curr_d = 0 ; curr_d < curr->num_data ; ++curr_d) {
 			// Calculate frame number in full list
@@ -556,7 +556,7 @@ void likelihood_rt(int r, struct max_data *priv, struct max_data *common, double
 			// For each pixel with one photon
 			for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
 				pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
-				if (det[detn].mask[pixel] == 0 && priv->mask[detn][pixel] < 3) {
+				if (priv->mask[detn][pixel] < 255) {
 					if (grad_also) {
 						view[pixel] += val * iter->scale[d] / det[detn].background[pixel] ;
 						like[pixel] += val * log(det[detn].background[pixel]) ;
@@ -577,7 +577,93 @@ void likelihood_rt(int r, struct max_data *priv, struct max_data *common, double
 			// For each pixel with count_multi photons
 			for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
 				pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
-				if (det[detn].mask[pixel] == 0 && priv->mask[detn][pixel] < 3) {
+				if (priv->mask[detn][pixel] < 255) {
+					if (grad_also) {
+						view[pixel] += val * iter->scale[d] / det[detn].background[pixel] ;
+						like[pixel] += val * log(det[detn].background[pixel]) ;
+					}
+					else {
+						if (view[pixel] * iter->scale[d] + det[detn].background[pixel] < 1.e-6) {
+							view[pixel] = (1.e-6 - det[detn].background[pixel]) / iter->scale[d] ;
+							priv->mask[detn][pixel] = 2 ;
+						}
+						if (priv->mask[detn][pixel] < 2)
+							priv->mask[detn][pixel] = 0 ;
+
+						like[pixel] += val * curr->count_multi[curr->multi_accum[curr_d]+t] * log(det[detn].background[pixel] + iter->scale[d]*view[pixel]) ;
+					}
+				}
+			}
+		}
+		
+		dset++ ;
+		curr = curr->next ;
+	}
+}
+
+void gradient_rt(int r, struct max_data *priv, struct max_data *common, double **views, double **G_list) {
+	int dset = 0, t, d, curr_d, pixel, detn ;
+	double val, *like, *view, *prob = common->probab[r] ;
+	struct dataset *curr = frames ;
+	
+	// If grad_also: Assume views and Q_list are zeroed, 
+	// 	and need to fill with gradient and likelihood respectively
+	// Otherwise: Calculate likelihood in Q_list using values in views
+	for (detn = 0 ; detn < det[0].num_det ; ++detn) {
+		grad = G_list[detn] ;
+		view = views[detn] ;
+		for (t = 0 ; t < det[detn].num_pix ; ++t)
+		if (det[detn].mask[t] < 1 && priv->mask[detn][t] < 3) {
+			grad[t] = - priv->p_sum[detn] * view[t] ;
+			priv->mask[detn][t] = 1 ;
+		}
+	}
+	
+	while (curr != NULL) {
+		detn = det[0].mapping[dset] ;
+		grad = G_list[detn] ;
+		view = views[detn] ;
+		
+		for (curr_d = 0 ; curr_d < curr->num_data ; ++curr_d) {
+			// Calculate frame number in full list
+			d = curr->num_data_prev + curr_d ;
+			// check if frame is blacklisted
+			if (frames->blacklist[d])
+				continue ;
+			
+			val = exp(param->beta*(prob[d] - common->max_exp[d])) / common->p_sum[d] ; 
+			
+			// Skip if probability is very low (saves time)
+			if (!(val > PROB_MIN))
+				continue ;
+			
+			// Currently only working with type-0 data
+			// For each pixel with one photon
+			for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
+				pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
+				if (priv->mask[detn][pixel] < 255) {
+					grad[pixel] += val * iter->scale[d] / (det[detn].background[pixel] + iter->scale[d] * view[pixel]) ;
+					if (grad_also) {
+						view[pixel] += val * iter->scale[d] / det[detn].background[pixel] ;
+						like[pixel] += val * log(det[detn].background[pixel]) ;
+					}
+					else {
+						if (view[pixel] * iter->scale[d] + det[detn].background[pixel] < 1.e-6) {
+							view[pixel] = (1.e-6 - det[detn].background[pixel]) / iter->scale[d] ;
+							priv->mask[detn][pixel] = 2 ;
+						}
+						if (priv->mask[detn][pixel] < 2)
+							priv->mask[detn][pixel] = 0 ;
+
+						like[pixel] += val * log(det[detn].background[pixel] + iter->scale[d] * view[pixel]) ;
+					}
+				}
+			}
+			
+			// For each pixel with count_multi photons
+			for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
+				pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
+				if (priv->mask[detn][pixel] < 255) {
 					if (grad_also) {
 						view[pixel] += val * iter->scale[d] / det[detn].background[pixel] ;
 						like[pixel] += val * log(det[detn].background[pixel]) ;
@@ -606,7 +692,7 @@ void optimize_tomogram(int r, struct max_data *priv, struct max_data *common) {
 	int nmask, tot_num_pix = 0 ;
 	double *prob = common->probab[r] ;
 	struct dataset *curr = frames ;
-	double val, **Q_low, **Q_high ;
+	double val, **Q_low, **Q_high, **high_views ;
 	
 	// Calculate pixel-independent part of likelihood: \sum_d (P_dr * phi_d)
 	memset(priv->p_sum, 0, (det[0].num_det)*sizeof(double)) ;
@@ -623,64 +709,96 @@ void optimize_tomogram(int r, struct max_data *priv, struct max_data *common) {
 	dset = 0 ;
 	curr = frames ;
 	
+	// =================================
+	// Regula falsi method on derivative
+	// =================================
+	/*
+	* 1. Calculate gradient of likelihood G_old at W_old = 0
+	* 2. Calculate G_new at W_new = B_t or -B_t/phi_d_min depending on sign of G_old
+	* 3. Iterate till convergence:
+	* 	W_latest = (W_old*G_new - W_new*G_old) / (G_new - G_old)
+	* 	Calculate G_latest at W_latest
+	* 	If G_latest*G_old > 0:
+	* 		W_old = W_latest ; G_old = G_latest
+	* 	Else:
+	* 		W_new = W_latest ; G_new = G_latest
+	*/
+	
+	// =============================================
+	// Golden Section method (partially implemented)
+	// =============================================
+	/*
+	* 1. Calculate likelihood Q at W = 0
+	* 2. Calculate gradient G at W = 0
+	* 3. Search for other W extremum depending upon sign of G
+	* 4. Apply Golden Section method between W = 0 to this extremum 
+	*/
 	// Step 1: Calculate Q(W_rt = 0)
 	// Step 2: Calculate [dQ/dW_rt](W_rt = 0)
 	Q_low = malloc(det[0].num_det * sizeof(double*)) ;
 	Q_high = malloc(det[0].num_det * sizeof(double*)) ;
+	high_views = malloc(det[0].num_det * sizeof(double*)) ;
 	
 	for (detn = 0 ; detn < det[0].num_det ; ++detn) {
 		Q_low[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
 		Q_high[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
+		high_views[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
 		memset(priv->all_views[detn], 0, det[detn].num_pix*sizeof(double)) ;
 		memset(priv->mask[detn], 0, det[detn].num_pix*sizeof(uint8_t)) ;
 		tot_num_pix += det[detn].num_pix ;
 		
+		// Mask out bad pixels
 		nmask = 0 ;
 		for (t = 0 ; t < det[detn].num_pix ; ++t)
-		if (det[detn].background[t] < 1.e-6 || det[detn].mask[t] > 0) {
-			priv->mask[detn][t] = 3 ;
+		if (det[detn].mask[t] > 0) {
+			priv->mask[detn][t] = 255 ;
 			nmask++ ;
 		}
 	}
-	likelihood_rt(r, priv, common, Q_low, 1) ;
+	likelihood_rt(r, priv, common, priv->all_views, Q_low, 1) ;
 	
-	if ((r*param->num_proc + param->rank)%(quat->num_rot * param->modes / 10) == 0) {
-		char fname[1024] ;
-		sprintf(fname, "data/gradient_%.5d.bin", r) ;
-		FILE *fp = fopen(fname, "wb") ;
-		fwrite(priv->all_views[0], sizeof(double), det[0].num_pix, fp) ;
-		fclose(fp) ;
-		
-		sprintf(fname, "data/likelihood_%.5d.bin", r) ;
-		fp = fopen(fname, "wb") ;
-		fwrite(Q_low[0], sizeof(double), det[0].num_pix, fp) ;
-		fclose(fp) ;
-	}
-	
-	// Step 3: Calculate Q for a few more values of W_rt till you cross over in value
+	// Step 3: Calculate Q for a few more W_rt till you go below Q(0)
 	// Direction of search depends on gradient value
-	//for (detn = 0 ; detn < det[0].num_det ; ++detn)
-	//for (t = 0 ; t < det[detn].num_pix ; ++t) {
-	//	priv->all_views[detn][t] *= 1.e-4 ;
-	//}
+	for (detn = 0 ; detn < det[0].num_det ; ++detn)
+	for (t = 0 ; t < det[detn].num_pix ; ++t)
+	if (priv->all_views[detn][t] < 1.e-5)
+		priv->mask[detn][t] = 255 ;
 	
+	/*
+	* Mask meaning:
+	* 	255: Optimal (Do not touch). Also bad pixels.
+	* 	128: Found search range, but still need optimizing
+	* 	2: Pixels with overshoot when searching over other end
+	* 	1: Pixels with no photons in all frames
+	* 	0: Suboptimal, needs more evaluating
+	*
+	* Likelihood calculation:
+	* 	If (mask < 255): mask = 1
+	* 	Loop over all photons contributing to tomogram
+	* 	*	If (mask == 255): continue
+	* 	*	
+	* 	*	If overshoot: view = limit, mask = 2
+	* 	*	Else: mask = 0
+	* 	*	
+	* 	*	like = f(view)
+	* 
+	* Result at end of likelihood calculation:
+	* 	255: Untouched
+	* 	2: Pixels which overshot for at least one phi_d. Do not repeat evaluation next iteration.
+	* 	1: Pixels which never saw a photon. Optimal W_rt is 0
+	* 	0: Pixels which saw photons and where W_rt still has room to move
+	*
+	* Mask update:
+	* 	255: Remains unchanged
+	* 	2 -> 128: Stop searching for new values but still need to optimize
+	* 	1 -> 255: W_rt = 0
+	* 	0: Remains unchanged. W_rt doubled.
+	*/
 	for (i = 0 ; i < 20 ; ++i) {
-		likelihood_rt(r, priv, common, Q_high, 0) ;
+		likelihood_rt(r, priv, common, priv->all_views, Q_high, 0) ;
 		
-		if ((r*param->num_proc + param->rank)%(quat->num_rot * param->modes / 10) == 0) {
-			char fname[1024] ;
-			sprintf(fname, "data/step%d_%.5d.bin", i+3, r) ;
-			FILE *fp = fopen(fname, "wb") ;
-			fwrite(Q_high[0], sizeof(double), det[0].num_pix, fp) ;
-			fclose(fp) ;
-			
-			sprintf(fname, "data/mask%d_%.5d.bin", i+3, r) ;
-			fp = fopen(fname, "wb") ;
-			fwrite(priv->mask[0], sizeof(uint8_t), det[0].num_pix, fp) ;
-			fclose(fp) ;
-			
+		if ((r*param->num_proc + param->rank)%(quat->num_rot * param->modes / 10) == 0)
 			fprintf(stderr, "%d ", nmask) ;
-		}
 		
 		nmask = 0 ;
 		for (detn = 0 ; detn < det[0].num_det ; ++detn)
@@ -701,22 +819,64 @@ void optimize_tomogram(int r, struct max_data *priv, struct max_data *common) {
 	// Q_low is for W=0 and Q_high is W != 0
 	// Swap such that W_Q_low < W_Q_high
 	for (detn = 0 ; detn < det[0].num_det ; ++detn)
-	for (t = 0 ; t < det[detn].num_pix ; ++t)
-	if (priv->all_views[detn][t] < 0) {
-		val = Q_low[detn][t] ;
-		Q_low[detn][t] = Q_high[detn][t] ;
-		Q_high[detn][t] = val ;
-		priv->mask[detn][t] = 0 ;
+	for (t = 0 ; t < det[detn].num_pix ; ++t) {
+		if (priv->all_views[detn][t] < 0) {
+			val = Q_low[detn][t] ;
+			Q_low[detn][t] = Q_high[detn][t] ;
+			Q_high[detn][t] = val ;
+			priv->mask[detn][t] = 0 ;
+			// high_views = 0 (from calloc/memset), low_views < 0
+			// priv->all_views is used as low_views
+		}
+		else {
+			// high_views > 0, low_views = 0
+			// priv->all_views is used as low_views
+			high_views[detn][t] = priv->all_views[detn][t] ;
+			priv->all_views[detn][t] = 0. ;
+		}
 	}
-	//double tau = 2. / (sqrt(5.) + 1) ;
+	
+	double tau = (sqrt(5.) - 1) / 2. ;
+	for (i = 0 ; i < 10 ; ++i) {
+		// Calculate new values
+		// d = b - (b-a)*tau
+		// c = a + (b-a)*tau
+		// all_views = c
+		// high_views = d
+		nmask = 0 ;
+		for (detn = 0 ; detn < det[0].num_det ; ++detn) {
+			memset(priv->mask[detn], 0, det[detn].num_pix * sizeof(uint8_t)) ;
+			for (t = 0 ; t < det[detn].num_pix ; ++t) {
+				val = (priv->all_views[detn][t] - high_views[detn][t]) ;
+				high_views[detn][t] -= val ;
+				priv->all_views[detn][t] += val ;
+			}
+		}
+		
+		// Evaluate at c and d
+		// Q_low = f(c)
+		// Q_high = f(d)
+		likelihood_rt(r, priv, common, priv->all_views, Q_low, 0) ;
+		likelihood_rt(r, priv, common, high_views, Q_high, 0) ;
+		
+		for (detn = 0 ; detn < det[0].num_det ; ++detn) {
+			for (t = 0 ; t < det[detn].num_pix ; ++t) {
+			}
+		}
+		
+		if (nmask == tot_num_pix)
+			break ;
+	}
 	
 	// Cleanup
 	for (detn = 0 ; detn < det[0].num_det ; ++detn) {
 		free(Q_low[detn]) ;
 		free(Q_high[detn]) ;
+		free(high_views[detn]) ;
 	}
 	free(Q_low) ;
 	free(Q_high) ;
+	free(high_views) ;
 }
 
 void merge_tomogram(int r, struct max_data *priv) {
