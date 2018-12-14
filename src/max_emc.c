@@ -53,7 +53,7 @@ double maximize() {
 		#pragma omp for schedule(static,1)
 		for (r = 0 ; r < quat->num_rot_p ; ++r) {
 			optimize_tomogram(r, priv_data, common_data) ;
-			update_tomogram(r, priv_data, common_data) ;
+			//update_tomogram(r, priv_data, common_data) ;
 			merge_tomogram(r, priv_data) ;
 			
 			free(common_data->probab[r]) ;
@@ -295,7 +295,8 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 		detn = det[0].mapping[dset] ;
 		view = priv->all_views[detn] ;
 		if (detn != old_detn)
-			(*slice_gen)(&quat->quat[rotind*5], 1., view, &iter->model1[mode*iter->vol], iter->size, &det[detn]) ;
+			//(*slice_gen)(&quat->quat[rotind*5], 1., view, &iter->model1[mode*iter->vol], iter->size, &det[detn]) ;
+			(*slice_gen)(&quat->quat[rotind*5], 0., view, &iter->model1[mode*iter->vol], iter->size, &det[detn]) ;
 		old_detn = detn ;
 		
 		// For each frame in data set
@@ -323,14 +324,14 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 				for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
 					pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
 					if (det[detn].mask[pixel] < 1)
-						prob[d] += view[pixel] ;
+						prob[d] += log(view[pixel] * iter->scale[d] + det[detn].background[pixel]) ;
 				}
 				
 				// For each pixel with count_multi photons
 				for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
 					pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
 					if (det[detn].mask[pixel] < 1)
-						prob[d] += curr->count_multi[curr->multi_accum[curr_d] + t] * view[pixel] ;
+						prob[d] += curr->count_multi[curr->multi_accum[curr_d] + t] * log(view[pixel] * iter->scale[d] + det[detn].background[pixel]) ;
 				}
 			}
 			else if (curr->type == 1) {
@@ -507,6 +508,67 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 	}
 }
 
+double calc_psum(int r, struct max_data *priv, struct max_data *common) {
+	int dset = 0, d, curr_d, detn, rotind, mode ;
+	double temp, scalemin ;
+	double *prob = common->probab[r] ;
+	struct dataset *curr = frames ;
+	
+	scalemin = DBL_MAX ;
+	memset(priv->p_sum, 0, (det[0].num_det)*sizeof(double)) ;
+	rotind = (r*param->num_proc + param->rank) / param->modes ;
+	mode = (r*param->num_proc + param->rank) % param->modes ;
+	
+	while (curr != NULL) {
+		detn = det[0].mapping[dset] ;
+		for (curr_d = 0 ; curr_d < curr->num_data ; ++curr_d) {
+			// Calculate frame number in full list
+			d = curr->num_data_prev + curr_d ;
+
+			// Exponentiate log-likelihood and normalize to get probabilities
+			temp = prob[d] ;
+			if (frames->type < 2)
+				prob[d] = exp(param->beta*(prob[d] - common->max_exp[d])) / common->p_sum[d] ; 
+			else
+				prob[d] = exp(param->beta*(prob[d] - common->max_exp[d]) / 2. / param->sigmasq) / common->p_sum[d] ;
+			
+			//if (param->need_scaling)
+			//	priv->likelihood[d] += prob[d] * (temp - frames->sum_fact[d] + frames->count[d]*log(iter->scale[d])) ;
+			//else
+			priv->likelihood[d] += prob[d] * (temp - frames->sum_fact[d]) ;
+			
+			// Calculate denominator for update rule
+			if (param->need_scaling) {
+				priv->p_sum[detn] += prob[d] * iter->scale[d] ;
+				
+				// Calculate denominator for scale factor update rule
+				if (param->update_scale)
+					priv->scale[d] -= prob[d] * common->u[r] * iter->rescale ;
+			}
+			else
+				priv->p_sum[detn] += prob[d] ; 
+			
+			// Skip if probability is very low (saves time)
+			if (!(prob[d] > PROB_MIN))
+				continue ;
+			
+			// If multiple modes, calculate occupancy of frame into each mode
+			if (param->modes > 1)
+				priv->quat_norm[d*param->modes + mode] += prob[d] ;
+			
+			// Calculate mutual information of probability distribution
+			priv->info[d] += prob[d] * log(prob[d] / quat->quat[rotind*5 + 4] * param->modes) ;
+			
+			if (iter->scale[d] < scalemin)
+				scalemin = iter->scale[d] ;
+		}
+		dset++ ;
+		curr = curr->next ;
+	}
+	
+	return scalemin ;
+}
+
 void likelihood_rt(int r, struct max_data *priv, struct max_data *common, double **views, double **Q_list, int grad_also) {
 	int dset = 0, t, d, curr_d, pixel, detn ;
 	double val, *like, *view, *prob = common->probab[r] ;
@@ -601,27 +663,29 @@ void likelihood_rt(int r, struct max_data *priv, struct max_data *common, double
 	}
 }
 
-void gradient_rt(int r, struct max_data *priv, struct max_data *common, double **views, double **G_list) {
+void gradient_rt(int r, struct max_data *priv, struct max_data *common, double **views, double **gradients) {
 	int dset = 0, t, d, curr_d, pixel, detn ;
-	double val, *like, *view, *prob = common->probab[r] ;
+	double val, *grad, *view ;
+	double *prob = common->probab[r] ;
 	struct dataset *curr = frames ;
 	
-	// If grad_also: Assume views and Q_list are zeroed, 
-	// 	and need to fill with gradient and likelihood respectively
-	// Otherwise: Calculate likelihood in Q_list using values in views
+	// Initialization:
+	// 	grad = -sum_d P_dr * phi_d
+	// 	mask = 1
 	for (detn = 0 ; detn < det[0].num_det ; ++detn) {
-		grad = G_list[detn] ;
+		grad = gradients[detn] ;
 		view = views[detn] ;
+		
 		for (t = 0 ; t < det[detn].num_pix ; ++t)
-		if (det[detn].mask[t] < 1 && priv->mask[detn][t] < 3) {
-			grad[t] = - priv->p_sum[detn] * view[t] ;
+		if (priv->mask[detn][t] < 255) {
+			grad[t] = - priv->p_sum[detn] ;
 			priv->mask[detn][t] = 1 ;
 		}
 	}
 	
 	while (curr != NULL) {
 		detn = det[0].mapping[dset] ;
-		grad = G_list[detn] ;
+		grad = gradients[detn] ;
 		view = views[detn] ;
 		
 		for (curr_d = 0 ; curr_d < curr->num_data ; ++curr_d) {
@@ -631,10 +695,8 @@ void gradient_rt(int r, struct max_data *priv, struct max_data *common, double *
 			if (frames->blacklist[d])
 				continue ;
 			
-			val = exp(param->beta*(prob[d] - common->max_exp[d])) / common->p_sum[d] ; 
-			
 			// Skip if probability is very low (saves time)
-			if (!(val > PROB_MIN))
+			if (!(prob[d] > PROB_MIN))
 				continue ;
 			
 			// Currently only working with type-0 data
@@ -642,21 +704,9 @@ void gradient_rt(int r, struct max_data *priv, struct max_data *common, double *
 			for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
 				pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
 				if (priv->mask[detn][pixel] < 255) {
-					grad[pixel] += val * iter->scale[d] / (det[detn].background[pixel] + iter->scale[d] * view[pixel]) ;
-					if (grad_also) {
-						view[pixel] += val * iter->scale[d] / det[detn].background[pixel] ;
-						like[pixel] += val * log(det[detn].background[pixel]) ;
-					}
-					else {
-						if (view[pixel] * iter->scale[d] + det[detn].background[pixel] < 1.e-6) {
-							view[pixel] = (1.e-6 - det[detn].background[pixel]) / iter->scale[d] ;
-							priv->mask[detn][pixel] = 2 ;
-						}
-						if (priv->mask[detn][pixel] < 2)
-							priv->mask[detn][pixel] = 0 ;
-
-						like[pixel] += val * log(det[detn].background[pixel] + iter->scale[d] * view[pixel]) ;
-					}
+					val = view[pixel] * iter->scale[d] + det[detn].background[pixel] ;
+					grad[pixel] += prob[d] * iter->scale[d] / val ;
+					priv->mask[detn][pixel] = 0 ;
 				}
 			}
 			
@@ -664,20 +714,9 @@ void gradient_rt(int r, struct max_data *priv, struct max_data *common, double *
 			for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
 				pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
 				if (priv->mask[detn][pixel] < 255) {
-					if (grad_also) {
-						view[pixel] += val * iter->scale[d] / det[detn].background[pixel] ;
-						like[pixel] += val * log(det[detn].background[pixel]) ;
-					}
-					else {
-						if (view[pixel] * iter->scale[d] + det[detn].background[pixel] < 1.e-6) {
-							view[pixel] = (1.e-6 - det[detn].background[pixel]) / iter->scale[d] ;
-							priv->mask[detn][pixel] = 2 ;
-						}
-						if (priv->mask[detn][pixel] < 2)
-							priv->mask[detn][pixel] = 0 ;
-
-						like[pixel] += val * curr->count_multi[curr->multi_accum[curr_d]+t] * log(det[detn].background[pixel] + iter->scale[d]*view[pixel]) ;
-					}
+					val = view[pixel] * iter->scale[d] + det[detn].background[pixel] ;
+					grad[pixel] += prob[d] * curr->count_multi[curr->multi_accum[curr_d] + t] * iter->scale[d] / val ;
+					priv->mask[detn][pixel] = 0 ;
 				}
 			}
 		}
@@ -688,41 +727,176 @@ void gradient_rt(int r, struct max_data *priv, struct max_data *common, double *
 }
 
 void optimize_tomogram(int r, struct max_data *priv, struct max_data *common) {
-	int dset = 0, i, t, d, curr_d, detn ;
-	int nmask, tot_num_pix = 0 ;
-	double *prob = common->probab[r] ;
-	struct dataset *curr = frames ;
-	double val, **Q_low, **Q_high, **high_views ;
+	double scalemin ;
 	
 	// Calculate pixel-independent part of likelihood: \sum_d (P_dr * phi_d)
-	memset(priv->p_sum, 0, (det[0].num_det)*sizeof(double)) ;
-	while (curr != NULL) {
-		detn = det[0].mapping[dset] ;
-		for (curr_d = 0 ; curr_d < curr->num_data ; ++curr_d) {
-			// Calculate frame number in full list
-			d = curr->num_data_prev + curr_d ;
-			priv->p_sum[detn] += exp(param->beta*(prob[d] - common->max_exp[d])) / common->p_sum[d] * iter->scale[d] ;
-		}
-		dset++ ;
-		curr = curr->next ;
-	}
-	dset = 0 ;
-	curr = frames ;
+	// Also calculate and return (phi_d_max if P_dr > PROB_MIN)
+	scalemin = calc_psum(r, priv, common) ;
 	
-	// =================================
-	// Regula falsi method on derivative
-	// =================================
+	// ==========================
+	// Root finding on derivative
+	// ==========================
 	/*
 	* 1. Calculate gradient of likelihood G_old at W_old = 0
-	* 2. Calculate G_new at W_new = B_t or -B_t/phi_d_min depending on sign of G_old
+	* 2. Calculate G_new at W_new = <large> or -B_t/phi_d_min depending on sign of G_old
 	* 3. Iterate till convergence:
-	* 	W_latest = (W_old*G_new - W_new*G_old) / (G_new - G_old)
+	* 	If (Regula falsi): W_latest = (W_old*G_new - W_new*G_old) / (G_new - G_old)
+	* 	If (Bisection): W_latest = 0.5 * (W_old + W_new)
 	* 	Calculate G_latest at W_latest
 	* 	If G_latest*G_old > 0:
 	* 		W_old = W_latest ; G_old = G_latest
 	* 	Else:
 	* 		W_new = W_latest ; G_new = G_latest
 	*/
+	int i, t, detn ;
+	int nmask, tot_num_pix = 0 ;
+	double val ;
+	double **G_old, **G_new, **G_latest ;
+	double **W_old, **W_new, **W_latest ;
+	
+	G_old = malloc(det[0].num_det * sizeof(double*)) ;
+	G_new = malloc(det[0].num_det * sizeof(double*)) ;
+	G_latest = malloc(det[0].num_det * sizeof(double*)) ;
+	W_old = malloc(det[0].num_det * sizeof(double*)) ;
+	W_new = malloc(det[0].num_det * sizeof(double*)) ;
+	W_latest = malloc(det[0].num_det * sizeof(double*)) ;
+	nmask = 0 ;
+	for (detn = 0 ; detn < det[0].num_det ; ++detn) {
+		memset(priv->all_views[detn], 0, det[detn].num_pix*sizeof(double)) ;
+		G_old[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
+		G_new[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
+		G_latest[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
+		W_old[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
+		W_new[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
+		W_latest[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
+		tot_num_pix += det[detn].num_pix ;
+		
+		for (t = 0 ; t < det[detn].num_pix ; ++t) {
+			if (det[detn].mask[t] == 0) {
+				W_new[detn][t] = 1.e-8 - det[detn].background[t] / scalemin ;
+				//W_new[detn][t] = -1.e8 ;
+				priv->mask[detn][t] = 0 ;
+			}
+			else {
+				priv->mask[detn][t] = 255 ;
+				nmask++ ;
+			}
+		}
+	}
+	
+	gradient_rt(r, priv, common, W_old, G_old) ;
+	for (detn = 0 ; detn < det[0].num_det ; ++detn)
+	for (t = 0 ; t < det[detn].num_pix ; ++t) {
+		if (fabs(G_old[detn][t]) <= 1.e-6) {
+			priv->all_views[detn][t] = 0. ;
+			priv->mask[detn][t] = 255 ;
+		}
+		else if (G_old[detn][t] > 0.) {
+			//W_new[detn][t] = 10. * det[detn].background[t] ; // Large number
+			val = frames->tot_mean_count / det[detn].num_pix ;
+			W_new[detn][t] = det[detn].powder[t] > val ? det[detn].powder[t] : val ; // Large number
+			W_new[detn][t] *= 100. ;
+			//W_new[detn][t] = 1.e8 ; // Large number
+		}
+	}
+	gradient_rt(r, priv, common, W_new, G_new) ;
+	if (r == 972)
+		for (detn = 0 ; detn < det[0].num_det ; ++detn)
+		for (t = 0 ; t < det[detn].num_pix ; ++t)
+		if (priv->mask[detn][t] == 0 && G_old[detn][t]*G_new[detn][t] > 0.)
+			fprintf(stderr, "%d: (%.3f, %.3f) @ %.3f\n", t, G_old[detn][t], G_new[detn][t], W_new[detn][t]) ;
+		
+	
+	if ((r*param->num_proc + param->rank)%(quat->num_rot * param->modes / 10) == 0) {
+		char fname[1024] ;
+		FILE *fp ;
+		sprintf(fname, "data/gradient_00_%.5d.bin", r) ;
+		fp = fopen(fname, "wb") ;
+		fwrite(G_old[0], sizeof(double), det[0].num_pix, fp) ;
+		fclose(fp) ;
+	}
+		
+	for (i = 0 ; i < 50 ; ++i) { // Doing 50 iterations
+		if ((r*param->num_proc + param->rank)%(quat->num_rot * param->modes / 10) == 0) {
+			//if (i % 4 == 0)
+			//	fprintf(stderr, "%d ", nmask) ;
+			
+			char fname[1024] ;
+			FILE *fp ;
+			sprintf(fname, "data/mask_%.2d_%.5d.bin", i+1, r) ;
+			fp = fopen(fname, "wb") ;
+			fwrite(priv->mask[0], sizeof(uint8_t), det[0].num_pix, fp) ;
+			fclose(fp) ;
+			sprintf(fname, "data/gradient_%.2d_%.5d.bin", i+1, r) ;
+			fp = fopen(fname, "wb") ;
+			fwrite(G_latest[0], sizeof(double), det[0].num_pix, fp) ;
+			fclose(fp) ;
+			sprintf(fname, "data/tomo_%.2d_%.5d.bin", i+1, r) ;
+			fp = fopen(fname, "wb") ;
+			fwrite(W_latest[0], sizeof(double), det[0].num_pix, fp) ;
+			fclose(fp) ;
+		}
+		
+		nmask = 0 ;
+		for (detn = 0 ; detn < det[0].num_det ; ++detn)
+		for (t = 0 ; t < det[detn].num_pix ; ++t) {
+			if (priv->mask[detn][t] == 255) { // Already optimal
+				nmask++ ;
+			}
+			else if (priv->mask[detn][t] == 1) { // No photon at pixel
+				priv->mask[detn][t] = 255 ;
+				priv->all_views[detn][t] = 0. ;
+				nmask++ ;
+			}
+			else if (priv->mask[detn][t] == 0) {
+				// Regula falsi (secant) update
+				//W_latest[detn][t] = (W_old[detn][t]*G_new[detn][t] - W_new[detn][t]*G_old[detn][t]) / (G_new[detn][t] - G_old[detn][t]) ;
+				// Bisection update
+				W_latest[detn][t] = 0.5 * (W_old[detn][t] + W_new[detn][t]) ;
+				if (isnan(W_latest[detn][t]) && r == 972)
+					fprintf(stderr, "%d %d\n", i, t) ;
+			}
+		}
+		
+		gradient_rt(r, priv, common, W_latest, G_latest) ;
+		
+		for (detn = 0 ; detn < det[0].num_det ; ++detn)
+		for (t = 0 ; t < det[detn].num_pix ; ++t)
+		if (priv->mask[detn][t] < 255) {
+			if (fabs(G_latest[detn][t]) < 1.e-3) {
+				priv->all_views[detn][t] = W_latest[detn][t] ;
+				priv->mask[detn][t] = 255 ;
+				nmask++ ;
+			}
+			else if (G_latest[detn][t] * G_old[detn][t] > 0) {
+				W_old[detn][t] = W_latest[detn][t] ;
+				G_old[detn][t] = G_latest[detn][t] ;
+			}
+			else {
+				W_new[detn][t] = W_latest[detn][t] ;
+				G_new[detn][t] = G_latest[detn][t] ;
+			}
+		}
+		
+		if (nmask == tot_num_pix)
+			break ;
+	}
+	
+	// Cleanup
+	for (detn = 0 ; detn < det[0].num_det ; ++detn) {
+		free(G_old[detn]) ;
+		free(G_new[detn]) ;
+		free(G_latest[detn]) ;
+		free(W_old[detn]) ;
+		free(W_new[detn]) ;
+		free(W_latest[detn]) ;
+	}
+	free(G_old) ;
+	free(G_new) ;
+	free(G_latest) ;
+	free(W_old) ;
+	free(W_new) ;
+	free(W_latest) ;
 	
 	// =============================================
 	// Golden Section method (partially implemented)
@@ -733,8 +907,13 @@ void optimize_tomogram(int r, struct max_data *priv, struct max_data *common) {
 	* 3. Search for other W extremum depending upon sign of G
 	* 4. Apply Golden Section method between W = 0 to this extremum 
 	*/
+	/*
 	// Step 1: Calculate Q(W_rt = 0)
 	// Step 2: Calculate [dQ/dW_rt](W_rt = 0)
+	int i, t, detn ;
+	int nmask, tot_num_pix = 0 ;
+	double val, **Q_low, **Q_high, **high_views ;
+	
 	Q_low = malloc(det[0].num_det * sizeof(double*)) ;
 	Q_high = malloc(det[0].num_det * sizeof(double*)) ;
 	high_views = malloc(det[0].num_det * sizeof(double*)) ;
@@ -764,7 +943,7 @@ void optimize_tomogram(int r, struct max_data *priv, struct max_data *common) {
 	if (priv->all_views[detn][t] < 1.e-5)
 		priv->mask[detn][t] = 255 ;
 	
-	/*
+	/ *
 	* Mask meaning:
 	* 	255: Optimal (Do not touch). Also bad pixels.
 	* 	128: Found search range, but still need optimizing
@@ -793,7 +972,7 @@ void optimize_tomogram(int r, struct max_data *priv, struct max_data *common) {
 	* 	2 -> 128: Stop searching for new values but still need to optimize
 	* 	1 -> 255: W_rt = 0
 	* 	0: Remains unchanged. W_rt doubled.
-	*/
+	* /
 	for (i = 0 ; i < 20 ; ++i) {
 		likelihood_rt(r, priv, common, priv->all_views, Q_high, 0) ;
 		
@@ -877,6 +1056,7 @@ void optimize_tomogram(int r, struct max_data *priv, struct max_data *common) {
 	free(Q_low) ;
 	free(Q_high) ;
 	free(high_views) ;
+	*/
 }
 
 void merge_tomogram(int r, struct max_data *priv) {

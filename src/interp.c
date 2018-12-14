@@ -52,12 +52,13 @@ void slice_gen3d(double *quaternion, double rescale, double *slice, double *mode
 		// Correct for solid angle and polarization
 		slice[t] *= det->pixels[t*4 + 3] ;
 		
-		if (slice[t] <= 0.)
-			slice[t] = DBL_MIN ;
-		
 		// Use rescale as flag on whether to take log or not
-		else if (rescale != 0.) 
-			slice[t] = log(slice[t] * rescale) ;
+		if (rescale != 0.) {
+			if (slice[t] <= 0.)
+				slice[t] = DBL_MIN ;
+			else
+				slice[t] = log(slice[t] * rescale) ;
+		}
 	}
 }
 
