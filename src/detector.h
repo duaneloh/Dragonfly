@@ -23,6 +23,8 @@ struct detector {
 	
 	// Background input for EMC
 	double *background ;
+	// Powder sum for EMC
+	double *powder ;
 } ;
 
 double generate_detectors(char*, char*, struct detector**, int) ;
