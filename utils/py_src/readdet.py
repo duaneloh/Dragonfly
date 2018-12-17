@@ -83,6 +83,8 @@ class DetReader(object):
             self.qz = fptr['qz'][:]
             self.corr = fptr['corr'][:]
             self.raw_mask = fptr['mask'][:].astype('u1')
+            self.detd = fptr['detd'].value
+            self.ewald_rad = fptr['ewald_rad'].value
         sys.stderr.write('done\n')
         self._process_geom(mask_flag, keep_mask_1)
 
