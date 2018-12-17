@@ -308,9 +308,8 @@ double generate_detectors(char *config_fname, char *config_section, struct detec
 	}
 	else if (det_fname[0] != '\0') {
 		fprintf(stderr, "Parsing detector file: %s\n", det_fname) ;
-		*det_list = malloc(sizeof(struct detector)) ;
+		*det_list = calloc(1, sizeof(struct detector)) ;
 		(*det_list)[0].num_det = 1 ;
-		(*det_list)[0].num_dfiles = 0 ;
 		memset((*det_list)[0].mapping, 0, 1024*sizeof(int)) ;
 		if ((qmax = parse_detector(det_fname, det_list[0], norm_flag)) < 0.)
 			return qmax ;
@@ -332,11 +331,13 @@ double generate_detectors(char *config_fname, char *config_section, struct detec
 		if ((*det_list)[0].num_det > 1)
 			fprintf(stderr, "Multiple detectors and single background file. Assuming same background for all detectors\n") ;
 		fprintf(stderr, "Parsing background file: %s\n", bg_fname) ;
+		(*det_list)[0].with_bg = 1 ;
 		if (parse_background(bg_fname, det_list[0]))
 			return -1. ;
 	}
 	else if (bg_flist[0] != '\0') {
 		fprintf(stderr, "Parsing background file list: %s\n", bg_flist) ;
+		(*det_list)[0].with_bg = 1 ;
 		if (parse_background_list(bg_flist, det_list))
 			return -1. ;
 	}
@@ -419,7 +420,7 @@ double parse_detector_list(char *flist, struct detector **det_ptr, int norm_flag
 		norm_all = 1 ;
 	}
 	
-	*det_ptr = malloc(num_det * sizeof(struct detector)) ;
+	*det_ptr = calloc(num_det, sizeof(struct detector)) ;
 	det = *det_ptr ;
 	memcpy(det[0].mapping, det_mapping, 1024*sizeof(int)) ;
 	det[0].num_det = num_det ;
