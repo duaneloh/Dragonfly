@@ -499,7 +499,7 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 				
 				// Calculate denominator for scale factor update rule
 				if (param->update_scale)
-					priv->psum_d[d] -= prob[d] * common->u[r][detn] * iter->rescale[detn] ;
+					priv->psum_d[d] -= prob[d] * common->u[detn][r] * iter->rescale[detn] ;
 			}
 			else
 				priv->psum_r[detn] += prob[d] ; 
