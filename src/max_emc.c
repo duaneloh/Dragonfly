@@ -303,7 +303,7 @@ void calculate_rescale(struct max_data *data) {
 	
 	sprintf(res_string, "(=") ;
 	for (detn = 0 ; detn < det[0].num_det ; ++detn) {
-		iter->rescale[detn] = frames[0].mean_count / total[detn] * param->modes ;
+		iter->rescale[detn] = iter->mean_count[detn] / total[detn] * param->modes ;
 		sprintf(res_string + strlen(res_string), " %.6e", iter->rescale[detn]) ;
 	}
 	sprintf(res_string + strlen(res_string), ")") ;
