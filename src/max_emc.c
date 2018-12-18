@@ -52,7 +52,7 @@ double maximize() {
 		
 		#pragma omp for schedule(static,1)
 		for (r = 0 ; r < quat->num_rot_p ; ++r) {
-			if (det[0].with_bg)
+			if (det[0].with_bg && param->need_scaling)
 				optimize_tomogram(r, priv_data, common_data) ;
 			else
 				update_tomogram(r, priv_data, common_data) ;
@@ -296,16 +296,19 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 		// Calculate slice for current detector
 		detn = det[0].mapping[dset] ;
 		view = priv->all_views[detn] ;
-		if (detn != old_detn)
-			//(*slice_gen)(&quat->quat[rotind*5], 0., view, &iter->model1[mode*iter->vol], iter->size, &det[detn]) ;
-			(*slice_gen)(&quat->quat[rotind*5], 1., view, &iter->model1[mode*iter->vol], iter->size, &det[detn]) ;
+		if (detn != old_detn) {
+			if (det[0].with_bg && param->need_scaling)
+				(*slice_gen)(&quat->quat[rotind*5], 0., view, &iter->model1[mode*iter->vol], iter->size, &det[detn]) ;
+			else
+				(*slice_gen)(&quat->quat[rotind*5], 1., view, &iter->model1[mode*iter->vol], iter->size, &det[detn]) ;
+		}
 		old_detn = detn ;
 		
 		// For each frame in data set
 		for (curr_d = 0 ; curr_d < curr->num_data ; ++curr_d) {
 			// Calculate frame number in full list
 			d = curr->num_data_prev + curr_d ;
-
+			
 			// check if frame is blacklisted
 			if (frames->blacklist[d])
 				continue ;
@@ -322,20 +325,35 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 			}
 			
 			if (curr->type == 0) {
-				// For each pixel with one photon
-				for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
-					pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
-					if (det[detn].mask[pixel] < 1)
-						//prob[d] += log(view[pixel] * iter->scale[d] + det[detn].background[pixel]) ;
-						prob[d] += view[pixel] ;
+				if (det[0].with_bg && param->need_scaling) {
+					// For each pixel with one photon
+					for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
+						pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
+						if (det[detn].mask[pixel] < 1)
+							prob[d] += log(view[pixel] * iter->scale[d] + det[detn].background[pixel]) ;
+					}
+					
+					// For each pixel with count_multi photons
+					for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
+						pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
+						if (det[detn].mask[pixel] < 1)
+							prob[d] += curr->count_multi[curr->multi_accum[curr_d] + t] * log(view[pixel] * iter->scale[d] + det[detn].background[pixel]) ;
+					}
 				}
-				
-				// For each pixel with count_multi photons
-				for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
-					pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
-					if (det[detn].mask[pixel] < 1)
-						//prob[d] += curr->count_multi[curr->multi_accum[curr_d] + t] * log(view[pixel] * iter->scale[d] + det[detn].background[pixel]) ;
-						prob[d] += curr->count_multi[curr->multi_accum[curr_d] + t] * view[pixel] ;
+				else {
+					// For each pixel with one photon
+					for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
+						pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
+						if (det[detn].mask[pixel] < 1)
+							prob[d] += view[pixel] ;
+					}
+					
+					// For each pixel with count_multi photons
+					for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
+						pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
+						if (det[detn].mask[pixel] < 1)
+							prob[d] += curr->count_multi[curr->multi_accum[curr_d] + t] * view[pixel] ;
+					}
 				}
 			}
 			else if (curr->type == 1) {
@@ -697,19 +715,17 @@ void optimize_tomogram(int r, struct max_data *priv, struct max_data *common) {
 		tot_num_pix += det[detn].num_pix ;
 		
 		for (t = 0 ; t < det[detn].num_pix ; ++t) {
-			if (det[detn].mask[t] == 0) {
+			if (det[detn].mask[t] < 2) {
 				if (det[detn].background[t] / scalemin < 1.e-2 * det[detn].powder[t]) {
 					priv->mask[detn][t] = 128 ;
 				}
 				else {
 					W_new[detn][t] = 1.e-8 - det[detn].background[t] / scalemin ;
-					//W_new[detn][t] = -1.e8 ;
 					priv->mask[detn][t] = 0 ;
 				}
 			}
 			else {
 				priv->mask[detn][t] = 255 ;
-				nmask++ ;
 			}
 		}
 	}
@@ -717,24 +733,48 @@ void optimize_tomogram(int r, struct max_data *priv, struct max_data *common) {
 	gradient_rt(r, priv, common, W_old, G_old) ;
 	for (detn = 0 ; detn < det[0].num_det ; ++detn)
 	for (t = 0 ; t < det[detn].num_pix ; ++t) {
-		if (fabs(G_old[detn][t]) <= 1.e-6) {
+		if (fabs(G_old[detn][t]) < 1.e-6) {
 			priv->all_views[detn][t] = 0. ;
 			priv->mask[detn][t] = 255 ;
 		}
 		else if (G_old[detn][t] > 0.) {
-			//W_new[detn][t] = 10. * det[detn].background[t] ; // Large number
 			val = frames->tot_mean_count / det[detn].num_pix ;
 			W_new[detn][t] = det[detn].powder[t] > val ? det[detn].powder[t] : val ; // Large number
 			W_new[detn][t] *= 1000. ;
-			//W_new[detn][t] = 1.e8 ; // Large number
 		}
 	}
-	gradient_rt(r, priv, common, W_new, G_new) ;
-	for (detn = 0 ; detn < det[0].num_det ; ++detn)
-	for (t = 0 ; t < det[detn].num_pix ; ++t)
-	if (priv->mask[detn][t] == 0 && G_old[detn][t]*G_new[detn][t] > 0.) {
-		fprintf(stderr, "%.4d %d: (%.3f, %.3f) @ %.3f\n", r, t, G_old[detn][t], G_new[detn][t], W_new[detn][t]) ;
-		break ;
+	for (i = 0 ; i < 5 ; ++i) {
+		nmask = 0 ;
+		gradient_rt(r, priv, common, W_new, G_new) ;
+		
+		for (detn = 0 ; detn < det[0].num_det ; ++detn)
+		for (t = 0 ; t < det[detn].num_pix ; ++t) {
+			if (priv->mask[detn][t] == 0) {
+				/*
+				if (fabs(G_new[detn][t] < 1.e-6)) {
+					priv->all_views[detn][t] = W_new[detn][t] ;
+					priv->mask[detn][t] = 255 ;
+					nmask++ ;
+				}
+				*/
+				if (G_old[detn][t] < 0. && G_new[detn][t] < 0.) {
+					W_new[detn][t] = 1.e-8*pow(0.01, i+1) - det[detn].background[t] / scalemin ;
+				}
+				else if (G_old[detn][t] > 0. && G_new[detn][t] > 0.) {
+					W_new[detn][t] *= 100 ;
+				}
+				else {
+					priv->mask[detn][t] = 192 ;
+					nmask++ ;
+				}
+			}
+			else {
+				nmask++ ;
+			}
+		}
+		
+		if (nmask == tot_num_pix)
+			break ;
 	}
 	
 	for (i = 0 ; i < 50 ; ++i) { // Doing 50 iterations
@@ -754,6 +794,10 @@ void optimize_tomogram(int r, struct max_data *priv, struct max_data *common) {
 				priv->mask[detn][t] = 255 ;
 				nmask++ ;
 			}
+			else if (priv->mask[detn][t] == 192) { // W_new had to be adjusted
+				priv->mask[detn][t] = 0 ;
+				W_latest[detn][t] = 0.5 * (W_old[detn][t] + W_new[detn][t]) ;
+			}
 			else if (priv->mask[detn][t] == 0) {
 				// Regula falsi (secant) update
 				//W_latest[detn][t] = (W_old[detn][t]*G_new[detn][t] - W_new[detn][t]*G_old[detn][t]) / (G_new[detn][t] - G_old[detn][t]) ;
@@ -767,7 +811,7 @@ void optimize_tomogram(int r, struct max_data *priv, struct max_data *common) {
 		for (detn = 0 ; detn < det[0].num_det ; ++detn)
 		for (t = 0 ; t < det[detn].num_pix ; ++t)
 		if (priv->mask[detn][t] < 255) {
-			if (fabs(G_latest[detn][t]) < 1.e-3) {
+			if (fabs(G_latest[detn][t]) < 1.e-5) {
 				priv->all_views[detn][t] = W_latest[detn][t] ;
 				priv->mask[detn][t] = 255 ;
 				nmask++ ;
@@ -786,7 +830,7 @@ void optimize_tomogram(int r, struct max_data *priv, struct max_data *common) {
 			break ;
 	}
 	if (i == 50)
-		fprintf(stderr, "%.4d not converged\n", r) ;
+		fprintf(stderr, "%.4d not converged, %d\n", r, nmask) ;
 	
 	// Cleanup
 	for (detn = 0 ; detn < det[0].num_det ; ++detn) {
