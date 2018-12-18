@@ -19,7 +19,7 @@ struct iterate {
 	double *model1, *model2, *inter_weight ;
 	double *scale ;
 	
-	double rescale, mutual_info, rms_change ;
+	double *rescale, mutual_info, rms_change ;
 } ;
 
 int generate_iterate(char*, char*, int, double, struct params*, struct detector*, struct dataset*, struct iterate*) ;

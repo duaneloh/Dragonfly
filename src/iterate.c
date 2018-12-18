@@ -35,6 +35,7 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 	iter->size = -1 ;
 	iter->scale = NULL ;
 	iter->modes = param->modes ;
+	iter->rescale = calloc(det[0].num_det, sizeof(double)) ;
 	
 	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 2048, config_fp) != NULL) {
@@ -311,5 +312,7 @@ void free_iterate(struct iterate *iter) {
 		free(iter->inter_weight) ;
 	if (iter->scale != NULL)
 		free(iter->scale) ;
+	if (iter->rescale != NULL)
+		free(iter->rescale) ;
 	free(iter) ;
 }

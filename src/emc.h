@@ -31,7 +31,7 @@ struct max_data {
 	// Common among all threads only
 	double *max_exp ; // max_exp[d] = max_r log(R_dr)
 	double *p_norm ; // P_dr normalization, \sum_r R_dr
-	double *u ; // u_r = sum_t W_rt
+	double **u ; // u[detn][r] = -sum_t W_rt for every detn
 	double **probab ; // probab[r][d] = P_dr
 	
 	// Both

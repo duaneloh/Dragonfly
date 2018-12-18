@@ -12,7 +12,7 @@
 static struct timeval tm1, tm2 ;
 
 static void allocate_memory(struct max_data*) ;
-static double calculate_rescale(struct max_data*) ;
+static void calculate_rescale(struct max_data*) ;
 static void calculate_prob(int, struct max_data*, struct max_data*) ;
 static void normalize_prob(struct max_data*, struct max_data*) ;
 static double calc_psum_r(int, struct max_data*, struct max_data*) ;
@@ -33,7 +33,7 @@ double maximize() {
 	common_data->within_openmp = 0 ;
 	
 	allocate_memory(common_data) ;
-	iter->rescale = calculate_rescale(common_data) ;
+	calculate_rescale(common_data) ;
 
 	#pragma omp parallel default(shared)
 	{
@@ -243,52 +243,69 @@ void allocate_memory(struct max_data *data) {
 	}
 }
 
-double calculate_rescale(struct max_data *data) {
-	int r, t ;
-	double total = 0. ;
-	char res_string[1024] ;
+void calculate_rescale(struct max_data *data) {
+	int detn ;
+	double *total = calloc(det[0].num_det, sizeof(double)) ;
+	char res_string[1024] = {'\0'}  ;
 	
 	// Calculate rescale factor by calculating mean model value over detector
 	// Only calculating based on first detector and dataset
-	#pragma omp parallel default(shared) private(r, t)
+	#pragma omp parallel default(shared)
 	{
-		double *view = malloc(det[0].num_pix * sizeof(double)) ;
-		int mode, rotind ;
+		int r, t, detn, mode, rotind ;
+		double *priv_total = calloc(det[0].num_det, sizeof(double)) ;
+		double **views = malloc(det[0].num_det * sizeof(double*)) ;
+		for (detn = 0 ; detn < det[0].num_det ; ++detn)
+			views[detn] = malloc(det[detn].num_pix * sizeof(double)) ;
 		
-		#pragma omp for schedule(static,1) reduction(+:total)
+		#pragma omp for schedule(static,1)
 		for (r = 0 ; r < quat->num_rot_p ; ++r) {
 			rotind = (r*param->num_proc + param->rank) / param->modes ;
 			mode = (r*param->num_proc + param->rank) % param->modes ;
-			// Second argument being 0. tells slice_gen to generate un-rescaled tomograms
-			(*slice_gen)(&quat->quat[rotind*5], 0., view, &iter->model1[mode*iter->vol], iter->size, det) ;
-			
-			for (t = 0 ; t < det[0].num_pix ; ++t)
-			if (det[0].mask[t] < 1)
-				data->u[r] += view[t] ;
-			
-			total += quat->quat[rotind*5 + 4] * data->u[r] ;
+			for (detn = 0 ; detn < det[0].num_det ; ++detn) {
+				// Second argument being 0. tells slice_gen to generate un-rescaled tomograms
+				(*slice_gen)(&quat->quat[rotind*5], 0., views[detn], &iter->model1[mode*iter->vol], iter->size, &det[detn]) ;
+				
+				for (t = 0 ; t < det[0].num_pix ; ++t)
+				if (det[0].mask[t] < 1)
+					data->u[detn][r] += views[detn][t] ;
+				
+				priv_total[detn] += quat->quat[rotind*5 + 4] * data->u[detn][r] ;
+			}
 		}
 		
-		free(view) ;
+		#pragma omp critical(total)
+		{
+			for (detn = 0 ; detn < det[0].num_det ; ++detn)
+				total[detn] += priv_total[detn] ;
+		}
+		for (detn = 0 ; detn < det[0].num_det ; ++detn)
+			free(views[detn]) ;
+		free(views) ;
+		free(total) ;
 	}
 	
-	MPI_Allreduce(MPI_IN_PLACE, &total, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
+	MPI_Allreduce(MPI_IN_PLACE, total, det[0].num_det, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 	
-	#pragma omp parallel default(shared) private(r)
+	#pragma omp parallel default(shared)
 	{
-		int rotind ;
+		int detn, r, rotind ;
 		
 		#pragma omp for schedule(static,1) 
 		for (r = 0 ; r < quat->num_rot_p ; ++r) {
 			rotind = (r*param->num_proc + param->rank) / param->modes ;
-			data->u[r] = log(quat->quat[rotind*5 + 4]) - data->u[r] ;
+			for (detn = 0 ; detn < det[0].num_det ; ++detn)
+				data->u[detn][r] = log(quat->quat[rotind*5 + 4]) - data->u[detn][r] ;
 		}
 	}
 	
-	sprintf(res_string, "(= %.6e)", frames[0].mean_count / total * param->modes) ;
+	sprintf(res_string, "(= ") ;
+	for (detn = 0 ; detn < det[0].num_det ; ++detn) {
+		iter->rescale[detn] = frames[0].mean_count / total[detn] * param->modes ;
+		sprintf(res_string + strlen(res_string), " %.6e", iter->rescale[detn]) ;
+	}
+	sprintf(res_string + strlen(res_string), ")") ;
 	print_max_time("rescale", res_string, param->rank == 0) ;
-	
-	return frames[0].mean_count / total * param->modes ;
 }
 
 void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
@@ -324,9 +341,9 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 			if (curr->type < 2) {
 				// need_scaling is for if we want to assume variable incident intensity
 				if (param->need_scaling && (param->iteration > 1 || param->known_scale))
-					prob[d] = common->u[r] * iter->scale[d] ;
+					prob[d] = common->u[detn][r] * iter->scale[d] ;
 				else
-					prob[d] = common->u[r] * iter->rescale ;
+					prob[d] = common->u[detn][r] * iter->rescale[detn] ;
 			}
 			else {
 				prob[d] = 0. ;
@@ -372,7 +389,7 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 			else if (curr->type == 2) { // Gaussian EMC for double precision data without scaling
 				for (t = 0 ; t < det[detn].num_pix ; ++t)
 				if (det[detn].mask[t] < 1)
-					prob[d] -= pow(curr->frames[curr_d*curr->num_pix + t] - view[t]*iter->rescale, 2.) ;
+					prob[d] -= pow(curr->frames[curr_d*curr->num_pix + t] - view[t]*iter->rescale[detn], 2.) ;
 			}
 			
 			// Note maximum log-likelihood for each frame among 'r's tested by this MPI rank and OMP rank
@@ -480,7 +497,7 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 				
 				// Calculate denominator for scale factor update rule
 				if (param->update_scale)
-					priv->psum_d[d] -= prob[d] * common->u[r] * iter->rescale ;
+					priv->psum_d[d] -= prob[d] * common->u[r][detn] * iter->rescale[detn] ;
 			}
 			else
 				priv->psum_r[detn] += prob[d] ; 
