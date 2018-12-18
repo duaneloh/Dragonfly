@@ -51,6 +51,7 @@ class VolumePlotter(object):
         self.vol = None
         self.old_modenum = None
         self.main_subp = None
+        self.imshow_args = None
         self.recon_type = recon_type
         self.num_modes = num_modes
         self.need_replot = False
@@ -105,33 +106,34 @@ class VolumePlotter(object):
         if self.vol is None:
             return
         rangemin, rangemax = tuple(vrange)
-
-        imshow_args = {
-            'vmin': rangemin,
-            'vmax': rangemax,
+        self.imshow_args = {
             'cmap': cmap,
             'interpolation': 'none',
-            #'norm': matplotlib.colors.SymLogNorm(linthresh=rangemax*1.e-2, vmin=rangemin, vmax=rangemax),
-            'norm': matplotlib.colors.PowerNorm(exponent)
         }
+        if exponent == 'log':
+            self.imshow_args['norm'] = matplotlib.colors.SymLogNorm(linthresh=rangemax*1.e-2, vmin=rangemin, vmax=rangemax)
+        else:
+            self.imshow_args['vmin'] = rangemin
+            self.imshow_args['vmax'] = rangemax
+            self.imshow_args['norm'] = matplotlib.colors.PowerNorm(float(exponent))
 
         self.fig.clf()
         if self.recon_type == '3d':
             subp = self.fig.add_subplot(131)
             vslice = self.vol[num, :, :]
-            subp.imshow(vslice, **imshow_args)
+            subp.imshow(vslice, **self.imshow_args)
             subp.set_title("YZ plane", y=1.01)
             subp.axis('off')
 
             subp = self.fig.add_subplot(132)
             vslice = self.vol[:, num, :]
-            subp.imshow(vslice, **imshow_args)
+            subp.imshow(vslice, **self.imshow_args)
             subp.set_title("XZ plane", y=1.01)
             subp.axis('off')
 
             subp = self.fig.add_subplot(133)
             vslice = self.vol[:, :, num]
-            subp.imshow(vslice, **imshow_args)
+            subp.imshow(vslice, **self.imshow_args)
             subp.set_title("XY plane", y=1.01)
             subp.axis('off')
         elif self.recon_type == '2d':
@@ -144,12 +146,12 @@ class VolumePlotter(object):
             self.subplot_list = []
             for mode in range(self.num_modes):
                 subp = self.fig.add_subplot(gspec[mode//numx, mode%numx])
-                subp.imshow(self.vol[mode], **imshow_args)
+                subp.imshow(self.vol[mode], **self.imshow_args)
                 subp.text(0.05, 0.85, '%d'%mode, transform=subp.transAxes, fontsize=10, color='w')
                 subp.axis('off')
                 self.subplot_list.append(subp)
             self.main_subp = self.fig.add_subplot(gspec[:, numx:])
-            self.main_subp.imshow(self.vol[num]**exponent, **imshow_args)
+            self.main_subp.imshow(self.vol[num], **self.imshow_args)
             self.main_subp.set_title('Class %d'%num)
             self.main_subp.axis('off')
 
@@ -162,8 +164,7 @@ class VolumePlotter(object):
             return
         rangemin, rangemax = tuple(vrange)
         self.main_subp.clear()
-        self.main_subp.imshow(self.vol[mode]**exponent, vmin=rangemin, vmax=rangemax,
-                        cmap=cmap, interpolation='none')
+        self.main_subp.imshow(self.vol[mode], **self.imshow_args)
         self.main_subp.set_title('Class %d'%mode)
         self.main_subp.axis('off')
         self.canvas.draw()
@@ -595,7 +596,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         elif num is None:
             num = int(self.layernum.text())
         argsdict = {'vrange': (float(self.rangemin.text()), float(self.rangestr.text())),
-                    'exponent': float(self.expstr.text()),
+                    'exponent': self.expstr.text(),
                     'cmap': self.color_map.checkedAction().text()}
         if update:
             self.vol_plotter.update_mode(num, **argsdict)
