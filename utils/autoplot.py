@@ -105,24 +105,33 @@ class VolumePlotter(object):
         if self.vol is None:
             return
         rangemin, rangemax = tuple(vrange)
-        self.fig.clf()
 
+        imshow_args = {
+            'vmin': rangemin,
+            'vmax': rangemax,
+            'cmap': cmap,
+            'interpolation': 'none',
+            #'norm': matplotlib.colors.SymLogNorm(linthresh=rangemax*1.e-2, vmin=rangemin, vmax=rangemax),
+            'norm': matplotlib.colors.PowerNorm(exponent)
+        }
+
+        self.fig.clf()
         if self.recon_type == '3d':
             subp = self.fig.add_subplot(131)
-            vslice = self.vol[num, :, :]**exponent
-            subp.imshow(vslice, vmin=rangemin, vmax=rangemax, cmap=cmap, interpolation='none')
+            vslice = self.vol[num, :, :]
+            subp.imshow(vslice, **imshow_args)
             subp.set_title("YZ plane", y=1.01)
             subp.axis('off')
 
             subp = self.fig.add_subplot(132)
-            vslice = self.vol[:, num, :]**exponent
-            subp.matshow(vslice, vmin=rangemin, vmax=rangemax, cmap=cmap, interpolation='none')
+            vslice = self.vol[:, num, :]
+            subp.imshow(vslice, **imshow_args)
             subp.set_title("XZ plane", y=1.01)
             subp.axis('off')
 
             subp = self.fig.add_subplot(133)
-            vslice = self.vol[:, :, num]**exponent
-            subp.matshow(vslice, vmin=rangemin, vmax=rangemax, cmap=cmap, interpolation='none')
+            vslice = self.vol[:, :, num]
+            subp.imshow(vslice, **imshow_args)
             subp.set_title("XY plane", y=1.01)
             subp.axis('off')
         elif self.recon_type == '2d':
@@ -135,14 +144,12 @@ class VolumePlotter(object):
             self.subplot_list = []
             for mode in range(self.num_modes):
                 subp = self.fig.add_subplot(gspec[mode//numx, mode%numx])
-                subp.imshow(self.vol[mode]**exponent, vmin=rangemin, vmax=rangemax,
-                            cmap=cmap, interpolation='none')
+                subp.imshow(self.vol[mode], **imshow_args)
                 subp.text(0.05, 0.85, '%d'%mode, transform=subp.transAxes, fontsize=10, color='w')
                 subp.axis('off')
                 self.subplot_list.append(subp)
             self.main_subp = self.fig.add_subplot(gspec[:, numx:])
-            self.main_subp.imshow(self.vol[num]**exponent, vmin=rangemin, vmax=rangemax,
-                        cmap=cmap, interpolation='none')
+            self.main_subp.imshow(self.vol[num]**exponent, **imshow_args)
             self.main_subp.set_title('Class %d'%num)
             self.main_subp.axis('off')
 
