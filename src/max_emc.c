@@ -18,7 +18,6 @@ static void normalize_prob(struct max_data*, struct max_data*) ;
 static void update_tomogram(int, struct max_data*, struct max_data*) ;
 static void optimize_tomogram(int, struct max_data*, struct max_data*) ;
 static void merge_tomogram(int, struct max_data*) ;
-//static void refine_frame(int, struct dataset*, struct max_data*, struct max_data*) ;
 static void combine_information_omp(struct max_data*, struct max_data*) ;
 static double combine_information_mpi(struct max_data*) ;
 static void free_memory(struct max_data*) ;
@@ -78,6 +77,7 @@ double maximize() {
 }
 
 /*
+static void refine_frame(int, struct dataset*, struct max_data*, struct max_data*) ;
 double refine_maximize() {
 	double avg_likelihood ;
 	struct max_data *common_data = malloc(sizeof(struct max_data)) ;
@@ -433,34 +433,23 @@ void normalize_prob(struct max_data *priv, struct max_data *common) {
 	print_max_time("psum", "", param->rank == 0 && omp_rank == 0) ;
 }
 
-void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
-	int dset = 0, t, d, curr_d, pixel, detn, rotind, mode ;
-	double temp ;
-	struct dataset *curr ;
-	double *view, *prob = common->probab[r] ;
+static double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
+	int dset = 0, d, curr_d, detn, rotind, mode ;
+	double temp, scalemin ;
+	double *prob = common->probab[r] ;
+	struct dataset *curr = frames ;
 	
-	if (merge_frames != NULL) {
-		if (!param->rank && !r)
-			fprintf(stderr, "Merging with different data file: %s\n", merge_frames->filename) ;
-		curr = merge_frames ;
-	}
-	else
-		curr = frames ;
+	scalemin = DBL_MAX ;
 	memset(priv->p_sum, 0, (det[0].num_det)*sizeof(double)) ;
-	for (detn = 0 ; detn < det[0].num_det ; ++detn) 
-		memset(priv->all_views[detn], 0, det[detn].num_pix*sizeof(double)) ;
 	rotind = (r*param->num_proc + param->rank) / param->modes ;
 	mode = (r*param->num_proc + param->rank) % param->modes ;
 	
 	while (curr != NULL) {
-		// Calculate slice for current detector
 		detn = det[0].mapping[dset] ;
-		view = priv->all_views[detn] ;
-		
 		for (curr_d = 0 ; curr_d < curr->num_data ; ++curr_d) {
 			// Calculate frame number in full list
 			d = curr->num_data_prev + curr_d ;
-			
+
 			// check if frame is blacklisted
 			if (frames->blacklist[d])
 				continue ;
@@ -499,6 +488,47 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 			// Calculate mutual information of probability distribution
 			priv->info[d] += prob[d] * log(prob[d] / quat->quat[rotind*5 + 4] * param->modes) ;
 			
+			if (param->need_scaling && iter->scale[d] < scalemin)
+				scalemin = iter->scale[d] ;
+		}
+		dset++ ;
+		curr = curr->next ;
+	}
+	
+	return scalemin ;
+}
+
+void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
+	int dset = 0, t, d, curr_d, pixel, detn ;
+	struct dataset *curr ;
+	double *view, *prob = common->probab[r] ;
+	
+	if (merge_frames != NULL) {
+		if (!param->rank && !r)
+			fprintf(stderr, "Merging with different data file: %s\n", merge_frames->filename) ;
+		curr = merge_frames ;
+	}
+	else
+		curr = frames ;
+	for (detn = 0 ; detn < det[0].num_det ; ++detn) 
+		memset(priv->all_views[detn], 0, det[detn].num_pix*sizeof(double)) ;
+	
+	calc_psum_r(r, priv, common) ;
+	
+	while (curr != NULL) {
+		// Calculate slice for current detector
+		detn = det[0].mapping[dset] ;
+		view = priv->all_views[detn] ;
+		
+		for (curr_d = 0 ; curr_d < curr->num_data ; ++curr_d) {
+			// Calculate frame number in full list
+			d = curr->num_data_prev + curr_d ;
+			
+			// check if frame is blacklisted
+			// Skip if probability is very low (saves time)
+			if (frames->blacklist[d] || !(prob[d] > PROB_MIN))
+				continue ;
+			
 			if (curr->type == 0) {
 				// For all pixels with one photon
 				for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
@@ -533,67 +563,6 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 	for (t = 0 ; t < det[detn].num_pix ; ++t)
 	if (priv->p_sum[detn] > 0.)
 		priv->all_views[detn][t] /= priv->p_sum[detn] ;
-}
-
-static double calc_psum(int r, struct max_data *priv, struct max_data *common) {
-	int dset = 0, d, curr_d, detn, rotind, mode ;
-	double temp, scalemin ;
-	double *prob = common->probab[r] ;
-	struct dataset *curr = frames ;
-	
-	scalemin = DBL_MAX ;
-	memset(priv->p_sum, 0, (det[0].num_det)*sizeof(double)) ;
-	rotind = (r*param->num_proc + param->rank) / param->modes ;
-	mode = (r*param->num_proc + param->rank) % param->modes ;
-	
-	while (curr != NULL) {
-		detn = det[0].mapping[dset] ;
-		for (curr_d = 0 ; curr_d < curr->num_data ; ++curr_d) {
-			// Calculate frame number in full list
-			d = curr->num_data_prev + curr_d ;
-
-			// Exponentiate log-likelihood and normalize to get probabilities
-			temp = prob[d] ;
-			if (frames->type < 2)
-				prob[d] = exp(param->beta*(prob[d] - common->max_exp[d])) / common->p_sum[d] ; 
-			else
-				prob[d] = exp(param->beta*(prob[d] - common->max_exp[d]) / 2. / param->sigmasq) / common->p_sum[d] ;
-			
-			//if (param->need_scaling)
-			//	priv->likelihood[d] += prob[d] * (temp - frames->sum_fact[d] + frames->count[d]*log(iter->scale[d])) ;
-			//else
-			priv->likelihood[d] += prob[d] * (temp - frames->sum_fact[d]) ;
-			
-			// Calculate denominator for update rule
-			if (param->need_scaling) {
-				priv->p_sum[detn] += prob[d] * iter->scale[d] ;
-				
-				// Calculate denominator for scale factor update rule
-				if (param->update_scale)
-					priv->scale[d] -= prob[d] * common->u[r] * iter->rescale ;
-			}
-			else
-				priv->p_sum[detn] += prob[d] ; 
-			
-			// Skip if probability is very low (saves time)
-			if (!(prob[d] > PROB_MIN))
-				continue ;
-			
-			// If multiple modes, calculate occupancy of frame into each mode
-			if (param->modes > 1)
-				priv->quat_norm[d*param->modes + mode] += prob[d] ;
-			
-			// Calculate mutual information of probability distribution
-			priv->info[d] += prob[d] * log(prob[d] / quat->quat[rotind*5 + 4] * param->modes) ;
-			
-			if (iter->scale[d] < scalemin)
-				scalemin = iter->scale[d] ;
-		}
-		dset++ ;
-		curr = curr->next ;
-	}
-	
-	return scalemin ;
 }
 
 static void gradient_rt(int r, struct max_data *priv, struct max_data *common, double **views, double **gradients) {
@@ -674,12 +643,12 @@ void optimize_tomogram(int r, struct max_data *priv, struct max_data *common) {
 	
 	// Calculate pixel-independent part of likelihood: \sum_d (P_dr * phi_d)
 	// Also calculate and return (phi_d_max if P_dr > PROB_MIN)
-	scalemin = calc_psum(r, priv, common) ;
+	scalemin = calc_psum_r(r, priv, common) ;
 	
-	// ==========================
-	// Root finding on derivative
-	// ==========================
 	/*
+	==========================
+	Root finding on derivative
+	==========================
 	* 1. Calculate gradient of likelihood G_old at W_old = 0
 	* 2. Calculate G_new at W_new = <large> or -B_t/phi_d_min depending on sign of G_old
 	* 3. Iterate till convergence:
