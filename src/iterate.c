@@ -24,6 +24,25 @@ static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
 	}
 }
 
+static void calc_mean_counts(struct dataset *frames, struct detector *det, struct iterate *iter) {
+	int dset = 0, detn ;
+	struct dataset *curr = frames ;
+	int *numd = calloc(det[0].num_det, sizeof(int)) ;
+	
+	while (curr != NULL) {
+		detn = det[0].mapping[dset] ;
+		iter->mean_count[detn] += curr->mean_count * curr->num_data ;
+		numd[detn] += curr->num_data ;
+		dset++ ;
+		curr = curr->next ;
+	}
+	
+	for (detn = 0 ; detn < det[0].num_det ; ++detn)
+		iter->mean_count[detn] /= numd[detn] ;
+	
+	free(numd) ;
+}
+
 int generate_iterate(char *config_fname, char *config_section, int continue_flag, double qmax, struct params *param, struct detector *det, struct dataset *dset, struct iterate *iter) {
 	FILE *fp ;
 	double model_mean ;
@@ -36,6 +55,7 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 	iter->scale = NULL ;
 	iter->modes = param->modes ;
 	iter->rescale = calloc(det[0].num_det, sizeof(double)) ;
+	iter->mean_count = calloc(det[0].num_det, sizeof(double)) ;
 	
 	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 2048, config_fp) != NULL) {
@@ -100,6 +120,7 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 #endif // FIXED_SEED
 	parse_input(input_fname, model_mean, param->rank, param->recon_type, iter) ;
 	calc_powder(dset, det, iter) ;
+	calc_mean_counts(dset, det, iter) ;
 	
 	return 0 ;
 }
