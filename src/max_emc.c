@@ -201,7 +201,9 @@ void allocate_memory(struct max_data *data) {
 		data->quat_norm = calloc(param->modes * frames->tot_num_data, sizeof(double)) ;
 	
 	if (!data->within_openmp) { // common_data
-		data->u = calloc(quat->num_rot_p, sizeof(double)) ;
+		data->u = malloc(det[0].num_det * sizeof(double*)) ;
+		for (detn = 0 ; detn < det[0].num_det ; ++detn)
+			data->u[detn] = calloc(quat->num_rot_p, sizeof(double)) ;
 		data->probab = malloc(quat->num_rot_p * sizeof(double*)) ;
 		data->max_exp = calloc(frames->tot_num_data, sizeof(double)) ;
 		data->p_norm = calloc(frames->tot_num_data, sizeof(double)) ;
@@ -266,8 +268,8 @@ void calculate_rescale(struct max_data *data) {
 				// Second argument being 0. tells slice_gen to generate un-rescaled tomograms
 				(*slice_gen)(&quat->quat[rotind*5], 0., views[detn], &iter->model1[mode*iter->vol], iter->size, &det[detn]) ;
 				
-				for (t = 0 ; t < det[0].num_pix ; ++t)
-				if (det[0].mask[t] < 1)
+				for (t = 0 ; t < det[detn].num_pix ; ++t)
+				if (det[detn].mask[t] < 1)
 					data->u[detn][r] += views[detn][t] ;
 				
 				priv_total[detn] += quat->quat[rotind*5 + 4] * data->u[detn][r] ;
@@ -282,7 +284,7 @@ void calculate_rescale(struct max_data *data) {
 		for (detn = 0 ; detn < det[0].num_det ; ++detn)
 			free(views[detn]) ;
 		free(views) ;
-		free(total) ;
+		free(priv_total) ;
 	}
 	
 	MPI_Allreduce(MPI_IN_PLACE, total, det[0].num_det, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
@@ -299,7 +301,7 @@ void calculate_rescale(struct max_data *data) {
 		}
 	}
 	
-	sprintf(res_string, "(= ") ;
+	sprintf(res_string, "(=") ;
 	for (detn = 0 ; detn < det[0].num_det ; ++detn) {
 		iter->rescale[detn] = frames[0].mean_count / total[detn] * param->modes ;
 		sprintf(res_string + strlen(res_string), " %.6e", iter->rescale[detn]) ;
