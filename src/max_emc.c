@@ -189,7 +189,7 @@ void refine_frame(int d, struct dataset *curr, struct max_data *priv, struct max
 */
 
 void allocate_memory(struct max_data *data) {
-	int d, r ;
+	int detn, d, r ;
 	
 	data->rmax = calloc(frames->tot_num_data, sizeof(int)) ;
 	data->info = calloc(frames->tot_num_data, sizeof(double)) ;
@@ -224,6 +224,22 @@ void allocate_memory(struct max_data *data) {
 		if (param->need_scaling && param->update_scale)
 			data->psum_d = calloc(frames->tot_num_data, sizeof(double)) ;
 		data->psum_r = calloc(det[0].num_det, sizeof(double)) ;
+		if (det[0].with_bg && param->need_scaling) {
+			data->G_old = malloc(det[0].num_det * sizeof(double*)) ;
+			data->G_new = malloc(det[0].num_det * sizeof(double*)) ;
+			data->G_latest = malloc(det[0].num_det * sizeof(double*)) ;
+			data->W_old = malloc(det[0].num_det * sizeof(double*)) ;
+			data->W_new = malloc(det[0].num_det * sizeof(double*)) ;
+			data->W_latest = malloc(det[0].num_det * sizeof(double*)) ;
+			for (detn = 0 ; detn < det[0].num_det ; ++detn) {
+				data->G_old[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
+				data->G_new[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
+				data->G_latest[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
+				data->W_old[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
+				data->W_new[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
+				data->W_latest[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
+			}
+		}
 	}
 }
 
@@ -655,24 +671,16 @@ void optimize_tomogram(int r, struct max_data *priv, struct max_data *common) {
 	int i, t, detn ;
 	int nmask, tot_num_pix = 0 ;
 	double val ;
-	double **G_old, **G_new, **G_latest ;
-	double **W_old, **W_new, **W_latest ;
 	
-	G_old = malloc(det[0].num_det * sizeof(double*)) ;
-	G_new = malloc(det[0].num_det * sizeof(double*)) ;
-	G_latest = malloc(det[0].num_det * sizeof(double*)) ;
-	W_old = malloc(det[0].num_det * sizeof(double*)) ;
-	W_new = malloc(det[0].num_det * sizeof(double*)) ;
-	W_latest = malloc(det[0].num_det * sizeof(double*)) ;
 	nmask = 0 ;
 	for (detn = 0 ; detn < det[0].num_det ; ++detn) {
 		memset(priv->all_views[detn], 0, det[detn].num_pix*sizeof(double)) ;
-		G_old[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
-		G_new[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
-		G_latest[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
-		W_old[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
-		W_new[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
-		W_latest[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
+		memset(priv->G_old[detn], 0, det[detn].num_pix*sizeof(double)) ;
+		memset(priv->G_new[detn], 0, det[detn].num_pix*sizeof(double)) ;
+		memset(priv->G_latest[detn], 0, det[detn].num_pix*sizeof(double)) ;
+		memset(priv->W_old[detn], 0, det[detn].num_pix*sizeof(double)) ;
+		memset(priv->W_new[detn], 0, det[detn].num_pix*sizeof(double)) ;
+		memset(priv->W_latest[detn], 0, det[detn].num_pix*sizeof(double)) ;
 		tot_num_pix += det[detn].num_pix ;
 		
 		for (t = 0 ; t < det[detn].num_pix ; ++t) {
@@ -681,7 +689,7 @@ void optimize_tomogram(int r, struct max_data *priv, struct max_data *common) {
 					priv->mask[detn][t] = 128 ;
 				}
 				else {
-					W_new[detn][t] = 1.e-8 - det[detn].background[t] / scalemin ;
+					priv->W_new[detn][t] = 1.e-8 - det[detn].background[t] / scalemin ;
 					priv->mask[detn][t] = 0 ;
 				}
 			}
@@ -691,38 +699,39 @@ void optimize_tomogram(int r, struct max_data *priv, struct max_data *common) {
 		}
 	}
 	
-	gradient_rt(r, priv, common, W_old, G_old) ;
+	gradient_rt(r, priv, common, priv->W_old, priv->G_old) ;
 	for (detn = 0 ; detn < det[0].num_det ; ++detn)
 	for (t = 0 ; t < det[detn].num_pix ; ++t) {
-		if (fabs(G_old[detn][t]) < 1.e-6) {
+		if (fabs(priv->G_old[detn][t]) < 1.e-6) {
 			priv->all_views[detn][t] = 0. ;
 			priv->mask[detn][t] = 255 ;
 		}
-		else if (G_old[detn][t] > 0.) {
+		else if (priv->G_old[detn][t] > 0.) {
 			val = frames->tot_mean_count / det[detn].num_pix ;
-			W_new[detn][t] = det[detn].powder[t] > val ? det[detn].powder[t] : val ; // Large number
-			W_new[detn][t] *= 1000. ;
+			priv->W_new[detn][t] = det[detn].powder[t] > val ? det[detn].powder[t] : val ; // Large number
+			priv->W_new[detn][t] *= 1000. ;
 		}
 	}
+	
 	for (i = 0 ; i < 5 ; ++i) {
 		nmask = 0 ;
-		gradient_rt(r, priv, common, W_new, G_new) ;
+		gradient_rt(r, priv, common, priv->W_new, priv->G_new) ;
 		
 		for (detn = 0 ; detn < det[0].num_det ; ++detn)
 		for (t = 0 ; t < det[detn].num_pix ; ++t) {
 			if (priv->mask[detn][t] == 0) {
 				/*
-				if (fabs(G_new[detn][t] < 1.e-6)) {
-					priv->all_views[detn][t] = W_new[detn][t] ;
+				if (fabs(priv->G_new[detn][t] < 1.e-6)) {
+					priv->all_views[detn][t] = priv->W_new[detn][t] ;
 					priv->mask[detn][t] = 255 ;
 					nmask++ ;
 				}
 				*/
-				if (G_old[detn][t] < 0. && G_new[detn][t] < 0.) {
-					W_new[detn][t] = 1.e-8*pow(0.01, i+1) - det[detn].background[t] / scalemin ;
+				if (priv->G_old[detn][t] < 0. && priv->G_new[detn][t] < 0.) {
+					priv->W_new[detn][t] = 1.e-8*pow(0.01, i+1) - det[detn].background[t] / scalemin ;
 				}
-				else if (G_old[detn][t] > 0. && G_new[detn][t] > 0.) {
-					W_new[detn][t] *= 100 ;
+				else if (priv->G_old[detn][t] > 0. && priv->G_new[detn][t] > 0.) {
+					priv->W_new[detn][t] *= 100 ;
 				}
 				else {
 					priv->mask[detn][t] = 192 ;
@@ -751,39 +760,39 @@ void optimize_tomogram(int r, struct max_data *priv, struct max_data *common) {
 				nmask++ ;
 			}
 			else if (priv->mask[detn][t] == 128) { // Negligible background
-				priv->all_views[detn][t] = G_old[detn][t] / priv->psum_r[detn] ;
+				priv->all_views[detn][t] = priv->G_old[detn][t] / priv->psum_r[detn] ;
 				priv->mask[detn][t] = 255 ;
 				nmask++ ;
 			}
 			else if (priv->mask[detn][t] == 192) { // W_new had to be adjusted
 				priv->mask[detn][t] = 0 ;
-				W_latest[detn][t] = 0.5 * (W_old[detn][t] + W_new[detn][t]) ;
+				priv->W_latest[detn][t] = 0.5 * (priv->W_old[detn][t] + priv->W_new[detn][t]) ;
 			}
 			else if (priv->mask[detn][t] == 0) {
 				// Regula falsi (secant) update
-				//W_latest[detn][t] = (W_old[detn][t]*G_new[detn][t] - W_new[detn][t]*G_old[detn][t]) / (G_new[detn][t] - G_old[detn][t]) ;
+				//priv->W_latest[detn][t] = (priv->W_old[detn][t]*priv->G_new[detn][t] - priv->W_new[detn][t]*priv->G_old[detn][t]) / (priv->G_new[detn][t] - priv->G_old[detn][t]) ;
 				// Bisection update
-				W_latest[detn][t] = 0.5 * (W_old[detn][t] + W_new[detn][t]) ;
+				priv->W_latest[detn][t] = 0.5 * (priv->W_old[detn][t] + priv->W_new[detn][t]) ;
 			}
 		}
 		
-		gradient_rt(r, priv, common, W_latest, G_latest) ;
+		gradient_rt(r, priv, common, priv->W_latest, priv->G_latest) ;
 		
 		for (detn = 0 ; detn < det[0].num_det ; ++detn)
 		for (t = 0 ; t < det[detn].num_pix ; ++t)
 		if (priv->mask[detn][t] < 255) {
-			if (fabs(G_latest[detn][t]) < 1.e-5) {
-				priv->all_views[detn][t] = W_latest[detn][t] ;
+			if (fabs(priv->G_latest[detn][t]) < 1.e-5) {
+				priv->all_views[detn][t] = priv->W_latest[detn][t] ;
 				priv->mask[detn][t] = 255 ;
 				nmask++ ;
 			}
-			else if (G_latest[detn][t] * G_old[detn][t] > 0) {
-				W_old[detn][t] = W_latest[detn][t] ;
-				G_old[detn][t] = G_latest[detn][t] ;
+			else if (priv->G_latest[detn][t] * priv->G_old[detn][t] > 0) {
+				priv->W_old[detn][t] = priv->W_latest[detn][t] ;
+				priv->G_old[detn][t] = priv->G_latest[detn][t] ;
 			}
 			else {
-				W_new[detn][t] = W_latest[detn][t] ;
-				G_new[detn][t] = G_latest[detn][t] ;
+				priv->W_new[detn][t] = priv->W_latest[detn][t] ;
+				priv->G_new[detn][t] = priv->G_latest[detn][t] ;
 			}
 		}
 		
@@ -792,22 +801,6 @@ void optimize_tomogram(int r, struct max_data *priv, struct max_data *common) {
 	}
 	if (i == 50)
 		fprintf(stderr, "%.4d not converged, %d\n", r, nmask) ;
-	
-	// Cleanup
-	for (detn = 0 ; detn < det[0].num_det ; ++detn) {
-		free(G_old[detn]) ;
-		free(G_new[detn]) ;
-		free(G_latest[detn]) ;
-		free(W_old[detn]) ;
-		free(W_new[detn]) ;
-		free(W_latest[detn]) ;
-	}
-	free(G_old) ;
-	free(G_new) ;
-	free(G_latest) ;
-	free(W_old) ;
-	free(W_new) ;
-	free(W_latest) ;
 }
 
 void merge_tomogram(int r, struct max_data *priv) {
@@ -923,7 +916,7 @@ void free_memory(struct max_data *data) {
 		free(data->p_norm) ;
 	}
 	else {
-		int d ;
+		int detn, d ;
 		for (d = 0 ; d < det[0].num_det ; ++d) {
 			free(data->all_views[d]) ;
 			free(data->mask[d]) ;
@@ -935,6 +928,22 @@ void free_memory(struct max_data *data) {
 		free(data->model) ;
 		free(data->weight) ;
 		free(data->psum_r) ;
+		if (det[0].with_bg && param->need_scaling) {
+			for (detn = 0 ; detn < det[0].num_det ; ++detn) {
+				free(data->G_old[detn]) ;
+				free(data->G_new[detn]) ;
+				free(data->G_latest[detn]) ;
+				free(data->W_old[detn]) ;
+				free(data->W_new[detn]) ;
+				free(data->W_latest[detn]) ;
+			}
+			free(data->G_old) ;
+			free(data->G_new) ;
+			free(data->G_latest) ;
+			free(data->W_old) ;
+			free(data->W_new) ;
+			free(data->W_latest) ;
+		}
 	}
 	free(data) ;
 }
