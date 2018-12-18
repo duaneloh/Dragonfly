@@ -18,21 +18,32 @@ struct params *param ;
 
 struct max_data {
 	// Flags
-	int refinement, within_openmp ;
+	int refinement ; // Whether refinement data or global search
+	int within_openmp ; // Whether this struct is local to a thread or not
 	
-	// Common only
-	double *max_exp, *u, **probab ;
+	// Private to OpenMP thread only
+	double *model, *weight ; // Thread-local copies of iterate
+	double **all_views ; // View (W_rt) for each detector
+	uint8_t **mask ; // Flag mask (M_t) used to optimize update
+	double *psum_r ; // S_r = \sum_d P_dr \phi_d
+	double *psum_d ; // S_d = \sum_r P_dr u_r
 	
-	// Private only
-	double *model, *weight, *scale ;
-	double **all_views ;
-	uint8_t **mask ;
+	// Common among all threads only
+	double *max_exp ; // max_exp[d] = max_r log(R_dr)
+	double *p_norm ; // P_dr normalization, \sum_r R_dr
+	double *u ; // u_r = sum_t W_rt
+	double **probab ; // probab[r][d] = P_dr
 	
 	// Both
-	double *max_exp_p, *p_sum ;
-	double *info, *likelihood ;
-	int *rmax ;
-	double *quat_norm ;
+	double *max_exp_p ; // For priv, thread-local max_r. For common, process-local max_r
+	double *info, *likelihood ; // Mutual information and log-likelihood for each d
+	int *rmax ; // Most likely orientation for each d
+	double *quat_norm ; // quat_norm[d, mode] = \sum_r P_dr for r in mode (if num_modes > 1)
+	
+	// Background-scaling update (private only)
+	double **G_old, **G_new, **G_latest ; // Gradients
+	double **W_old, **W_new, **W_latest ; // Tomograms
+	double *scale_old, *scale_new, *scale_latest ; // Scale factors
 } ;
 
 // setup_emc.c

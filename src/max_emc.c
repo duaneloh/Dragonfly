@@ -15,6 +15,7 @@ static void allocate_memory(struct max_data*) ;
 static double calculate_rescale(struct max_data*) ;
 static void calculate_prob(int, struct max_data*, struct max_data*) ;
 static void normalize_prob(struct max_data*, struct max_data*) ;
+static double calc_psum_r(int, struct max_data*, struct max_data*) ;
 static void update_tomogram(int, struct max_data*, struct max_data*) ;
 static void optimize_tomogram(int, struct max_data*, struct max_data*) ;
 static void merge_tomogram(int, struct max_data*) ;
@@ -125,7 +126,7 @@ double refine_maximize() {
 void refine_frame(int d, struct dataset *curr, struct max_data *priv, struct max_data *common) {
 	int r, t, pixel ;
 	double max_exp = -DBL_MAX ;
-	double p_sum = 0. ;
+	double p_norm = 0. ;
 	double new_scale = 0. ;
 	double *prob = priv->probab[0] ;
 	
@@ -154,11 +155,11 @@ void refine_frame(int d, struct dataset *curr, struct max_data *priv, struct max
 	
 	for (r = 0 ; r < num_rot_sub[d] ; ++r) {
 		prob[r] = exp(param->beta * (prob[r] - max_exp)) ;
-		p_sum += prob[r] ;
+		p_norm += prob[r] ;
 	}
 	
 	for (r = 0 ; r < num_rot_sub[d] ; ++r) {
-		prob[r] /= p_sum ;
+		prob[r] /= p_norm ;
 		new_scale -= prob[r] * common->u[quat_sub[d][r]] ;
 		if (prob[r] < PROB_MIN)
 			continue ;
@@ -193,27 +194,19 @@ void allocate_memory(struct max_data *data) {
 	data->rmax = calloc(frames->tot_num_data, sizeof(int)) ;
 	data->info = calloc(frames->tot_num_data, sizeof(double)) ;
 	data->likelihood = calloc(frames->tot_num_data, sizeof(double)) ;
-	if (!data->refinement) {
-		data->max_exp_p = malloc(frames->tot_num_data * sizeof(double)) ;
-		for (d = 0 ; d < frames->tot_num_data ; ++d)
-			data->max_exp_p[d] = -DBL_MAX ;
-	}
+	data->max_exp_p = malloc(frames->tot_num_data * sizeof(double)) ;
+	for (d = 0 ; d < frames->tot_num_data ; ++d)
+		data->max_exp_p[d] = -DBL_MAX ;
 	if (param->modes > 1)
 		data->quat_norm = calloc(param->modes * frames->tot_num_data, sizeof(double)) ;
 	
 	if (!data->within_openmp) { // common_data
 		data->u = calloc(quat->num_rot_p, sizeof(double)) ;
-		if (!data->refinement) { // Global search
-			data->probab = malloc(quat->num_rot_p * sizeof(double*)) ;
-			data->max_exp = calloc(frames->tot_num_data, sizeof(double)) ;
-			data->p_sum = calloc(frames->tot_num_data, sizeof(double)) ;
-			for (r = 0 ; r < quat->num_rot_p ; ++r)
-				data->probab[r] = malloc(frames->tot_num_data * sizeof(double)) ;
-		}
-		else {
-			data->probab = malloc(1 * sizeof(double*)) ;
-			//data->probab[0] = malloc(num_rot_sub_max * sizeof(double)) ;
-		}
+		data->probab = malloc(quat->num_rot_p * sizeof(double*)) ;
+		data->max_exp = calloc(frames->tot_num_data, sizeof(double)) ;
+		data->p_norm = calloc(frames->tot_num_data, sizeof(double)) ;
+		for (r = 0 ; r < quat->num_rot_p ; ++r)
+			data->probab[r] = malloc(frames->tot_num_data * sizeof(double)) ;
 		
 		memset(iter->model2, 0, param->modes*iter->vol*sizeof(double)) ;
 		memset(iter->inter_weight, 0, param->modes*iter->vol*sizeof(double)) ;
@@ -229,9 +222,8 @@ void allocate_memory(struct max_data *data) {
 		data->model = calloc(param->modes*iter->vol, sizeof(double)) ;
 		data->weight = calloc(param->modes*iter->vol, sizeof(double)) ;
 		if (param->need_scaling && param->update_scale)
-			data->scale = calloc(frames->tot_num_data, sizeof(double)) ;
-		if (!data->refinement) // Global search
-			data->p_sum = calloc(det[0].num_det, sizeof(double)) ;
+			data->psum_d = calloc(frames->tot_num_data, sizeof(double)) ;
+		data->psum_r = calloc(det[0].num_det, sizeof(double)) ;
 	}
 }
 
@@ -386,7 +378,7 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 
 void normalize_prob(struct max_data *priv, struct max_data *common) {
 	int r, d, omp_rank = omp_get_thread_num() ;
-	double *priv_sum = calloc(frames->tot_num_data, sizeof(double)) ;
+	double *priv_norm = calloc(frames->tot_num_data, sizeof(double)) ;
 	
 	#pragma omp critical(maxexp)
 	{
@@ -414,33 +406,33 @@ void normalize_prob(struct max_data *priv, struct max_data *common) {
 	for (r = 0 ; r < quat->num_rot_p ; ++r)
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
 	if (frames->type < 2)
-		priv_sum[d] += exp(param->beta * (common->probab[r][d] - common->max_exp[d])) ;
+		priv_norm[d] += exp(param->beta * (common->probab[r][d] - common->max_exp[d])) ;
 	else
-		priv_sum[d] += exp(param->beta * (common->probab[r][d] - common->max_exp[d]) / 2. / param->sigmasq) ;
+		priv_norm[d] += exp(param->beta * (common->probab[r][d] - common->max_exp[d]) / 2. / param->sigmasq) ;
 	
 	#pragma omp critical(psum)
 	{
 		for (d = 0 ; d < frames->tot_num_data ; ++d)
-			common->p_sum[d] += priv_sum[d] ;
+			common->p_norm[d] += priv_norm[d] ;
 	}
 	#pragma omp barrier
 	
 	if (omp_rank == 0)
-		MPI_Allreduce(MPI_IN_PLACE, common->p_sum, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
+		MPI_Allreduce(MPI_IN_PLACE, common->p_norm, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 	#pragma omp barrier
 	
-	free(priv_sum) ;
+	free(priv_norm) ;
 	print_max_time("psum", "", param->rank == 0 && omp_rank == 0) ;
 }
 
-static double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
+double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 	int dset = 0, d, curr_d, detn, rotind, mode ;
 	double temp, scalemin ;
 	double *prob = common->probab[r] ;
 	struct dataset *curr = frames ;
 	
 	scalemin = DBL_MAX ;
-	memset(priv->p_sum, 0, (det[0].num_det)*sizeof(double)) ;
+	memset(priv->psum_r, 0, (det[0].num_det)*sizeof(double)) ;
 	rotind = (r*param->num_proc + param->rank) / param->modes ;
 	mode = (r*param->num_proc + param->rank) % param->modes ;
 	
@@ -457,9 +449,9 @@ static double calc_psum_r(int r, struct max_data *priv, struct max_data *common)
 			// Exponentiate log-likelihood and normalize to get probabilities
 			temp = prob[d] ;
 			if (frames->type < 2)
-				prob[d] = exp(param->beta*(prob[d] - common->max_exp[d])) / common->p_sum[d] ; 
+				prob[d] = exp(param->beta*(prob[d] - common->max_exp[d])) / common->p_norm[d] ; 
 			else
-				prob[d] = exp(param->beta*(prob[d] - common->max_exp[d]) / 2. / param->sigmasq) / common->p_sum[d] ;
+				prob[d] = exp(param->beta*(prob[d] - common->max_exp[d]) / 2. / param->sigmasq) / common->p_norm[d] ;
 			
 			//if (param->need_scaling)
 			//	priv->likelihood[d] += prob[d] * (temp - frames->sum_fact[d] + frames->count[d]*log(iter->scale[d])) ;
@@ -468,14 +460,14 @@ static double calc_psum_r(int r, struct max_data *priv, struct max_data *common)
 			
 			// Calculate denominator for update rule
 			if (param->need_scaling) {
-				priv->p_sum[detn] += prob[d] * iter->scale[d] ;
+				priv->psum_r[detn] += prob[d] * iter->scale[d] ;
 				
 				// Calculate denominator for scale factor update rule
 				if (param->update_scale)
-					priv->scale[d] -= prob[d] * common->u[r] * iter->rescale ;
+					priv->psum_d[d] -= prob[d] * common->u[r] * iter->rescale ;
 			}
 			else
-				priv->p_sum[detn] += prob[d] ; 
+				priv->psum_r[detn] += prob[d] ; 
 			
 			// Skip if probability is very low (saves time)
 			if (!(prob[d] > PROB_MIN))
@@ -561,8 +553,8 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 	
 	for (detn = 0 ; detn < det[0].num_det ; ++detn) 
 	for (t = 0 ; t < det[detn].num_pix ; ++t)
-	if (priv->p_sum[detn] > 0.)
-		priv->all_views[detn][t] /= priv->p_sum[detn] ;
+	if (priv->psum_r[detn] > 0.)
+		priv->all_views[detn][t] /= priv->psum_r[detn] ;
 }
 
 static void gradient_rt(int r, struct max_data *priv, struct max_data *common, double **views, double **gradients) {
@@ -580,7 +572,7 @@ static void gradient_rt(int r, struct max_data *priv, struct max_data *common, d
 		
 		for (t = 0 ; t < det[detn].num_pix ; ++t) {
 			if (priv->mask[detn][t] < 128) {
-				grad[t] = - priv->p_sum[detn] ;
+				grad[t] = - priv->psum_r[detn] ;
 				priv->mask[detn][t] = 1 ;
 			}
 			else {
@@ -759,7 +751,7 @@ void optimize_tomogram(int r, struct max_data *priv, struct max_data *common) {
 				nmask++ ;
 			}
 			else if (priv->mask[detn][t] == 128) { // Negligible background
-				priv->all_views[detn][t] = G_old[detn][t] / priv->p_sum[detn] ;
+				priv->all_views[detn][t] = G_old[detn][t] / priv->psum_r[detn] ;
 				priv->mask[detn][t] = 255 ;
 				nmask++ ;
 			}
@@ -826,7 +818,7 @@ void merge_tomogram(int r, struct max_data *priv) {
 	
 	// If no data frame has any probability for this orientation, don't merge
 	for (detn = 0 ; detn < det[0].num_det ; ++detn)
-	if (priv->p_sum[detn] > 0.)
+	if (priv->psum_r[detn] > 0.)
 		(*slice_merge)(&quat->quat[rotind*5], priv->all_views[detn], &priv->model[mode*iter->vol], &priv->weight[mode*iter->vol], iter->size, &det[detn]) ;
 	
 	if ((r*param->num_proc + param->rank)%(quat->num_rot * param->modes / 10) == 0)
@@ -862,7 +854,7 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 		{
 			for (d = 0 ; d < frames->tot_num_data ; ++d)
 			if (!frames->blacklist[d])
-				iter->scale[d] += priv->scale[d] ;
+				iter->scale[d] += priv->psum_d[d] ;
 		}
 	}
 	
@@ -900,6 +892,9 @@ double combine_information_mpi(struct max_data *data) {
 		avg_likelihood += data->likelihood[d] ;
 	}
 	
+	iter->mutual_info /= (frames->tot_num_data - frames->num_blacklist) ;
+	avg_likelihood /= (frames->tot_num_data - frames->num_blacklist) ;
+	
 	// Calculate updated scale factor using count[d] (total photons in frame d)
 	if (param->need_scaling && param->update_scale) {
 		// Combine scale factor information from all MPI ranks
@@ -910,17 +905,11 @@ double combine_information_mpi(struct max_data *data) {
 			iter->scale[d] = frames->count[d] / iter->scale[d] ;
 	}
 	
-	iter->mutual_info /= (frames->tot_num_data - frames->num_blacklist) ;
-	avg_likelihood /= (frames->tot_num_data - frames->num_blacklist) ;
-	
 	return avg_likelihood ;
 }
 
 void free_memory(struct max_data *data) {
-	if (!data->refinement) {
-		free(data->max_exp_p) ;
-		free(data->p_sum) ;
-	}
+	free(data->max_exp_p) ;
 	free(data->info) ;
 	free(data->likelihood) ;
 	free(data->rmax) ;
@@ -928,11 +917,10 @@ void free_memory(struct max_data *data) {
 		free(data->quat_norm) ;
 	
 	if (!data->within_openmp) {
-		if (!data->refinement) {
-			free(data->probab) ;
-			free(data->max_exp) ;
-		}
+		free(data->probab) ;
+		free(data->max_exp) ;
 		free(data->u) ;
+		free(data->p_norm) ;
 	}
 	else {
 		int d ;
@@ -943,9 +931,10 @@ void free_memory(struct max_data *data) {
 		free(data->all_views) ;
 		free(data->mask) ;
 		if (param->need_scaling && param->update_scale)
-			free(data->scale) ;
+			free(data->psum_d) ;
 		free(data->model) ;
 		free(data->weight) ;
+		free(data->psum_r) ;
 	}
 	free(data) ;
 }
