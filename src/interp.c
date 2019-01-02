@@ -1,40 +1,11 @@
 #include "interp.h"
 
-void make_rot_quat(double *quaternion, double rot[3][3]) {
-	double q0, q1, q2, q3, q01, q02, q03, q11, q12, q13, q22, q23, q33 ;
-	
-	q0 = quaternion[0] ;
-	q1 = quaternion[1] ;
-	q2 = quaternion[2] ;
-	q3 = quaternion[3] ;
-	
-	q01 = q0*q1 ;
-	q02 = q0*q2 ;
-	q03 = q0*q3 ;
-	q11 = q1*q1 ;
-	q12 = q1*q2 ;
-	q13 = q1*q3 ;
-	q22 = q2*q2 ;
-	q23 = q2*q3 ;
-	q33 = q3*q3 ;
-	
-	rot[0][0] = (1. - 2.*(q22 + q33)) ;
-	rot[0][1] = 2.*(q12 + q03) ;
-	rot[0][2] = 2.*(q13 - q02) ;
-	rot[1][0] = 2.*(q12 - q03) ;
-	rot[1][1] = (1. - 2.*(q11 + q33)) ;
-	rot[1][2] = 2.*(q01 + q23) ;
-	rot[2][0] = 2.*(q02 + q13) ;
-	rot[2][1] = 2.*(q23 - q01) ;
-	rot[2][2] = (1. - 2.*(q11 + q22)) ;
-}
-
-/* Linear interpolation:
+/* Tri-linear interpolation:
  * Generates slice[t] from model3d[x] by interpolation using given quaternion
  * The locations of the pixels in slice[t] are given by det->pixels[t]
  * The logartihm of the rescaled slice is outputted unless rescale is set to 0.
  */
-void slice_gen(double *quaternion, double rescale, double *slice, double *model3d, long size, struct detector *det) {
+void slice_gen3d(double *quaternion, double rescale, double *slice, double *model3d, long size, struct detector *det) {
 	long t, i, j, x, y, z, center = size / 2 ;
 	double tx, ty, tz, fx, fy, fz, cx, cy, cz ;
 	double rot_pix[3], rot[3][3] = {{0}} ;
@@ -96,7 +67,7 @@ void slice_gen(double *quaternion, double rescale, double *slice, double *model3
  * The locations of the pixels in slice[t] are given by det->pixels[t]
  * Only pixels with a mask value < 2 are merged
  */
-void slice_merge(double *quaternion, double *slice, double *model3d, double *weight, long size, struct detector *det) {
+void slice_merge3d(double *quaternion, double *slice, double *model3d, double *weight, long size, struct detector *det) {
 	long t, i, j, x, y, z, center = size/2 ;
 	double tx, ty, tz, fx, fy, fz, cx, cy, cz, w, f ;
 	double rot_pix[3], rot[3][3] = {{0}} ;
@@ -170,6 +141,121 @@ void slice_merge(double *quaternion, double *slice, double *model3d, double *wei
 	}
 }
 
+/* Bi-linear interpolation:
+ * Generates slice[t] from a stack of 2D models, model[x] using given angle 
+ * The locations of the pixels in slice[t] are given by det->pixels[t]
+ * The logartihm of the rescaled slice is generated unless rescale is set to 0.
+ */
+void slice_gen2d(double *angle_ptr, double rescale, double *slice, double *model, long size, struct detector *det) {
+	long t, i, j, x, y, center = size / 2 ;
+	double tx, ty, fx, fy, cx, cy ;
+	double rot_pix[2], rot[2][2] = {{0}} ;
+	double angle = *angle_ptr ;
+	
+	make_rot_angle(angle, rot) ;
+	
+	for (t = 0 ; t < det->num_pix ; ++t) {
+		for (i = 0 ; i < 2 ; ++i) {
+			rot_pix[i] = 0. ;
+			for (j = 0 ; j < 2 ; ++j) 
+				rot_pix[i] += rot[i][j] * det->pixels[t*3 + j] ;
+			rot_pix[i] += center ;
+		}
+		
+		tx = rot_pix[0] ;
+		ty = rot_pix[1] ;
+		
+		x = tx ;
+		y = ty ;
+		
+		if (x < 0 || x > size-2 || y < 0 || y > size-2) {
+			slice[t] = DBL_MIN ;
+			continue ;
+		}
+		
+		fx = tx - x ;
+		fy = ty - y ;
+		cx = 1. - fx ;
+		cy = 1. - fy ;
+		
+		slice[t] = cx*cy*model[x*size + y] +
+		           cx*fy*model[x*size + ((y+1)%size)] +
+		           fx*cy*model[((x+1)%size)*size + y] +
+		           fx*fy*model[((x+1)%size)*size + ((y+1)%size)] ;
+		
+		// Correct for solid angle and polarization
+		slice[t] *= det->pixels[t*3 + 2] ;
+		
+		if (slice[t] <= 0.)
+			slice[t] = DBL_MIN ;
+		
+		// Use rescale as flag on whether to take log or not
+		else if (rescale != 0.) 
+			slice[t] = log(slice[t] * rescale) ;
+	}
+}
+
+/* Bi-linear merging:
+ * Merges slice[t] into a stack of 2D models, model[x] using given angle
+ * Also adds to weight[x] containing the interpolation weights
+ * The locations of the pixels in slice[t] are given by det->pixels[t]
+ * Only pixels with a mask value < 2 are merged
+ */
+void slice_merge2d(double *angle_ptr, double *slice, double *model, double *weight, long size, struct detector *det) {
+	long t, i, j, x, y, center = size/2 ;
+	double tx, ty, fx, fy, cx, cy, w, f ;
+	double rot_pix[2], rot[2][2] = {{0}} ;
+	double angle = *angle_ptr ;
+	
+	make_rot_angle(angle, rot) ;
+	
+	for (t = 0 ; t < det->num_pix ; ++t) {
+		if (det->mask[t] > 1)
+			continue ;
+		
+		for (i = 0 ; i < 2 ; ++i) {
+			rot_pix[i] = 0. ;
+			for (j = 0 ; j < 2 ; ++j)
+				rot_pix[i] += rot[i][j] * det->pixels[t*3 + j] ;
+			rot_pix[i] += center ;
+		}
+		
+		tx = rot_pix[0] ;
+		ty = rot_pix[1] ;
+		
+		x = tx ;
+		y = ty ;
+		
+		if (x < 0 || x > size-2 || y < 0 || y > size-2)
+			continue ;
+		
+		fx = tx - x ;
+		fy = ty - y ;
+		cx = 1. - fx ;
+		cy = 1. - fy ;
+		
+		// Correct for solid angle and polarization
+		slice[t] /= det->pixels[t*3 + 2] ;
+		w = slice[t] ;
+		
+		f = cx*cy ;
+		weight[x*size + y] += f ;
+		model[x*size + y] += f * w ;
+		
+		f = cx*fy ;
+		weight[x*size + ((y+1)%size)] += f ;
+		model[x*size + ((y+1)%size)] += f * w ;
+		
+		f = fx*cy ;
+		weight[((x+1)%size)*size + y] += f ;
+		model[((x+1)%size)*size + y] += f * w ;
+		
+		f = fx*fy ;
+		weight[((x+1)%size)*size + ((y+1)%size)] += f ;
+		model[((x+1)%size)*size + ((y+1)%size)] += f * w ;
+	}
+}
+
 /* Rotates cubic model according to given rotation matrix
  * 	Adds to rotated model. Does not zero output model.
  * 	Note that this function uses OpenMP so it should not be put in a parallel block
@@ -180,6 +266,46 @@ void slice_merge(double *quaternion, double *slice, double *model3d, double *wei
  * 		rotmodel - Pointer to rotated model
  */
 void rotate_model(double rot[3][3], double *m, int s, double *rotmodel) {
+	int x, y, z, i, c = s/2, vx, vy, vz ;
+	double fx, fy, fz, cx, cy, cz ;
+	double rot_vox[3] ;
+	
+	for (vx = -c ; vx < s-c ; ++vx)
+	for (vy = -c ; vy < s-c ; ++vy)
+	for (vz = -c ; vz < s-c ; ++vz) {
+		for (i = 0 ; i < 3 ; ++i) {
+			rot_vox[i] = 0. ;
+			rot_vox[i] += rot[i][0]*vx + rot[i][1]*vy + rot[i][2]*vz ;
+			rot_vox[i] += c ;
+		}
+		
+		if (rot_vox[0] < 0 || rot_vox[0] >= s - 1) continue ;
+		if (rot_vox[1] < 0 || rot_vox[1] >= s - 1) continue ;
+		if (rot_vox[2] < 0 || rot_vox[2] >= s - 1) continue ;
+		
+		x = (int) rot_vox[0] ;
+		y = (int) rot_vox[1] ;
+		z = (int) rot_vox[2] ;
+		fx = rot_vox[0] - x ;
+		fy = rot_vox[1] - y ;
+		fz = rot_vox[2] - z ;
+		cx = 1. - fx ;
+		cy = 1. - fy ;
+		cz = 1. - fz ;
+		
+		rotmodel[(vx+c)*s*s + (vy+c)*s + (vz+c)] +=
+			cx*cy*cz*m[x*s*s + y*s + z] + 
+			cx*cy*fz*m[x*s*s + y*s + ((z+1)%s)] + 
+			cx*fy*cz*m[x*s*s + ((y+1)%s)*s + z] + 
+			cx*fy*fz*m[x*s*s + ((y+1)%s)*s + ((z+1)%s)] + 
+			fx*cy*cz*m[((x+1)%s)*s*s + y*s + z] +
+			fx*cy*fz*m[((x+1)%s)*s*s + y*s + ((z+1)%s)] +
+			fx*fy*cz*m[((x+1)%s)*s*s + ((y+1)%s)*s + z] +
+			fx*fy*fz*m[((x+1)%s)*s*s + ((y+1)%s)*s + ((z+1)%s)] ;
+	}
+}
+
+void rotate_model_openmp(double rot[3][3], double *m, int s, double *rotmodel) {
 	#pragma omp parallel default(shared)
 	{
 		int x, y, z, i, c = s/2, vx, vy, vz ;
@@ -241,7 +367,7 @@ void symmetrize_friedel(double *array, int size) {
 	}
 }
 
-double icos_list[60][3][3] = {
+static double icos_list[60][3][3] = {
 	{{1., 0., 0.}, {0., 1., 0.}, {0., 0., 1.}},
 	{{-1., 0., 0.}, {0., -1., 0.}, {0., 0., 1.}},
 	{{0., 0., 1.}, {1., 0., 0.}, {0., 1., 0.}},
@@ -319,8 +445,49 @@ void symmetrize_icosahedral(double *model, int size) {
 	memset(model, 0, size*size*size*sizeof(double)) ;
 	
 	for (i = 0 ; i < 60 ; ++i)
-		rotate_model(icos_list[i], temp, size, model) ;
+		rotate_model_openmp(icos_list[i], temp, size, model) ;
 	
 	for (i = 0 ; i < size*size*size ; ++i)
 		model[i] /= 60. ;
+	
+	free(temp) ;
 }
+
+void make_rot_quat(double *quaternion, double rot[3][3]) {
+	double q0, q1, q2, q3, q01, q02, q03, q11, q12, q13, q22, q23, q33 ;
+	
+	q0 = quaternion[0] ;
+	q1 = quaternion[1] ;
+	q2 = quaternion[2] ;
+	q3 = quaternion[3] ;
+	
+	q01 = q0*q1 ;
+	q02 = q0*q2 ;
+	q03 = q0*q3 ;
+	q11 = q1*q1 ;
+	q12 = q1*q2 ;
+	q13 = q1*q3 ;
+	q22 = q2*q2 ;
+	q23 = q2*q3 ;
+	q33 = q3*q3 ;
+	
+	rot[0][0] = (1. - 2.*(q22 + q33)) ;
+	rot[0][1] = 2.*(q12 + q03) ;
+	rot[0][2] = 2.*(q13 - q02) ;
+	rot[1][0] = 2.*(q12 - q03) ;
+	rot[1][1] = (1. - 2.*(q11 + q33)) ;
+	rot[1][2] = 2.*(q01 + q23) ;
+	rot[2][0] = 2.*(q02 + q13) ;
+	rot[2][1] = 2.*(q23 - q01) ;
+	rot[2][2] = (1. - 2.*(q11 + q22)) ;
+}
+
+void make_rot_angle(double angle, double rot[2][2]) {
+	double c = cos(angle), s = sin(angle) ;
+	
+	rot[0][0] = c ;
+	rot[0][1] = -s ;
+	rot[1][0] = s ;
+	rot[1][1] = c ;
+}
+

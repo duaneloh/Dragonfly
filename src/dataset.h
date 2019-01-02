@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <libgen.h>
 #include <gsl/gsl_sf_gamma.h>
 #include <inttypes.h>
 #include "detector.h"
@@ -35,10 +36,13 @@ struct dataset {
 	uint8_t *blacklist ;
 } ;
 
+int generate_data(char*, char*, char*, struct detector*, struct dataset*) ;
 void calc_sum_fact(struct detector*, struct dataset*) ;
 int parse_dataset(char*, struct detector*, struct dataset*) ;
 int parse_data(char*, struct detector*, struct dataset*) ;
-void gen_blacklist(char*, int, struct dataset*) ;
+void generate_blacklist(char*, struct dataset*) ;
+void make_blacklist(char*, int, struct dataset*) ;
+int write_dataset(struct dataset*) ;
 void free_data(int, struct dataset*) ;
 
 #endif //DATASET_H

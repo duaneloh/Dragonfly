@@ -1,49 +1,72 @@
 #!/usr/bin/env python
-import numpy as np
-import argparse
+
+'''Module to Fourier transform electron densities to generate 3D intensities'''
+
 import sys
 import os
 import logging
+import numpy as np
 from py_src import read_config
 from py_src import py_utils
-import pyfftw
+try:
+    import pyfftw
+    WITH_PYFFTW = True
+except ImportError:
+    WITH_PYFFTW = False
 
-if __name__ == "__main__":
-    logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-    parser      = py_utils.my_argparser(description="make intensities")
-    args        = parser.special_parse_args()
+def main():
+    '''Parses command line arguments to create 3D intensity file using config file parameters'''
+    logging.basicConfig(filename="recon.log", level=logging.INFO,
+                        format='%(asctime)s - %(levelname)s - %(message)s')
+    parser = py_utils.MyArgparser(description="make intensities")
+    args = parser.special_parse_args()
 
-    den_file    = os.path.join(args.main_dir, read_config.get_filename(args.config_file, 'make_intensities', "in_density_file"))
-    intens_file = os.path.join(args.main_dir, read_config.get_filename(args.config_file, 'make_intensities', "out_intensity_file"))
+    den_file = os.path.join(args.main_dir,
+                            read_config.get_filename(args.config_file,
+                                                     'make_intensities',
+                                                     'in_density_file'))
+    intens_file = os.path.join(args.main_dir,
+                               read_config.get_filename(args.config_file,
+                                                        'make_intensities',
+                                                        'out_intensity_file'))
     try:
-        num_threads = int(read_config.get_param(args.config_file, 'make_intensities', "num_threads"))
-    except read_config.ConfigParser.NoOptionError:
+        num_threads = int(read_config.get_param(args.config_file,
+                                                'make_intensities',
+                                                'num_threads'))
+    except read_config.configparser.NoOptionError:
         num_threads = 4
-    to_write    = py_utils.check_to_overwrite(intens_file)
+    if args.yes:
+        to_write = True
+    else:
+        to_write = py_utils.check_to_overwrite(intens_file)
     logging.info("\n\nStarting.... make_intensities")
     logging.info(' '.join(sys.argv))
 
     if to_write:
-        timer       = py_utils.my_timer()
-        pm          = read_config.get_detector_config(args.config_file, show=args.vb)
-        q_pm        = read_config.compute_q_params(pm['detd'], pm['dets_x'], pm['dets_y'], pm['pixsize'], pm['wavelength'], pm['ewald_rad'], show=args.vb)
+        timer = py_utils.MyTimer()
+        pm = read_config.get_detector_config(args.config_file, show=args.vb) #pylint: disable=C0103
+        q_pm = read_config.compute_q_params(pm['detd'], pm['dets_x'],
+                                            pm['dets_y'], pm['pixsize'],
+                                            pm['wavelength'], pm['ewald_rad'], show=args.vb)
         timer.reset_and_report("Reading experiment parameters") if args.vb else timer.reset()
 
-        fov_len     = 2 * int(np.ceil(q_pm['fov_in_A']/q_pm['half_p_res']/2.)) + 3
-        logging.info('Volume size: %d' % fov_len) 
-        den         = py_utils.read_density(den_file, binary=True)
-        min_over    = float(fov_len)/den.shape[0]
+        fov_len = 2 * int(np.ceil(q_pm['fov_in_A']/q_pm['half_p_res']/2.)) + 3
+        logging.info('Volume size: %d', fov_len)
+        den = py_utils.read_density(den_file)
+        min_over = float(fov_len)/den.shape[0]
         if min_over > 12:
             if py_utils.confirm_oversampling(min_over) is False:
                 sys.exit(0)
         timer.reset_and_report("Reading densities") if args.vb else timer.reset()
 
-        pad_den     = np.zeros(3*(fov_len,))
-        den_sh      = den.shape
-        pad_den[:den_sh[0],:den_sh[1],:den_sh[2]] = den.copy()
-        #ft          = np.abs(np.fft.fftshift(np.fft.fftn(pad_den)))
-        ft          = np.abs(np.fft.fftshift(pyfftw.interfaces.numpy_fft.fftn(pad_den, threads=num_threads, planner_effort='FFTW_ESTIMATE')))
-        intens      = ft*ft
+        pad_den = np.zeros(3*(fov_len,))
+        den_sh = den.shape
+        pad_den[:den_sh[0], :den_sh[1], :den_sh[2]] = den.copy()
+        if WITH_PYFFTW:
+            intens = np.abs(np.fft.fftshift(pyfftw.interfaces.numpy_fft.fftn(
+                pad_den, threads=num_threads, planner_effort='FFTW_ESTIMATE')))**2
+        else:
+            intens = np.abs(np.fft.fftshift(np.fft.fftn(pad_den)))**2
         timer.reset_and_report("Computing intensities") if args.vb else timer.reset()
 
         py_utils.write_density(intens_file, intens, binary=True)
@@ -52,3 +75,6 @@ if __name__ == "__main__":
         timer.report_time_since_beginning() if args.vb else timer.reset()
     else:
         pass
+
+if __name__ == "__main__":
+    main()

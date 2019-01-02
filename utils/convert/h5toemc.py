@@ -110,10 +110,10 @@ if __name__ == '__main__':
         flist = [args.h5_name]
 
     if args.out_fname is None:
-        emcwriter = writeemc.EMC_writer('%s/%s.emc' % (output_folder, os.path.splitext(os.path.basename(args.h5_name))[0]),
+        emcwriter = writeemc.EMCWriter('%s/%s.emc' % (output_folder, os.path.splitext(os.path.basename(args.h5_name))[0]),
                                         pm['dets_x']*pm['dets_y'])
     else:
-        emcwriter = writeemc.EMC_writer(args.out_fname, pm['dets_x']*pm['dets_y'])
+        emcwriter = writeemc.EMCWriter(args.out_fname, pm['dets_x']*pm['dets_y'])
 
     for fnum, fname in enumerate(flist):
         f = h5py.File(fname, 'r')

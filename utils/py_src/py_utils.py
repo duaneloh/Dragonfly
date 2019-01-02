@@ -1,37 +1,43 @@
-import numpy as np
+'''Miscellaneous utility functions called by one or more python modules'''
+
+from __future__ import print_function
+from builtins import input
 import time
-import ConfigParser
 import argparse
 import os
 import sys
-import re
 import logging
-from glob import glob
+from six.moves import configparser
+import numpy as np
+from . import readdet, reademc, readvol
 
-class my_timer(object):
+class MyTimer(object):
+    '''Class to report elapsed time for logging'''
     def __init__(self):
-        self.t0 = time.time()
-        self.ts = self.t0
+        self._time0 = time.time()
+        self._time_start = self._time0
 
     def reset(self):
-        t1 = time.time()
-        self.t0 = t1
+        '''Update time'''
+        self._time0 = time.time()
 
     def reset_global(self):
-        t1 = time.time()
-        self.ts = t1
+        '''Update global start time'''
+        self._time_start = time.time()
 
     def reset_and_report(self, msg):
-        t1 = time.time()
-        #print "{:-<30}:{:5.5f} seconds".format(msg, t1-self.t0)
-        logging.info("{:-<30}:{:5.5f} seconds".format(msg, t1-self.t0))
-        self.t0 = t1
+        '''Update time and log difference since last reset'''
+        time1 = time.time()
+        logging.info("%-30s:%5.5f seconds", msg, time1-self._time0)
+        self._time0 = time1
 
     def report_time_since_beginning(self):
+        '''Log time difference since start'''
         logging.info("="*20)
-        logging.info("{:-<30}:{:5.5f} seconds".format("Since beginning", time.time() - self.ts))
+        logging.info("%-30s:%5.5f seconds", "Since beginning", time.time() - self._time_start)
 
-class my_argparser(argparse.ArgumentParser):
+class MyArgparser(argparse.ArgumentParser):
+    '''Modified ArgumentParser to add default arguments common across all utilities'''
     def __init__(self, description=""):
         argparse.ArgumentParser.__init__(self, description=description,
                                          formatter_class=argparse.RawTextHelpFormatter)
@@ -39,136 +45,168 @@ class my_argparser(argparse.ArgumentParser):
                           help="config file (default config.ini)")
         self.add_argument("-v", "--verbose", dest="vb", action="store_true", default=False)
         self.add_argument("-m", "--main_dir", dest="main_dir",
-                          help="relative path to main repository directory\n(where data aux utils are stored)")
+                          help="relative path to main repository directory\n"
+                               "(where data aux utils are stored)")
+        self.add_argument("-y", "--yes", help="say yes to all question prompts",
+                          action="store_true")
 
     def special_parse_args(self):
+        '''Parse command line arguments
+        Log if config file and main directory used are defaults
+        '''
         args = self.parse_args()
         if not args.config_file:
             args.config_file = "config.ini"
-            logging.info("Config file not specified. Using " + args.config_file)
+            logging.info("Config file not specified. Using %s", args.config_file)
         if not args.main_dir:
             args.main_dir = os.path.split(os.path.abspath(args.config_file))[0]
-            logging.info("Main directory not specified. Using " + args.main_dir)
+            logging.info("Main directory not specified. Using %s", args.main_dir)
         return args
 
 def write_density(in_den_file, in_den, binary=True):
+    '''Write density volume to file (binary or text format)'''
     if binary:
         in_den.astype('float64').tofile(in_den_file)
     else:
-        with open(in_den_file, "w") as fp:
-            for l0 in in_den:
-                for l1 in l0:
-                    tmp = ' '.join(l1.astype('str'))
-                    fp.write(tmp + '\n')
+        with open(in_den_file, "w") as fptr:
+            for line0 in in_den:
+                for line1 in line0:
+                    tmp = ' '.join(line1.astype('str'))
+                    fptr.write(tmp + '\n')
 
-def read_density(in_den_file, binary=True):
-    if binary:
-        den     = np.fromfile(in_den_file, dtype="float64")
-        sz      = len(den)
-        l       = int(np.round(np.power(sz, 1./3.)))
-        out_den = den.reshape(l,l,l)
-    else:
-        with open(in_den_file, "r") as fp:
-            lines   = fp.readlines()
-            den     = []
-            for l in lines:
-                den.append([float(s) for s in l.strip().split()])
-            den     = np.array(den)
-        sz      = len(den)
-        l       = int(np.round(np.power(sz, 1./2.)))
-        out_den = den.reshape(l,l,l)
+def read_density(in_den_file):
+    '''Read density volume from file (binary)'''
+    den = np.fromfile(in_den_file, dtype="float64")
+    vol = len(den)
+    size = int(np.round(np.power(vol, 1./3.)))
+    out_den = den.reshape(3*(size,))
     return out_den
 
-def check_to_overwrite(fn):
+def check_to_overwrite(fname):
+    '''Check if file exists and prompt before overwriting
+    By default, the file is overwritten
+    '''
     overwrite = True
-    yes = set(['yes', 'y', '', 'yup', 'ya'])
-    no  = set(['no', 'n', 'nope', 'nay', 'not'])
-    if os.path.isfile(fn):
-        sys.stdout.write("%s is present. Overwrite? [Y or Return/N]: " % fn)
-        choice = raw_input().lower()
-        if choice in yes:
+    yes_val = set(['yes', 'y', '', 'yup', 'ya'])
+    no_val = set(['no', 'n', 'nope', 'nay', 'not'])
+    if os.path.isfile(fname):
+        sys.stdout.write("%s is present. Overwrite? [Y or Return/N]: " % fname)
+        choice = input().lower()
+        if choice in yes_val:
             overwrite = True
-            print "Overwriting " + fn
-            logging.info("Overwriting " + fn)
-        elif choice in no:
+            print("Overwriting " + fname)
+            logging.info("Overwriting %s", fname)
+        elif choice in no_val:
             overwrite = False
-            print "Not overwriting " + fn
-            logging.info("Not overwriting " + fn)
+            print("Not overwriting " + fname)
+            logging.info("Not overwriting %s", fname)
         else:
             sys.stdout.write("Please respond with 'yes' or 'no'")
             overwrite = False
     return overwrite
 
 def confirm_oversampling(ratio):
+    '''Print message for user if oversampling ratio is too high
+    Prompt for continuation
+    '''
     proceed = True
     done = False
-    yes = set(['yes', 'y', '', 'yup', 'ya'])
-    no  = set(['no', 'n', 'nope', 'nay', 'not'])
-    print 'Oversampling ratio = %.2f is a little high. This is inefficient.' % ratio
-    print 'Please see http://www.github.com/duaneloh/Dragonfly/wiki/Oversampling for tips'
+    yes_val = set(['yes', 'y', '', 'yup', 'ya'])
+    no_val = set(['no', 'n', 'nope', 'nay', 'not'])
+    print('Oversampling ratio = %.2f is a little high. This is inefficient.' % ratio)
+    print('Please see http://www.github.com/duaneloh/Dragonfly/wiki/Oversampling for tips')
     sys.stdout.write('Continue anyway? [Y or Return/N]: ')
     while not done:
-        choice = raw_input().lower()
-        if choice in yes:
+        choice = input().lower()
+        if choice in yes_val:
             proceed = True
             done = True
-            logging.info("Continuing with minimum oversampling ratio = %.2f" % ratio)
-        elif choice in no:
+            logging.info("Continuing with minimum oversampling ratio = %.2f", ratio)
+        elif choice in no_val:
             proceed = False
             done = True
-            logging.info("Minimum oversampling ratio of %.2f too high. Quitting" % ratio)
+            logging.info("Minimum oversampling ratio of %.2f too high. Quitting", ratio)
         else:
             sys.stdout.write("Please respond with 'yes' or 'no': ")
             proceed = False
-    return proceed 
+    return proceed
 
-def name_recon_dir(tag, num):
+def _name_recon_dir(tag, num):
     return "%s_%04d"%(tag, num)
 
 def create_new_recon_dir(tag="recon", num=1, prefix="./"):
-    recon_dir = os.path.join(prefix, name_recon_dir(tag, num))
-    while(os.path.exists(recon_dir)):
+    '''Create reconstruction directory
+    For given tag, creates directory with first number which does not already exist
+    'prefix' option can be set if parent folder is not the current directory
+    '''
+    recon_dir = os.path.join(prefix, _name_recon_dir(tag, num))
+    while os.path.exists(recon_dir):
         num += 1
-        recon_dir = os.path.join(prefix, os.path.join(name_recon_dir(tag, num)))
-    msg = 'New recon directory created with name: ' + recon_dir
-    logging.info(msg)
+        recon_dir = os.path.join(prefix, os.path.join(_name_recon_dir(tag, num)))
+    logging.info('New recon directory created with name: %s', recon_dir)
     os.mkdir(recon_dir)
-    sub_dir = {"data":["scale", "orientations", "mutualInfo", "weights", "output", "likelihood"], "images":[]}
-    for k,v in sub_dir.items():
-        os.mkdir(os.path.join(recon_dir, k))
-        if len(v) > 0:
-            for vv in v:
-                os.mkdir(os.path.join(recon_dir, k, vv))
-    if not os.path.exists(name_recon_dir(tag, num)):
-        os.symlink(recon_dir, name_recon_dir(tag, num))
+    sub_dir = {"data":["scale", "orientations", "mutualInfo",
+                       "weights", "output", "likelihood"],
+               "images":[]}
+    for key, val in sub_dir.items():
+        os.mkdir(os.path.join(recon_dir, key))
+        if val:
+            for valitem in val:
+                os.mkdir(os.path.join(recon_dir, key, valitem))
+    if not os.path.exists(_name_recon_dir(tag, num)):
+        os.symlink(recon_dir, _name_recon_dir(tag, num))
     return recon_dir
 
-def use_last_recon_as_starting_model(config_fname, output_subdir="output"):
-    config = ConfigParser.ConfigParser()
-    config.read(config_fname)
-
-    emc_data_dir = os.path.join(config.get("emc", "out_folder"), output_subdir)
-    recon_out_files = glob(os.path.join(emc_data_dir, "intens*.bin"))
-    (max_tag, max_file) = (0, "")
-    for f in recon_out_files:
-        t = int(re.search("intens_(\d+).bin", f).group(1))
-        if t > max_tag:
-            max_tag = t
-            max_file = f
-    logging.info("Setting start_model_file to " + max_file)
-    config.set("emc", "start_model_file", max_file)
-    with open(config_fname, "w") as fp:
-        config.write(fp)
-
 def increment_quat_file_sensibly(config_fname, incr):
-    config = ConfigParser.ConfigParser()
+    '''Increments num_div in config file by incr'''
+    config = configparser.ConfigParser()
     config.read(config_fname)
 
     quat_num_div = int(config.get("emc", "num_div"))
-    msg = ["Setting quaternion from", str(quat_num_div), "to", str(quat_num_div+incr)]
-    logging.info(' '.join(msg))
+    logging.info("Setting quaternion from %s to %s", str(quat_num_div), str(quat_num_div+incr))
     quat_num_div += incr
     config.set("emc", "num_div", quat_num_div)
 
-    with open(config_fname, "w") as fp:
-        config.write(fp)
+    with open(config_fname, "w") as fptr:
+        config.write(fptr)
+
+def gen_det_and_emc(gui, classifier=False, mask=False):
+    '''Creates EMCReader and DetReader instances for GUIs'''
+    if len(set(gui.det_list)) == 1:
+        geom_list = [readdet.DetReader(gui.det_list[0], gui.detd, gui.ewald_rad, mask_flag=mask)]
+        geom_mapping = None
+    else:
+        if classifier:
+            print('The Classifier GUI will likely have problems with multiple geometries')
+            print('We recommend classifying patterns with a common geometry')
+        uniq = sorted(set(gui.det_list))
+        geom_list = [readdet.DetReader(fname, gui.detd, gui.ewald_rad, mask_flag=mask)
+                     for fname in uniq]
+        geom_mapping = [uniq.index(fname) for fname in gui.det_list]
+    gui.geom = geom_list[0]
+    gui.emc_reader = reademc.EMCReader(gui.photons_list, geom_list, geom_mapping)
+
+class DummyGeom(object):
+    pass
+
+def gen_stack(gui):
+    size = gui.stack_size
+    gui.emc_reader = readvol.VolReader(gui.photons_list[0], size)
+    gui.geom = DummyGeom()
+    ix, iy = np.indices((size,size))
+    gui.geom.cx = ix.ravel().astype('f8') - size//2
+    gui.geom.cy = iy.ravel().astype('f8') - size//2
+    gui.geom.unassembled_mask = np.ones(size*size)
+
+def increment_beta_sensibly(config_fname, incr):
+    config = ConfigParser.ConfigParser()
+    config.read(config_fname)
+
+    beta = float(config.get("emc", "beta"))
+    msg = ["Setting beta from", str(beta), "to", str(beta*incr)]
+    logging.info(' '.join(msg))
+    beta *= incr
+    config.set("emc", "beta", beta)
+    
+    with open("config.ini", "w") as fptr:
+        config.write(fptr)

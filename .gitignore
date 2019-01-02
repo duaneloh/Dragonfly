@@ -21,6 +21,13 @@ data
 !/utils/src
 !/utils/*.py
 !/utils/convert
+!/utils/cython
+
+# Cython output
+/pyemc/build
+/pyemc/src
+/pyemc/*.c
+/pyemc/*.so
 
 # Config file
 config.ini

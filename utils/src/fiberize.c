@@ -3,7 +3,7 @@
 
 int size, center, num_pix ;
 
-void detgen(struct detector *det) {
+void make_flat_detector(struct detector *det) {
 	int x, y, t ;
 	
 	det->num_pix = size*size ;
@@ -49,7 +49,7 @@ void rotate_slice(double *in, double angle, double weight, double *out) {
 }
 
 int main(int argc, char *argv[]) {
-	int t, num_angles = 720. ;
+	int t, num_angles = 720 ;
 	double a, c, s, w, sigma, quat[4] ;
 	double *volume, *slice, *temp_slice ;
 	FILE *fp ;
@@ -71,7 +71,7 @@ int main(int argc, char *argv[]) {
 	fclose(fp) ;
 	
 	det = malloc(sizeof(struct detector)) ;
-	detgen(det) ;
+	make_flat_detector(det) ;
 	
 	slice = calloc(num_pix, sizeof(double)) ;
 	temp_slice = malloc(num_pix * sizeof(double)) ;
@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
 		quat[2] = quat[0] ;
 		quat[3] = quat[1] ;
 		
-		slice_gen(quat, 0., temp_slice, volume, size, det) ;
+		slice_gen3d(quat, 0., temp_slice, volume, size, det) ;
 		for (t = 0 ; t < num_pix ; ++t)
 			slice[t] += temp_slice[t] ;
 		fprintf(stderr, "\r%.2f", a*180./M_PI) ;
@@ -119,6 +119,10 @@ int main(int argc, char *argv[]) {
 	fp = fopen("data/blurred_slice.bin", "wb") ;
 	fwrite(temp_slice, sizeof(double), num_pix, fp) ;
 	fclose(fp) ;
+	
+	free(slice) ;
+	free(temp_slice) ;
+	free_detector(det) ;
 	
 	return 0 ;
 }
