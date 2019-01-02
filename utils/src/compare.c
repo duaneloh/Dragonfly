@@ -8,9 +8,7 @@
 #include "../../src/quat.h"
 #include "../../src/interp.h"
 
-int rank, num_proc ;
-char config_section[1024] ;
-int s, c, rmax, rmin, max_r = 0 ;
+long s, c, rmax, rmin, max_r = 0 ;
 double i2i2, max_corr ;
 
 char* extract_fname(char* fullName) {
@@ -90,7 +88,7 @@ int parse_arguments(int argc, char *argv[], char *output_fname, char *intens_fna
 }
 
 void calc_corr(struct rotation *quat, double *m1, double *m2) {
-	int vol = s*s*s ;
+	long vol = s*s*s ;
 	max_corr = -DBL_MAX ;
 	
 	#pragma omp parallel default(shared)
@@ -105,7 +103,8 @@ void calc_corr(struct rotation *quat, double *m1, double *m2) {
 		#pragma omp for schedule(static,1)
 		for (r = 0 ; r < quat->num_rot ; ++r) {
 			// Rotate model
-			make_rot_quat(&quat->quat[r*5], rot) ;
+			memset(rotmodel, 0, vol*sizeof(double)) ;
+			make_rot_quat(&(quat->quat[r*5]), rot) ;
 			rotate_model(rot, m1, s, rotmodel) ;
 			
 			// Calculate i1i1 and i1i2
@@ -138,8 +137,8 @@ void calc_corr(struct rotation *quat, double *m1, double *m2) {
 		free(rotmodel) ;
 	}
 	
-	printf("\nMax corr = %f for max_r = %d\n", max_corr, max_r) ;
-	printf("Orientation for max corr = %d: %.9f %.9f %.9f %.9f\n", 
+	printf("\nMax corr = %f for max_r = %ld\n", max_corr, max_r) ;
+	printf("Orientation for max corr = %ld: %.9f %.9f %.9f %.9f\n", 
 	       max_r, quat->quat[max_r*5], quat->quat[max_r*5+1], quat->quat[max_r*5+2], quat->quat[max_r*5+3]) ;
 }
 
@@ -206,7 +205,9 @@ void save_rotmodel(struct rotation *quat, double *m1, char *fname) {
 	rotate_model(rot, m1, s, rotmodel) ;
 	
 	// Write rotmodel to file
-	sprintf(rotfname, "data/%s-rot.bin", remove_ext(extract_fname(fname))) ;
+	char *base = remove_ext(extract_fname(fname)) ;
+	sprintf(rotfname, "data/%s-rot.bin", base) ;
+	free(base) ;
 	fp = fopen(rotfname, "wb") ;
 	fwrite(rotmodel, sizeof(double), vol, fp) ;
 	fclose(fp) ;
@@ -214,7 +215,7 @@ void save_rotmodel(struct rotation *quat, double *m1, char *fname) {
 	free(rotmodel) ;
 }
 
-void subtract_radial_average(double *model1, double *model2, double *model1_rad, double *model2_rad) {
+void subtract_radial_average(double *model1, double *model2, double exponent, double *model1_rad, double *model2_rad) {
 	int x, y, z, bin, *count ;
 	double dist, *mean1, *mean2 ;
 	
@@ -230,8 +231,8 @@ void subtract_radial_average(double *model1, double *model2, double *model1_rad,
 		if (bin > c-1)
 			continue ;
 		
-		mean1[bin] += model1[x*s*s + y*s + z] ;
-		mean2[bin] += model2[x*s*s + y*s + z] ;
+		mean1[bin] += pow(model1[x*s*s + y*s + z], exponent) ;
+		mean2[bin] += pow(model2[x*s*s + y*s + z], exponent) ;
 		count[bin]++ ;
 	}
 	
@@ -251,8 +252,8 @@ void subtract_radial_average(double *model1, double *model2, double *model1_rad,
 			model2_rad[x*s*s + y*s + z] = 0. ;
 		}
 		else {
-			model1_rad[x*s*s + y*s + z] = model1[x*s*s + y*s + z] - mean1[bin] ;
-			model2_rad[x*s*s + y*s + z] = model2[x*s*s + y*s + z] - mean2[bin] ;
+			model1_rad[x*s*s + y*s + z] = pow(model1[x*s*s + y*s + z], exponent) - mean1[bin] ;
+			model2_rad[x*s*s + y*s + z] = pow(model2[x*s*s + y*s + z], exponent) - mean2[bin] ;
 		}
 	}
 	
@@ -282,7 +283,6 @@ void gen_subset(struct rotation *quat, int num_div, double dmax) {
 			quat->num_rot++ ;
 		}
 	}
-	printf("\nNew num_rot = %d\n", quat->num_rot) ;
 }
 
 int main(int argc, char *argv[]) {
@@ -298,29 +298,30 @@ int main(int argc, char *argv[]) {
 	vol = s*s*s ;
 	
 	// Parse models
-	model1 = malloc(vol * sizeof(double)) ;
-	model1_rad = malloc(vol * sizeof(double)) ;
 	fp = fopen(intens_fname1, "rb") ;
 	if (fp == NULL) {
 		fprintf(stderr, "Unable to open first file: %s\n", intens_fname1) ;
 		return 1 ;
 	}
+	model1 = malloc(vol * sizeof(double)) ;
 	fread(model1, sizeof(double), vol, fp) ;
 	fclose(fp) ;
 	
-	model2 = malloc(vol * sizeof(double)) ;
-	model2_rad = malloc(vol * sizeof(double)) ;
 	fp = fopen(intens_fname2, "rb") ;
 	if (fp == NULL) {
 		fprintf(stderr, "Unable to open second file: %s\n", intens_fname2) ;
+		free(model1) ;
 		return 1 ;
 	}
+	model2 = malloc(vol * sizeof(double)) ;
 	fread(model2, sizeof(double), vol, fp) ;
 	fclose(fp) ;
 	fprintf(stderr, "Parsed models from %s and %s\n", intens_fname1, intens_fname2) ;
 	
 	// Radial average subtraction
-	subtract_radial_average(model1, model2, model1_rad, model2_rad) ;
+	model1_rad = malloc(vol * sizeof(double)) ;
+	model2_rad = malloc(vol * sizeof(double)) ;
+	subtract_radial_average(model1, model2, 1., model1_rad, model2_rad) ;
 	fprintf(stderr, "Radial average subtracted\n") ;
 	
 	// Calculate i2i2 as it is not being rotated
@@ -333,22 +334,26 @@ int main(int argc, char *argv[]) {
 	calc_corr(quat, model1_rad, model2_rad) ;
 	
 	// Generate subset and recalculate max_corr
-	gen_subset(quat, 30, 0.06) ;
+	gen_subset(quat, 30, 0.04) ;
 	calc_corr(quat, model1_rad, model2_rad) ;
-	gen_subset(quat, 50, 0.02) ;
+	gen_subset(quat, 40, 0.01) ;
 	calc_corr(quat, model1_rad, model2_rad) ;
 	
 	// Calculate radial_corr for best orientation and save rotated model
 	char fname[500] ;
-	if (output_fname == '\0')
-		sprintf(fname, "data/%s.dat", remove_ext(extract_fname(intens_fname1))) ;
-	else
+	if (output_fname == '\0') {
+		char *base = remove_ext(extract_fname(intens_fname1)) ;
+		sprintf(fname, "data/%s.dat", base) ;
+		free(base) ;
+	}
+	else {
 		sprintf(fname, "data/%s.dat", output_fname) ;
+	}
 	fprintf(stderr, "Saving FSC to %s\n", fname) ;
 	
 	rmin = 2 ;
 	rmax = c - 1 ;
-	subtract_radial_average(model1, model2, model1_rad, model2_rad) ;
+	subtract_radial_average(model1, model2, 1., model1_rad, model2_rad) ;
 	calc_radial_corr(quat, model1_rad, model2_rad, fname) ;
 	// Save un-(radially subtracted) rotated model
 	save_rotmodel(quat, model1, fname) ;

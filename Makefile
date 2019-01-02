@@ -1,11 +1,16 @@
-.PHONY: mkdir env
+.PHONY: mkdir clean unit_test
 
 MPICC = mpicc
 CC = gcc
-OMPI_CC = $(CC)
 
-CFLAGS = $(shell gsl-config --cflags) -Wno-unused-result -O3 -Wall -fopenmp
-LIBS = $(shell gsl-config --libs) -fopenmp
+OMPI_CC = $(CC)
+ifneq (,$(findstring icc, $(CC)))
+	OMP_FLAG = -qopenmp
+else
+	OMP_FLAG = -fopenmp
+endif
+CFLAGS = $(shell gsl-config --cflags) -O3 -Wall $(OMP_FLAG)
+LIBS = $(shell gsl-config --libs) $(OMP_FLAG) -Wl,-rpath,$(shell gsl-config --prefix)/lib
 
 # Derive source files and targets
 # ============================================================
@@ -41,7 +46,8 @@ bin/detector.o: src/detector.h
 bin/dataset.o: src/dataset.h src/detector.h
 bin/interp.o: src/interp.h src/detector.h
 bin/quat.o: src/quat.h
-bin/iterate.o: src/iterate.h src/dataset.h src/detector.h
+bin/params.o: src/params.h
+bin/iterate.o: src/iterate.h src/dataset.h src/detector.h src/params.h
 
 $(EMC_OBJ): bin/%.o: src/%.c
 ifeq ($(OMPI_CC), gcc)
@@ -55,13 +61,22 @@ endif
 utils/compare: bin/quat.o bin/interp.o
 utils/make_quaternion: bin/quat.o
 utils/make_data: bin/detector.o bin/interp.o
-utils/merge: bin/detector.o bin/dataset.o bin/interp.o
+utils/merge: bin/detector.o bin/dataset.o bin/interp.o bin/iterate.o
 utils/fiberize: bin/detector.o bin/interp.o
+utils/cosmic: bin/detector.o bin/dataset.o
 
 $(UTILS): utils/%: utils/src/%.c
 	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
+
+# Cythonize C code and run unit tests
+# ============================================================
+test: all unit_test
+
+unit_test:
+	./utils/run_tests.sh
 
 # Remove compiled files
 # ============================================================
 clean:
 	rm -f emc $(UTILS) $(EMC_OBJ)
+	rm -rf pyemc/build pyemc/*.so

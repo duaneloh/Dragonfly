@@ -28,6 +28,7 @@ if __name__ == '__main__':
     parser.add_argument('h5_name', help='HDF5 file to convert to detector format')
     parser.add_argument('-M', '--mask', help='Path to detector style mask (0:good, 1:no_orient, 2:bad) in h5 file')
     parser.add_argument('--mask_dset', help='Data set in mask file. Default: /data/data', default='data/data')
+    parser.add_argument('--dragonfly_mask', help='Whether mask has Dragonfly style values or not. (Default: false)', default=False, action='store_true')
     args = parser.special_parse_args()
 
     logging.info('Starting cheetahtodet...')
@@ -58,13 +59,15 @@ if __name__ == '__main__':
     else:
         with h5py.File(args.mask, 'r') as f:
             mask = f[args.mask_dset][:].astype('u1').flatten()
+            if not args.dragonfly_mask:
+                mask = 2 - 2*mask
     
     det_file = output_folder + '/' + os.path.splitext(os.path.basename(args.h5_name))[0] + '.dat'
     logging.info('Writing detector file to %s'%det_file)
     sys.stderr.write('Writing detector file to %s\n'%det_file)
     
     with open(det_file, "w") as fp:
-        fp.write(str(qx.shape[0]) + "\n")
+        fp.write('%d %f %f\n' % (qx.shape[0], pm['detd']/pm['pixsize'], qscaling))
         for t0,t1,t2,t3,t4 in zip(qx,qy,qz,solid_angle,mask):
             txt = "%21.15e %21.15e %21.15e %21.15e %d\n"%(t0, t1, t2, t3, t4)
             fp.write(txt)

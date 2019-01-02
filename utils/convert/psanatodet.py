@@ -68,11 +68,11 @@ if __name__ == '__main__':
     else:
         mask = np.fromfile(pm['mask_fname'], '=u1')
 
-    det_file = output_folder + '/' + args.exp_string.split(':')[0][4:] + '.dat'
+    det_file = output_folder + '/det_' + args.exp_string.split(':')[0][4:] + '.dat'
     sys.stderr.write('Writing detector file to %s\n' % det_file)
     
     with open(det_file, "w") as fp:
-        fp.write(str(qx.shape[0]) + "\n")
+        fp.write("%d %f %f\n" % (qx.shape[0], detd/pm['pixsize'], qscaling))
         for t0,t1,t2,t3,t4 in zip(qx,qy,qz,solid_angle,mask):
             txt = "%21.15e %21.15e %21.15e %21.15e %d\n"%(t0, t1, t2, t3, t4)
             fp.write(txt)

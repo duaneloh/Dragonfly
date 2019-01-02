@@ -20,11 +20,11 @@
 #define FLUENCE 0
 #define COUNTS 1
 
-int rank, num_proc, size, num_rot, scale_method ;
+int testing_mode = 0 ;
+int size, num_rot, scale_method ;
 int **place_ones, **place_multi, *ones, *multi, **count_multi ;
 double *intens, *likelihood, *quat_list, *scale_factors ;
 struct detector *det ;
-char config_section[1024] ;
 
 // Config file params
 int num_data, do_gamma ;
@@ -50,13 +50,17 @@ int main(int argc, char *argv[]) {
 	
 	omp_set_num_threads(omp_get_max_threads()) ;
 	strcpy(config_fname, "config.ini") ;
-	while ((c = getopt(argc, argv, "c:t:h")) != -1) {
+	while ((c = getopt(argc, argv, "c:t:Th")) != -1) {
 		switch (c) {
 			case 't':
 				omp_set_num_threads(atoi(optarg)) ;
 				break ;
 			case 'c':
 				strcpy(config_fname, optarg) ;
+				break ;
+			case 'T':
+				testing_mode = 1 ;
+				fprintf(stderr, "====== Testing mode (fixed seed) ======\n") ;
 				break ;
 			case 'h':
 				fprintf(stderr, "Format: %s [-c config_fname] [-t num_threads] [-h]\n", argv[0]) ;
@@ -106,12 +110,17 @@ void rescale_intens() {
 	int x ;
 	double rescale = 0., intens_ave = 0. ;
 	const gsl_rng_type *T = gsl_rng_default ;
-	struct timeval tval ;
 	gsl_rng *rng = gsl_rng_alloc(T) ;
 	unsigned long *seeds = malloc(omp_get_max_threads() * sizeof(unsigned long)) ;
 	
-	gettimeofday(&tval, NULL) ;
-	gsl_rng_set(rng, tval.tv_sec + tval.tv_usec) ;
+	if (testing_mode) {
+		gsl_rng_set(rng, 0x5EED) ;
+	}
+	else {
+		struct timeval tval ;
+		gettimeofday(&tval, NULL) ;
+		gsl_rng_set(rng, tval.tv_sec + tval.tv_usec) ;
+	}
 	for (x = 0 ; x < omp_get_max_threads() ; ++x)
 		seeds[x] = gsl_rng_get(rng) ;
 	
@@ -127,17 +136,17 @@ void rescale_intens() {
 		for (d = 0 ; d < NUM_AVE ; ++d) {
 			if (num_rot == 0) {
 				rand_quat(quat, rng) ;
-				slice_gen(quat, 0., view, intens, size, det) ;
+				slice_gen3d(quat, 0., view, intens, size, det) ;
 			}
 			else {
-				slice_gen(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], 0., view, intens, size, det) ;
+				slice_gen3d(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], 0., view, intens, size, det) ;
 			}
-            
+			
 			for (t = 0 ; t < det->num_pix ; ++t){
 				if (det->mask[t] > 1)
 					continue ;
 				intens_ave += view[t] ;
-            }
+			}
 		}
 		
 		free(view) ;
@@ -145,6 +154,7 @@ void rescale_intens() {
 	}
 	
 	free(seeds) ;
+	gsl_rng_free(rng) ;
 	intens_ave /= NUM_AVE ;
 	
     if (scale_method == FLUENCE) {
@@ -188,12 +198,17 @@ double calc_dataset() {
 	int x ;
 	double actual_mean_count = 0. ;
 	const gsl_rng_type *T = gsl_rng_default ;
-	struct timeval tval ;
 	gsl_rng *rng = gsl_rng_alloc(T) ;
 	unsigned long *seeds = malloc(omp_get_max_threads() * sizeof(unsigned long)) ;
 	
-	gettimeofday(&tval, NULL) ;
-	gsl_rng_set(rng, tval.tv_sec + tval.tv_usec) ;
+	if (testing_mode) {
+		gsl_rng_set(rng, 0x5EED) ;
+	}
+	else {
+		struct timeval tval ;
+		gettimeofday(&tval, NULL) ;
+		gsl_rng_set(rng, tval.tv_sec + tval.tv_usec) ;
+	}
 	for (x = 0 ; x < omp_get_max_threads() ; ++x)
 		seeds[x] = gsl_rng_get(rng) ;
 	
@@ -209,10 +224,10 @@ double calc_dataset() {
 		for (d = 0 ; d < num_data ; ++d) {
 			if (num_rot == 0) {
 				rand_quat(quat, rng) ;
-				slice_gen(quat, 0., view, intens, size, det) ;
+				slice_gen3d(quat, 0., view, intens, size, det) ;
 			}
 			else {
-				slice_gen(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], 0., view, intens, size, det) ;
+				slice_gen3d(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], 0., view, intens, size, det) ;
 			}
 			
 			if (do_gamma)
@@ -257,6 +272,7 @@ double calc_dataset() {
 	}
 	 
 	free(seeds) ;
+	gsl_rng_free(rng) ;
 	fprintf(stderr, "\rFinished d = %d\n", num_data) ;
 	return actual_mean_count / num_data ;
 }
@@ -305,13 +321,13 @@ char *generate_token(char *line, char *section_name) {
 	return token ;
 }
 
-int generate_size_params(FILE *config_fp) {
+int generate_size_params(char *config_fname) {
 	double qmin, qmax, hx, hy ;
 	double detd = 0., pixsize = 0., ewald_rad = -1. ;
 	int detsize = 0, dets_x = 0, dets_y = 0 ;
 	char line[1024], section_name[1024], *token ;
 	
-	rewind(config_fp) ;
+	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
@@ -336,6 +352,7 @@ int generate_size_params(FILE *config_fp) {
 				ewald_rad = atof(strtok(NULL, " =\n")) ;
 		}
 	}
+	fclose(config_fp) ;
 	
 	if (detsize == 0 || pixsize == 0. || detd == 0.) {
 		fprintf(stderr, "Need detector parameters: detd, detsize, pixsize\n") ;
@@ -361,12 +378,12 @@ int generate_size_params(FILE *config_fp) {
 	return 0 ;
 }
 
-int generate_intens(FILE *config_fp) {
+int generate_intens(char *config_fname) {
 	FILE *fp ;
 	char intens_fname[1024], out_intens_fname[1024] ;
 	char line[1024], section_name[1024], *token ;
 	
-	rewind(config_fp) ;
+	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
@@ -380,6 +397,7 @@ int generate_intens(FILE *config_fp) {
 				strcpy(out_intens_fname, strtok(NULL, " =\n")) ;
 		}
 	}
+	fclose(config_fp) ;
 	if (strcmp(intens_fname, "make_intensities:::out_intensity_file") == 0)
 		strcpy(intens_fname, out_intens_fname) ;
 	
@@ -395,13 +413,13 @@ int generate_intens(FILE *config_fp) {
 	return 0 ;
 }
 
-int generate_quat_list(FILE *config_fp) {
+int generate_quat_list(char *config_fname) {
 	int t ;
 	FILE *fp ;
 	char quat_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;
 	
-	rewind(config_fp) ;
+	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
@@ -411,6 +429,7 @@ int generate_quat_list(FILE *config_fp) {
 				strcpy(quat_fname, strtok(NULL, " =\n")) ;
 		}
 	}
+	fclose(config_fp) ;
 	
 	if (quat_fname[0] != '\0') {
 		fprintf(stderr, "Picking discrete orientations from %s\n", quat_fname) ;
@@ -429,12 +448,9 @@ int generate_quat_list(FILE *config_fp) {
 	return 0 ;
 }
 
-int generate_globals(FILE *config_fp) {
+int generate_globals(char *config_fname) {
 	char line[1024], section_name[1024], *token ;
 	
-	rank = 0 ;
-	num_proc = 1 ;
-	strcpy(config_section, "make_data") ;
 	size = 0 ;
 	num_data = 0 ;
 	fluence = -1. ;
@@ -446,6 +462,7 @@ int generate_globals(FILE *config_fp) {
 	likelihood_fname[0] = '\0' ;
 	scale_fname[0] = '\0' ;
 	
+	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
@@ -469,6 +486,7 @@ int generate_globals(FILE *config_fp) {
 				strcpy(scale_fname, strtok(NULL, " =\n")) ;
 		}
 	}
+	fclose(config_fp) ;
 
 	// Check for required parameters
 	if (num_data == 0) {
@@ -516,19 +534,18 @@ int setup(char *config_fname) {
 		fprintf(stderr, "Config file %s not found.\n", config_fname) ;
 		return 1 ;
 	}
-	if (generate_globals(fp))
-		return 1 ;
-	if (generate_detectors(fp, &det, 0) < 0.)
-		return 1 ;
-	fprintf(stderr, "num_det = %d\n", det[0].num_det) ;
-	background /= det[0].num_pix ;
-	if (generate_size_params(fp))
-		return 1 ;
-	if (generate_intens(fp))
-		return 1 ;
-	if (generate_quat_list(fp))
-		return 1 ;
 	fclose(fp) ;
+	if (generate_globals(config_fname))
+		return 1 ;
+	if (generate_detectors(config_fname, "make_data", &det, 0) < 0.)
+		return 1 ;
+	background /= det[0].num_pix ;
+	if (generate_size_params(config_fname))
+		return 1 ;
+	if (generate_intens(config_fname))
+		return 1 ;
+	if (generate_quat_list(config_fname))
+		return 1 ;
 
 	return 0 ;
 }

@@ -1,25 +1,73 @@
 #!/usr/bin/env python
-import numpy as np
-import os
+
+'''Module to wrap running of EMC command'''
+
+from __future__ import print_function
 import subprocess
 import argparse
 import logging
 import sys
 from py_src import py_utils
 
-if __name__ == "__main__":
-    # logging config must occur before my_argparser, because latter already starts logging
-    logging.basicConfig(filename="recon.log", level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+def _apply_presets(args):
+    # Here are some custom hybrid configurations
+    if args.kane:
+        args.num_mpi = 9
+        args.num_threads = 8
+    elif args.kahuna:
+        args.num_mpi = 15
+        args.num_threads = 6
+    elif args.bayes:
+        args.num_mpi = 4
+        args.num_threads = 12
+    elif args.tukey:
+        args.num_mpi = 6
+        args.num_threads = 4
+    elif args.slac:
+        args.num_mpi = 16
+        args.num_threads = 2
+    elif args.davinci:
+        args.num_mpi = 3
+        args.num_threads = 4
+
+def _calculate_openmp_cmd(args):
+    # We might not need this anymore, except with the extend with quaternion up-refinement.
+    # Decide if we are just refining the reconstruction with more iterations
+    if args.resume_recon:
+        ext_str = "-r"
+    elif args.resume_recon_add_quat:
+        args.quat_add = 1
+        ext_str = "-r"
+    elif args.resume_recon_increase_beta:
+        args.beta_incr = 2
+        ext_str = "-r"
+    else:
+        ext_str = ""
+
+    if args.num_threads == -1:
+        cmd = ["./emc", "-c", args.config_file, ext_str, str(args.num_iter)]
+    else:
+        cmd = ("./emc -c %s -t %d %s %d"%(args.config_file, args.num_threads,
+                                          ext_str, args.num_iter)).split()
+    return cmd
+
+def main():
+    '''Uses command line arguments to wrap and run the emc program
+    Run run_emc.py -h for a list of options
+    '''
+    # logging config must occur before MyArgparser, because latter already starts logging
+    logging.basicConfig(filename="recon.log", level=logging.INFO,
+                        format='%(asctime)s - %(levelname)s - %(message)s')
     parser = argparse.ArgumentParser("Starts EMC reconstruction")
     parser.add_argument("-c", "--config_file", dest="config_file", default="config.ini")
     parser.add_argument("-r", dest="resume_recon", action='store_true', default=False,
                         help="resume reconstruction from last output")
     parser.add_argument("-R", dest="resume_recon_add_quat", action='store_true', default=False,
                         help="same as -r, except we increase quaternion sampling by one")
-    parser.add_argument("-B", dest="resume_recon_increase_beta", action='store_true', default=False,
-                        help="same as -r, except we increase beta by a factor of two")
     parser.add_argument("-q", dest="quat_add", type=int, default=0,
                         help="increase quaternion sampling by an integer (default=0)")
+    parser.add_argument("-B", dest="resume_recon_increase_beta", action='store_true', default=False,
+                        help="same as -r, except we increase beta by a factor of two")
     parser.add_argument("-b", dest="beta_incr", type=float, default=1.,
                         help="increase beta by multiplying with a float (default=1.)")
     parser.add_argument("-m", dest="num_mpi", type=int, default=0,
@@ -40,54 +88,13 @@ if __name__ == "__main__":
     logging.info("\n\nStarting run_emc....")
     logging.info(sys.argv)
 
-    # Here are some custom hybrid configurations
-    if args.kane:
-        args.num_mpi = 9 
-        args.num_threads = 8
-    if args.kahuna:
-        args.num_mpi = 15
-        args.num_threads = 6
-    elif args.bayes:
-        args.num_mpi = 4
-        args.num_threads = 12
-    elif args.tukey:
-        args.num_mpi = 6
-        args.num_threads = 4
-    elif args.slac:
-        args.num_mpi = 16
-        args.num_threads = 2
-    elif args.davinci:
-        args.num_mpi = 3
-        args.num_threads = 4
+    _apply_presets(args)
 
-    # We might not need this anymore, except with the extend with quaternion up-refinement.
-    # Decide if we are just refining the reconstruction with more iterations
-    if args.resume_recon:
-        ext_str = "-r"
-    elif args.resume_recon_add_quat:
-        args.quat_add = 1
-        ext_str = "-r"
-    elif args.resume_recon_increase_beta:
-        args.beta_incr = 2
-        ext_str = "-r"
-    else:
-        ext_str = ""
+    openmp_cmd = _calculate_openmp_cmd(args)
 
-    if args.num_threads == -1:
-        openMP_cmd = ["./emc", "-c", str(args.config_file), ext_str, str(args.num_iter)]
-    else:
-        openMP_cmd = ["./emc", "-c", str(args.config_file), "-t", str(args.num_threads), ext_str, str(args.num_iter)]
-
-    # Determine of quaternions should be incremented in the log file and recomputed
+    # Determine if quaternions should be incremented in the config file
     if args.quat_add != 0:
         py_utils.increment_quat_file_sensibly(args.config_file, args.quat_add)
-        cmd = "./make_quaternion " + args.config_file
-        if not args.dry_run:
-            logging.info(20*"=" + "\n")
-            logging.info(20*"=" + "\n" + cmd)
-            subprocess.call(cmd, shell=True)
-        else:
-            print cmd
 
     # Beta should incremented in the log file
     if args.beta_incr != 1:
@@ -98,21 +105,23 @@ if __name__ == "__main__":
     if args.davinci:
         MPI_options.append("--bind-to none")
 
-    # Switch between openMP only or openMPI + openMP
+    # Switch between openMP only or MPI + openMP
     if args.num_mpi > 0:
-        cmd = ' '.join(["mpirun -n", str(args.num_mpi)] + MPI_options + openMP_cmd)
-        
+        cmd = ' '.join(["mpirun -n", str(args.num_mpi)] + MPI_options + openmp_cmd)
         if not args.dry_run:
             logging.info(20*"=" + "\n")
             logging.info(20*"=" + "\n" + cmd)
             subprocess.call(cmd, shell=True)
         else:
-            print cmd
+            print(cmd)
     else:
-        cmd = ' '.join(openMP_cmd)
+        cmd = ' '.join(openmp_cmd)
         if not args.dry_run:
             logging.info(20*"=" + "\n")
             logging.info(20*"=" + "\n" + cmd)
             subprocess.call(cmd, shell=True)
         else:
-            print cmd
+            print(cmd)
+
+if __name__ == "__main__":
+    main()

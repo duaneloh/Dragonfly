@@ -6,6 +6,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include <stdint.h>
+#include <libgen.h>
 #include <math.h>
 
 struct detector {
@@ -18,11 +19,7 @@ struct detector {
 	int num_det, num_dfiles, mapping[1024] ;
 } ;
 
-extern int rank, num_proc ;
-extern char config_section[1024] ;
-
-double generate_detectors(FILE*, struct detector**, int) ;
-void generate_size(double, long*, long*) ;
+double generate_detectors(char*, char*, struct detector**, int) ;
 double parse_detector(char*, struct detector*, int) ;
 double parse_detector_list(char*, struct detector**, int) ;
 void free_detector(struct detector*) ;
