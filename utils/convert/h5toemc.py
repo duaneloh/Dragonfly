@@ -9,9 +9,10 @@ Needs:
     <h5_fname> - Path to photon-converted h5 file used in SPI
 
 Produces:
-    EMC file with all the single hits in the h5 file
+    EMC file with all the frames in the h5 file (list)
 '''
 
+from __future__ import print_function
 import os
 import numpy as np
 import h5py
@@ -37,7 +38,7 @@ def get_dset(fp, args):
         try:
             dset = fp[args.dset_name]
         except KeyError:
-            print 'Dataset not found. Moving on.'
+            print('Dataset not found. Moving on.')
             return None 
         logging.info('Converting data in '+ args.dset_name)
     return dset
@@ -98,7 +99,7 @@ if __name__ == '__main__':
     curr_num_data = 0
 
     if not os.path.isfile(args.h5_name):
-        print 'Data file %s not found. Exiting.' % args.h5_name
+        print('Data file %s not found. Exiting.' % args.h5_name)
         logging.error('Data file %s not found. Exiting.' % args.h5_name)
         sys.exit()
 
@@ -106,7 +107,6 @@ if __name__ == '__main__':
         logging.info('Reading file names in list %s' % args.h5_name)
         with open(args.h5_name, 'r') as f:
             flist = [os.path.realpath(fname.rstrip()) for fname in f.readlines()]
-        logging.info
     else:
         flist = [args.h5_name]
 
@@ -135,9 +135,9 @@ if __name__ == '__main__':
                 photons = dset[:]
             photons[photons<0] = 0
             if args.binning is None:
-                emcwriter.write_frame(photons.flatten())
+                emcwriter.write_frame(photons.ravel())
             else:
-                emcwriter.write_frame(bin_image(photons, args.binning).flatten())
+                emcwriter.write_frame(bin_image(photons, args.binning).ravel())
             if not args.list:
                 sys.stderr.write('\rFinished %d/%d' % (i+1, num_frames))
 
