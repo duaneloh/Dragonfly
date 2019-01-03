@@ -255,15 +255,19 @@ static int parse_background_list(char *flist, struct detector **det_list) {
 	while (fscanf(fp, "%1023s\n", rel_fname) == 1) {
 		absolute_strcpy(flist_folder, abs_fname, rel_fname) ;
 		if (i < ndet) {
-			if (parse_background(abs_fname, det_list[i]))
+			if (parse_background(abs_fname, det_list[i])) {
+				fclose(fp) ;
 				return 1 ;
+			}
 		}
 		i++ ;
 	}
 	if (i != ndet) {
 		fprintf(stderr, "Mismatch of number of background and unique detector files (%d vs %d)\n", i, ndet) ;
+		fclose(fp) ;
 		return 1 ;
 	}
+	fclose(fp) ;
 	
 	return 0 ;
 }
