@@ -344,7 +344,8 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 	int dset = 0, t, d, curr_d, pixel, mode, rotind, detn, old_detn = -1 ;
 	struct dataset *curr = frames ;
 	double pval, *view ;
-	int *num_prob = priv->num_prob ;
+	int *num_prob = priv->num_prob, **probpos = priv->probpos ;
+	double **prob = priv->prob ;
 	
 	rotind = (r*param->num_proc + param->rank) / param->modes ;
 	mode = (r*param->num_proc + param->rank) % param->modes ;
@@ -425,16 +426,16 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 					pval -= pow(curr->frames[curr_d*curr->num_pix + t] - view[t]*iter->rescale[detn], 2.) ;
 			}
 			
-			// Only save value in prob array if it is at least as big as
+			// Only save value in prob array if it is significant
 			if (pval > priv->max_exp_p[d] - PDIFF_THRESH) {
-				priv->prob[d][num_prob[d]] = pval ;
-				priv->probpos[d][num_prob[d]] = r*param->num_proc + param->rank ;
+				prob[d][num_prob[d]] = pval ;
+				probpos[d][num_prob[d]] = r*param->num_proc + param->rank ;
 				num_prob[d]++ ;
 				
 				// If num_prob is a power of two, expand array
 				if ((num_prob[d] & (num_prob[d] - 1)) == 0) {
-					priv->prob[d] = realloc(priv->prob[d], num_prob[d] * 2 * sizeof(double)) ;
-					priv->probpos[d] = realloc(priv->probpos[d], num_prob[d] * 2 * sizeof(int)) ;
+					prob[d] = realloc(prob[d], num_prob[d] * 2 * sizeof(double)) ;
+					probpos[d] = realloc(probpos[d], num_prob[d] * 2 * sizeof(int)) ;
 				}
 			}
 			
@@ -443,7 +444,7 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 			if (pval > priv->max_exp_p[d]) {
 				priv->max_exp_p[d] = pval ;
 				priv->rmax[d] = r*param->num_proc + param->rank ;
-				num_prob[d] = resparsify(priv->prob[d], priv->probpos[d], num_prob[d], pval) ;
+				num_prob[d] = resparsify(prob[d], probpos[d], num_prob[d], pval) ;
 			}
 		}
 		
@@ -467,9 +468,17 @@ void normalize_prob(struct max_data *priv, struct max_data *common) {
 		if (priv->max_exp_p[d] > common->max_exp_p[d]) {
 			common->max_exp_p[d] = priv->max_exp_p[d] ;
 			common->rmax[d] = priv->rmax[d] ;
+			common->num_prob[d] += priv->num_prob[d] ;
 		}
 	}
 	#pragma omp barrier
+	
+	if (omp_rank == 0) {
+		for (d = 0 ; d < frames->tot_num_data ; ++d) {
+			common->prob[d] = realloc(common->prob[d], common->num_prob[d]*sizeof(double)) ;
+			common->probpos[d] = realloc(common->prob[d], common->num_prob[d]*sizeof(double)) ;
+		}
+	}
 	
 	if (omp_rank == 0) {
 		MPI_Allreduce(common->max_exp_p, common->max_exp, frames->tot_num_data, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD) ;
