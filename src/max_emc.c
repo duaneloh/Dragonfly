@@ -9,6 +9,8 @@
 #include <gsl/gsl_sf_bessel.h>
 #include "emc.h"
 
+#define PDIFF_THRESH 20.
+
 static struct timeval tm1, tm2 ;
 
 static void allocate_memory(struct max_data*) ;
@@ -48,6 +50,12 @@ double maximize() {
 		for (r = 0 ; r < quat->num_rot_p ; ++r)
 			calculate_prob(r, priv_data, common_data) ;
 		
+		if (omp_get_thread_num() == 0) {
+			FILE *fp = fopen("data/num_prob.bin", "wb") ;
+			fwrite(priv_data->num_prob, sizeof(int), frames->tot_num_data, fp) ;
+			fclose(fp) ;
+		}
+
 		normalize_prob(priv_data, common_data) ;
 		
 		#pragma omp for schedule(static,1)
@@ -197,6 +205,13 @@ void allocate_memory(struct max_data *data) {
 		data->max_exp_p[d] = -DBL_MAX ;
 	if (param->modes > 1)
 		data->quat_norm = calloc(param->modes * frames->tot_num_data, sizeof(double)) ;
+	data->prob = malloc(frames->tot_num_data * sizeof(double*)) ;
+	data->probpos = malloc(frames->tot_num_data * sizeof(int*)) ;
+	for (d = 0 ; d < frames->tot_num_data ; ++d) {
+		data->prob[d] = malloc(1 * sizeof(double)) ;
+		data->probpos[d] = malloc(1 * sizeof(int)) ;
+	}
+	data->num_prob = calloc(frames->tot_num_data, sizeof(int)) ;
 	
 	if (!data->within_openmp) { // common_data
 		data->u = malloc(det[0].num_det * sizeof(double*)) ;
@@ -204,9 +219,6 @@ void allocate_memory(struct max_data *data) {
 			data->u[detn] = calloc(quat->num_rot_p, sizeof(double)) ;
 		data->max_exp = calloc(frames->tot_num_data, sizeof(double)) ;
 		data->p_norm = calloc(frames->tot_num_data, sizeof(double)) ;
-		data->prob = malloc(frames->tot_num_data * sizeof(double*)) ;
-		for (d = 0 ; d < frames->tot_num_data ; ++d)
-			data->prob[d] = malloc(quat->num_rot_p * sizeof(double)) ;
 		
 		memset(iter->model2, 0, param->modes*iter->vol*sizeof(double)) ;
 		memset(iter->inter_weight, 0, param->modes*iter->vol*sizeof(double)) ;
@@ -308,10 +320,31 @@ void calculate_rescale(struct max_data *data) {
 	print_max_time("rescale", res_string, param->rank == 0) ;
 }
 
+static int resparsify(double *vals, int *pos, int num_vals, double thresh) {
+	int i, j ;
+	
+	for (i = 0 ; i < num_vals ; ++i) {
+		if (vals[i] < thresh) {
+			num_vals -= 1 ;
+			for (j = i ; j < num_vals ; ++j) {
+				vals[j] = vals[j+1] ;
+				pos[j] = pos[j+1] ;
+			}
+			i -= 1 ;
+		}
+	}
+	
+	vals = realloc(vals, num_vals*sizeof(double)) ;
+	pos = realloc(pos, num_vals*sizeof(int)) ;
+	
+	return num_vals ;
+}
+
 void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 	int dset = 0, t, d, curr_d, pixel, mode, rotind, detn, old_detn = -1 ;
 	struct dataset *curr = frames ;
-	double *view ;
+	double pval, *view ;
+	int *num_prob = priv->num_prob ;
 	
 	rotind = (r*param->num_proc + param->rank) / param->modes ;
 	mode = (r*param->num_proc + param->rank) % param->modes ;
@@ -341,12 +374,12 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 			if (curr->type < 2) {
 				// need_scaling is for if we want to assume variable incident intensity
 				if (param->need_scaling && (param->iteration > 1 || param->known_scale))
-					common->prob[d][r] = common->u[detn][r] * iter->scale[d] ;
+					pval = common->u[detn][r] * iter->scale[d] ;
 				else
-					common->prob[d][r] = common->u[detn][r] * iter->rescale[detn] ;
+					pval = common->u[detn][r] * iter->rescale[detn] ;
 			}
 			else {
-				common->prob[d][r] = 0. ;
+				pval = 0. ;
 			}
 			
 			if (curr->type == 0) {
@@ -355,14 +388,14 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 					for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
 						pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
 						if (det[detn].mask[pixel] < 1)
-							common->prob[d][r] += log(view[pixel] * iter->scale[d] + det[detn].background[pixel]) ;
+							pval += log(view[pixel] * iter->scale[d] + det[detn].background[pixel]) ;
 					}
 					
 					// For each pixel with count_multi photons
 					for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
 						pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
 						if (det[detn].mask[pixel] < 1)
-							common->prob[d][r] += curr->count_multi[curr->multi_accum[curr_d] + t] * log(view[pixel] * iter->scale[d] + det[detn].background[pixel]) ;
+							pval += curr->count_multi[curr->multi_accum[curr_d] + t] * log(view[pixel] * iter->scale[d] + det[detn].background[pixel]) ;
 					}
 				}
 				else {
@@ -370,32 +403,47 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 					for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
 						pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
 						if (det[detn].mask[pixel] < 1)
-							common->prob[d][r] += view[pixel] ;
+							pval += view[pixel] ;
 					}
 					
 					// For each pixel with count_multi photons
 					for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
 						pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
 						if (det[detn].mask[pixel] < 1)
-							common->prob[d][r] += curr->count_multi[curr->multi_accum[curr_d] + t] * view[pixel] ;
+							pval += curr->count_multi[curr->multi_accum[curr_d] + t] * view[pixel] ;
 					}
 				}
 			}
 			else if (curr->type == 1) {
 				for (t = 0 ; t < det[detn].num_pix ; ++t)
 				if (det[detn].mask[t] < 1)
-					common->prob[d][r] += curr->int_frames[curr_d*curr->num_pix + t] * view[t] ;
+					pval += curr->int_frames[curr_d*curr->num_pix + t] * view[t] ;
 			}
 			else if (curr->type == 2) { // Gaussian EMC for double precision data without scaling
 				for (t = 0 ; t < det[detn].num_pix ; ++t)
 				if (det[detn].mask[t] < 1)
-					common->prob[d][r] -= pow(curr->frames[curr_d*curr->num_pix + t] - view[t]*iter->rescale[detn], 2.) ;
+					pval -= pow(curr->frames[curr_d*curr->num_pix + t] - view[t]*iter->rescale[detn], 2.) ;
+			}
+			
+			// Only save value in prob array if it is at least as big as
+			if (pval > priv->max_exp_p[d] - PDIFF_THRESH) {
+				priv->prob[d][num_prob[d]] = pval ;
+				priv->probpos[d][num_prob[d]] = r*param->num_proc + param->rank ;
+				num_prob[d]++ ;
+				
+				// If num_prob is a power of two, expand array
+				if ((num_prob[d] & (num_prob[d] - 1)) == 0) {
+					priv->prob[d] = realloc(priv->prob[d], num_prob[d] * 2 * sizeof(double)) ;
+					priv->probpos[d] = realloc(priv->probpos[d], num_prob[d] * 2 * sizeof(int)) ;
+				}
 			}
 			
 			// Note maximum log-likelihood for each frame among 'r's tested by this MPI rank and OMP rank
-			if (common->prob[d][r] > priv->max_exp_p[d]) {
-				priv->max_exp_p[d] = common->prob[d][r] ;
+			// Recalculate sparse array with new maximum
+			if (pval > priv->max_exp_p[d]) {
+				priv->max_exp_p[d] = pval ;
 				priv->rmax[d] = r*param->num_proc + param->rank ;
+				num_prob[d] = resparsify(priv->prob[d], priv->probpos[d], num_prob[d], pval) ;
 			}
 		}
 		

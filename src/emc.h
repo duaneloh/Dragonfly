@@ -33,6 +33,8 @@ struct max_data {
 	double *p_norm ; // P_dr normalization, \sum_r R_dr
 	double **u ; // u[detn][r] = -sum_t W_rt for every detn
 	double **prob ; // prob[d][r] = P_dr
+	int *num_prob ; // num_prob[d] = Number of non-zero prob[d][r] entries for each d
+	int **probpos ; // probpos[d][r] = Position of non-zero prob[d][r]
 	
 	// Both
 	double *max_exp_p ; // For priv, thread-local max_r. For common, process-local max_r
