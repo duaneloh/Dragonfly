@@ -57,8 +57,6 @@ double maximize() {
 			else
 				update_tomogram(r, priv_data, common_data) ;
 			merge_tomogram(r, priv_data) ;
-			
-			free(common_data->probab[r]) ;
 		}
 		
 		// Combine information from different OpenMP ranks
@@ -189,7 +187,7 @@ void refine_frame(int d, struct dataset *curr, struct max_data *priv, struct max
 */
 
 void allocate_memory(struct max_data *data) {
-	int detn, d, r ;
+	int detn, d ;
 	
 	data->rmax = calloc(frames->tot_num_data, sizeof(int)) ;
 	data->info = calloc(frames->tot_num_data, sizeof(double)) ;
@@ -204,11 +202,11 @@ void allocate_memory(struct max_data *data) {
 		data->u = malloc(det[0].num_det * sizeof(double*)) ;
 		for (detn = 0 ; detn < det[0].num_det ; ++detn)
 			data->u[detn] = calloc(quat->num_rot_p, sizeof(double)) ;
-		data->probab = malloc(quat->num_rot_p * sizeof(double*)) ;
 		data->max_exp = calloc(frames->tot_num_data, sizeof(double)) ;
 		data->p_norm = calloc(frames->tot_num_data, sizeof(double)) ;
-		for (r = 0 ; r < quat->num_rot_p ; ++r)
-			data->probab[r] = malloc(frames->tot_num_data * sizeof(double)) ;
+		data->prob = malloc(frames->tot_num_data * sizeof(double*)) ;
+		for (d = 0 ; d < frames->tot_num_data ; ++d)
+			data->prob[d] = malloc(quat->num_rot_p * sizeof(double)) ;
 		
 		memset(iter->model2, 0, param->modes*iter->vol*sizeof(double)) ;
 		memset(iter->inter_weight, 0, param->modes*iter->vol*sizeof(double)) ;
@@ -313,7 +311,7 @@ void calculate_rescale(struct max_data *data) {
 void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 	int dset = 0, t, d, curr_d, pixel, mode, rotind, detn, old_detn = -1 ;
 	struct dataset *curr = frames ;
-	double *view, *prob = common->probab[r] ;
+	double *view ;
 	
 	rotind = (r*param->num_proc + param->rank) / param->modes ;
 	mode = (r*param->num_proc + param->rank) % param->modes ;
@@ -343,12 +341,12 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 			if (curr->type < 2) {
 				// need_scaling is for if we want to assume variable incident intensity
 				if (param->need_scaling && (param->iteration > 1 || param->known_scale))
-					prob[d] = common->u[detn][r] * iter->scale[d] ;
+					common->prob[d][r] = common->u[detn][r] * iter->scale[d] ;
 				else
-					prob[d] = common->u[detn][r] * iter->rescale[detn] ;
+					common->prob[d][r] = common->u[detn][r] * iter->rescale[detn] ;
 			}
 			else {
-				prob[d] = 0. ;
+				common->prob[d][r] = 0. ;
 			}
 			
 			if (curr->type == 0) {
@@ -357,14 +355,14 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 					for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
 						pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
 						if (det[detn].mask[pixel] < 1)
-							prob[d] += log(view[pixel] * iter->scale[d] + det[detn].background[pixel]) ;
+							common->prob[d][r] += log(view[pixel] * iter->scale[d] + det[detn].background[pixel]) ;
 					}
 					
 					// For each pixel with count_multi photons
 					for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
 						pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
 						if (det[detn].mask[pixel] < 1)
-							prob[d] += curr->count_multi[curr->multi_accum[curr_d] + t] * log(view[pixel] * iter->scale[d] + det[detn].background[pixel]) ;
+							common->prob[d][r] += curr->count_multi[curr->multi_accum[curr_d] + t] * log(view[pixel] * iter->scale[d] + det[detn].background[pixel]) ;
 					}
 				}
 				else {
@@ -372,31 +370,31 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 					for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
 						pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
 						if (det[detn].mask[pixel] < 1)
-							prob[d] += view[pixel] ;
+							common->prob[d][r] += view[pixel] ;
 					}
 					
 					// For each pixel with count_multi photons
 					for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
 						pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
 						if (det[detn].mask[pixel] < 1)
-							prob[d] += curr->count_multi[curr->multi_accum[curr_d] + t] * view[pixel] ;
+							common->prob[d][r] += curr->count_multi[curr->multi_accum[curr_d] + t] * view[pixel] ;
 					}
 				}
 			}
 			else if (curr->type == 1) {
 				for (t = 0 ; t < det[detn].num_pix ; ++t)
 				if (det[detn].mask[t] < 1)
-					prob[d] += curr->int_frames[curr_d*curr->num_pix + t] * view[t] ;
+					common->prob[d][r] += curr->int_frames[curr_d*curr->num_pix + t] * view[t] ;
 			}
 			else if (curr->type == 2) { // Gaussian EMC for double precision data without scaling
 				for (t = 0 ; t < det[detn].num_pix ; ++t)
 				if (det[detn].mask[t] < 1)
-					prob[d] -= pow(curr->frames[curr_d*curr->num_pix + t] - view[t]*iter->rescale[detn], 2.) ;
+					common->prob[d][r] -= pow(curr->frames[curr_d*curr->num_pix + t] - view[t]*iter->rescale[detn], 2.) ;
 			}
 			
 			// Note maximum log-likelihood for each frame among 'r's tested by this MPI rank and OMP rank
-			if (prob[d] > priv->max_exp_p[d]) {
-				priv->max_exp_p[d] = prob[d] ;
+			if (common->prob[d][r] > priv->max_exp_p[d]) {
+				priv->max_exp_p[d] = common->prob[d][r] ;
 				priv->rmax[d] = r*param->num_proc + param->rank ;
 			}
 		}
@@ -438,12 +436,12 @@ void normalize_prob(struct max_data *priv, struct max_data *common) {
 	#pragma omp barrier
 	
 	#pragma omp for schedule(static,1)
-	for (r = 0 ; r < quat->num_rot_p ; ++r)
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
+	for (r = 0 ; r < quat->num_rot_p ; ++r)
 	if (frames->type < 2)
-		priv_norm[d] += exp(param->beta * (common->probab[r][d] - common->max_exp[d])) ;
+		priv_norm[d] += exp(param->beta * (common->prob[d][r] - common->max_exp[d])) ;
 	else
-		priv_norm[d] += exp(param->beta * (common->probab[r][d] - common->max_exp[d]) / 2. / param->sigmasq) ;
+		priv_norm[d] += exp(param->beta * (common->prob[d][r] - common->max_exp[d]) / 2. / param->sigmasq) ;
 	
 	#pragma omp critical(psum)
 	{
@@ -463,7 +461,6 @@ void normalize_prob(struct max_data *priv, struct max_data *common) {
 double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 	int dset = 0, d, curr_d, detn, rotind, mode ;
 	double temp, scalemin ;
-	double *prob = common->probab[r] ;
 	struct dataset *curr = frames ;
 	
 	scalemin = DBL_MAX ;
@@ -482,38 +479,38 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 				continue ;
 			
 			// Exponentiate log-likelihood and normalize to get probabilities
-			temp = prob[d] ;
+			temp = common->prob[d][r] ;
 			if (frames->type < 2)
-				prob[d] = exp(param->beta*(prob[d] - common->max_exp[d])) / common->p_norm[d] ; 
+				common->prob[d][r] = exp(param->beta*(common->prob[d][r] - common->max_exp[d])) / common->p_norm[d] ; 
 			else
-				prob[d] = exp(param->beta*(prob[d] - common->max_exp[d]) / 2. / param->sigmasq) / common->p_norm[d] ;
+				common->prob[d][r] = exp(param->beta*(common->prob[d][r] - common->max_exp[d]) / 2. / param->sigmasq) / common->p_norm[d] ;
 			
 			//if (param->need_scaling)
-			//	priv->likelihood[d] += prob[d] * (temp - frames->sum_fact[d] + frames->count[d]*log(iter->scale[d])) ;
+			//	priv->likelihood[d] += common->prob[d][r] * (temp - frames->sum_fact[d] + frames->count[d]*log(iter->scale[d])) ;
 			//else
-			priv->likelihood[d] += prob[d] * (temp - frames->sum_fact[d]) ;
+			priv->likelihood[d] += common->prob[d][r] * (temp - frames->sum_fact[d]) ;
 			
 			// Calculate denominator for update rule
 			if (param->need_scaling) {
-				priv->psum_r[detn] += prob[d] * iter->scale[d] ;
+				priv->psum_r[detn] += common->prob[d][r] * iter->scale[d] ;
 				
 				// Calculate denominator for scale factor update rule
 				if (param->update_scale)
-					priv->psum_d[d] -= prob[d] * common->u[detn][r] * iter->rescale[detn] ;
+					priv->psum_d[d] -= common->prob[d][r] * common->u[detn][r] * iter->rescale[detn] ;
 			}
 			else
-				priv->psum_r[detn] += prob[d] ; 
+				priv->psum_r[detn] += common->prob[d][r] ; 
 			
 			// Skip if probability is very low (saves time)
-			if (!(prob[d] > PROB_MIN))
+			if (!(common->prob[d][r] > PROB_MIN))
 				continue ;
 			
 			// If multiple modes, calculate occupancy of frame into each mode
 			if (param->modes > 1)
-				priv->quat_norm[d*param->modes + mode] += prob[d] ;
+				priv->quat_norm[d*param->modes + mode] += common->prob[d][r] ;
 			
 			// Calculate mutual information of probability distribution
-			priv->info[d] += prob[d] * log(prob[d] / quat->quat[rotind*5 + 4] * param->modes) ;
+			priv->info[d] += common->prob[d][r] * log(common->prob[d][r] / quat->quat[rotind*5 + 4] * param->modes) ;
 			
 			if (param->need_scaling && iter->scale[d] < scalemin)
 				scalemin = iter->scale[d] ;
@@ -528,7 +525,7 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 	int dset = 0, t, d, curr_d, pixel, detn ;
 	struct dataset *curr ;
-	double *view, *prob = common->probab[r] ;
+	double *view ;
 	
 	if (merge_frames != NULL) {
 		if (!param->rank && !r)
@@ -553,7 +550,7 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 			
 			// check if frame is blacklisted
 			// Skip if probability is very low (saves time)
-			if (frames->blacklist[d] || !(prob[d] > PROB_MIN))
+			if (frames->blacklist[d] || !(common->prob[d][r] > PROB_MIN))
 				continue ;
 			
 			if (curr->type == 0) {
@@ -561,24 +558,24 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 				for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
 					pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
 					if (det[detn].mask[pixel] < 2)
-						view[pixel] += prob[d] ;
+						view[pixel] += common->prob[d][r] ;
 				}
 				
 				// For all pixels with count_multi photons
 				for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
 					pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
 					if (det[detn].mask[pixel] < 2)
-						view[pixel] += curr->count_multi[curr->multi_accum[curr_d] + t] * prob[d] ;
+						view[pixel] += curr->count_multi[curr->multi_accum[curr_d] + t] * common->prob[d][r] ;
 				}
 			}
 			else if (curr->type == 1) {
 				for (t = 0 ; t < curr->num_pix ; ++t)
-					view[t] += curr->int_frames[curr_d*curr->num_pix + t] * prob[d] ;
+					view[t] += curr->int_frames[curr_d*curr->num_pix + t] * common->prob[d][r] ;
 			}
 			else if (curr->type == 2) { // Gaussian EMC update without scaling
 				for (t = 0 ; t < curr->num_pix ; ++t)
 				if (det[detn].mask[t] < 2)
-					view[t] += curr->frames[curr_d*curr->num_pix + t] * prob[d] ;
+					view[t] += curr->frames[curr_d*curr->num_pix + t] * common->prob[d][r] ;
 			}
 		}
 		
@@ -595,7 +592,6 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 static void gradient_rt(int r, struct max_data *priv, struct max_data *common, double **views, double **gradients) {
 	int dset = 0, t, d, curr_d, pixel, detn ;
 	double val, *grad, *view ;
-	double *prob = common->probab[r] ;
 	struct dataset *curr = frames ;
 	
 	// Initialization:
@@ -629,7 +625,7 @@ static void gradient_rt(int r, struct max_data *priv, struct max_data *common, d
 				continue ;
 			
 			// Skip if probability is very low (saves time)
-			if (!(prob[d] > PROB_MIN))
+			if (!(common->prob[d][r] > PROB_MIN))
 				continue ;
 			
 			// Currently only working with type-0 data
@@ -638,11 +634,11 @@ static void gradient_rt(int r, struct max_data *priv, struct max_data *common, d
 				pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
 				if (priv->mask[detn][pixel] < 128) {
 					val = view[pixel] * iter->scale[d] + det[detn].background[pixel] ;
-					grad[pixel] += prob[d] * iter->scale[d] / val ;
+					grad[pixel] += common->prob[d][r] * iter->scale[d] / val ;
 					priv->mask[detn][pixel] = 0 ;
 				}
 				else if (priv->mask[detn][pixel] == 128) {
-					grad[pixel] += prob[d] ;
+					grad[pixel] += common->prob[d][r] ;
 				}
 			}
 			
@@ -651,11 +647,11 @@ static void gradient_rt(int r, struct max_data *priv, struct max_data *common, d
 				pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
 				if (priv->mask[detn][pixel] < 128) {
 					val = view[pixel] * iter->scale[d] + det[detn].background[pixel] ;
-					grad[pixel] += prob[d] * curr->count_multi[curr->multi_accum[curr_d] + t] * iter->scale[d] / val ;
+					grad[pixel] += common->prob[d][r] * curr->count_multi[curr->multi_accum[curr_d] + t] * iter->scale[d] / val ;
 					priv->mask[detn][pixel] = 0 ;
 				}
 				else if (priv->mask[detn][pixel] == 128) {
-					grad[pixel] += prob[d] * curr->count_multi[curr->multi_accum[curr_d] + t] ;
+					grad[pixel] += common->prob[d][r] * curr->count_multi[curr->multi_accum[curr_d] + t] ;
 				}
 			}
 		}
@@ -929,7 +925,7 @@ void free_memory(struct max_data *data) {
 		free(data->quat_norm) ;
 	
 	if (!data->within_openmp) {
-		free(data->probab) ;
+		free(data->prob) ;
 		free(data->max_exp) ;
 		free(data->u) ;
 		free(data->p_norm) ;

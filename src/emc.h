@@ -32,7 +32,7 @@ struct max_data {
 	double *max_exp ; // max_exp[d] = max_r log(R_dr)
 	double *p_norm ; // P_dr normalization, \sum_r R_dr
 	double **u ; // u[detn][r] = -sum_t W_rt for every detn
-	double **probab ; // probab[r][d] = P_dr
+	double **prob ; // prob[d][r] = P_dr
 	
 	// Both
 	double *max_exp_p ; // For priv, thread-local max_r. For common, process-local max_r
