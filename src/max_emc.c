@@ -9,7 +9,7 @@
 #include <gsl/gsl_sf_bessel.h>
 #include "emc.h"
 
-#define PDIFF_THRESH 20.
+#define PDIFF_THRESH 100.
 
 static struct timeval tm1, tm2 ;
 
@@ -205,13 +205,6 @@ void allocate_memory(struct max_data *data) {
 		data->max_exp_p[d] = -DBL_MAX ;
 	if (param->modes > 1)
 		data->quat_norm = calloc(param->modes * frames->tot_num_data, sizeof(double)) ;
-	data->prob = malloc(frames->tot_num_data * sizeof(double*)) ;
-	data->probpos = malloc(frames->tot_num_data * sizeof(int*)) ;
-	for (d = 0 ; d < frames->tot_num_data ; ++d) {
-		data->prob[d] = malloc(1 * sizeof(double)) ;
-		data->probpos[d] = malloc(1 * sizeof(int)) ;
-	}
-	data->num_prob = calloc(frames->tot_num_data, sizeof(int)) ;
 	
 	if (!data->within_openmp) { // common_data
 		data->u = malloc(det[0].num_det * sizeof(double*)) ;
@@ -231,11 +224,22 @@ void allocate_memory(struct max_data *data) {
 			data->all_views[d] = malloc(det[d].num_pix * sizeof(double)) ;
 			data->mask[d] = calloc(det[d].num_pix, sizeof(uint8_t*)) ;
 		}
+		
 		data->model = calloc(param->modes*iter->vol, sizeof(double)) ;
 		data->weight = calloc(param->modes*iter->vol, sizeof(double)) ;
+		
 		if (param->need_scaling && param->update_scale)
 			data->psum_d = calloc(frames->tot_num_data, sizeof(double)) ;
 		data->psum_r = calloc(det[0].num_det, sizeof(double)) ;
+		
+		data->prob = malloc(frames->tot_num_data * sizeof(double*)) ;
+		data->probpos = malloc(frames->tot_num_data * sizeof(int*)) ;
+		for (d = 0 ; d < frames->tot_num_data ; ++d) {
+			data->prob[d] = malloc(4 * sizeof(double)) ;
+			data->probpos[d] = malloc(4 * sizeof(int)) ;
+		}
+		data->num_prob = calloc(frames->tot_num_data, sizeof(int)) ;
+		
 		if (det[0].with_bg && param->need_scaling) {
 			data->G_old = malloc(det[0].num_det * sizeof(double*)) ;
 			data->G_new = malloc(det[0].num_det * sizeof(double*)) ;
@@ -324,7 +328,7 @@ static int resparsify(double *vals, int *pos, int num_vals, double thresh) {
 	int i, j ;
 	
 	for (i = 0 ; i < num_vals ; ++i) {
-		if (vals[i] < thresh) {
+		if (vals[i] <= thresh) {
 			num_vals -= 1 ;
 			for (j = i ; j < num_vals ; ++j) {
 				vals[j] = vals[j+1] ;
@@ -334,8 +338,8 @@ static int resparsify(double *vals, int *pos, int num_vals, double thresh) {
 		}
 	}
 	
-	vals = realloc(vals, num_vals*sizeof(double)) ;
-	pos = realloc(pos, num_vals*sizeof(int)) ;
+	//vals = realloc(vals, num_vals*sizeof(double)) ;
+	//pos = realloc(pos, num_vals*sizeof(int)) ;
 	
 	return num_vals ;
 }
@@ -429,11 +433,11 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 			// Only save value in prob array if it is significant
 			if (pval > priv->max_exp_p[d] - PDIFF_THRESH) {
 				prob[d][num_prob[d]] = pval ;
-				probpos[d][num_prob[d]] = r*param->num_proc + param->rank ;
+				probpos[d][num_prob[d]] = r ;
 				num_prob[d]++ ;
 				
 				// If num_prob is a power of two, expand array
-				if ((num_prob[d] & (num_prob[d] - 1)) == 0) {
+				if (num_prob[d] >= 4 && (num_prob[d] & (num_prob[d] - 1)) == 0) {
 					prob[d] = realloc(prob[d], num_prob[d] * 2 * sizeof(double)) ;
 					probpos[d] = realloc(probpos[d], num_prob[d] * 2 * sizeof(int)) ;
 				}
@@ -444,7 +448,7 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 			if (pval > priv->max_exp_p[d]) {
 				priv->max_exp_p[d] = pval ;
 				priv->rmax[d] = r*param->num_proc + param->rank ;
-				num_prob[d] = resparsify(prob[d], probpos[d], num_prob[d], pval) ;
+				num_prob[d] = resparsify(prob[d], probpos[d], num_prob[d], pval - PDIFF_THRESH) ;
 			}
 		}
 		
@@ -468,17 +472,9 @@ void normalize_prob(struct max_data *priv, struct max_data *common) {
 		if (priv->max_exp_p[d] > common->max_exp_p[d]) {
 			common->max_exp_p[d] = priv->max_exp_p[d] ;
 			common->rmax[d] = priv->rmax[d] ;
-			common->num_prob[d] += priv->num_prob[d] ;
 		}
 	}
 	#pragma omp barrier
-	
-	if (omp_rank == 0) {
-		for (d = 0 ; d < frames->tot_num_data ; ++d) {
-			common->prob[d] = realloc(common->prob[d], common->num_prob[d]*sizeof(double)) ;
-			common->probpos[d] = realloc(common->prob[d], common->num_prob[d]*sizeof(double)) ;
-		}
-	}
 	
 	if (omp_rank == 0) {
 		MPI_Allreduce(common->max_exp_p, common->max_exp, frames->tot_num_data, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD) ;
@@ -494,11 +490,11 @@ void normalize_prob(struct max_data *priv, struct max_data *common) {
 	
 	#pragma omp for schedule(static,1)
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
-	for (r = 0 ; r < quat->num_rot_p ; ++r)
+	for (r = 0 ; r < priv->num_prob[d] ; ++r)
 	if (frames->type < 2)
-		priv_norm[d] += exp(param->beta * (common->prob[d][r] - common->max_exp[d])) ;
+		priv_norm[d] += exp(param->beta * (priv->prob[d][r] - common->max_exp[d])) ;
 	else
-		priv_norm[d] += exp(param->beta * (common->prob[d][r] - common->max_exp[d]) / 2. / param->sigmasq) ;
+		priv_norm[d] += exp(param->beta * (priv->prob[d][r] - common->max_exp[d]) / 2. / param->sigmasq) ;
 	
 	#pragma omp critical(psum)
 	{
@@ -512,13 +508,15 @@ void normalize_prob(struct max_data *priv, struct max_data *common) {
 	#pragma omp barrier
 	
 	free(priv_norm) ;
-	print_max_time("psum", "", param->rank == 0 && omp_rank == 0) ;
+	print_max_time("norm", "", param->rank == 0 && omp_rank == 0) ;
 }
 
 double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
-	int dset = 0, d, curr_d, detn, rotind, mode ;
+	int dset = 0, d, curr_d, detn, rotind, mode, t, ind ;
 	double temp, scalemin ;
 	struct dataset *curr = frames ;
+	double **prob = priv->prob ;
+	int **probpos = priv->probpos, *num_prob = priv->num_prob ;
 	
 	scalemin = DBL_MAX ;
 	memset(priv->psum_r, 0, (det[0].num_det)*sizeof(double)) ;
@@ -535,39 +533,49 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 			if (frames->blacklist[d])
 				continue ;
 			
+			// check if current frame has significant probability
+			ind = -1 ;
+			for (t = 0 ; t < num_prob[d] ; ++t)
+			if (r == probpos[d][t]) {
+				ind = t ;
+				break ;
+			}
+			if (ind == -1)
+				continue ;
+			
 			// Exponentiate log-likelihood and normalize to get probabilities
-			temp = common->prob[d][r] ;
+			temp = prob[d][ind] ;
 			if (frames->type < 2)
-				common->prob[d][r] = exp(param->beta*(common->prob[d][r] - common->max_exp[d])) / common->p_norm[d] ; 
+				prob[d][ind] = exp(param->beta*(prob[d][ind] - common->max_exp[d])) / common->p_norm[d] ; 
 			else
-				common->prob[d][r] = exp(param->beta*(common->prob[d][r] - common->max_exp[d]) / 2. / param->sigmasq) / common->p_norm[d] ;
+				prob[d][ind] = exp(param->beta*(prob[d][ind] - common->max_exp[d]) / 2. / param->sigmasq) / common->p_norm[d] ;
 			
 			//if (param->need_scaling)
-			//	priv->likelihood[d] += common->prob[d][r] * (temp - frames->sum_fact[d] + frames->count[d]*log(iter->scale[d])) ;
+			//	priv->likelihood[d] += prob[d][ind] * (temp - frames->sum_fact[d] + frames->count[d]*log(iter->scale[d])) ;
 			//else
-			priv->likelihood[d] += common->prob[d][r] * (temp - frames->sum_fact[d]) ;
+			priv->likelihood[d] += prob[d][ind] * (temp - frames->sum_fact[d]) ;
 			
 			// Calculate denominator for update rule
 			if (param->need_scaling) {
-				priv->psum_r[detn] += common->prob[d][r] * iter->scale[d] ;
+				priv->psum_r[detn] += prob[d][ind] * iter->scale[d] ;
 				
 				// Calculate denominator for scale factor update rule
 				if (param->update_scale)
-					priv->psum_d[d] -= common->prob[d][r] * common->u[detn][r] * iter->rescale[detn] ;
+					priv->psum_d[d] -= prob[d][ind] * common->u[detn][r] * iter->rescale[detn] ;
 			}
 			else
-				priv->psum_r[detn] += common->prob[d][r] ; 
+				priv->psum_r[detn] += prob[d][ind] ; 
 			
 			// Skip if probability is very low (saves time)
-			if (!(common->prob[d][r] > PROB_MIN))
+			if (!(prob[d][ind] > PROB_MIN))
 				continue ;
 			
 			// If multiple modes, calculate occupancy of frame into each mode
 			if (param->modes > 1)
-				priv->quat_norm[d*param->modes + mode] += common->prob[d][r] ;
+				priv->quat_norm[d*param->modes + mode] += prob[d][ind] ;
 			
 			// Calculate mutual information of probability distribution
-			priv->info[d] += common->prob[d][r] * log(common->prob[d][r] / quat->quat[rotind*5 + 4] * param->modes) ;
+			priv->info[d] += prob[d][ind] * log(prob[d][ind] / quat->quat[rotind*5 + 4] * param->modes) ;
 			
 			if (param->need_scaling && iter->scale[d] < scalemin)
 				scalemin = iter->scale[d] ;
@@ -580,9 +588,11 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 }
 
 void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
-	int dset = 0, t, d, curr_d, pixel, detn ;
+	int dset = 0, t, d, curr_d, pixel, detn, ind ;
 	struct dataset *curr ;
 	double *view ;
+	double **prob = priv->prob ;
+	int **probpos = priv->probpos, *num_prob = priv->num_prob ;
 	
 	if (merge_frames != NULL) {
 		if (!param->rank && !r)
@@ -606,8 +616,22 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 			d = curr->num_data_prev + curr_d ;
 			
 			// check if frame is blacklisted
+			if (frames->blacklist[d])
+				continue ;
+			
+			// check if current frame has significant probability
+			ind = -1 ;
+			for (t = 0 ; t < num_prob[d] ; ++t)
+			if (r == probpos[d][t]) {
+				ind = t ;
+				break ;
+			}
+			if (ind == -1)
+				continue ;
+			
+			
 			// Skip if probability is very low (saves time)
-			if (frames->blacklist[d] || !(common->prob[d][r] > PROB_MIN))
+			if (!(prob[d][ind] > PROB_MIN))
 				continue ;
 			
 			if (curr->type == 0) {
@@ -615,24 +639,24 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 				for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
 					pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
 					if (det[detn].mask[pixel] < 2)
-						view[pixel] += common->prob[d][r] ;
+						view[pixel] += prob[d][ind] ;
 				}
 				
 				// For all pixels with count_multi photons
 				for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
 					pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
 					if (det[detn].mask[pixel] < 2)
-						view[pixel] += curr->count_multi[curr->multi_accum[curr_d] + t] * common->prob[d][r] ;
+						view[pixel] += curr->count_multi[curr->multi_accum[curr_d] + t] * prob[d][ind] ;
 				}
 			}
 			else if (curr->type == 1) {
 				for (t = 0 ; t < curr->num_pix ; ++t)
-					view[t] += curr->int_frames[curr_d*curr->num_pix + t] * common->prob[d][r] ;
+					view[t] += curr->int_frames[curr_d*curr->num_pix + t] * prob[d][ind] ;
 			}
 			else if (curr->type == 2) { // Gaussian EMC update without scaling
 				for (t = 0 ; t < curr->num_pix ; ++t)
 				if (det[detn].mask[t] < 2)
-					view[t] += curr->frames[curr_d*curr->num_pix + t] * common->prob[d][r] ;
+					view[t] += curr->frames[curr_d*curr->num_pix + t] * prob[d][ind] ;
 			}
 		}
 		
@@ -982,7 +1006,6 @@ void free_memory(struct max_data *data) {
 		free(data->quat_norm) ;
 	
 	if (!data->within_openmp) {
-		free(data->prob) ;
 		free(data->max_exp) ;
 		free(data->u) ;
 		free(data->p_norm) ;
@@ -1000,6 +1023,13 @@ void free_memory(struct max_data *data) {
 		free(data->model) ;
 		free(data->weight) ;
 		free(data->psum_r) ;
+		for (d = 0 ; d < frames->tot_num_data ; ++d) {
+			free(data->prob[d]) ;
+			free(data->probpos[d]) ;
+		}
+		free(data->prob) ;
+		free(data->probpos) ;
+		free(data->num_prob) ;
 		if (det[0].with_bg && param->need_scaling) {
 			for (detn = 0 ; detn < det[0].num_det ; ++detn) {
 				free(data->G_old[detn]) ;
