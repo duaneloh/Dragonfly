@@ -9,7 +9,8 @@
 #include <gsl/gsl_sf_bessel.h>
 #include "emc.h"
 
-#define PDIFF_THRESH 100.
+#define PDIFF_THRESH 14.
+#define MAX_EXP_START -1.e100
 
 static struct timeval tm1, tm2 ;
 
@@ -50,12 +51,6 @@ double maximize() {
 		for (r = 0 ; r < quat->num_rot_p ; ++r)
 			calculate_prob(r, priv_data, common_data) ;
 		
-		if (omp_get_thread_num() == 0) {
-			FILE *fp = fopen("data/num_prob.bin", "wb") ;
-			fwrite(priv_data->num_prob, sizeof(int), frames->tot_num_data, fp) ;
-			fclose(fp) ;
-		}
-
 		normalize_prob(priv_data, common_data) ;
 		
 		#pragma omp for schedule(static,1)
@@ -131,7 +126,7 @@ double refine_maximize() {
 
 void refine_frame(int d, struct dataset *curr, struct max_data *priv, struct max_data *common) {
 	int r, t, pixel ;
-	double max_exp = -DBL_MAX ;
+	double max_exp = MAX_EXP_START ;
 	double p_norm = 0. ;
 	double new_scale = 0. ;
 	double *prob = priv->probab[0] ;
@@ -202,7 +197,7 @@ void allocate_memory(struct max_data *data) {
 	data->likelihood = calloc(frames->tot_num_data, sizeof(double)) ;
 	data->max_exp_p = malloc(frames->tot_num_data * sizeof(double)) ;
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
-		data->max_exp_p[d] = -DBL_MAX ;
+		data->max_exp_p[d] = MAX_EXP_START ;
 	if (param->modes > 1)
 		data->quat_norm = calloc(param->modes * frames->tot_num_data, sizeof(double)) ;
 	
@@ -329,12 +324,13 @@ static int resparsify(double *vals, int *pos, int num_vals, double thresh) {
 	
 	for (i = 0 ; i < num_vals ; ++i) {
 		if (vals[i] <= thresh) {
-			num_vals -= 1 ;
+			num_vals-- ;
 			for (j = i ; j < num_vals ; ++j) {
 				vals[j] = vals[j+1] ;
 				pos[j] = pos[j+1] ;
+				pos[j+1] = -1 ;
 			}
-			i -= 1 ;
+			i-- ;
 		}
 	}
 	
@@ -431,7 +427,7 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 			}
 			
 			// Only save value in prob array if it is significant
-			if (pval > priv->max_exp_p[d] - PDIFF_THRESH) {
+			if (pval + PDIFF_THRESH > priv->max_exp_p[d]) {
 				prob[d][num_prob[d]] = pval ;
 				probpos[d][num_prob[d]] = r ;
 				num_prob[d]++ ;
@@ -481,14 +477,13 @@ void normalize_prob(struct max_data *priv, struct max_data *common) {
 		
 		// Determine 'r' for which log-likelihood is maximum
 		for (d = 0 ; d < frames->tot_num_data ; ++d)
-		if (common->max_exp[d] != common->max_exp_p[d] || common->max_exp_p[d] == -DBL_MAX)
+		if (common->max_exp[d] != common->max_exp_p[d] || common->max_exp_p[d] == MAX_EXP_START)
 			common->rmax[d] = -1 ;
 		
 		MPI_Allreduce(MPI_IN_PLACE, common->rmax, frames->tot_num_data, MPI_INT, MPI_MAX, MPI_COMM_WORLD) ;
 	}
 	#pragma omp barrier
 	
-	#pragma omp for schedule(static,1)
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
 	for (r = 0 ; r < priv->num_prob[d] ; ++r)
 	if (frames->type < 2)
@@ -567,7 +562,7 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 				priv->psum_r[detn] += prob[d][ind] ; 
 			
 			// Skip if probability is very low (saves time)
-			if (!(prob[d][ind] > PROB_MIN))
+			if (prob[d][ind] < PROB_MIN)
 				continue ;
 			
 			// If multiple modes, calculate occupancy of frame into each mode
