@@ -227,3 +227,28 @@ void save_metrics(struct max_data *data) {
 #endif //WITH_HDF5
 }
 
+void save_prob(struct max_data *data) {
+	int d, num_data = frames->tot_num_data ;
+	char fname[2048] ;
+	FILE *fp ;
+	int buffer[256] = {0} ;
+	
+	//sprintf(fname, "%s/probabilities/probabilities_%.3d.emc", param->output_folder, param->iteration) ;
+	sprintf(fname, "%s/probabilities_%.3d.emc", param->output_folder, param->iteration) ;
+	fp = fopen(fname, "wb") ;
+	
+	// Header
+	buffer[0] = num_data ;
+	buffer[1] = quat->num_rot ;
+	buffer[2] = -1 ;
+	fwrite(buffer, sizeof(int), 256, fp) ;
+	
+	// Serialized Data
+	fwrite(data->num_prob, sizeof(int), num_data, fp) ;
+	for (d = 0 ; d < num_data ; ++d)
+		fwrite(data->place_prob[d], sizeof(int), data->num_prob[d], fp) ;
+	for (d = 0 ; d < num_data ; ++d)
+		fwrite(data->prob[d], sizeof(double), data->num_prob[d], fp) ;
+	
+	fclose(fp) ;
+}
