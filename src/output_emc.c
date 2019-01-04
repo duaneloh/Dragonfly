@@ -229,12 +229,12 @@ void save_metrics(struct max_data *data) {
 
 void save_prob(struct max_data *data) {
 	int d, num_data = frames->tot_num_data ;
+#ifndef WITH_HDF5
 	char fname[2048] ;
 	FILE *fp ;
 	int buffer[256] = {0} ;
 	
-	//sprintf(fname, "%s/probabilities/probabilities_%.3d.emc", param->output_folder, param->iteration) ;
-	sprintf(fname, "%s/probabilities_%.3d.emc", param->output_folder, param->iteration) ;
+	sprintf(fname, "%s/probabilities/probabilities_%.3d.emc", param->output_folder, param->iteration) ;
 	fp = fopen(fname, "wb") ;
 	
 	// Header
@@ -251,4 +251,42 @@ void save_prob(struct max_data *data) {
 		fwrite(data->prob[d], sizeof(double), data->num_prob[d], fp) ;
 	
 	fclose(fp) ;
+
+#else // WITH_HDF5
+
+	char name[2048] ;
+	hid_t file, dset, dspace, dtype ;
+	hsize_t dsize[1] = {1} ;
+	hvl_t *prob, *place ;
+	
+	sprintf(name, "%s/output_%.3d.h5", param->output_folder, param->iteration) ;
+	file = H5Fopen(name, H5F_ACC_RDWR, H5P_DEFAULT) ;
+	
+	dsize[0] = num_data ;
+	dspace = H5Screate_simple(1, dsize, NULL) ;
+	prob = malloc(num_data * sizeof(hvl_t)) ;
+	place = malloc(num_data * sizeof(hvl_t)) ;
+	for (d = 0 ; d < num_data ; ++d) {
+		prob[d].len = data->num_prob[d] ;
+		prob[d].p = data->prob[d] ;
+		place[d].len = data->num_prob[d] ;
+		place[d].p = data->place_prob[d] ;
+	}
+	
+	dtype = H5Tvlen_create(H5T_STD_I32LE) ;
+	dset = H5Dcreate(file, "place_prob", dtype, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
+	H5Dwrite(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, place) ;
+	H5Dclose(dset) ;
+	free(place) ;
+	
+	dtype = H5Tvlen_create(H5T_IEEE_F64LE) ;
+	dset = H5Dcreate(file, "probabilities", dtype, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
+	H5Dwrite(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, prob) ;
+	H5Dclose(dset) ;
+	free(prob) ;
+	
+	H5Sclose(dspace) ;
+	H5Tclose(dtype) ;
+	H5Fclose(file) ;
+#endif //WITH_HDF5
 }
