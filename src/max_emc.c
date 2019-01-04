@@ -78,117 +78,6 @@ double maximize() {
 	return avg_likelihood ;
 }
 
-/*
-static void refine_frame(int, struct dataset*, struct max_data*, struct max_data*) ;
-double refine_maximize() {
-	double avg_likelihood ;
-	struct max_data *common_data = malloc(sizeof(struct max_data)) ;
-	
-	gettimeofday(&tm1, NULL) ;
-	iter->mutual_info = 0. ;
-	common_data->refinement = 1 ;
-	common_data->within_openmp = 0 ;
-	allocate_memory(common_data) ;
-	
-	iter->rescale = calculate_rescale(common_data) ;
-	
-	#pragma omp parallel default(shared)
-	{
-		int d ;
-		struct dataset *curr = frames ;
-		struct max_data *priv_data = malloc(sizeof(struct max_data)) ;
-		
-		priv_data->refinement = 1 ;
-		priv_data->within_openmp = 1 ;
-		allocate_memory(priv_data) ;
-		
-		while (curr != NULL) {
-			#pragma omp for schedule(guided)
-			for (d = 0 ; d < curr->num_data ; ++d) {
-				if (frames->blacklist[curr->num_data_prev+d])
-					continue ;
-				refine_frame(d, curr, priv_data, common_data) ;
-			}
-			curr = curr->next ;
-		}
-		
-		combine_information_omp(priv_data, common_data) ;
-		free_memory(priv_data) ;
-	}
-	
-	avg_likelihood = combine_information_mpi(common_data) ;
-	if (!param->rank)
-		save_metrics(common_data) ;
-	free_memory(common_data) ;
-	
-	return avg_likelihood ;
-}
-
-void refine_frame(int d, struct dataset *curr, struct max_data *priv, struct max_data *common) {
-	int r, t, pixel ;
-	double max_exp = MAX_EXP_START ;
-	double p_norm = 0. ;
-	double new_scale = 0. ;
-	double *prob = priv->probab[0] ;
-	
-	for (r = 0 ; r < num_rot_sub[d] ; ++r) {
-		(*slice_gen)(&quat->quat[quat_sub[d][r]*5], 1., view, iter->model1, iter->size, det) ;
-		
-		prob[r] = common->u[quat_sub[d][r]] * iter->scale[curr->num_data_prev+d] ;
-		
-		for (t = 0 ; t < curr->ones[d] ; ++t) {
-			pixel = curr->place_ones[curr->ones_accum[d] + t] ;
-			if (det->mask[pixel] < 1)
-				prob[r] += view[pixel] ;
-		}
-		
-		for (t = 0 ; t < curr->multi[d] ; ++t) {
-			pixel = curr->place_multi[curr->multi_accum[d] + t] ;
-			if (det->mask[pixel] < 1)
-				prob[r] += curr->count_multi[curr->multi_accum[d] + t] * view[pixel] ;
-		}
-		
-		if (prob[r] > max_exp) {
-			max_exp = prob[r] ;
-			priv->rmax[curr->num_data_prev+d] = r ;
-		}
-	}
-	
-	for (r = 0 ; r < num_rot_sub[d] ; ++r) {
-		prob[r] = exp(param->beta * (prob[r] - max_exp)) ;
-		p_norm += prob[r] ;
-	}
-	
-	for (r = 0 ; r < num_rot_sub[d] ; ++r) {
-		prob[r] /= p_norm ;
-		new_scale -= prob[r] * common->u[quat_sub[d][r]] ;
-		if (prob[r] < PROB_MIN)
-			continue ;
-		
-		memset(view, 0, det->num_pix * sizeof(double)) ;
-		
-		for (t = 0 ; t < curr->ones[d] ; ++t) {
-			pixel = curr->place_ones[curr->ones_accum[d] + t] ;
-			if (det->mask[pixel] < 2)
-				view[pixel] += prob[r] / iter->scale[curr->num_data_prev+d] ;
-		}
-		
-		for (t = 0 ; t < curr->multi[d] ; ++t) {
-			pixel = curr->place_multi[curr->multi_accum[d] + t] ;
-			if (det->mask[pixel] < 2)
-				view[pixel] += curr->count_multi[curr->multi_accum[d] + t] * prob[r] / iter->scale[curr->num_data_prev+d] ;
-		}
-		
-		(*slice_merge)(&quat->quat[quat_sub[d][r]*5], view, priv->model, priv->weight, iter->size, det) ;
-	}
-	
-	iter->scale[curr->num_data_prev + d] = frames->count[curr->num_data_prev + d] / new_scale ;
-	
-	if ((curr->num_data_prev+d)%(frames->tot_num_data/10) == 0)
-		fprintf(stderr, "\r\t\tFinished %d/%d frames", curr->num_data_prev+d, frames->tot_num_data) ;
-}
-*/
-
 void allocate_memory(struct max_data *data) {
 	int detn, d ;
 	
@@ -666,9 +555,11 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 }
 
 static void gradient_rt(int r, struct max_data *priv, struct max_data *common, double **views, double **gradients) {
-	int dset = 0, t, d, curr_d, pixel, detn ;
+	int dset = 0, t, d, curr_d, pixel, detn, ind ;
 	double val, *grad, *view ;
 	struct dataset *curr = frames ;
+	int *num_prob = priv->num_prob, **probpos = priv->probpos ;
+	double **prob = priv->prob ;
 	
 	// Initialization:
 	// 	grad = -sum_d P_dr * phi_d
@@ -696,12 +587,23 @@ static void gradient_rt(int r, struct max_data *priv, struct max_data *common, d
 		for (curr_d = 0 ; curr_d < curr->num_data ; ++curr_d) {
 			// Calculate frame number in full list
 			d = curr->num_data_prev + curr_d ;
+			
 			// check if frame is blacklisted
 			if (frames->blacklist[d])
 				continue ;
 			
+			// check if current frame has significant probability
+			ind = -1 ;
+			for (t = 0 ; t < num_prob[d] ; ++t)
+			if (r == probpos[d][t]) {
+				ind = t ;
+				break ;
+			}
+			if (ind == -1)
+				continue ;
+			
 			// Skip if probability is very low (saves time)
-			if (!(common->prob[d][r] > PROB_MIN))
+			if (!(prob[d][ind] > PROB_MIN))
 				continue ;
 			
 			// Currently only working with type-0 data
@@ -710,11 +612,11 @@ static void gradient_rt(int r, struct max_data *priv, struct max_data *common, d
 				pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
 				if (priv->mask[detn][pixel] < 128) {
 					val = view[pixel] * iter->scale[d] + det[detn].background[pixel] ;
-					grad[pixel] += common->prob[d][r] * iter->scale[d] / val ;
+					grad[pixel] += prob[d][ind] * iter->scale[d] / val ;
 					priv->mask[detn][pixel] = 0 ;
 				}
 				else if (priv->mask[detn][pixel] == 128) {
-					grad[pixel] += common->prob[d][r] ;
+					grad[pixel] += prob[d][ind] ;
 				}
 			}
 			
@@ -723,11 +625,11 @@ static void gradient_rt(int r, struct max_data *priv, struct max_data *common, d
 				pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
 				if (priv->mask[detn][pixel] < 128) {
 					val = view[pixel] * iter->scale[d] + det[detn].background[pixel] ;
-					grad[pixel] += common->prob[d][r] * curr->count_multi[curr->multi_accum[curr_d] + t] * iter->scale[d] / val ;
+					grad[pixel] += prob[d][ind] * curr->count_multi[curr->multi_accum[curr_d] + t] * iter->scale[d] / val ;
 					priv->mask[detn][pixel] = 0 ;
 				}
 				else if (priv->mask[detn][pixel] == 128) {
-					grad[pixel] += common->prob[d][r] * curr->count_multi[curr->multi_accum[curr_d] + t] ;
+					grad[pixel] += prob[d][ind] * curr->count_multi[curr->multi_accum[curr_d] + t] ;
 				}
 			}
 		}
