@@ -29,7 +29,7 @@ struct max_data {
 	double *psum_d ; // S_d = \sum_r P_dr u_r
 	double **prob ; // prob[d][r] = P_dr
 	int *num_prob ; // num_prob[d] = Number of non-zero prob[d][r] entries for each d
-	int **probpos ; // probpos[d][r] = Position of non-zero prob[d][r]
+	int **place_prob ; // place_prob[d][r] = Position of non-zero prob[d][r]
 	
 	// Common among all threads only
 	double *max_exp ; // max_exp[d] = max_r log(R_dr)

@@ -117,10 +117,10 @@ void allocate_memory(struct max_data *data) {
 		data->psum_r = calloc(det[0].num_det, sizeof(double)) ;
 		
 		data->prob = malloc(frames->tot_num_data * sizeof(double*)) ;
-		data->probpos = malloc(frames->tot_num_data * sizeof(int*)) ;
+		data->place_prob = malloc(frames->tot_num_data * sizeof(int*)) ;
 		for (d = 0 ; d < frames->tot_num_data ; ++d) {
 			data->prob[d] = malloc(4 * sizeof(double)) ;
-			data->probpos[d] = malloc(4 * sizeof(int)) ;
+			data->place_prob[d] = malloc(4 * sizeof(int)) ;
 		}
 		data->num_prob = calloc(frames->tot_num_data, sizeof(int)) ;
 		
@@ -233,7 +233,7 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 	int dset = 0, t, d, curr_d, pixel, mode, rotind, detn, old_detn = -1 ;
 	struct dataset *curr = frames ;
 	double pval, *view ;
-	int *num_prob = priv->num_prob, **probpos = priv->probpos ;
+	int *num_prob = priv->num_prob, **place_prob = priv->place_prob ;
 	double **prob = priv->prob ;
 	
 	rotind = (r*param->num_proc + param->rank) / param->modes ;
@@ -318,13 +318,13 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 			// Only save value in prob array if it is significant
 			if (pval + PDIFF_THRESH/param->beta > priv->max_exp_p[d]) {
 				prob[d][num_prob[d]] = pval ;
-				probpos[d][num_prob[d]] = r ;
+				place_prob[d][num_prob[d]] = r ;
 				num_prob[d]++ ;
 				
 				// If num_prob is a power of two, expand array
 				if (num_prob[d] >= 4 && (num_prob[d] & (num_prob[d] - 1)) == 0) {
 					prob[d] = realloc(prob[d], num_prob[d] * 2 * sizeof(double)) ;
-					probpos[d] = realloc(probpos[d], num_prob[d] * 2 * sizeof(int)) ;
+					place_prob[d] = realloc(place_prob[d], num_prob[d] * 2 * sizeof(int)) ;
 				}
 			}
 			
@@ -333,7 +333,7 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 			if (pval > priv->max_exp_p[d]) {
 				priv->max_exp_p[d] = pval ;
 				priv->rmax[d] = r*param->num_proc + param->rank ;
-				num_prob[d] = resparsify(prob[d], probpos[d], num_prob[d], pval - PDIFF_THRESH/param->beta) ;
+				num_prob[d] = resparsify(prob[d], place_prob[d], num_prob[d], pval - PDIFF_THRESH/param->beta) ;
 			}
 		}
 		
@@ -400,7 +400,7 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 	double temp, scalemin ;
 	struct dataset *curr = frames ;
 	double **prob = priv->prob ;
-	int **probpos = priv->probpos, *num_prob = priv->num_prob ;
+	int **place_prob = priv->place_prob, *num_prob = priv->num_prob ;
 	
 	scalemin = DBL_MAX ;
 	memset(priv->psum_r, 0, (det[0].num_det)*sizeof(double)) ;
@@ -420,7 +420,7 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 			// check if current frame has significant probability
 			ind = -1 ;
 			for (t = 0 ; t < num_prob[d] ; ++t)
-			if (r == probpos[d][t]) {
+			if (r == place_prob[d][t]) {
 				ind = t ;
 				break ;
 			}
@@ -476,7 +476,7 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 	struct dataset *curr ;
 	double *view ;
 	double **prob = priv->prob ;
-	int **probpos = priv->probpos, *num_prob = priv->num_prob ;
+	int **place_prob = priv->place_prob, *num_prob = priv->num_prob ;
 	
 	if (merge_frames != NULL) {
 		if (!param->rank && !r)
@@ -506,7 +506,7 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 			// check if current frame has significant probability
 			ind = -1 ;
 			for (t = 0 ; t < num_prob[d] ; ++t)
-			if (r == probpos[d][t]) {
+			if (r == place_prob[d][t]) {
 				ind = t ;
 				break ;
 			}
@@ -558,7 +558,7 @@ static void gradient_rt(int r, struct max_data *priv, struct max_data *common, d
 	int dset = 0, t, d, curr_d, pixel, detn, ind ;
 	double val, *grad, *view ;
 	struct dataset *curr = frames ;
-	int *num_prob = priv->num_prob, **probpos = priv->probpos ;
+	int *num_prob = priv->num_prob, **place_prob = priv->place_prob ;
 	double **prob = priv->prob ;
 	
 	// Initialization:
@@ -595,7 +595,7 @@ static void gradient_rt(int r, struct max_data *priv, struct max_data *common, d
 			// check if current frame has significant probability
 			ind = -1 ;
 			for (t = 0 ; t < num_prob[d] ; ++t)
-			if (r == probpos[d][t]) {
+			if (r == place_prob[d][t]) {
 				ind = t ;
 				break ;
 			}
@@ -922,10 +922,10 @@ void free_memory(struct max_data *data) {
 		free(data->psum_r) ;
 		for (d = 0 ; d < frames->tot_num_data ; ++d) {
 			free(data->prob[d]) ;
-			free(data->probpos[d]) ;
+			free(data->place_prob[d]) ;
 		}
 		free(data->prob) ;
-		free(data->probpos) ;
+		free(data->place_prob) ;
 		free(data->num_prob) ;
 		if (det[0].with_bg && param->need_scaling) {
 			for (detn = 0 ; detn < det[0].num_det ; ++detn) {
