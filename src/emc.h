@@ -27,14 +27,14 @@ struct max_data {
 	uint8_t **mask ; // Flag mask (M_t) used to optimize update
 	double *psum_r ; // S_r = \sum_d P_dr \phi_d
 	double *psum_d ; // S_d = \sum_r P_dr u_r
+	double **prob ; // prob[d][r] = P_dr
+	int *num_prob ; // num_prob[d] = Number of non-zero prob[d][r] entries for each d
+	int **probpos ; // probpos[d][r] = Position of non-zero prob[d][r]
 	
 	// Common among all threads only
 	double *max_exp ; // max_exp[d] = max_r log(R_dr)
 	double *p_norm ; // P_dr normalization, \sum_r R_dr
 	double **u ; // u[detn][r] = -sum_t W_rt for every detn
-	double **prob ; // prob[d][r] = P_dr
-	int *num_prob ; // num_prob[d] = Number of non-zero prob[d][r] entries for each d
-	int **probpos ; // probpos[d][r] = Position of non-zero prob[d][r]
 	
 	// Both
 	double *max_exp_p ; // For priv, thread-local max_r. For common, process-local max_r
