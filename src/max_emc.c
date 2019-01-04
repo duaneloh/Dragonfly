@@ -318,7 +318,7 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 			// Only save value in prob array if it is significant
 			if (pval + PDIFF_THRESH/param->beta > priv->max_exp_p[d]) {
 				prob[d][num_prob[d]] = pval ;
-				place_prob[d][num_prob[d]] = r ;
+				place_prob[d][num_prob[d]] = r*param->num_proc + param->rank ;
 				num_prob[d]++ ;
 				
 				// If num_prob is a power of two, expand array
@@ -420,7 +420,7 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 			// check if current frame has significant probability
 			ind = -1 ;
 			for (t = 0 ; t < num_prob[d] ; ++t)
-			if (r == place_prob[d][t]) {
+			if (r*param->num_proc + param->rank == place_prob[d][t]) {
 				ind = t ;
 				break ;
 			}
@@ -506,7 +506,7 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 			// check if current frame has significant probability
 			ind = -1 ;
 			for (t = 0 ; t < num_prob[d] ; ++t)
-			if (r == place_prob[d][t]) {
+			if (r*param->num_proc + param->rank == place_prob[d][t]) {
 				ind = t ;
 				break ;
 			}
@@ -595,7 +595,7 @@ static void gradient_rt(int r, struct max_data *priv, struct max_data *common, d
 			// check if current frame has significant probability
 			ind = -1 ;
 			for (t = 0 ; t < num_prob[d] ; ++t)
-			if (r == place_prob[d][t]) {
+			if (r*param->num_proc + param->rank == place_prob[d][t]) {
 				ind = t ;
 				break ;
 			}
