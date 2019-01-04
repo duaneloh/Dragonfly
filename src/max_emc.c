@@ -9,6 +9,7 @@
 #include <gsl/gsl_sf_bessel.h>
 #include "emc.h"
 
+#define PROB_MIN 0.000001
 #define PDIFF_THRESH 14.
 #define MAX_EXP_START -1.e100
 
@@ -71,8 +72,10 @@ double maximize() {
 	}
 
 	avg_likelihood = combine_information_mpi(common_data) ;
-	if (!param->rank)
+	if (!param->rank) {
 		save_metrics(common_data) ;
+		save_prob(common_data) ;
+	}
 	free_memory(common_data) ;
 	
 	return avg_likelihood ;
@@ -90,12 +93,17 @@ void allocate_memory(struct max_data *data) {
 	if (param->modes > 1)
 		data->quat_norm = calloc(param->modes * frames->tot_num_data, sizeof(double)) ;
 	
+	data->prob = malloc(frames->tot_num_data * sizeof(double*)) ;
+	data->place_prob = malloc(frames->tot_num_data * sizeof(int*)) ;
+	data->num_prob = calloc(frames->tot_num_data, sizeof(int)) ;
+		
 	if (!data->within_openmp) { // common_data
 		data->u = malloc(det[0].num_det * sizeof(double*)) ;
 		for (detn = 0 ; detn < det[0].num_det ; ++detn)
 			data->u[detn] = calloc(quat->num_rot_p, sizeof(double)) ;
 		data->max_exp = calloc(frames->tot_num_data, sizeof(double)) ;
 		data->p_norm = calloc(frames->tot_num_data, sizeof(double)) ;
+		data->offset_prob = calloc(frames->tot_num_data * omp_get_max_threads(), sizeof(int)) ;
 		
 		memset(iter->model2, 0, param->modes*iter->vol*sizeof(double)) ;
 		memset(iter->inter_weight, 0, param->modes*iter->vol*sizeof(double)) ;
@@ -116,13 +124,10 @@ void allocate_memory(struct max_data *data) {
 			data->psum_d = calloc(frames->tot_num_data, sizeof(double)) ;
 		data->psum_r = calloc(det[0].num_det, sizeof(double)) ;
 		
-		data->prob = malloc(frames->tot_num_data * sizeof(double*)) ;
-		data->place_prob = malloc(frames->tot_num_data * sizeof(int*)) ;
 		for (d = 0 ; d < frames->tot_num_data ; ++d) {
 			data->prob[d] = malloc(4 * sizeof(double)) ;
 			data->place_prob[d] = malloc(4 * sizeof(int)) ;
 		}
-		data->num_prob = calloc(frames->tot_num_data, sizeof(int)) ;
 		
 		if (det[0].with_bg && param->need_scaling) {
 			data->G_old = malloc(det[0].num_det * sizeof(double*)) ;
@@ -351,6 +356,7 @@ void normalize_prob(struct max_data *priv, struct max_data *common) {
 	int r, d, omp_rank = omp_get_thread_num() ;
 	double *priv_norm = calloc(frames->tot_num_data, sizeof(double)) ;
 	
+	// Calculate max_log_prob over all OpenMP ranks (and the r for that maximum)
 	#pragma omp critical(maxexp)
 	{
 		for (d = 0 ; d < frames->tot_num_data ; ++d)
@@ -374,7 +380,7 @@ void normalize_prob(struct max_data *priv, struct max_data *common) {
 	#pragma omp barrier
 	
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
-	for (r = 0 ; r < priv->num_prob[d] ; ++r)
+	for (r = 0 ; r < priv->num_prob[d] ; ++r) 
 	if (frames->type < 2)
 		priv_norm[d] += exp(param->beta * (priv->prob[d][r] - common->max_exp[d])) ;
 	else
@@ -812,7 +818,8 @@ void merge_tomogram(int r, struct max_data *priv) {
 }
 
 void combine_information_omp(struct max_data *priv, struct max_data *common) {
-	int d, omp_rank = omp_get_thread_num() ;
+	int d, r, omp_rank = omp_get_thread_num() ;
+	int nthreads = omp_get_num_threads() ;
 	long x ;
 	
 	#pragma omp critical(model)
@@ -830,6 +837,39 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 			common->info[d] += priv->info[d] ;
 		}
 	}
+	
+	// Calculate offsets to combine sparse probabilities for each OpenMP rank
+	#pragma omp critical(offset_prob)
+	{
+		for (d = 0 ; d < frames->tot_num_data ; ++d) {
+			common->num_prob[d] += priv->num_prob[d] ;
+			for (r = omp_rank + 1 ; r < nthreads ; ++r)
+				common->offset_prob[d*nthreads + r] += priv->num_prob[d] ;
+		}
+	}
+	#pragma omp barrier
+		
+	// Allocate common prob arrays
+	if (omp_rank == 0) {
+		for (d = 0 ; d < frames->tot_num_data ; ++d) {
+			common->prob[d] = malloc(common->num_prob[d] * sizeof(double)) ;
+			common->place_prob[d] = malloc(common->num_prob[d] * sizeof(int)) ;
+		}
+	}
+	#pragma omp barrier
+	
+	// Populate common->prob array for all d
+	for (d = 0 ; d < frames->tot_num_data ; ++d)
+	for (r = 0 ; r < priv->num_prob[d] ; ++r) {
+		common->prob[d][common->offset_prob[d*nthreads + omp_rank] + r] = priv->prob[d][r] ;
+		common->place_prob[d][common->offset_prob[d*nthreads + omp_rank] + r] = priv->place_prob[d][r] ;
+	}
+	#pragma omp barrier
+	
+	// Sparsify probs based on PROB_MIN threshold
+	if (omp_rank == 0)
+	for (d = 0 ; d < frames->tot_num_data ; ++d)
+		common->num_prob[d] = resparsify(common->prob[d], common->place_prob[d], common->num_prob[d], PROB_MIN) ;
 	
 	if (param->need_scaling && param->update_scale) {
 		if (omp_rank == 0)
@@ -895,20 +935,28 @@ double combine_information_mpi(struct max_data *data) {
 }
 
 void free_memory(struct max_data *data) {
+	int detn, d ;
 	free(data->max_exp_p) ;
 	free(data->info) ;
 	free(data->likelihood) ;
 	free(data->rmax) ;
 	if (param->modes > 1)
 		free(data->quat_norm) ;
+	for (d = 0 ; d < frames->tot_num_data ; ++d) {
+		free(data->prob[d]) ;
+		free(data->place_prob[d]) ;
+	}
+	free(data->prob) ;
+	free(data->place_prob) ;
+	free(data->num_prob) ;
 	
 	if (!data->within_openmp) {
 		free(data->max_exp) ;
 		free(data->u) ;
 		free(data->p_norm) ;
+		free(data->offset_prob) ;
 	}
 	else {
-		int detn, d ;
 		for (d = 0 ; d < det[0].num_det ; ++d) {
 			free(data->all_views[d]) ;
 			free(data->mask[d]) ;
@@ -920,13 +968,6 @@ void free_memory(struct max_data *data) {
 		free(data->model) ;
 		free(data->weight) ;
 		free(data->psum_r) ;
-		for (d = 0 ; d < frames->tot_num_data ; ++d) {
-			free(data->prob[d]) ;
-			free(data->place_prob[d]) ;
-		}
-		free(data->prob) ;
-		free(data->place_prob) ;
-		free(data->num_prob) ;
 		if (det[0].with_bg && param->need_scaling) {
 			for (detn = 0 ; detn < det[0].num_det ; ++detn) {
 				free(data->G_old[detn]) ;
