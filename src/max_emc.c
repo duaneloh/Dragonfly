@@ -427,7 +427,7 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 			}
 			
 			// Only save value in prob array if it is significant
-			if (pval + PDIFF_THRESH > priv->max_exp_p[d]) {
+			if (pval + PDIFF_THRESH/param->beta > priv->max_exp_p[d]) {
 				prob[d][num_prob[d]] = pval ;
 				probpos[d][num_prob[d]] = r ;
 				num_prob[d]++ ;
@@ -444,7 +444,7 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 			if (pval > priv->max_exp_p[d]) {
 				priv->max_exp_p[d] = pval ;
 				priv->rmax[d] = r*param->num_proc + param->rank ;
-				num_prob[d] = resparsify(prob[d], probpos[d], num_prob[d], pval - PDIFF_THRESH) ;
+				num_prob[d] = resparsify(prob[d], probpos[d], num_prob[d], pval - PDIFF_THRESH/param->beta) ;
 			}
 		}
 		
