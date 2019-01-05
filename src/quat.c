@@ -743,6 +743,41 @@ static void quat_free_mem(int num) {
 		free(cell_points) ;
 }
 
+static char *generate_token(char *line, char *section_name) {
+	char *token = strtok(line, " =") ;
+	if (token[0] == '#' || token[0] == '\n')
+		return NULL ;
+	
+	if (line[0] == '[') {
+		token = strtok(line, "[]") ;
+		strcpy(section_name, token) ;
+		return NULL ;
+	}
+	
+	return token ;
+}
+
+static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
+	if (rel_path[0] == '/' || strstr(rel_path, ":::") != NULL) {
+		strcpy(path, rel_path) ;
+	}
+	else {
+		strcpy(&path[strlen(config_folder)], rel_path) ;
+		strncpy(path, config_folder, strlen(config_folder)) ;
+	}
+}
+
+static double qdist(double *q1, double *q2) {
+	// Assumes both q1 and q1 are unit quaternions
+	int i ;
+	double d = 0. ;
+	for (i = 0 ; i < 4 ; ++i)
+		d += q1[i]*q2[i] ;
+	return 1. - d*d ;
+}
+
+// Public functions below
+
 int quat_gen(int num_div, struct rotation *quat) {
 	int r ;
 	double min_dist2, total_weight = 0. ;
@@ -822,30 +857,6 @@ void free_quat(struct rotation *quat) {
 	free(quat) ;
 }
 
-static char *generate_token(char *line, char *section_name) {
-	char *token = strtok(line, " =") ;
-	if (token[0] == '#' || token[0] == '\n')
-		return NULL ;
-	
-	if (line[0] == '[') {
-		token = strtok(line, "[]") ;
-		strcpy(section_name, token) ;
-		return NULL ;
-	}
-	
-	return token ;
-}
-
-static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
-	if (rel_path[0] == '/' || strstr(rel_path, ":::") != NULL) {
-		strcpy(path, rel_path) ;
-	}
-	else {
-		strcpy(&path[strlen(config_folder)], rel_path) ;
-		strncpy(path, config_folder, strlen(config_folder)) ;
-	}
-}
-
 int generate_quaternion(char *config_fname, char *config_section, struct rotation *quat_ptr) {
 	int r, num, num_div = -1, recon_type = 3, num_rot = 0 ;
 	char quat_fname[1024] = {'\0'} ;
@@ -909,5 +920,21 @@ int generate_quaternion(char *config_fname, char *config_section, struct rotatio
 		return 1 ;
 	
 	return 0 ;
+}
+
+void voronoi_subset(struct rotation *qcoarse, struct rotation *qfine, int *nearest_coarse) {
+	int i, j ;
+	double dist, dmin ;
+	
+	for (i = 0 ; i < qfine->num_rot ; ++i) {
+		dmin = 2. ;
+		for (j = 0 ; j < qcoarse->num_rot ; ++j) {
+			dist = qdist(&qfine->quat[i*5], &qcoarse->quat[j*5]) ;
+			if (dist < dmin) {
+				dmin = dist ;
+				nearest_coarse[i] = j ;
+			}
+		}
+	}
 }
 
