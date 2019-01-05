@@ -9,31 +9,38 @@
 #include <gsl/gsl_sf_bessel.h>
 #include "emc.h"
 
-#define PROB_MIN 0.000001
+#define PROB_MIN 1.e-6
 #define PDIFF_THRESH 14.
 #define MAX_EXP_START -1.e100
 
 static struct timeval tm1, tm2 ;
 
+// Start Maximize
 static void allocate_memory(struct max_data*) ;
 static void calculate_rescale(struct max_data*) ;
+// -- Start OpenMP
 static void calculate_prob(int, struct max_data*, struct max_data*) ;
 static void normalize_prob(struct max_data*, struct max_data*) ;
-static double calc_psum_r(int, struct max_data*, struct max_data*) ;
 static void update_tomogram(int, struct max_data*, struct max_data*) ;
-static void optimize_tomogram(int, struct max_data*, struct max_data*) ;
 static void merge_tomogram(int, struct max_data*) ;
 static void combine_information_omp(struct max_data*, struct max_data*) ;
+// -- End OpenMP
 static double combine_information_mpi(struct max_data*) ;
 static void free_memory(struct max_data*) ;
+// End Maximize
+
+// Other functions
+static int resparsify(double*, int*, int, double) ;
+static double calc_psum_r(int, struct max_data*, struct max_data*) ;
+static void gradient_rt(int, struct max_data*, struct max_data*, double**, double**) ;
+static void update_tomogram_bg(int, struct max_data*, struct max_data*) ;
+static void update_tomogram_nobg(int, struct max_data*, struct max_data*) ;
 static void print_max_time(char*, char*, int) ;
 
 double maximize() {
 	double avg_likelihood ;
 	gettimeofday(&tm1, NULL) ;
-	iter->mutual_info = 0. ;
 	struct max_data *common_data = malloc(sizeof(struct max_data)) ;
-	common_data->refinement = 0 ;
 	common_data->within_openmp = 0 ;
 	
 	allocate_memory(common_data) ;
@@ -44,7 +51,6 @@ double maximize() {
 		int r ;
 		struct max_data *priv_data = malloc(sizeof(struct max_data)) ;
 		
-		priv_data->refinement = 0 ;
 		priv_data->within_openmp = 1 ;
 		allocate_memory(priv_data) ;
 		
@@ -56,16 +62,10 @@ double maximize() {
 		
 		#pragma omp for schedule(static,1)
 		for (r = 0 ; r < quat->num_rot_p ; ++r) {
-			if (det[0].with_bg && param->need_scaling)
-				optimize_tomogram(r, priv_data, common_data) ;
-			else
-				update_tomogram(r, priv_data, common_data) ;
+			update_tomogram(r, priv_data, common_data) ;
 			merge_tomogram(r, priv_data) ;
 		}
 		
-		// Combine information from different OpenMP ranks
-		// This function (and the associated private arrays) will be unnecessary with
-		// OpenMP 4.5 support available in GCC 6.1+ or ICC 17.0+
 		combine_information_omp(priv_data, common_data) ;
 		
 		free_memory(priv_data) ;
@@ -84,6 +84,7 @@ double maximize() {
 void allocate_memory(struct max_data *data) {
 	int detn, d ;
 	
+	// Both private and common
 	data->rmax = calloc(frames->tot_num_data, sizeof(int)) ;
 	data->info = calloc(frames->tot_num_data, sizeof(double)) ;
 	data->likelihood = calloc(frames->tot_num_data, sizeof(double)) ;
@@ -129,6 +130,7 @@ void allocate_memory(struct max_data *data) {
 			data->place_prob[d] = malloc(4 * sizeof(int)) ;
 		}
 		
+		// Only for background-aware update
 		if (det[0].with_bg && param->need_scaling) {
 			data->G_old = malloc(det[0].num_det * sizeof(double*)) ;
 			data->G_new = malloc(det[0].num_det * sizeof(double*)) ;
@@ -213,7 +215,7 @@ void calculate_rescale(struct max_data *data) {
 	print_max_time("rescale", res_string, param->rank == 0) ;
 }
 
-static int resparsify(double *vals, int *pos, int num_vals, double thresh) {
+int resparsify(double *vals, int *pos, int num_vals, double thresh) {
 	int i, j ;
 	
 	for (i = 0 ; i < num_vals ; ++i) {
@@ -401,6 +403,13 @@ void normalize_prob(struct max_data *priv, struct max_data *common) {
 	print_max_time("norm", "", param->rank == 0 && omp_rank == 0) ;
 }
 
+void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
+	if (det[0].with_bg && param->need_scaling)
+		update_tomogram_bg(r, priv, common) ;
+	else
+		update_tomogram_nobg(r, priv, common) ;
+}
+
 double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 	int dset = 0, d, curr_d, detn, rotind, mode, t, ind ;
 	double temp, scalemin ;
@@ -477,7 +486,7 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 	return scalemin ;
 }
 
-void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
+void update_tomogram_nobg(int r, struct max_data *priv, struct max_data *common) {
 	int dset = 0, t, d, curr_d, pixel, detn, ind ;
 	struct dataset *curr ;
 	double *view ;
@@ -560,7 +569,7 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 		priv->all_views[detn][t] /= priv->psum_r[detn] ;
 }
 
-static void gradient_rt(int r, struct max_data *priv, struct max_data *common, double **views, double **gradients) {
+void gradient_rt(int r, struct max_data *priv, struct max_data *common, double **views, double **gradients) {
 	int dset = 0, t, d, curr_d, pixel, detn, ind ;
 	double val, *grad, *view ;
 	struct dataset *curr = frames ;
@@ -645,7 +654,7 @@ static void gradient_rt(int r, struct max_data *priv, struct max_data *common, d
 	}
 }
 
-void optimize_tomogram(int r, struct max_data *priv, struct max_data *common) {
+void update_tomogram_bg(int r, struct max_data *priv, struct max_data *common) {
 	double scalemin ;
 	
 	// Calculate pixel-independent part of likelihood: \sum_d (P_dr * phi_d)
@@ -895,6 +904,7 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 double combine_information_mpi(struct max_data *data) {
 	int d ;
 	double avg_likelihood = 0. ;
+	iter->mutual_info = 0. ;
 	
 	// Combine 3D volumes from all MPI ranks
 	if (param->rank) {
