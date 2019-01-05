@@ -11,7 +11,7 @@ foreach(src ${utils_src})
 endforeach(src)
 
 # Add specific object libraries for different utilities
-target_sources(merge PUBLIC $<TARGET_OBJECTS:detector.o> $<TARGET_OBJECTS:dataset.o> $<TARGET_OBJECTS:interp.o> $<TARGET_OBJECTS:iterate.o>)
+target_sources(merge PUBLIC $<TARGET_OBJECTS:detector.o> $<TARGET_OBJECTS:dataset.o> $<TARGET_OBJECTS:interp.o> $<TARGET_OBJECTS:quat.o> $<TARGET_OBJECTS:iterate.o>)
 target_sources(cosmic PUBLIC $<TARGET_OBJECTS:detector.o> $<TARGET_OBJECTS:dataset.o>)
 target_sources(make_data PUBLIC $<TARGET_OBJECTS:detector.o> $<TARGET_OBJECTS:interp.o>)
 target_sources(fiberize PUBLIC $<TARGET_OBJECTS:detector.o> $<TARGET_OBJECTS:interp.o>)

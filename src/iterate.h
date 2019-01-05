@@ -12,13 +12,16 @@
 #include "dataset.h"
 #include "detector.h"
 #include "params.h"
+#include "quat.h"
 
 struct iterate {
 	long size, center, vol ;
 	int modes, tot_num_data ;
 	double *model1, *model2, *inter_weight ;
 	double *scale ;
-	int **rel_quat, *num_rel_quat ;
+
+	// For refinement
+	int *quat_mapping, **rel_quat, *num_rel_quat ;
 	
 	double *rescale, *mean_count ; // For each detector
 	double mutual_info, rms_change ;

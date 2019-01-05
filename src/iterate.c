@@ -43,10 +43,13 @@ static void calc_mean_counts(struct dataset *frames, struct detector *det, struc
 	free(numd) ;
 }
 
+// Public functions below
+
 int generate_iterate(char *config_fname, char *config_section, int continue_flag, double qmax, struct params *param, struct detector *det, struct dataset *dset, struct iterate *iter) {
 	FILE *fp ;
 	double model_mean ;
 	char input_fname[2048] = {'\0'}, scale_fname[2048] = {'\0'} ;
+	char probs_fname[2048] = {'\0'} ;
 	char line[2048], section_name[1024], config_folder[1024], *token ;
 	char *temp_fname = strndup(config_fname, 1024) ;
 	sprintf(config_folder, "%s/", dirname(temp_fname)) ;
@@ -69,6 +72,8 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 				absolute_strcpy(config_folder, input_fname, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "scale_file") == 0)
 				absolute_strcpy(config_folder, scale_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "probs_file") == 0)
+				absolute_strcpy(config_folder, probs_fname, strtok(NULL, " =\n")) ;
 		}
 	}
 	fclose(config_fp) ;
@@ -112,6 +117,20 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 		else if (param->update_scale == 0) {
 			fprintf(stderr, "Not updating these scale factors\n") ;
 		}
+	}
+	
+	if (param->refine) {
+		struct rotation *qcoarse = malloc(sizeof(struct rotation)) ;
+		struct rotation *qfine = malloc(sizeof(struct rotation)) ;
+		quat_gen(param->coarse_div, qcoarse) ;
+		quat_gen(param->fine_div, qfine) ;
+		iter->quat_mapping = malloc(qfine->num_rot * sizeof(int)) ;
+		voronoi_subset(qcoarse, qfine, iter->quat_mapping) ;
+		fprintf(stderr, "Generated quat_mapping\n") ;
+		if (parse_rel_quat(probs_fname, iter))
+			return 1 ;
+		free_quat(qcoarse) ;
+		free_quat(qfine) ;
 	}
 	
 	model_mean = dset[0].mean_count / det[0].rel_num_pix * 2. ;
