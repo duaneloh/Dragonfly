@@ -18,6 +18,7 @@ struct iterate {
 	int modes, tot_num_data ;
 	double *model1, *model2, *inter_weight ;
 	double *scale ;
+	int **rel_quat, *num_rel_quat ;
 	
 	double *rescale, *mean_count ; // For each detector
 	double mutual_info, rms_change ;
@@ -30,6 +31,7 @@ void calc_powder(struct dataset*, struct detector*, struct iterate*) ;
 void calc_scale(struct dataset*, struct detector*, struct iterate*) ;
 void normalize_scale(struct dataset*, struct iterate*) ;
 void parse_input(char*, double, int, int, struct iterate*) ;
+int parse_rel_quat(char*, struct iterate*) ;
 void free_iterate(struct iterate*) ;
 
 #endif //ITERATE_H

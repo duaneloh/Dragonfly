@@ -321,7 +321,75 @@ void parse_input(char *fname, double mean, int rank, int recon_type, struct iter
 	}
 }
 
+int parse_rel_quat(char *fname, struct iterate *iter) {
+#ifdef WITH_HDF5
+	int d ;
+	hid_t file, dset, dspace, dtype ;
+	hsize_t num_data ;
+	hvl_t *buffer ;
+	
+	file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT) ;
+	if (file < 0) {
+		fprintf(stderr, "Could not open rel_quat file %s\n", fname) ;
+		return 1 ;
+	}
+	
+	dset = H5Dopen(file, "place_prob", H5P_DEFAULT) ;
+	dtype = H5Tvlen_create(H5T_STD_I32LE) ;
+	dspace = H5Dget_space(dset) ;
+	H5Sget_simple_extent_dims(dspace, &num_data, NULL) ;
+	if (num_data != iter->tot_num_data) {
+		fprintf(stderr, "num_data of rel_quat does not match\n") ;
+		return 1 ;
+	}
+	
+	buffer = malloc(num_data * sizeof(hvl_t)) ;
+	iter->num_rel_quat = malloc(num_data * sizeof(int)) ;
+	iter->rel_quat = malloc(num_data * sizeof(int*)) ;
+	
+	H5Dread(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, buffer) ;
+	for (d = 0 ; d < num_data ; ++d) {
+		iter->num_rel_quat[d] = buffer[d].len ;
+		iter->rel_quat[d] = buffer[d].p ;
+	}
+	
+	free(buffer) ;
+	H5Dclose(dset) ;
+	H5Tclose(dtype) ;
+	H5Sclose(dspace) ;
+	H5Fclose(file) ;
+#else // WITH_HDF5
+	int d, num_data ;
+	FILE *fp = fopen(fname, "rb") ;
+	if (fp == NULL) {
+		fprintf(stderr, "Could not open rel_quat file %s\n", fname) ;
+		return 1 ;
+	}
+	
+	fread(&num_data, sizeof(int), 1, fp) ;
+	if (num_data != iter->tot_num_data) {
+		fprintf(stderr, "num_data of rel_quat does not match\n") ;
+		return 1 ;
+	}
+	iter->num_rel_quat = malloc(num_data * sizeof(int)) ;
+	iter->rel_quat = malloc(num_data * sizeof(int*)) ;
+	
+	fseek(fp, 1024, SEEK_SET) ;
+	fread(iter->num_rel_quat, sizeof(int), num_data, fp) ;
+	for (d = 0 ; d < num_data ; ++d) {
+		iter->rel_quat[d] = malloc(iter->num_rel_quat[d] * sizeof(int)) ;
+		fread(iter->rel_quat[d], sizeof(int), iter->num_rel_quat[d], fp) ;
+	}
+	
+	fclose(fp) ;
+#endif // WITH_HDF5
+	
+	return 0 ;
+}
+
 void free_iterate(struct iterate *iter) {
+	int d ;
+	
 	if (iter == NULL)
 		return ;
 	
@@ -335,5 +403,11 @@ void free_iterate(struct iterate *iter) {
 		free(iter->scale) ;
 	if (iter->rescale != NULL)
 		free(iter->rescale) ;
+	if (iter->rel_quat != NULL) {
+		for (d = 0 ; d < iter->tot_num_data ; ++d)
+			free(iter->rel_quat[d]) ;
+		free(iter->rel_quat) ;
+		free(iter->num_rel_quat) ;
+	}
 	free(iter) ;
 }
