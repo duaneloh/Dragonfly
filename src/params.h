@@ -20,6 +20,7 @@ struct params {
 	int beta_period, need_scaling, known_scale, update_scale ;
 	double alpha, beta_start, beta, beta_jump ;
 	int friedel_sym ; // Symmetrization for 2D recon
+	int refine, coarse_div, fine_div ; // If doing refinement
 	
 	// Gaussian EMC parameter
 	double sigmasq ;

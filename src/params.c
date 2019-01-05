@@ -25,7 +25,6 @@ static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
 }
 
 void generate_params(char *config_fname, struct params *param) {
-	//char line[1024], section_name[1024], config_folder[1024], *token ;
 	char line[2048], section_name[1024], config_folder[1024], temp[8] ;
 	char *temp_fname = strndup(config_fname, 1024) ;
 	sprintf(config_folder, "%s/", dirname(temp_fname)) ;
@@ -45,6 +44,9 @@ void generate_params(char *config_fname, struct params *param) {
 	param->rot_per_mode = 0 ;
 	param->recon_type = RECON3D ;
 	param->friedel_sym = 0 ;
+	param->refine = 0 ;
+	param->coarse_div = 0 ;
+	param->fine_div = 0 ;
 	sprintf(param->log_fname, "%s/EMC.log", config_folder) ;
 	sprintf(param->output_folder, "%s/data/", config_folder) ;
 	
@@ -91,6 +93,18 @@ void generate_params(char *config_fname, struct params *param) {
 				param->friedel_sym = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "update_scale") == 0)
 				param->update_scale = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "num_div") == 0) {
+				param->fine_div = atoi(strtok(NULL, " =\n")) ;
+				char *cstr = strtok(NULL, " =\n") ;
+				if (cstr == NULL) {
+					param->fine_div = 0 ;
+				}
+				else {
+					param->refine = 1; 
+					param->coarse_div = atoi(cstr) ;
+					fprintf(stderr, "Doing refinement from num_div = %d -> %d\n", param->coarse_div, param->fine_div) ;
+				}
+			}
 		}
 	}
 	fclose(config_fp) ;
