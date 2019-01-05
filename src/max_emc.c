@@ -237,7 +237,7 @@ int resparsify(double *vals, int *pos, int num_vals, double thresh) {
 }
 
 void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
-	int dset = 0, t, d, curr_d, pixel, mode, rotind, detn, old_detn = -1 ;
+	int dset = 0, t, d, curr_d, pixel, mode, rotind, detn, old_detn = -1, ind ;
 	struct dataset *curr = frames ;
 	double pval, *view ;
 	int *num_prob = priv->num_prob, **place_prob = priv->place_prob ;
@@ -267,6 +267,18 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 			// check if frame is blacklisted
 			if (frames->blacklist[d])
 				continue ;
+			
+			// For refinement, check if frame should be processed
+			if (param->refine) {
+				ind = -1 ;
+				for (t = 0 ; t < iter->num_rel_quat[d] ; ++t)
+				if (iter->quat_mapping[r*param->num_proc+param->rank] == iter->rel_quat[d][t]) {
+					ind = t ;
+					break ;
+				}
+				if (ind == -1)
+					continue ;
+			}
 			
 			if (curr->type < 2) {
 				// need_scaling is for if we want to assume variable incident intensity
@@ -432,6 +444,18 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 			if (frames->blacklist[d])
 				continue ;
 			
+			// For refinement, check if frame should be processed
+			if (param->refine) {
+				ind = -1 ;
+				for (t = 0 ; t < iter->num_rel_quat[d] ; ++t)
+				if (iter->quat_mapping[r*param->num_proc+param->rank] == iter->rel_quat[d][t]) {
+					ind = t ;
+					break ;
+				}
+				if (ind == -1)
+					continue ;
+			}
+			
 			// check if current frame has significant probability
 			ind = -1 ;
 			for (t = 0 ; t < num_prob[d] ; ++t)
@@ -517,6 +541,18 @@ void update_tomogram_nobg(int r, struct max_data *priv, struct max_data *common)
 			// check if frame is blacklisted
 			if (frames->blacklist[d])
 				continue ;
+			
+			// For refinement, check if frame should be processed
+			if (param->refine) {
+				ind = -1 ;
+				for (t = 0 ; t < iter->num_rel_quat[d] ; ++t)
+				if (iter->quat_mapping[r*param->num_proc+param->rank] == iter->rel_quat[d][t]) {
+					ind = t ;
+					break ;
+				}
+				if (ind == -1)
+					continue ;
+			}
 			
 			// check if current frame has significant probability
 			ind = -1 ;
@@ -606,6 +642,18 @@ void gradient_rt(int r, struct max_data *priv, struct max_data *common, double *
 			// check if frame is blacklisted
 			if (frames->blacklist[d])
 				continue ;
+			
+			// For refinement, check if frame should be processed
+			if (param->refine) {
+				ind = -1 ;
+				for (t = 0 ; t < iter->num_rel_quat[d] ; ++t)
+				if (iter->quat_mapping[r*param->num_proc+param->rank] == iter->rel_quat[d][t]) {
+					ind = t ;
+					break ;
+				}
+				if (ind == -1)
+					continue ;
+			}
 			
 			// check if current frame has significant probability
 			ind = -1 ;
