@@ -56,6 +56,7 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 	free(temp_fname) ;
 	iter->size = -1 ;
 	iter->scale = NULL ;
+	iter->rel_quat = NULL ;
 	iter->modes = param->modes ;
 	iter->rescale = calloc(det[0].num_det, sizeof(double)) ;
 	iter->mean_count = calloc(det[0].num_det, sizeof(double)) ;
@@ -126,7 +127,6 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 		quat_gen(param->fine_div, qfine) ;
 		iter->quat_mapping = malloc(qfine->num_rot * sizeof(int)) ;
 		voronoi_subset(qcoarse, qfine, iter->quat_mapping) ;
-		fprintf(stderr, "Generated quat_mapping\n") ;
 		if (parse_rel_quat(probs_fname, iter))
 			return 1 ;
 		free_quat(qcoarse) ;
