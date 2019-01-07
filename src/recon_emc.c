@@ -99,6 +99,8 @@ void emc() {
 		//if (param->iteration % param->beta_period == 1 && param->iteration > 1)
 		//	param->beta *= param->beta_jump ;
 		param->beta = param->beta_start * pow(param->beta_jump, (param->iteration-1) / param->beta_period) ;
+		if (param->beta > 1.)
+			param->beta = 1. ;
 		
 		likelihood = maximize() ;
 		print_recon_time("Completed maximize", &tr1, &tr2, param->rank) ;
