@@ -34,7 +34,7 @@ void calc_powder(struct dataset*, struct detector*, struct iterate*) ;
 void calc_scale(struct dataset*, struct detector*, struct iterate*) ;
 void normalize_scale(struct dataset*, struct iterate*) ;
 void parse_input(char*, double, int, int, struct iterate*) ;
-int parse_rel_quat(char*, struct iterate*) ;
+int parse_rel_quat(char*, int, struct iterate*) ;
 void free_iterate(struct iterate*) ;
 
 #endif //ITERATE_H

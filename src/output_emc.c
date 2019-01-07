@@ -255,15 +255,13 @@ void save_prob(struct max_data *data) {
 #else // WITH_HDF5
 
 	char name[2048] ;
-	hid_t file, dset, dspace, dtype ;
+	hid_t file, group, dset, dspace, dtype ;
 	hsize_t dsize[1] = {1} ;
 	hvl_t *prob, *place ;
 	
 	sprintf(name, "%s/output_%.3d.h5", param->output_folder, param->iteration) ;
 	file = H5Fopen(name, H5F_ACC_RDWR, H5P_DEFAULT) ;
 	
-	dsize[0] = num_data ;
-	dspace = H5Screate_simple(1, dsize, NULL) ;
 	prob = malloc(num_data * sizeof(hvl_t)) ;
 	place = malloc(num_data * sizeof(hvl_t)) ;
 	for (d = 0 ; d < num_data ; ++d) {
@@ -273,20 +271,31 @@ void save_prob(struct max_data *data) {
 		place[d].p = data->place_prob[d] ;
 	}
 	
+	group = H5Gcreate(file, "probabilities", H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
+	
+	dspace = H5Screate_simple(1, dsize, NULL) ;
+	dset = H5Dcreate(file, "probabilities/num_rot", H5T_STD_I32LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
+	H5Dwrite(dset, H5T_STD_I32LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &(quat->num_rot)) ;
+	H5Dclose(dset) ;
+	H5Sclose(dspace) ;
+	
 	dtype = H5Tvlen_create(H5T_STD_I32LE) ;
-	dset = H5Dcreate(file, "place_prob", dtype, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
+	dsize[0] = num_data ;
+	dspace = H5Screate_simple(1, dsize, NULL) ;
+	dset = H5Dcreate(file, "probabilities/place", dtype, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
 	H5Dwrite(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, place) ;
 	H5Dclose(dset) ;
 	free(place) ;
 	
 	dtype = H5Tvlen_create(H5T_IEEE_F64LE) ;
-	dset = H5Dcreate(file, "probabilities", dtype, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
+	dset = H5Dcreate(file, "probabilities/prob", dtype, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
 	H5Dwrite(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, prob) ;
 	H5Dclose(dset) ;
 	free(prob) ;
 	
 	H5Sclose(dspace) ;
 	H5Tclose(dtype) ;
+	H5Gclose(group) ;
 	H5Fclose(file) ;
 #endif //WITH_HDF5
 }

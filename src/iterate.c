@@ -127,7 +127,7 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 		quat_gen(param->fine_div, qfine) ;
 		iter->quat_mapping = malloc(qfine->num_rot * sizeof(int)) ;
 		voronoi_subset(qcoarse, qfine, iter->quat_mapping) ;
-		if (parse_rel_quat(probs_fname, iter))
+		if (parse_rel_quat(probs_fname, qcoarse->num_rot, iter))
 			return 1 ;
 		free_quat(qcoarse) ;
 		free_quat(qfine) ;
@@ -340,9 +340,9 @@ void parse_input(char *fname, double mean, int rank, int recon_type, struct iter
 	}
 }
 
-int parse_rel_quat(char *fname, struct iterate *iter) {
+int parse_rel_quat(char *fname, int num_rot_coarse, struct iterate *iter) {
+	int d, num_rot_prob ;
 #ifdef WITH_HDF5
-	int d ;
 	hid_t file, dset, dspace, dtype ;
 	hsize_t num_data ;
 	hvl_t *buffer ;
@@ -353,7 +353,16 @@ int parse_rel_quat(char *fname, struct iterate *iter) {
 		return 1 ;
 	}
 	
-	dset = H5Dopen(file, "place_prob", H5P_DEFAULT) ;
+	dset = H5Dopen(file, "probabilities/num_rot", H5P_DEFAULT) ;
+	H5Dread(dset, H5T_STD_I32LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &num_rot_prob) ;
+	H5Dclose(dset) ;
+	if (num_rot_prob != num_rot_coarse) {
+		fprintf(stderr, "Rotation sampling in probs file does not match num_rot_coarse\n") ;
+		fprintf(stderr, "%d vs %d\n", num_rot_prob, num_rot_coarse) ;
+		return 1 ;
+	}
+	
+	dset = H5Dopen(file, "probabilities/place", H5P_DEFAULT) ;
 	dtype = H5Tvlen_create(H5T_STD_I32LE) ;
 	dspace = H5Dget_space(dset) ;
 	H5Sget_simple_extent_dims(dspace, &num_data, NULL) ;
@@ -378,7 +387,7 @@ int parse_rel_quat(char *fname, struct iterate *iter) {
 	H5Sclose(dspace) ;
 	H5Fclose(file) ;
 #else // WITH_HDF5
-	int d, num_data ;
+	int num_data ;
 	FILE *fp = fopen(fname, "rb") ;
 	if (fp == NULL) {
 		fprintf(stderr, "Could not open rel_quat file %s\n", fname) ;
@@ -388,6 +397,12 @@ int parse_rel_quat(char *fname, struct iterate *iter) {
 	fread(&num_data, sizeof(int), 1, fp) ;
 	if (num_data != iter->tot_num_data) {
 		fprintf(stderr, "num_data of rel_quat does not match\n") ;
+		return 1 ;
+	}
+	fread(&num_rot_prob, sizeof(int), 1, fp) ;
+	if (num_rot_prob != num_rot_coarse) {
+		fprintf(stderr, "Rotation sampling in probs file does not match num_rot_coarse\n") ;
+		fprintf(stderr, "%d vs %d\n", num_rot_prob, num_rot_coarse) ;
 		return 1 ;
 	}
 	iter->num_rel_quat = malloc(num_data * sizeof(int)) ;
