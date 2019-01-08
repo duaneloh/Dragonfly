@@ -46,6 +46,11 @@ QMenuBar, QMenuBar *,
     border-radius: 4px;
   }
 
+  QMenu::item:selected,
+  QMenuBar::item:selected {
+    background: #3e3e48;
+  }
+
 #plots, #plots * {
   background: #3e3e48;
 }
