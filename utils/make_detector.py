@@ -61,21 +61,21 @@ def main():
             mask[(rad > min(pm['detc_x'], pm['detc_y'])) & (mask == 0)] = 1
         timer.reset_and_report("Creating detector") if args.vb else timer.reset()
 
-        if HDF5_MODE:
-            if os.path.splitext(det_file)[1] != '.h5':
-                det_file += '.h5'
-            with h5py.File(det_file, "w") as fptr:
-                fptr['qx'] = qx
-                fptr['qy'] = qy
-                fptr['qz'] = qz
-                fptr['corr'] = solid_angle
-                fptr['mask'] = mask
-                fptr['detd'] = pm['detd']/pm['pixsize']
-                fptr['ewald_rad'] = pm['ewald_rad']
+        if os.path.splitext(det_file)[1] != '.h5':
+            if HDF5_MODE:
+                with h5py.File(det_file, "w") as fptr:
+                    fptr['qx'] = qx
+                    fptr['qy'] = qy
+                    fptr['qz'] = qz
+                    fptr['corr'] = solid_angle
+                    fptr['mask'] = mask
+                    fptr['detd'] = pm['detd']/pm['pixsize']
+                    fptr['ewald_rad'] = pm['ewald_rad']
+            else:
+                print('Need h5py to save HDF5 detector')
+                logging.error('Cannot save h5 detector without h5py module. Exiting.')
+                return
         else:
-            if os.path.splitext(det_file)[1] == '.h5':
-                det_file = os.path.splitext(det_file)[0] + '.dat'
-                print('WARNING: h5py could not be imported. Writing detector to %s' % det_file)
             with open(det_file, "w") as fptr:
                 #fptr.write(str(pm['dets_x']*pm['dets_y']) + "\n")
                 fptr.write("%d %.6f %.6f\n" % (pm['dets_x']*pm['dets_y'],
