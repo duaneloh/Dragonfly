@@ -60,6 +60,7 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 	iter->modes = param->modes ;
 	iter->rescale = calloc(det[0].num_det, sizeof(double)) ;
 	iter->mean_count = calloc(det[0].num_det, sizeof(double)) ;
+	iter->tot_num_data = dset->tot_num_data ;
 	
 	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 2048, config_fp) != NULL) {
@@ -97,10 +98,14 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 			sprintf(input_fname, "%s/output_%.3d.h5", param->output_folder, param->start_iter) ;
 			if (param->need_scaling)
 				sprintf(scale_fname, "%s/output_%.3d.h5", param->output_folder, param->start_iter) ;
+			if (param->refine && probs_fname[0] == '\0')
+				sprintf(probs_fname, "%s/output_%.3d.h5", param->output_folder, param->start_iter) ;
 #else // WITH_HDF5
 			sprintf(input_fname, "%s/output/intens_%.3d.bin", param->output_folder, param->start_iter) ;
 			if (param->need_scaling)
 				sprintf(scale_fname, "%s/scale/scale_%.3d.dat", param->output_folder, param->start_iter) ;
+			if (param->refine && probs_fname[0] == '\0')
+				sprintf(probs_fname, "%s/probabilities/probabilities_%.3d.emc", param->output_folder, param->start_iter) ;
 #endif // WITH_HDF5
 			param->start_iter += 1 ;
 			fprintf(stderr, "Continuing from previous run starting from iteration %d.\n", param->start_iter) ;
@@ -121,14 +126,21 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 	}
 	
 	if (param->refine) {
-		struct rotation *qcoarse = malloc(sizeof(struct rotation)) ;
-		struct rotation *qfine = malloc(sizeof(struct rotation)) ;
+		if (probs_fname[0] == '\0') {
+			fprintf(stderr, "Need coarse probabilities in probs_file to do refinement\n") ;
+			return 1 ;
+		}
+		struct rotation *qcoarse = calloc(1, sizeof(struct rotation)) ;
+		struct rotation *qfine = calloc(1, sizeof(struct rotation)) ;
 		quat_gen(param->coarse_div, qcoarse) ;
 		quat_gen(param->fine_div, qfine) ;
+		
 		iter->quat_mapping = malloc(qfine->num_rot * sizeof(int)) ;
 		voronoi_subset(qcoarse, qfine, iter->quat_mapping) ;
+		
 		if (parse_rel_quat(probs_fname, qcoarse->num_rot, iter))
 			return 1 ;
+		
 		free_quat(qcoarse) ;
 		free_quat(qfine) ;
 	}
@@ -223,7 +235,6 @@ void calc_scale(struct dataset *frames, struct detector *det, struct iterate *it
 	struct dataset *curr ;
 	curr = frames ;
 	
-	iter->tot_num_data = frames->tot_num_data ;
 	iter->scale = calloc(iter->tot_num_data, sizeof(double)) ;
 	frames->count = calloc(iter->tot_num_data, sizeof(int)) ;
 	
@@ -367,7 +378,7 @@ int parse_rel_quat(char *fname, int num_rot_coarse, struct iterate *iter) {
 	dspace = H5Dget_space(dset) ;
 	H5Sget_simple_extent_dims(dspace, &num_data, NULL) ;
 	if (num_data != iter->tot_num_data) {
-		fprintf(stderr, "num_data of rel_quat does not match\n") ;
+		fprintf(stderr, "num_data of rel_quat (%lld) does not match %d\n", num_data, iter->tot_num_data) ;
 		return 1 ;
 	}
 	
@@ -396,13 +407,15 @@ int parse_rel_quat(char *fname, int num_rot_coarse, struct iterate *iter) {
 	
 	fread(&num_data, sizeof(int), 1, fp) ;
 	if (num_data != iter->tot_num_data) {
-		fprintf(stderr, "num_data of rel_quat does not match\n") ;
+		fprintf(stderr, "num_data of rel_quat (%d) does not match\n", num_data) ;
+		fclose(fp) ;
 		return 1 ;
 	}
 	fread(&num_rot_prob, sizeof(int), 1, fp) ;
 	if (num_rot_prob != num_rot_coarse) {
 		fprintf(stderr, "Rotation sampling in probs file does not match num_rot_coarse\n") ;
 		fprintf(stderr, "%d vs %d\n", num_rot_prob, num_rot_coarse) ;
+		fclose(fp) ;
 		return 1 ;
 	}
 	iter->num_rel_quat = malloc(num_data * sizeof(int)) ;
