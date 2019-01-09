@@ -23,6 +23,8 @@ cdef class iterate:
 		self.iterate.model2 = NULL
 		self.iterate.inter_weight = NULL
 		self.iterate.scale = NULL
+		self.iterate.rescale = NULL
+		self.iterate.rel_quat = NULL
 
 	def generate_iterate(self, config_fname, double qmax, params param, detector det, dataset dset, continue_flag=False, config_section=b'emc'):
 		cdef char* c_config_fname = config_fname
