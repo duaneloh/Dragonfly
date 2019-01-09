@@ -329,7 +329,7 @@ int main(int argc, char *argv[]) {
 		i2i2 += model2_rad[t] * model2_rad[t] ;
 	
 	// Generate quaternion and calculate max_corr
-	quat = malloc(sizeof(struct rotation)) ;
+	quat = calloc(1, sizeof(struct rotation)) ;
 	quat_gen(4, quat) ;
 	calc_corr(quat, model1_rad, model2_rad) ;
 	
