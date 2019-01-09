@@ -20,6 +20,7 @@ cdef class params:
 		self.param.need_scaling = 0
 		self.param.alpha = 0.
 		self.param.beta = 1.
+		self.param.beta_start = 1.
 		self.param.sigmasq = 0.
 		self.param.log_fname[:7] = "EMC.log"
 		self.param.output_folder[:5] = "data/"
@@ -82,6 +83,8 @@ cdef class params:
 	def alpha(self): return self.param.alpha if self.param != NULL else None
 	@property
 	def beta(self): return self.param.beta if self.param != NULL else None
+	@property
+	def beta_start(self): return self.param.beta_start if self.param != NULL else None
 	@property
 	def beta_jump(self): return self.param.beta_jump if self.param != NULL else None
 	@property
