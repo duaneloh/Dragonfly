@@ -169,6 +169,7 @@ void calculate_size(double qmax, struct iterate *iter) {
 
 int parse_scale(char *fname, struct iterate *iter) {
 	int flag = 0 ;
+	char line[8], hdfheader[8] = {137, 'H', 'D', 'F', '\r', '\n', 26, '\n'} ;
 	
 	FILE *fp = fopen(fname, "r") ;
 	if (fp == NULL) {
@@ -177,20 +178,29 @@ int parse_scale(char *fname, struct iterate *iter) {
 	else {
 		fprintf(stderr, "Using scale factors from %s\n", fname) ;
 		flag = 1 ;
+		fread(line, sizeof(char), 8, fp) ;
+		if (strncmp(line, hdfheader, 8) == 0) {
 #ifdef WITH_HDF5
-		fclose(fp) ;
-		hid_t file, dset ;
-		file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT) ;
-		dset = H5Dopen(file, "/scale", H5P_DEFAULT) ;
-		H5Dread(dset, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, iter->scale) ;
-		H5Dclose(dset) ;
-		H5Fclose(file) ;
+			fclose(fp) ;
+			hid_t file, dset ;
+			file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT) ;
+			dset = H5Dopen(file, "/scale", H5P_DEFAULT) ;
+			H5Dread(dset, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, iter->scale) ;
+			H5Dclose(dset) ;
+			H5Fclose(file) ;
 #else // WITH_HDF5
-		int d ;
-		for (d = 0 ; d < iter->tot_num_data ; ++d)
-			fscanf(fp, "%lf", &iter->scale[d]) ;
-		fclose(fp) ;
+			fprintf(stderr, "H5 output support not compiled. Cannot parse scale factors\n") ;
+			fprintf(stderr, "Defaulting to uniform scale factors\n") ;
+			return 0 ;
 #endif // WITH_HDF5
+		}
+		else {
+			fseek(fp, 0, SEEK_SET) ;
+			int d ;
+			for (d = 0 ; d < iter->tot_num_data ; ++d)
+				fscanf(fp, "%lf", &iter->scale[d]) ;
+			fclose(fp) ;
+		}
 	}
 	
 	return flag ;
