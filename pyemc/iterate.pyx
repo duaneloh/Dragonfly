@@ -38,25 +38,19 @@ cdef class iterate:
 		cdef char* c_fname = fname
 		return decl.parse_scale(c_fname, self.iterate)
 
-	def calc_scale(self, dataset dset, detector det, print_fname=None):
-		cdef char* c_print_fname
-		if print_fname is not None:
-			c_print_fname = print_fname
-		else:
-			c_print_fname = NULL
-		decl.calc_scale(dset.dset, det.det, c_print_fname, self.iterate)
+	def calc_scale(self, dataset dset, detector det):
+		decl.calc_scale(dset.dset, det.det, self.iterate)
 
 	def normalize_scale(self, dataset dset):
 		decl.normalize_scale(dset.dset, self.iterate)
 
-	def parse_input(self, fname, double mean, int rank=0, print_fname=None):
+	def parse_input(self, fname, double mean, int rank=0):
 		cdef char* c_fname = fname
-		cdef char* c_print_fname
-		if print_fname is not None:
-			c_print_fname = print_fname
-		else:
-			c_print_fname = NULL
-		decl.parse_input(c_fname, mean, c_print_fname, rank, 42, self.iterate)
+		decl.parse_input(c_fname, mean, rank, 42, self.iterate)
+
+	def parse_rel_quat(self, fname, int num_rot_coarse):
+		cdef char *c_fname = fname
+		decl.parse_rel_quat(c_fname, num_rot_coarse, self.iterate)
 
 	def free_iterate(self):
 		decl.free_iterate(self.iterate)

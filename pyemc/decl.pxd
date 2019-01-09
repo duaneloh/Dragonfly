@@ -66,6 +66,7 @@ cdef extern from '../src/quat.h' nogil:
 	int quat_gen(int, rotation*)
 	int parse_quat(char*, rotation*)
 	void divide_quat(int, int, int, rotation*)
+	void voronoi_subset(rotation*, rotation*, int*)
 	void free_quat(rotation*)
 
 cdef extern from '../src/iterate.h' nogil:
@@ -82,9 +83,10 @@ cdef extern from '../src/iterate.h' nogil:
 	int generate_iterate(char*, char*, int, double, params*, detector*, dataset*, iterate*)
 	void calculate_size(double, iterate*)
 	int parse_scale(char*, iterate*)
-	void calc_scale(dataset*, detector*, char*, iterate*)
+	void calc_scale(dataset*, detector*, iterate*)
 	void normalize_scale(dataset*, iterate*)
-	void parse_input(char*, double, char*, int, int, iterate*)
+	void parse_input(char*, double, int, int, iterate*)
+	int parse_rel_quat(char*, int, iterate*)
 	void free_iterate(iterate*)
 
 cdef extern from '../src/interp.h' nogil:
