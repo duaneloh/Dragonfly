@@ -12,7 +12,7 @@ void write_log_file_header(int num_threads) {
 	fprintf(fp, "\tnum_rot = %d\n\tnum_pix = %d/%d\n\t", quat->num_rot, det->rel_num_pix, det->num_pix) ;
 	if (param->recon_type == RECON3D)
 		fprintf(fp, "system_volume = %d X %ld X %ld X %ld\n\n", param->modes, iter->size, iter->size, iter->size) ;
-	else if (param->recon_type == RECON2D)
+	else if (param->recon_type == RECON2D || param->recon_type == RECONRZ)
 		fprintf(fp, "system_volume = %d X %ld X %ld\n\n", param->modes, iter->size, iter->size) ;
 	fprintf(fp, "Reconstruction parameters:\n") ;
 	fprintf(fp, "\tnum_threads = %d\n\tnum_proc = %d\n\talpha = %.6f\n\tbeta = %.6f\n\tneed_scaling = %s", 
@@ -70,7 +70,7 @@ void save_initial_iterate() {
 	sprintf(name, "%s/output_000.h5", param->output_folder) ;
 	file = H5Fcreate(name, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT) ;
 	
-	if (param->recon_type == RECON2D)
+	if (param->recon_type == RECON2D || param->recon_type == RECONRZ)
 		dspace = H5Screate_simple(3, out_size2d, NULL) ;
 	else
 		dspace = H5Screate_simple(4, out_size3d, NULL) ;
@@ -133,7 +133,7 @@ void save_models() {
 	sprintf(name, "%s/output_%.3d.h5", param->output_folder, param->iteration) ;
 	file = H5Fopen(name, H5F_ACC_RDWR, H5P_DEFAULT) ;
 	
-	if (param->recon_type == RECON2D)
+	if (param->recon_type == RECON2D || param->recon_type == RECONRZ)
 		dspace = H5Screate_simple(3, out_size2d, NULL) ;
 	else
 		dspace = H5Screate_simple(4, out_size3d, NULL) ;

@@ -257,6 +257,125 @@ void slice_merge2d(double *angle_ptr, double *slice, double *model, double *weig
 	}
 }
 
+/* RZ interpolation
+ * Generates slice[t] from model[x] by interpolation at angle phi and beta
+ * The locations of the pixels in slice[t] are given by detector[t]
+*/
+void slice_genrz(double *phibeta, double rescale, double *slice, double *model, long size, struct detector *det) {
+	int t, x, y ;
+	double tx, ty, fx, fy, cx, cy, fac ;
+	double q_beta[3], q_0[3], rot_phi[2][2] = {{0}}, rot_beta[2][2] = {{0}} ;
+	
+	make_rot_angle(phibeta[0], rot_phi) ;
+	make_rot_angle(phibeta[1], rot_beta) ;
+	
+	for (t = 0 ; t < det->num_pix ; ++t) {
+		fac = det->detd * det->detd ;
+		fac += pow(det->pixels[t*3+0], 2.) + pow(det->pixels[t*3+1], 2.) ;
+		q_0[0] = (det->pixels[t*3+0]*rot_phi[0][0] + det->pixels[t*3+1]*rot_phi[0][1]) / fac ;
+		q_0[1] = (det->pixels[t*3+0]*rot_phi[1][0] + det->pixels[t*3+1]*rot_phi[1][1]) / fac ;
+		q_0[2] = det->detd/fac - 1. ;
+		
+		q_beta[0] = q_0[0] ;
+		q_beta[1] = q_0[1]*rot_beta[0][0] + q_0[2]*rot_beta[0][1] ;
+		q_beta[2] = q_0[1]*rot_beta[1][0] + q_0[2]*rot_beta[1][1] ;
+		
+		tx = (size/2)*(sqrt(q_beta[0]*q_beta[0] + q_beta[2]*q_beta[2]) + 1.) ;
+		ty = (size/2)*(1. + q_beta[1]) ;
+		
+		x = tx ;
+		y = ty ;
+		
+		if (x < 0 || x > size-2 || y < 0 || y > size-2) {
+			slice[t] = DBL_MIN ;
+			continue ;
+		}
+		
+		fx = tx - x ;
+		fy = ty - y ;
+		cx = 1. - fx ;
+		cy = 1. - fy ;
+		
+		slice[t] = cx*cy*model[x*size+ y] +
+		           cx*fy*model[x*size+ ((y+1)%size)] +
+		           fx*cy*model[((x+1)%size)*size + y] +
+		           fx*fy*model[((x+1)%size)*size + ((y+1)%size)] ;
+		
+		// Correct for solid angle and polarization
+		slice[t] *= det->pixels[t*3 + 2] ;
+		
+		if (slice[t] <= 0.)
+			slice[t] = DBL_MIN ;
+		
+		// Use rescale as flag on whether to take log or not
+		else if (rescale != 0.) 
+			slice[t] = log(slice[t] * rescale) ;
+	}
+}
+
+/* RZ merging
+ * Merges slice[t] into model[x] at the given phi, beta angles
+ * Also adds to weight[x] containing the interpolation weights
+ * The locations of the pixels in slice[t] are given by detector[t]
+*/
+void slice_mergerz(double *phibeta, double *slice, double *model, double *weight, long size, struct detector *det) {
+	int t, x, y ;
+	double tx, ty, fx, fy, cx, cy, w, f, fac ;
+	double q_beta[3], q_0[3], rot_phi[2][2] = {{0}}, rot_beta[2][2] = {{0}} ;
+	
+	make_rot_angle(phibeta[0], rot_phi) ;
+	make_rot_angle(phibeta[1], rot_beta) ;
+	
+	for (t = 0 ; t < det->num_pix ; ++t) {
+		if (det->mask[t] > 1)
+			continue ;
+		
+		fac = det->detd * det->detd ;
+		fac += pow(det->pixels[t*3+0], 2.) + pow(det->pixels[t*3+1], 2.) ;
+		q_0[0] = (det->pixels[t*3+0]*rot_phi[0][0] + det->pixels[t*3+1]*rot_phi[0][1]) / fac ;
+		q_0[1] = (det->pixels[t*3+0]*rot_phi[1][0] + det->pixels[t*3+1]*rot_phi[1][1]) / fac ;
+		q_0[2] = det->detd/fac - 1. ;
+		
+		q_beta[0] = q_0[0] ;
+		q_beta[1] = q_0[1]*rot_beta[0][0] + q_0[2]*rot_beta[0][1] ;
+		q_beta[2] = q_0[1]*rot_beta[1][0] + q_0[2]*rot_beta[1][1] ;
+		
+		tx = (size/2)*(sqrt(q_beta[0]*q_beta[0] + q_beta[2]*q_beta[2]) + 1.) ;
+		ty = (size/2)*(1. + q_beta[1]) ;
+		
+		x = tx ;
+		y = ty ;
+		
+		if (x < 0 || x > size-2 || y < 0 || y > size-2)
+			continue ;
+		
+		fx = tx - x ;
+		fy = ty - y ;
+		cx = 1. - fx ;
+		cy = 1. - fy ;
+		
+		// Correct for solid angle and polarization
+		slice[t] /= det->pixels[t*3 + 2] ;
+		w = slice[t] ;
+		
+		f = cx*cy ;
+		weight[x*size + y] += f ;
+		model[x*size + y] += f * w ;
+		
+		f = cx*fy ;
+		weight[x*size + ((y+1)%size)] += f ;
+		model[x*size + ((y+1)%size)] += f * w ;
+		
+		f = fx*cy ;
+		weight[((x+1)%size)*size + y] += f ;
+		model[((x+1)%size)*size + y] += f * w ;
+		
+		f = fx*fy ;
+		weight[((x+1)%size)*size + ((y+1)%size)] += f ;
+		model[((x+1)%size)*size + ((y+1)%size)] += f * w ;
+	}
+}
+
 /* Rotates cubic model according to given rotation matrix
  * 	Adds to rotated model. Does not zero output model.
  * 	Note that this function uses OpenMP so it should not be put in a parallel block

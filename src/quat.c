@@ -858,7 +858,8 @@ void free_quat(struct rotation *quat) {
 }
 
 int generate_quaternion(char *config_fname, char *config_section, struct rotation *quat_ptr) {
-	int r, num, num_div = -1, recon_type = 3, num_rot = 0 ;
+	int r, b, num, num_div = -1, recon_type = 3, num_rot = 0, num_beta ;
+	double beta_min = 0., beta_max = 0., beta_incr = 0. ;
 	char quat_fname[1024] = {'\0'} ;
 	char line[1024], temp[8], section_name[1024], config_folder[1024], *token ;
 	char *temp_fname = strndup(config_fname, 1024) ;
@@ -875,9 +876,11 @@ int generate_quaternion(char *config_fname, char *config_section, struct rotatio
 			if (strcmp(token, "recon_type") == 0) {
 				strncpy(temp, strtok(NULL, " =\n"), 8) ;
 				if (strcmp(temp, "3d") == 0)
-					recon_type = 3 ;
+					recon_type = 42 ;
 				else if (strcmp(temp, "2d") == 0)
-					recon_type = 2 ;
+					recon_type = 43 ;
+				else if (strcmp(temp, "rz") == 0)
+					recon_type = 44 ;
 			}
 			else if (strcmp(token, "num_div") == 0)
 				num_div = atoi(strtok(NULL, " =\n")) ;
@@ -887,11 +890,16 @@ int generate_quaternion(char *config_fname, char *config_section, struct rotatio
 				absolute_strcpy(config_folder, quat_fname, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "sym_icosahedral") == 0)
 				quat_ptr->icosahedral_flag = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "beta_range_deg") == 0) {
+				beta_min = atof(strtok(NULL, " =\n")) * M_PI / 180. ;
+				beta_max = atof(strtok(NULL, " =\n")) * M_PI / 180. ;
+				beta_incr = atof(strtok(NULL, " =\n")) * M_PI / 180. ;
+			}
 		}
 	}
 	fclose(config_fp) ;
 	
-	if (recon_type == 2) {
+	if (recon_type == 43) {
 		if (num_rot == 0) {
 			fprintf(stderr, "Need num_rot if recon_type is 2d\n") ;
 			return 1 ;
@@ -903,6 +911,24 @@ int generate_quaternion(char *config_fname, char *config_section, struct rotatio
 			quat_ptr->quat[r*5+0] = 2. * M_PI * r / num_rot ;
 			quat_ptr->quat[r*5+4] = 1. / num_rot ;
 		}
+		
+		return 0 ;
+	}
+	else if (recon_type == 44) {
+		if (num_rot == 0 || beta_incr == 0.) {
+			fprintf(stderr, "Need num_rot and 3 beta_range_deg values if recon_type is rz\n") ;
+			return 1 ;
+		}
+		num_beta = floor((beta_max - beta_min) / beta_incr) ;
+		quat_ptr->num_rot = num_rot * num_beta ;
+		quat_ptr->quat = calloc(quat_ptr->num_rot * 5, sizeof(double)) ;
+		for (r = 0 ; r < num_rot ; ++r)
+		for (b = 0 ; b < num_beta ; ++b) {
+			quat_ptr->quat[r*5 + 0] = 2. * M_PI * r / num_rot ;
+			quat_ptr->quat[r*5 + 1] = beta_min + beta_incr*b ;
+			quat_ptr->quat[r*5+4] = 1. / num_rot / num_beta ;
+		}
+		fprintf(stderr, "Created %d (phi, beta) pairs instead of quaternions\n", quat_ptr->num_rot) ;
 		
 		return 0 ;
 	}

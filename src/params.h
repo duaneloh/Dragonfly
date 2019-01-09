@@ -9,6 +9,7 @@
 
 #define RECON3D 42
 #define RECON2D 43
+#define RECONRZ 44
 
 struct params {
 	int rank, num_proc ;

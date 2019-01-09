@@ -296,7 +296,7 @@ void parse_input(char *fname, double mean, int rank, int recon_type, struct iter
 	iter->vol = 0 ;
 	if (recon_type == RECON3D)
 		iter->vol = iter->size * iter->size * iter->size ;
-	else if (recon_type == RECON2D)
+	else if (recon_type == RECON2D || recon_type == RECONRZ)
 		iter->vol = iter->size * iter->size ;
 	long tot_vol = iter->modes * iter->vol ;
 	

@@ -42,6 +42,11 @@ int setup(char *s_config_fname, int continue_flag) {
 		slice_gen = &slice_gen2d ;
 		slice_merge = &slice_merge2d ;
 	}
+	else if (param->recon_type == RECONRZ) {
+		det_flag = -param->modes ;
+		slice_gen = &slice_genrz ;
+		slice_merge = &slice_mergerz ;
+	}
 	else {
 		fprintf(stderr, "recon_type not recognized\n") ;
 		return 1 ;

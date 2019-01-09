@@ -67,6 +67,8 @@ void generate_params(char *config_fname, struct params *param) {
 					param->recon_type = RECON3D ;
 				else if (strcmp(temp, "2d") == 0)
 					param->recon_type = RECON2D ;
+				else if (strcmp(temp, "rz") == 0)
+					param->recon_type = RECONRZ ;
 				else
 					fprintf(stderr, "WARNING! Unknown recon_type %s. Assuming 3D reconstruction.\n", temp) ;
 			}

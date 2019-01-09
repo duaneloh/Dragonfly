@@ -130,7 +130,7 @@ void update_model(double likelihood) {
 		if (iter->inter_weight[x] > 0.)
 			iter->model2[x] *= norm / iter->inter_weight[x] ;
 	
-	if (param->recon_type == RECON2D && param->friedel_sym)
+	if (param->recon_type == RECONRZ || (param->recon_type == RECON2D && param->friedel_sym))
 		symmetrize_friedel2d(iter->model2, param->modes, iter->size) ;
 	else if (param->recon_type == RECON3D && quat->icosahedral_flag)
 		for (x = 0 ; x < param->modes ; ++x)
