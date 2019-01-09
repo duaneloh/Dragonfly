@@ -14,6 +14,7 @@ try:
     matplotlib.use('qt5agg')
     from matplotlib.backends.backend_qt5agg import FigureCanvas # pylint: disable=no-name-in-module
     import matplotlib.pyplot as plt
+    import matplotlib.animation as animation
     os.environ['QT_API'] = 'pyqt5'
 except ImportError:
     import sip
@@ -24,6 +25,7 @@ except ImportError:
     matplotlib.use('qt4agg')
     from matplotlib.backends.backend_qt4agg import FigureCanvas # pylint: disable=no-name-in-module
     import matplotlib.pyplot as plt
+    import matplotlib.animation as animation
     os.environ['QT_API'] = 'pyqt'
 from py_src import read_config
 
@@ -332,6 +334,12 @@ class ProgressViewer(QtWidgets.QMainWindow):
         action = QtWidgets.QAction('Save Log &Plot', self)
         action.triggered.connect(self._save_log_plot)
         imagemenu.addAction(action)
+        action = QtWidgets.QAction('Save &Layer Movie', self)
+        action.triggered.connect(self._save_layer_movie)
+        imagemenu.addAction(action)
+        action = QtWidgets.QAction('Save &Iteration Movie', self)
+        action.triggered.connect(self._save_iter_movie)
+        imagemenu.addAction(action)
         
         # -- Color map picker
         cmapmenu = imagemenu.addMenu('&Color Map')
@@ -605,6 +613,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.vol_plotter.update_mode(num, **argsdict)
         else:
             self.vol_plotter.plot(num, **argsdict)
+        return self.fig,
 
     def _parse_and_plot(self, force=False):
         if force or not self.vol_plotter.image_exists or self.old_fname != self.fname.text():
@@ -705,6 +714,45 @@ class ProgressViewer(QtWidgets.QMainWindow):
         if fname:
             self.log_fig.savefig(fname, bbox_inches='tight', dpi=120)
             sys.stderr.write("Saved to %s\n"%fname)
+
+    def _save_layer_movie(self):
+        default_name = 'images/'+os.path.splitext(os.path.basename(self.fname.text()))[0]+'_layers.mp4'
+        fpath = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Layer Animation Movie',
+                                                      default_name, 'Movie (*.mp4)')
+        if os.environ['QT_API'] == 'pyqt5':
+            fname = fpath[0]
+        else:
+            fname = fpath
+        if fname:
+            sys.stderr.write('Saving layer animation to %s ...' % fname)
+            Writer = animation.writers['ffmpeg']
+            writer = Writer(fps=20, codec='h264', bitrate=1800)
+            anim = animation.FuncAnimation(self.fig, self._plot_vol, self.layer_slider.maximum(), interval=50, repeat=False)
+            anim.save(fname, writer=writer)
+            self._plot_vol()
+            sys.stderr.write('done')
+
+    def _plot_iter(self, num):
+        self.fname.setText(self._gen_model_fname(num))
+        self._parse_and_plot()
+        return self.fig,
+
+    def _save_iter_movie(self):
+        default_name = 'images/iterations.mp4'
+        fpath = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Layer Animation Movie',
+                                                      default_name, 'Movie (*.mp4)')
+        if os.environ['QT_API'] == 'pyqt5':
+            fname = fpath[0]
+        else:
+            fname = fpath
+        if fname:
+            sys.stderr.write('Saving iteration animation to %s ...' % fname)
+            Writer = animation.writers['ffmpeg']
+            writer = Writer(fps=20, codec='h264', bitrate=1800)
+            anim = animation.FuncAnimation(self.fig, self._plot_iter, self.iter_slider.maximum(), interval=50, repeat=False)
+            anim.save(fname, writer=writer)
+            self._plot_vol()
+            sys.stderr.write('done')
 
     def _cmap_changed(self):
         if self.vol_plotter.image_exists:
