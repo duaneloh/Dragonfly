@@ -1,5 +1,6 @@
 import numpy as np
 cimport numpy as np
+from scipy import sparse
 
 from libc.stdlib cimport malloc, free
 
@@ -52,7 +53,7 @@ cdef class iterate:
 
 	def parse_rel_quat(self, fname, int num_rot_coarse):
 		cdef char *c_fname = fname
-		decl.parse_rel_quat(c_fname, num_rot_coarse, self.iterate)
+		return decl.parse_rel_quat(c_fname, num_rot_coarse, self.iterate)
 
 	def free_iterate(self):
 		decl.free_iterate(self.iterate)
@@ -66,8 +67,13 @@ cdef class iterate:
 	def vol(self): return self.iterate.vol if self.iterate != NULL else None
 	@property
 	def tot_num_data(self): return self.iterate.tot_num_data if self.iterate != NULL else None
+	@tot_num_data.setter
+	def tot_num_data(self, val): self.iterate.tot_num_data = val
 	@property
 	def modes(self): return self.iterate.modes if self.iterate != NULL else None
+	@modes.setter
+	def modes(self, val): self.iterate.modes = val
+	
 	@property
 	def model1(self): return np.asarray(<double[:self.size**3]> self.iterate.model1).reshape(3*(self.size,)) if self.iterate != NULL else None
 	@property
@@ -76,4 +82,17 @@ cdef class iterate:
 	def inter_weight(self): return np.asarray(<double[:self.size**3]> self.iterate.inter_weight).reshape(3*(self.size,)) if self.iterate != NULL else None
 	@property
 	def scale(self): return np.asarray(<double[:self.tot_num_data]> self.iterate.scale) if self.iterate != NULL else None
+	@property
+	def num_rel_quat(self): return np.asarray(<int[:self.tot_num_data]> self.iterate.num_rel_quat) if self.iterate != NULL else None
+	@property
+	def rel_quat(self):
+		if self.iterate == NULL:
+			return
+		nrq = self.num_rel_quat
+		flat = np.empty(nrq.sum(), dtype='i4')
+		accum = np.insert(np.cumsum(nrq), 0, 0)
+		for i in range(len(nrq)):
+			flat[accum[i]:accum[i+1]] = np.asarray(<int[:nrq[i]]> self.iterate.rel_quat[i])
+		return sparse.csr_matrix((np.ones(int(accum[-1])), flat, accum))
+	#def rel_quat(self): return np.asarray(<double[:self.num_rel_quat.sum()]> self.iterate.rel_quat) if self.iterate != NULL else None
  
