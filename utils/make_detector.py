@@ -61,7 +61,7 @@ def main():
             mask[(rad > min(pm['detc_x'], pm['detc_y'])) & (mask == 0)] = 1
         timer.reset_and_report("Creating detector") if args.vb else timer.reset()
 
-        if os.path.splitext(det_file)[1] != '.h5':
+        if os.path.splitext(det_file)[1] == '.h5':
             if HDF5_MODE:
                 with h5py.File(det_file, "w") as fptr:
                     fptr['qx'] = qx
