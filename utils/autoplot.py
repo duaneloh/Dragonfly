@@ -613,7 +613,6 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.vol_plotter.update_mode(num, **argsdict)
         else:
             self.vol_plotter.plot(num, **argsdict)
-        return self.fig,
 
     def _parse_and_plot(self, force=False):
         if force or not self.vol_plotter.image_exists or self.old_fname != self.fname.text():
@@ -715,6 +714,11 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.log_fig.savefig(fname, bbox_inches='tight', dpi=120)
             sys.stderr.write("Saved to %s\n"%fname)
 
+    def _plot_layer(self, num):
+        self._plot_vol(num=num)
+        self.fig.suptitle('Layer %d'%num, y=0.01, va='bottom')
+        return self.fig,
+
     def _save_layer_movie(self):
         default_name = 'images/'+os.path.splitext(os.path.basename(self.fname.text()))[0]+'_layers.mp4'
         fpath = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Layer Animation Movie',
@@ -727,14 +731,15 @@ class ProgressViewer(QtWidgets.QMainWindow):
             sys.stderr.write('Saving layer animation to %s ...' % fname)
             Writer = animation.writers['ffmpeg']
             writer = Writer(fps=20, codec='h264', bitrate=1800)
-            anim = animation.FuncAnimation(self.fig, self._plot_vol, self.layer_slider.maximum(), interval=50, repeat=False)
+            anim = animation.FuncAnimation(self.fig, self._plot_layer, self.layer_slider.maximum(), interval=50, repeat=False)
             anim.save(fname, writer=writer)
-            self._plot_vol()
-            sys.stderr.write('done')
+            self._parse_and_plot(force=True)
+            sys.stderr.write('done\n')
 
     def _plot_iter(self, num):
         self.fname.setText(self._gen_model_fname(num))
         self._parse_and_plot()
+        self.fig.suptitle('Iteration %d'%num, y=0.01, va='bottom')
         return self.fig,
 
     def _save_iter_movie(self):
@@ -748,11 +753,11 @@ class ProgressViewer(QtWidgets.QMainWindow):
         if fname:
             sys.stderr.write('Saving iteration animation to %s ...' % fname)
             Writer = animation.writers['ffmpeg']
-            writer = Writer(fps=20, codec='h264', bitrate=1800)
+            writer = Writer(fps=10, codec='h264', bitrate=1800)
             anim = animation.FuncAnimation(self.fig, self._plot_iter, self.iter_slider.maximum(), interval=50, repeat=False)
             anim.save(fname, writer=writer)
-            self._plot_vol()
-            sys.stderr.write('done')
+            self._parse_and_plot(force=True)
+            sys.stderr.write('done\n')
 
     def _cmap_changed(self):
         if self.vol_plotter.image_exists:
