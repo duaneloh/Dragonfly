@@ -34,6 +34,12 @@ cdef class rotation:
 	def divide_quat(self, int rank, int num_proc, int num_modes):
 		decl.divide_quat(rank, num_proc, num_modes, self.rot)
 
+	def voronoi_subset(self, rotation qcoarse):
+		mapping = np.empty(self.num_rot, dtype='i4')
+		cdef int[:] c_mapping = mapping
+		decl.voronoi_subset(qcoarse.rot, self.rot, <int*>&c_mapping[0])
+		return mapping
+
 	def free_quat(self):
 		decl.free_quat(self.rot)
 		self.rot = NULL
