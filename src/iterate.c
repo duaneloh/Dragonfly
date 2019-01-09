@@ -362,84 +362,98 @@ void parse_input(char *fname, double mean, int rank, int recon_type, struct iter
 }
 
 int parse_rel_quat(char *fname, int num_rot_coarse, struct iterate *iter) {
-	int d, num_rot_prob ;
-#ifdef WITH_HDF5
-	hid_t file, dset, dspace, dtype ;
-	hsize_t num_data ;
-	hvl_t *buffer ;
+	int num_rot_prob ;
+	char line[8], hdfheader[8] = {137, 'H', 'D', 'F', '\r', '\n', 26, '\n'} ;
 	
-	file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT) ;
-	if (file < 0) {
-		fprintf(stderr, "Could not open rel_quat file %s\n", fname) ;
-		return 1 ;
-	}
-	
-	dset = H5Dopen(file, "probabilities/num_rot", H5P_DEFAULT) ;
-	H5Dread(dset, H5T_STD_I32LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &num_rot_prob) ;
-	H5Dclose(dset) ;
-	if (num_rot_prob != num_rot_coarse) {
-		fprintf(stderr, "Rotation sampling in probs file does not match num_rot_coarse\n") ;
-		fprintf(stderr, "%d vs %d\n", num_rot_prob, num_rot_coarse) ;
-		return 1 ;
-	}
-	
-	dset = H5Dopen(file, "probabilities/place", H5P_DEFAULT) ;
-	dtype = H5Tvlen_create(H5T_STD_I32LE) ;
-	dspace = H5Dget_space(dset) ;
-	H5Sget_simple_extent_dims(dspace, &num_data, NULL) ;
-	if (num_data != iter->tot_num_data) {
-		fprintf(stderr, "num_data of rel_quat (%lld) does not match %d\n", num_data, iter->tot_num_data) ;
-		return 1 ;
-	}
-	
-	buffer = malloc(num_data * sizeof(hvl_t)) ;
-	iter->num_rel_quat = malloc(num_data * sizeof(int)) ;
-	iter->rel_quat = malloc(num_data * sizeof(int*)) ;
-	
-	H5Dread(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, buffer) ;
-	for (d = 0 ; d < num_data ; ++d) {
-		iter->num_rel_quat[d] = buffer[d].len ;
-		iter->rel_quat[d] = buffer[d].p ;
-	}
-	
-	free(buffer) ;
-	H5Dclose(dset) ;
-	H5Tclose(dtype) ;
-	H5Sclose(dspace) ;
-	H5Fclose(file) ;
-#else // WITH_HDF5
-	int num_data ;
 	FILE *fp = fopen(fname, "rb") ;
 	if (fp == NULL) {
 		fprintf(stderr, "Could not open rel_quat file %s\n", fname) ;
 		return 1 ;
 	}
-	
-	fread(&num_data, sizeof(int), 1, fp) ;
-	if (num_data != iter->tot_num_data) {
-		fprintf(stderr, "num_data of rel_quat (%d) does not match\n", num_data) ;
-		fclose(fp) ;
-		return 1 ;
-	}
-	fread(&num_rot_prob, sizeof(int), 1, fp) ;
-	if (num_rot_prob != num_rot_coarse) {
-		fprintf(stderr, "Rotation sampling in probs file does not match num_rot_coarse\n") ;
-		fprintf(stderr, "%d vs %d\n", num_rot_prob, num_rot_coarse) ;
-		fclose(fp) ;
-		return 1 ;
-	}
-	iter->num_rel_quat = malloc(num_data * sizeof(int)) ;
-	iter->rel_quat = malloc(num_data * sizeof(int*)) ;
-	
-	fseek(fp, 1024, SEEK_SET) ;
-	fread(iter->num_rel_quat, sizeof(int), num_data, fp) ;
-	for (d = 0 ; d < num_data ; ++d) {
-		iter->rel_quat[d] = malloc(iter->num_rel_quat[d] * sizeof(int)) ;
-		fread(iter->rel_quat[d], sizeof(int), iter->num_rel_quat[d], fp) ;
-	}
-	
+	fread(line, sizeof(char), 8, fp) ;
 	fclose(fp) ;
+	
+	if (strncmp(line, hdfheader, 8) == 0) {
+#ifdef WITH_HDF5
+		fprintf(stderr, "Parsing rel_quat from H5 output file\n") ;
+		hid_t file, dset, dspace, dtype ;
+		hsize_t d, num_data ;
+		hvl_t *buffer ;
+		
+		file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT) ;
+		if (file < 0) {
+			fprintf(stderr, "Could not open rel_quat file %s\n", fname) ;
+			return 1 ;
+		}
+		
+		dset = H5Dopen(file, "probabilities/num_rot", H5P_DEFAULT) ;
+		H5Dread(dset, H5T_STD_I32LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &num_rot_prob) ;
+		H5Dclose(dset) ;
+		if (num_rot_prob != num_rot_coarse) {
+			fprintf(stderr, "Rotation sampling in probs file does not match num_rot_coarse\n") ;
+			fprintf(stderr, "%d vs %d\n", num_rot_prob, num_rot_coarse) ;
+			return 1 ;
+		}
+		
+		dset = H5Dopen(file, "probabilities/place", H5P_DEFAULT) ;
+		dtype = H5Tvlen_create(H5T_STD_I32LE) ;
+		dspace = H5Dget_space(dset) ;
+		H5Sget_simple_extent_dims(dspace, &num_data, NULL) ;
+		if ((int) num_data != iter->tot_num_data) {
+			fprintf(stderr, "num_data of rel_quat (%lld) does not match %d\n", num_data, iter->tot_num_data) ;
+			return 1 ;
+		}
+		
+		buffer = malloc(num_data * sizeof(hvl_t)) ;
+		iter->num_rel_quat = malloc(num_data * sizeof(int)) ;
+		iter->rel_quat = malloc(num_data * sizeof(int*)) ;
+		
+		H5Dread(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, buffer) ;
+		for (d = 0 ; d < num_data ; ++d) {
+			iter->num_rel_quat[d] = buffer[d].len ;
+			iter->rel_quat[d] = buffer[d].p ;
+		}
+		
+		free(buffer) ;
+		H5Dclose(dset) ;
+		H5Tclose(dtype) ;
+		H5Sclose(dspace) ;
+		H5Fclose(file) ;
+#else // WITH_HDF5
+		fprintf(stderr, "H5 output file support not compiled. Cannot parse rel_quat.\n") ;
+		return 1 ;
 #endif // WITH_HDF5
+	}
+	else {
+		fprintf(stderr, "Parsing rel_quat from emc file\n") ;
+		int d, num_data ;
+		
+		fp = fopen(fname, "rb") ;
+		fread(&num_data, sizeof(int), 1, fp) ;
+		if (num_data != iter->tot_num_data) {
+			fprintf(stderr, "num_data of rel_quat (%d) does not match\n", num_data) ;
+			fclose(fp) ;
+			return 1 ;
+		}
+		fread(&num_rot_prob, sizeof(int), 1, fp) ;
+		if (num_rot_prob != num_rot_coarse) {
+			fprintf(stderr, "Rotation sampling in probs file does not match num_rot_coarse\n") ;
+			fprintf(stderr, "%d vs %d\n", num_rot_prob, num_rot_coarse) ;
+			fclose(fp) ;
+			return 1 ;
+		}
+		iter->num_rel_quat = malloc(num_data * sizeof(int)) ;
+		iter->rel_quat = malloc(num_data * sizeof(int*)) ;
+		
+		fseek(fp, 1024, SEEK_SET) ;
+		fread(iter->num_rel_quat, sizeof(int), num_data, fp) ;
+		for (d = 0 ; d < num_data ; ++d) {
+			iter->rel_quat[d] = malloc(iter->num_rel_quat[d] * sizeof(int)) ;
+			fread(iter->rel_quat[d], sizeof(int), iter->num_rel_quat[d], fp) ;
+		}
+		
+		fclose(fp) ;
+	}
 	
 	return 0 ;
 }
