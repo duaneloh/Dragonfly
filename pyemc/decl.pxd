@@ -77,8 +77,12 @@ cdef extern from '../src/iterate.h' nogil:
 		double *model2
 		double *inter_weight
 		double *scale
+		double *rescale
+		int *quat_mapping
+		int **rel_quat
+		int *num_rel_quat
 		
-		double rescale, mutual_info, rms_change
+		double mutual_info, rms_change
 
 	int generate_iterate(char*, char*, int, double, params*, detector*, dataset*, iterate*)
 	void calculate_size(double, iterate*)
@@ -108,7 +112,7 @@ cdef extern from '../src/params.h' nogil:
 		
 		# Algorithm parameters
 		int beta_period, need_scaling, known_scale
-		double alpha, beta, beta_jump
+		double alpha, beta_start, beta, beta_jump
 		
 		# Gaussian EMC parameter
 		double sigmasq
