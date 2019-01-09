@@ -21,7 +21,7 @@ import quat
 import params
 import interp
 import iterate
-import max_emc
+#import max_emc
 
 class DragonflyConfig():
     def __init__(self, fname):
@@ -394,6 +394,19 @@ class TestRotation(unittest.TestCase):
         rot.divide_quat(6, 7, 1)
         self.assertEqual(rot.num_rot_p, 462)
 
+    def test_voronoi_subset(self):
+        print('=== Testing voronoi_subset() ===')
+        qfine = quat.rotation()
+        qfine.quat_gen(4)
+        qcoarse = quat.rotation()
+        qcoarse.quat_gen(2)
+        mapping = qfine.voronoi_subset(qcoarse)
+        self.assertEqual(qfine.num_rot, mapping.shape[0])
+        npt.assert_array_equal([0,1,2,3,4], mapping[:5])
+        npt.assert_array_equal([215,216,394,396,398], mapping[-5:])
+        qfine.free_quat()
+        qcoarse.free_quat()
+
     def test_free_quat(self):
         print('=== Testing free_quat() ===')
         rot = quat.rotation()
@@ -414,7 +427,7 @@ class TestParams(unittest.TestCase):
             self.assertEqual(os.path.abspath(param.log_fname), os.path.abspath(recon_folder+b'/EMC.log'))
             self.assertEqual(param.need_scaling, 0)
             self.assertEqual(param.alpha, 0.)
-            self.assertEqual(param.beta, 1.)
+            self.assertEqual(param.beta_start, 1.)
             self.assertEqual(param.beta_period, 100)
             self.assertEqual(param.beta_jump, 1.)
             self.assertEqual(param.sigmasq, 0.)
@@ -423,7 +436,7 @@ class TestParams(unittest.TestCase):
             self.assertEqual(os.path.abspath(param.log_fname), os.path.abspath(recon_folder+b'/other_EMC.log'))
             self.assertEqual(param.need_scaling, 1)
             self.assertEqual(param.alpha, 0.5)
-            self.assertEqual(param.beta, 0.5)
+            self.assertEqual(param.beta_start, 0.5)
             self.assertEqual(param.beta_period, 10)
             self.assertEqual(param.beta_jump, 1.5)
             self.assertEqual(param.sigmasq, 1.)
@@ -660,7 +673,6 @@ class TestIterate(unittest.TestCase):
         npt.assert_array_equal(itr.scale, np.ones(dset.tot_num_data, dtype='f8'))
         npt.assert_array_equal(dset.count[:5], [1621, 1382, 1050, 2436, 1450])
         npt.assert_array_equal(dset.count[-5:], [1093, 1597, 1053, 1080, 1315])
-        itr.calc_scale(dset, det, print_fname=recon_folder+b'/data/scale/scale_000.dat')
 
     def test_normalize_scale(self):
         print('=== Testing normalize_scale() ===')
@@ -685,6 +697,39 @@ class TestIterate(unittest.TestCase):
         self.assertEqual(itr.parse_scale(scale_fname), 1)
         npt.assert_array_almost_equal(itr.scale, rand_scales)
 
+    def test_parse_rel_quat(self):
+        print('=== Testing parse_rel_quat() ===')
+        fname = recon_folder+b'/data/probabilities.emc'
+        f = open(fname, 'wb')
+        header = np.zeros(256, dtype='i4')
+        header[0] = 3000
+        header[1] = 3240
+        header[2] = -1
+        header.tofile(f)
+        num_prob = np.random.randint(1, 10, size=3000, dtype='i4')
+        num_prob.tofile(f)
+        place = np.random.randint(3240, size=num_prob.sum(), dtype='i4')
+        place.tofile(f)
+        prob = np.random.random(size=num_prob.sum())
+        prob.tofile(f)
+        f.close()
+        
+        itr = iterate.iterate()
+        itr.tot_num_data = 3000
+        itr.parse_rel_quat(fname, 3240)
+        npt.assert_array_equal(num_prob, itr.num_rel_quat)
+        rq = itr.rel_quat
+        npt.assert_array_equal(place, rq.indices)
+        self.assertEqual(3000, rq.shape[0])
+        
+        self.assertEqual(1, itr.parse_rel_quat(fname, 1234))
+        itr.tot_num_data = 2999
+        self.assertEqual(1, itr.parse_rel_quat(fname, 3240))
+        self.assertEqual(1, itr.parse_rel_quat(fname, 1234))
+        
+        itr.free_iterate()
+        os.remove(fname)
+
     def test_parse_input(self):
         print('=== Testing parse_input() ===')
         itr, det, dset, param, qmax = self.allocate_iterate()
@@ -701,6 +746,7 @@ class TestIterate(unittest.TestCase):
         itr.free_iterate()
         itr.free_iterate()
 
+'''
 class TestMaxEMC(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -766,6 +812,7 @@ class TestMaxEMC(unittest.TestCase):
         priv_data = max_emc.py_max_data(within_openmp=True)
         self.maximize.allocate_memory(priv_data)
         self.maximize.normalize_prob(priv_data, common_data)
+'''
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Unit testing Dragonfly')
