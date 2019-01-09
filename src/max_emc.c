@@ -33,7 +33,7 @@ static void free_memory(struct max_data*) ;
 static int resparsify(double*, int*, int, double) ;
 static double calc_psum_r(int, struct max_data*, struct max_data*) ;
 static void gradient_rt(int, struct max_data*, struct max_data*, double**, double**) ;
-static void update_tomogram_bg(int, struct max_data*, struct max_data*) ;
+static void update_tomogram_bg(int, double, struct max_data*, struct max_data*) ;
 static void update_tomogram_nobg(int, struct max_data*, struct max_data*) ;
 static void print_max_time(char*, char*, int) ;
 
@@ -416,8 +416,12 @@ void normalize_prob(struct max_data *priv, struct max_data *common) {
 }
 
 void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
+	double scalemin ;
+	
+	scalemin = calc_psum_r(r, priv, common) ;
+	
 	if (det[0].with_bg && param->need_scaling)
-		update_tomogram_bg(r, priv, common) ;
+		update_tomogram_bg(r, scalemin, priv, common) ;
 	else
 		update_tomogram_nobg(r, priv, common) ;
 }
@@ -519,8 +523,6 @@ void update_tomogram_nobg(int r, struct max_data *priv, struct max_data *common)
 	
 	for (detn = 0 ; detn < det[0].num_det ; ++detn) 
 		memset(priv->all_views[detn], 0, det[detn].num_pix*sizeof(double)) ;
-	
-	calc_psum_r(r, priv, common) ;
 	
 	while (curr != NULL) {
 		// Calculate slice for current detector
@@ -695,13 +697,7 @@ void gradient_rt(int r, struct max_data *priv, struct max_data *common, double *
 	}
 }
 
-void update_tomogram_bg(int r, struct max_data *priv, struct max_data *common) {
-	double scalemin ;
-	
-	// Calculate pixel-independent part of likelihood: \sum_d (P_dr * phi_d)
-	// Also calculate and return (phi_d_max if P_dr > PROB_MIN)
-	scalemin = calc_psum_r(r, priv, common) ;
-	
+void update_tomogram_bg(int r, double scalemin, struct max_data *priv, struct max_data *common) {
 	/*
 	==========================
 	Root finding on derivative
@@ -724,9 +720,6 @@ void update_tomogram_bg(int r, struct max_data *priv, struct max_data *common) {
 	nmask = 0 ;
 	for (detn = 0 ; detn < det[0].num_det ; ++detn) {
 		memset(priv->all_views[detn], 0, det[detn].num_pix*sizeof(double)) ;
-		memset(priv->G_old[detn], 0, det[detn].num_pix*sizeof(double)) ;
-		memset(priv->G_new[detn], 0, det[detn].num_pix*sizeof(double)) ;
-		memset(priv->G_latest[detn], 0, det[detn].num_pix*sizeof(double)) ;
 		memset(priv->W_old[detn], 0, det[detn].num_pix*sizeof(double)) ;
 		memset(priv->W_new[detn], 0, det[detn].num_pix*sizeof(double)) ;
 		memset(priv->W_latest[detn], 0, det[detn].num_pix*sizeof(double)) ;
@@ -748,6 +741,8 @@ void update_tomogram_bg(int r, struct max_data *priv, struct max_data *common) {
 		}
 	}
 	
+	// Set search bounds
+	// Calculate G(0) and check sign
 	gradient_rt(r, priv, common, priv->W_old, priv->G_old) ;
 	for (detn = 0 ; detn < det[0].num_det ; ++detn)
 	for (t = 0 ; t < det[detn].num_pix ; ++t) {
@@ -762,6 +757,7 @@ void update_tomogram_bg(int r, struct max_data *priv, struct max_data *common) {
 		}
 	}
 	
+	// Find far end of search window
 	for (i = 0 ; i < 5 ; ++i) {
 		nmask = 0 ;
 		gradient_rt(r, priv, common, priv->W_new, priv->G_new) ;
@@ -769,13 +765,6 @@ void update_tomogram_bg(int r, struct max_data *priv, struct max_data *common) {
 		for (detn = 0 ; detn < det[0].num_det ; ++detn)
 		for (t = 0 ; t < det[detn].num_pix ; ++t) {
 			if (priv->mask[detn][t] == 0) {
-				/*
-				if (fabs(priv->G_new[detn][t] < 1.e-6)) {
-					priv->all_views[detn][t] = priv->W_new[detn][t] ;
-					priv->mask[detn][t] = 255 ;
-					nmask++ ;
-				}
-				*/
 				if (priv->G_old[detn][t] < 0. && priv->G_new[detn][t] < 0.) {
 					priv->W_new[detn][t] = 1.e-8*pow(0.01, i+1) - det[detn].background[t] / scalemin ;
 				}
@@ -796,6 +785,7 @@ void update_tomogram_bg(int r, struct max_data *priv, struct max_data *common) {
 			break ;
 	}
 	
+	// Bounded root-finding using bisection/regula falsi
 	for (i = 0 ; i < 50 ; ++i) { // Doing 50 iterations
 		nmask = 0 ;
 		for (detn = 0 ; detn < det[0].num_det ; ++detn)
