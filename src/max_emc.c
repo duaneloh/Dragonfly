@@ -512,18 +512,11 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 
 void update_tomogram_nobg(int r, struct max_data *priv, struct max_data *common) {
 	int dset = 0, t, d, curr_d, pixel, detn, ind ;
-	struct dataset *curr ;
 	double *view ;
+	struct dataset *curr = frames ;
 	double **prob = priv->prob ;
 	int **place_prob = priv->place_prob, *num_prob = priv->num_prob ;
 	
-	if (merge_frames != NULL) {
-		if (!param->rank && !r)
-			fprintf(stderr, "Merging with different data file: %s\n", merge_frames->filename) ;
-		curr = merge_frames ;
-	}
-	else
-		curr = frames ;
 	for (detn = 0 ; detn < det[0].num_det ; ++detn) 
 		memset(priv->all_views[detn], 0, det[detn].num_pix*sizeof(double)) ;
 	

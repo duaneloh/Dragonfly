@@ -10,7 +10,7 @@
 
 struct detector *det ;
 struct rotation *quat ;
-struct dataset *frames, *merge_frames ;
+struct dataset *frames ;
 struct iterate *iter ;
 struct params *param ;
 

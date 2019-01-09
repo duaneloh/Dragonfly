@@ -17,7 +17,6 @@ int setup(char *s_config_fname, int continue_flag) {
 	iter = malloc(sizeof(struct iterate)) ;
 	quat = malloc(sizeof(struct rotation)) ;
 	frames = malloc(sizeof(struct dataset)) ;
-	merge_frames = NULL ;
 	char config_fname[PATH_MAX] ;
 	realpath(s_config_fname, config_fname) ;
 	MPI_Comm_size(MPI_COMM_WORLD, &param->num_proc) ;
@@ -54,8 +53,6 @@ int setup(char *s_config_fname, int continue_flag) {
 	divide_quat(param->rank, param->num_proc, param->modes, quat) ;
 	if (generate_data(config_fname, "emc", "in", det, frames))
 		return 1 ;
-	if (generate_data(config_fname, "emc", "merge", det, merge_frames))
-		return 1 ;
 	generate_blacklist(config_fname, frames) ;
 	if (generate_iterate(config_fname, "emc", continue_flag, qmax, param, det, frames, iter))
 		return 1 ;
@@ -71,10 +68,6 @@ int setup(char *s_config_fname, int continue_flag) {
 void free_mem() {
 	free_iterate(iter) ;
 	iter = NULL ;
-	if (merge_frames != NULL) {
-		free_data(param->need_scaling, merge_frames) ;
-		merge_frames = NULL ;
-	}
 	free_data(param->need_scaling, frames) ;
 	frames = NULL ;
 	free_quat(quat) ;
