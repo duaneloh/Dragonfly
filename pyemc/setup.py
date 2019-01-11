@@ -43,12 +43,12 @@ ext_modules = [
     Extension(name='iterate', sources='iterate.pyx ../src/iterate.c ../src/quat.c'.split(),
         depends='../src/iterate.h decl.pxd detector.pxd dataset.pxd params.pxd quat.pxd'.split(), include_dirs=include_dirs,
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
-]
-'''
-    Extension(name='max_emc', sources='max_emc.pyx ../src/setup_emc.c'.split(),
+    Extension(name='max_emc', sources='max_emc.pyx ../src/setup_emc.c ../src/output_emc.c'.split(),
         extra_objects=['build/src/'+f for f in 'detector.o quat.o dataset.o interp.o iterate.o params.o'.split()],
         depends='../src/emc.h ../src/max_emc.c'.split(), include_dirs=include_dirs,
         language='c', extra_compile_args=compile_args+mpi_compile_args, extra_link_args=link_args+mpi_link_args),
+]
+'''
     Extension(name='pyemc', sources=['pyemc.pyx', '../src/setup_emc.c'],
         extra_objects=['build/src/'+f for f in 'detector.o quat.o dataset.o interp.o iterate.o params.o'.split()],
         depends=glob.glob('../src/*emc*') + glob.glob('*.pxd'), include_dirs=include_dirs,
