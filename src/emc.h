@@ -22,7 +22,6 @@ struct max_data {
 	// Private to OpenMP thread only
 	double *model, *weight ; // Thread-local copies of iterate
 	double **all_views ; // View (W_rt) for each detector
-	uint8_t **mask ; // Flag mask (M_t) used to optimize update
 	double *psum_r ; // S_r = \sum_d P_dr \phi_d
 	double *psum_d ; // S_d = \sum_r P_dr u_r
 	
@@ -42,6 +41,7 @@ struct max_data {
 	int **place_prob ; // place_prob[d][r] = Position of non-zero prob[d][r]
 	
 	// Background-scaling update (private only)
+	uint8_t **mask ; // Flag mask (M_t) used to optimize update
 	double **G_old, **G_new, **G_latest ; // Gradients
 	double **W_old, **W_new, **W_latest ; // Tomograms
 	double *scale_old, *scale_new, *scale_latest ; // Scale factors
@@ -62,8 +62,8 @@ void update_model(double) ;
 // output_emc.c
 void write_log_file_header(int) ;
 void update_log_file(double, double) ;
-void save_initial_iterate() ;
-void save_models() ;
+void save_initial_iterate(void) ;
+void save_models(void) ;
 void save_metrics(struct max_data*) ;
 void save_prob(struct max_data*) ;
 

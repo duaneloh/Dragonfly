@@ -112,11 +112,8 @@ void allocate_memory(struct max_data *data) {
 	}
 	else { // priv_data
 		data->all_views = malloc(det[0].num_det * sizeof(double*)) ;
-		data->mask = malloc(det[0].num_det * sizeof(uint8_t*)) ;
-		for (d = 0 ; d < det[0].num_det ; ++d) {
+		for (d = 0 ; d < det[0].num_det ; ++d)
 			data->all_views[d] = malloc(det[d].num_pix * sizeof(double)) ;
-			data->mask[d] = calloc(det[d].num_pix, sizeof(uint8_t*)) ;
-		}
 		
 		data->model = calloc(param->modes*iter->vol, sizeof(double)) ;
 		data->weight = calloc(param->modes*iter->vol, sizeof(double)) ;
@@ -132,6 +129,7 @@ void allocate_memory(struct max_data *data) {
 		
 		// Only for background-aware update
 		if (det[0].with_bg && param->need_scaling) {
+			data->mask = malloc(det[0].num_det * sizeof(uint8_t*)) ;
 			data->G_old = malloc(det[0].num_det * sizeof(double*)) ;
 			data->G_new = malloc(det[0].num_det * sizeof(double*)) ;
 			data->G_latest = malloc(det[0].num_det * sizeof(double*)) ;
@@ -139,6 +137,7 @@ void allocate_memory(struct max_data *data) {
 			data->W_new = malloc(det[0].num_det * sizeof(double*)) ;
 			data->W_latest = malloc(det[0].num_det * sizeof(double*)) ;
 			for (detn = 0 ; detn < det[0].num_det ; ++detn) {
+				data->mask[d] = calloc(det[d].num_pix, sizeof(uint8_t*)) ;
 				data->G_old[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
 				data->G_new[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
 				data->G_latest[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
@@ -998,12 +997,9 @@ void free_memory(struct max_data *data) {
 		free(data->offset_prob) ;
 	}
 	else {
-		for (d = 0 ; d < det[0].num_det ; ++d) {
+		for (d = 0 ; d < det[0].num_det ; ++d)
 			free(data->all_views[d]) ;
-			free(data->mask[d]) ;
-		}
 		free(data->all_views) ;
-		free(data->mask) ;
 		if (param->need_scaling && param->update_scale)
 			free(data->psum_d) ;
 		free(data->model) ;
@@ -1011,6 +1007,7 @@ void free_memory(struct max_data *data) {
 		free(data->psum_r) ;
 		if (det[0].with_bg && param->need_scaling) {
 			for (detn = 0 ; detn < det[0].num_det ; ++detn) {
+				free(data->mask[d]) ;
 				free(data->G_old[detn]) ;
 				free(data->G_new[detn]) ;
 				free(data->G_latest[detn]) ;
@@ -1018,6 +1015,7 @@ void free_memory(struct max_data *data) {
 				free(data->W_new[detn]) ;
 				free(data->W_latest[detn]) ;
 			}
+			free(data->mask) ;
 			free(data->G_old) ;
 			free(data->G_new) ;
 			free(data->G_latest) ;
