@@ -949,8 +949,6 @@ double combine_information_mpi(struct max_data *data) {
 	// Combine mutual info and likelihood from all MPI ranks
 	MPI_Allreduce(MPI_IN_PLACE, data->likelihood, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 	MPI_Allreduce(MPI_IN_PLACE, data->info, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
-	if (param->modes > 1)
-		MPI_Allreduce(MPI_IN_PLACE, data->quat_norm, frames->tot_num_data*param->modes, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 	
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
 	if (!frames->blacklist[d]) {
@@ -961,6 +959,46 @@ double combine_information_mpi(struct max_data *data) {
 	iter->mutual_info /= (frames->tot_num_data - frames->num_blacklist) ;
 	avg_likelihood /= (frames->tot_num_data - frames->num_blacklist) ;
 	
+	// Combine sparse probabilities across MPI ranks
+	int p, q, tot_num_prob ;
+	int *num_prob_p = calloc(frames->tot_num_data * param->num_proc, sizeof(int)) ;
+	int *displ_prob_p ;
+	for (d = 0 ; d < frames->tot_num_data ; ++d)
+		num_prob_p[d*param->num_proc + param->rank] = data->num_prob[d] ;
+	if (param->rank) {
+		MPI_Reduce(num_prob_p, NULL, frames->tot_num_data*param->num_proc, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD) ;
+		free(num_prob_p) ;
+	}
+	else {
+		MPI_Reduce(MPI_IN_PLACE, num_prob_p, frames->tot_num_data*param->num_proc, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD) ;
+		displ_prob_p = malloc(param->num_proc * sizeof(int)) ;
+	}
+	for (d = 0 ; d < frames->tot_num_data ; ++d) {
+		if (param->rank) {
+			MPI_Gatherv(data->place_prob[d], data->num_prob[d], MPI_INT, NULL, 0, 0, MPI_INT, 0, MPI_COMM_WORLD) ;
+			MPI_Gatherv(data->prob[d], data->num_prob[d], MPI_DOUBLE, NULL, 0, 0, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
+		}
+		else {
+			tot_num_prob = 0 ;
+			memset(displ_prob_p, 0, param->num_proc*sizeof(int)) ;
+			for (p = 0 ; p < param->num_proc ; ++p) {
+				tot_num_prob += num_prob_p[d*param->num_proc + p] ;
+				for (q = 0 ; q < p ; ++q)
+					displ_prob_p[p] += num_prob_p[d*param->num_proc + q] ;
+			}
+			data->prob[d] = realloc(data->prob[d], tot_num_prob * sizeof(double)) ;
+			data->place_prob[d] = realloc(data->place_prob[d], tot_num_prob * sizeof(int)) ;
+			
+			MPI_Gatherv(MPI_IN_PLACE, 0, MPI_INT, data->place_prob[d], &num_prob_p[d*param->num_proc], displ_prob_p, MPI_INT, 0, MPI_COMM_WORLD) ;
+			MPI_Gatherv(MPI_IN_PLACE, 0, MPI_DOUBLE, data->prob[d], &num_prob_p[d*param->num_proc], displ_prob_p, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
+			data->num_prob[d] = tot_num_prob ;
+		}
+	}
+	if (!param->rank) {
+		free(num_prob_p) ;
+		free(displ_prob_p) ;
+	}
+	
 	// Calculate updated scale factor using count[d] (total photons in frame d)
 	if (param->need_scaling && param->update_scale) {
 		// Combine scale factor information from all MPI ranks
@@ -970,6 +1008,9 @@ double combine_information_mpi(struct max_data *data) {
 		if (!frames->blacklist[d])
 			iter->scale[d] = frames->count[d] / iter->scale[d] ;
 	}
+	
+	if (param->modes > 1)
+		MPI_Allreduce(MPI_IN_PLACE, data->quat_norm, frames->tot_num_data*param->modes, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 	
 	return avg_likelihood ;
 }
