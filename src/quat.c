@@ -949,16 +949,20 @@ int generate_quaternion(char *config_fname, char *config_section, struct rotatio
 }
 
 void voronoi_subset(struct rotation *qcoarse, struct rotation *qfine, int *nearest_coarse) {
-	int i, j ;
-	double dist, dmin ;
-	
-	for (i = 0 ; i < qfine->num_rot ; ++i) {
-		dmin = 2. ;
-		for (j = 0 ; j < qcoarse->num_rot ; ++j) {
-			dist = qdist(&qfine->quat[i*5], &qcoarse->quat[j*5]) ;
-			if (dist < dmin) {
-				dmin = dist ;
-				nearest_coarse[i] = j ;
+	#pragma omp parallel default(shared)
+	{
+		int i, j ;
+		double dist, dmin ;
+		
+		#pragma omp for schedule(static, 1)
+		for (i = 0 ; i < qfine->num_rot ; ++i) {
+			dmin = 2. ;
+			for (j = 0 ; j < qcoarse->num_rot ; ++j) {
+				dist = qdist(&qfine->quat[i*5], &qcoarse->quat[j*5]) ;
+				if (dist < dmin) {
+					dmin = dist ;
+					nearest_coarse[i] = j ;
+				}
 			}
 		}
 	}
