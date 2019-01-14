@@ -132,8 +132,14 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 		}
 		struct rotation *qcoarse = calloc(1, sizeof(struct rotation)) ;
 		struct rotation *qfine = calloc(1, sizeof(struct rotation)) ;
-		quat_gen(param->coarse_div, qcoarse) ;
-		quat_gen(param->fine_div, qfine) ;
+		if (quat_gen(param->coarse_div, qcoarse) < 0) {
+			fprintf(stderr, "Problem generating quat[%d]\n", param->coarse_div) ;
+			return 1 ;
+		}
+		if (quat_gen(param->fine_div, qfine) < 0) {
+			fprintf(stderr, "Problem generating quat[%d]\n", param->fine_div) ;
+			return 1 ;
+		}
 		
 		iter->quat_mapping = malloc(qfine->num_rot * sizeof(int)) ;
 		voronoi_subset(qcoarse, qfine, iter->quat_mapping) ;
