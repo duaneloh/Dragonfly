@@ -49,6 +49,7 @@ class EMCWriter(object):
             fptr.close()
 
         if self.num_data == 0:
+            print('No frames to write')
             for fptr in self._fptrs:
                 os.system('rm ' + fptr.name)
             return
@@ -96,6 +97,32 @@ class EMCWriter(object):
             count_multi = np.array([a.sum() for a in np.split(sel, count_multi.cumsum())])[:-1]
             place_multi = place_multi[count_multi > 0]
             count_multi = count_multi[count_multi > 0]
+        self.num_data += 1
+        self.mean_count += len(place_ones) + count_multi.sum()
+        self.ones.append(len(place_ones))
+        self.multi.append(len(place_multi))
+
+        place_ones.astype(np.int32).tofile(self._fptrs[0])
+        place_multi.astype(np.int32).tofile(self._fptrs[1])
+        count_multi.astype(np.int32).tofile(self._fptrs[2])
+
+    def write_sparse_frame(self, place_ones, place_multi, count_multi):
+        """
+        Write sparse frame to file
+        
+        Arguments:
+            place_ones (int array) - List of pixel numbers with 1 photon
+            place_multi (int array) - List of pixel numbers with moe than 1 photon
+            count_multi (int array) - Number of photons in the place_multi pixels
+        len(place_multi) == len(count_multi)
+        """
+        if len(place_multi) != len(count_multi):
+            raise ValueError('place_multi and count_multi should have equal lengths')
+        if not (np.issubdtype(place_ones.dtype, np.integer) 
+                and np.issubdtype(place_ones.dtype, np.integer) 
+                and np.issubdtype(place_ones.dtype, np.integer)):
+            raise ValueError('Arrays should be of integer type')
+
         self.num_data += 1
         self.mean_count += len(place_ones) + count_multi.sum()
         self.ones.append(len(place_ones))
