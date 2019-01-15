@@ -156,13 +156,15 @@ class EMCReader(object):
             powder = self._assemble_frame(powder, 0, **kwargs)
         return powder
 
-    def _read_frame(self, file_num, frame_num, raw=False, **kwargs):
+    def _read_frame(self, file_num, frame_num, raw=False, sparse=False, **kwargs):
         pdict = self.flist[file_num]
         if pdict['is_hdf5']:
             po, pm, cm = self._read_h5frame(pdict, frame_num)
         else:
             po, pm, cm = self._read_binaryframe(pdict, frame_num)
             
+        if sparse:
+            return po, pm, cm
         frame = np.zeros(pdict['num_pix'], dtype='i4')
         np.add.at(frame, po, 1)
         np.add.at(frame, pm, cm)
