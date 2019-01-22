@@ -10,24 +10,24 @@ try:
 except ImportError:
     HDF5_MODE = False
 
-class DetReader(object):
-    """Dragonfly detector file reader
+class Detector(object):
+    """Dragonfly detector
     
     The detector file format is specified in github.com/duaneloh/Dragonfly/wiki
     This class reads the file and provides numpy arrays which can be used for
     further processing.
 
-    __init__ arguments:
-        det_fname (string) - Path to detector file
-        detd_pix (float, optional) - Detector distance in pixels (detd/pixsize)
-        ewald_rad (float, optional) - Ewald sphere radius in voxels. If in doubt, = detd_pix
-        mask_flag (bool, optional) - Whether to read the mask column for each pixel
-        keep_mask_1 (bool, optional) - Whether to consider mask=1 pixels as good
+    __init__ arguments (optional):
+        det_fname (string) - Path to detector file to populate attributes
+        detd_pix (float) - Detector distance in pixels (detd/pixsize)
+        ewald_rad (float) - Ewald sphere radius in voxels. If in doubt, = detd_pix
+        mask_flag (bool) - Whether to read the mask column for each pixel
+        keep_mask_1 (bool) - Whether to consider mask=1 pixels as good
     
-    For the new detector file, detd_pix and ewald_rad numbers are read from the file \
+    For the new ASCII format, detd_pix and ewald_rad numbers are read from the file \
     but for the old file, they are required.
 
-    On initialization, it produces the following numpy arrays (each of length num_pix)
+    On parsing, it produces the following numpy arrays (each of length num_pix)
 
     Attributes:
         self.qx, self.qy, self.qz - Voxel space coordinates (origin at (0,0,0))
@@ -37,10 +37,18 @@ class DetReader(object):
         self.raw_mask - Unassembled mask as stored in detector file
         self.unassembled_mask - Unassembled mask (1=good, 0=bad)
     """
-    def __init__(self, det_fname, detd_pix=None, ewald_rad=None, mask_flag=False, keep_mask_1=True):
-        self.det_fname = det_fname
+    def __init__(self, det_fname=None, detd_pix=None, ewald_rad=None, mask_flag=False, keep_mask_1=True):
         self.detd = detd_pix
         self.ewald_rad = ewald_rad
+        if det_fname is not None:
+            self.parse(det_fname)
+
+    def parse(self, fname):
+        """ Parse Dragonfly detector from file
+        
+        File can either be in the HDF5 or ASCII formats
+        """
+        self.det_fname = fname
         if HDF5_MODE and h5py.is_hdf5(det_fname):
             self._init_h5geom(mask_flag, keep_mask_1)
         elif os.path.splitext(det_fname)[1] == '.h5':

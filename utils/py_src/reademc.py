@@ -17,7 +17,7 @@ class EMCReader(object):
 
     __init__ arguments:
         photons_list (list of strings) - List of paths to emc files. If single file, pass as [fname]
-        geom_list (list of strings) - List of DetReader objects.
+        geom_list (list of strings) - List of Detector objects.
         geom_mapping (list, optional) - Mapping from photons_list to geom_list
 
     If there is only one entry in geom_list, all emc files are assumed to point \

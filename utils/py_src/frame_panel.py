@@ -36,7 +36,7 @@ class FramePanel(QtWidgets.QWidget):
 
     Required members of parent class:
         emc_reader - Instance of EMCReader class
-        geom - Instance of DetReader class
+        geom - Instance of Detector class
         output_folder - (Only for compare mode) Folder with output data
         need_scaling - (Only for compare mode) Whether reconstruction was done with scaling
     '''

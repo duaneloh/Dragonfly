@@ -13,7 +13,7 @@ class SliceGenerator(object):
     '''Class to generate slices from 3D intensity distribution for given orientation
     
     Requires:
-        Detector object - Instance of DetReader
+        Detector object - Instance of Detector
         Quaternion filename - Typically made using utils/make_quaternion
         Output folder [Optional] - Path to data folder where reconstruction results are stored
     

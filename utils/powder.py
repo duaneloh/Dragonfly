@@ -25,7 +25,7 @@ def main():
     except:
         print('emc:::in_detector_file not found. Note that single detector file needed for powder sum')
         return
-    det = readdet.DetReader(det_fname)
+    det = readdet.Detector(det_fname)
 
     powder = np.zeros(det.x.shape)
     assem_powder = np.zeros(det.frame_shape)
