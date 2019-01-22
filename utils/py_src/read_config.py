@@ -122,6 +122,7 @@ def compute_q_params(det_dist, dets_x, dets_y, pix_size, in_wavelength, ewald_ra
 
 def compute_polarization(polarization, polx, poly, norm):
     '''Returns polarization given pixel coordinates and type
+    
     Parameters:
         polarization: Can be 'x', 'y' or 'none'
         polx, poly: x and y coordinates of pixel

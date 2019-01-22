@@ -11,12 +11,14 @@ except ImportError:
 
 class SliceGenerator(object):
     '''Class to generate slices from 3D intensity distribution for given orientation
+    
     Requires:
         Detector object - Instance of DetReader
         Quaternion filename - Typically made using utils/make_quaternion
         Output folder [Optional] - Path to data folder where reconstruction results are stored
+    
     Methods:
-        get_slice(iteration, frame_number) - Return predicted detector intensity for iteration'th
+        get_slice(iteration, frame_number) - Return predicted detector intensity for iteration'th\
             reconstruction for given frame
 
     NOTE: This produces the tomogram for the most likely orientation only.
@@ -76,10 +78,12 @@ class SliceGenerator(object):
 
     def get_slice(self, iteration, num, raw=False):
         '''Get tomographic slice for given iteration and frame number
+        
         Parameters:
             iteration - Reconstruction iteration number
             num - Frame number
             raw [optional] - Whether to return unassembled slice
+        
         Returns:
             Assembled detector slice, mutual information for that iteration
         '''

@@ -7,6 +7,7 @@ import numpy as np
 
 class FrameClasses(object):
     '''Container class for frame classes
+    
     Attributes:
         num_frames: Number of frames
         unsaved: Flag on whether the current class list has been saved

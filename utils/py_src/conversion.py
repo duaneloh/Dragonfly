@@ -15,8 +15,10 @@ from . import polar
 
 class ConversionPanel(QtWidgets.QWidget):
     '''Conversion panel in Classifier GUI
+    
     Can choose converter parameters, r_min, r_max, delta_r, delta_ang
     Also used to batch-convert many frames using multiple threads
+    
     Methods:
         convert_frames(): Convert frames with paremeters specified in GUI
         plot_converted_frame(): Add subplot showing polar representation to frame panel

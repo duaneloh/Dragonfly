@@ -27,6 +27,7 @@ class MyNavigationToolbar(NavigationToolbar2QT):
 
 class FramePanel(QtWidgets.QWidget):
     '''GUI panel containing frame display widget
+    
     Can scroll through frames of parent's EMCReader object
 
     Other parameters:

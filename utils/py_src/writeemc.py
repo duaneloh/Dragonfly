@@ -6,11 +6,13 @@ import numpy as np
 
 class EMCWriter(object):
     """EMC file writer class
+    
     Provides interface to write dense integer photon count data to an emc file
 
     __init__ arguments:
         out_fname (string) - Output filename
         num_pix (int) - Number of pixels in dense frame
+    
     The number of pixels is saved to the header and serves as a check since the
     sparse format is in reference to a detector file.
 
@@ -19,10 +21,13 @@ class EMCWriter(object):
         finish_write()
 
     The typical usage is as follows:
-    emc = EMC_writer('photons.emc', num_pix)
-    for i in range(num_frames):
-        emc.write_frame(frame[i].flatten())
-    emc.finish_write()
+    
+    .. code-block:: python
+    
+       emc = EMC_writer('photons.emc', num_pix)
+       for i in range(num_frames):
+           emc.write_frame(frame[i].flatten())
+       emc.finish_write()
     """
 
     def __init__(self, out_fname, num_pix):
@@ -41,6 +46,7 @@ class EMCWriter(object):
 
     def finish_write(self):
         """Cleanup and close emc file
+        
         This function writes the header and appends the temporary files.
         It then deletes those temp files. This function should be run before
         the script is exited.
@@ -73,13 +79,15 @@ class EMCWriter(object):
 
     def write_frame(self, frame, fraction=1.):
         """Write given frame to the file
+        
         Using temporary files, the sparsified version of the input is written.
 
         Arguments:
             frame (int array) - 1D dense array with photon counts in each pixel
             fraction (float, optional) - What fraction of photons to write
-        If fraction is less than 1, then each photon is written randomly with
-        the probability = fraction. by default, all photons are written. This
+        
+        If fraction is less than 1, then each photon is written randomly with \
+        the probability = fraction. by default, all photons are written. This \
         option is useful for performing tests with lower photons/frame.
         """
         if len(frame.shape) != 1 or not np.issubdtype(frame.dtype, np.integer):
@@ -107,13 +115,13 @@ class EMCWriter(object):
         count_multi.astype(np.int32).tofile(self._fptrs[2])
 
     def write_sparse_frame(self, place_ones, place_multi, count_multi):
-        """
-        Write sparse frame to file
+        """Write sparse frame to file
         
         Arguments:
             place_ones (int array) - List of pixel numbers with 1 photon
             place_multi (int array) - List of pixel numbers with moe than 1 photon
             count_multi (int array) - Number of photons in the place_multi pixels
+        
         len(place_multi) == len(count_multi)
         """
         if len(place_multi) != len(count_multi):

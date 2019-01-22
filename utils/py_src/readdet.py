@@ -12,6 +12,7 @@ except ImportError:
 
 class DetReader(object):
     """Dragonfly detector file reader
+    
     The detector file format is specified in github.com/duaneloh/Dragonfly/wiki
     This class reads the file and provides numpy arrays which can be used for
     further processing.
@@ -22,10 +23,13 @@ class DetReader(object):
         ewald_rad (float, optional) - Ewald sphere radius in voxels. If in doubt, = detd_pix
         mask_flag (bool, optional) - Whether to read the mask column for each pixel
         keep_mask_1 (bool, optional) - Whether to consider mask=1 pixels as good
-    For the new detector file, detd_pix and ewald_rad numbers are read from the file
+    
+    For the new detector file, detd_pix and ewald_rad numbers are read from the file \
     but for the old file, they are required.
 
     On initialization, it produces the following numpy arrays (each of length num_pix)
+
+    Attributes:
         self.qx, self.qy, self.qz - Voxel space coordinates (origin at (0,0,0))
         self.cx, self.cy - Floating point 2D coordinates (origin at (0,0))
         self.x, self.y - Integer and shifted 2D coordinates (corner at (0,0))

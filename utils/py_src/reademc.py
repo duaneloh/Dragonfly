@@ -12,16 +12,17 @@ except ImportError:
 
 class EMCReader(object):
     """EMC file reader
+    
     Provides access to assembled or raw frames given a list of .emc filenames
 
     __init__ arguments:
-        photons_list (list of strings) - List of paths to emc files. If single
-                                         file, pass as [fname]
+        photons_list (list of strings) - List of paths to emc files. If single file, pass as [fname]
         geom_list (list of strings) - List of DetReader objects.
         geom_mapping (list, optional) - Mapping from photons_list to geom_list
-    If there is only one entry in geom_list, all emc files are assumed to point
-    to that detector. Otherwise, a mapping must be provided.
-    The mapping is a list of the same length as photons_list with entries
+
+    If there is only one entry in geom_list, all emc files are assumed to point \
+    to that detector. Otherwise, a mapping must be provided. \
+    The mapping is a list of the same length as photons_list with entries \
     giving indices in geom_list for the corresponding emc file.
 
     Methods:

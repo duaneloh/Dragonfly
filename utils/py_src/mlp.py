@@ -15,6 +15,7 @@ from sklearn import neural_network
 
 class MLPPanel(QtWidgets.QWidget):
     '''Multi Layer Pereceptron panel for the classifier GUI
+    
     This class takes some classified data and trains an MLP network
     This network can then be used to make predictions on the rest of the unclassified frames
     '''
