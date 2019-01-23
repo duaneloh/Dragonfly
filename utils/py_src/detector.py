@@ -45,21 +45,20 @@ class Detector(object):
         self.detd = detd_pix
         self.ewald_rad = ewald_rad
         if det_fname is not None:
-            self.parse(det_fname)
+            self.parse(det_fname, mask_flag, keep_mask_1)
 
-    def parse(self, fname):
+    def parse(self, fname, mask_flag=False, keep_mask_1=True):
         """ Parse Dragonfly detector from file
         
         File can either be in the HDF5 or ASCII formats
         """
         self.det_fname = fname
-        if HDF5_MODE and h5py.is_hdf5(det_fname):
+        if HDF5_MODE and h5py.is_hdf5(self.det_fname):
             self._parse_h5geom(mask_flag, keep_mask_1)
-        elif os.path.splitext(det_fname)[1] == '.h5':
-            fheader = np.fromfile(det_fname, '=c', count=8)
+        elif os.path.splitext(self.det_fname)[1] == '.h5':
+            fheader = np.fromfile(self.det_fname, '=c', count=8)
             if fheader == chr(137)+'HDF\r\n'+chr(26)+'\n':
                 if not HDF5_MODE:
-                    print(
                     raise IOError('Unable to parse HDF5 detector')
                 else:
                     self._parse_h5geom(mask_flag, keep_mask_1)
