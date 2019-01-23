@@ -1,4 +1,4 @@
-'''Module containing detector file parser class'''
+'''Module containing detector class'''
 
 import sys
 import os
@@ -25,7 +25,11 @@ class Detector(object):
         keep_mask_1 (bool) - Whether to consider mask=1 pixels as good
     
     For the new ASCII format, detd_pix and ewald_rad numbers are read from the file \
-    but for the old file, they are required.
+    but for the old file, they must be provided.
+
+    Methods:
+        parse(fname) - Parse detector from file
+        write(fname) - Write detector to file
 
     On parsing, it produces the following numpy arrays (each of length num_pix)
 
@@ -50,22 +54,40 @@ class Detector(object):
         """
         self.det_fname = fname
         if HDF5_MODE and h5py.is_hdf5(det_fname):
-            self._init_h5geom(mask_flag, keep_mask_1)
+            self._parse_h5geom(mask_flag, keep_mask_1)
         elif os.path.splitext(det_fname)[1] == '.h5':
             fheader = np.fromfile(det_fname, '=c', count=8)
             if fheader == chr(137)+'HDF\r\n'+chr(26)+'\n':
                 if not HDF5_MODE:
-                    print('Unable to parse HDF5 detector')
-                    raise(IOError)
+                    print(
+                    raise IOError('Unable to parse HDF5 detector')
                 else:
-                    self._init_h5geom(mask_flag, keep_mask_1)
+                    self._parse_h5geom(mask_flag, keep_mask_1)
             else:
-                self._init_asciigeom(mask_flag, keep_mask_1)
+                self._parse_asciigeom(mask_flag, keep_mask_1)
         else:
-            self._init_asciigeom(mask_flag, keep_mask_1)
+            self._parse_asciigeom(mask_flag, keep_mask_1)
 
-    def _init_asciigeom(self, mask_flag, keep_mask_1):
+    def write(self, fname):
+        try:
+            val = self.qx + self.qy + self.qz + self.corr + self.raw_mask
+            val = self.detd + self.ewald_rad
+        except AttributeError:
+            print('Detector attributes not populated. Cannot write to file')
+            print('Need qx, qy, qz, corr, raw_mask, detd and ewald_rad')
+            return
+        
+        if os.path.splitext(fname)[1] == '.h5':
+            if HDF5_MODE:
+                self._write_h5det(fname)
+            else:
+                raise IOError('Unable to write HDF5 detector without h5py')
+        else:
+            self._write_asciidet(fname)
+
+    def _parse_asciigeom(self, mask_flag, keep_mask_1):
         """ (Internal) Detector file parser
+        
         Arguments:
             mask_flag (bool, optional) - Whether to read the mask column
             keep_mask_1 (bool, optional) - Whether to keep mask=1 within the boolean mask
@@ -85,7 +107,7 @@ class Detector(object):
         sys.stderr.write('done\n')
         self._process_geom(mask_flag, keep_mask_1)
 
-    def _init_h5geom(self,  mask_flag, keep_mask_1):
+    def _parse_h5geom(self, mask_flag, keep_mask_1):
         sys.stderr.write('Reading %s...'%self.det_fname)
         if mask_flag:
             sys.stderr.write('with mask...')
@@ -99,6 +121,29 @@ class Detector(object):
             self.ewald_rad = fptr['ewald_rad'].value
         sys.stderr.write('done\n')
         self._process_geom(mask_flag, keep_mask_1)
+
+    def _write_asciidet(self, fname):
+        qx = self.qx.ravel()
+        qy = self.qy.ravel()
+        qz = self.qz.ravel()
+        corr = self.corr.ravel()
+        mask = self.raw_mask.ravel().astype('u1')
+        
+        with open(fname, "w") as fptr:
+            fptr.write("%d %.6f %.6f\n" % (qx.size, self.detd, self.ewald_rad))
+            for par0, par1, par2, par3, par4 in zip(qx, qy, qz, corr, mask):
+                txt = "%21.15e %21.15e %21.15e %21.15e %d\n" % (par0, par1, par2, par3, par4)
+                fptr.write(txt)
+
+    def _write_h5det(self, fname):
+        with h5py.File(fname, "w") as fptr:
+            fptr['qx'] = self.qx.ravel()
+            fptr['qy'] = self.qy.ravel()
+            fptr['qz'] = self.qz.ravel()
+            fptr['corr'] = self.corr.ravel()
+            fptr['mask'] = self.raw_mask.ravel().astype('u1')
+            fptr['detd'] = self.detd
+            fptr['ewald_rad'] = self.ewald_rad
 
     def _check_header(self):
         with open(self.det_fname, 'r') as fptr:
