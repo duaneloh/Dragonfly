@@ -9,7 +9,7 @@ import sys
 import logging
 from six.moves import configparser
 import numpy as np
-from . import readdet, reademc, readvol
+from . import detector, reademc, readvol
 
 class MyTimer(object):
     '''Class to report elapsed time for logging'''
@@ -167,14 +167,14 @@ def increment_quat_file_sensibly(config_fname, incr):
 def gen_det_and_emc(gui, classifier=False, mask=False):
     '''Creates EMCReader and Detector instances for GUIs'''
     if len(set(gui.det_list)) == 1:
-        geom_list = [readdet.Detector(gui.det_list[0], gui.detd, gui.ewald_rad, mask_flag=mask)]
+        geom_list = [detector.Detector(gui.det_list[0], gui.detd, gui.ewald_rad, mask_flag=mask)]
         geom_mapping = None
     else:
         if classifier:
             print('The Classifier GUI will likely have problems with multiple geometries')
             print('We recommend classifying patterns with a common geometry')
         uniq = sorted(set(gui.det_list))
-        geom_list = [readdet.Detector(fname, gui.detd, gui.ewald_rad, mask_flag=mask)
+        geom_list = [detector.Detector(fname, gui.detd, gui.ewald_rad, mask_flag=mask)
                      for fname in uniq]
         geom_mapping = [uniq.index(fname) for fname in gui.det_list]
     gui.geom = geom_list[0]

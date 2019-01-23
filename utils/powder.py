@@ -6,7 +6,7 @@ from __future__ import print_function
 import numpy as np
 from py_src import py_utils
 from py_src import read_config
-from py_src import readdet
+from py_src import detector
 
 def main():
     '''Generate virutal powder pattern by adding up all frames'''
@@ -25,7 +25,7 @@ def main():
     except:
         print('emc:::in_detector_file not found. Note that single detector file needed for powder sum')
         return
-    det = readdet.Detector(det_fname)
+    det = detector.Detector(det_fname)
 
     powder = np.zeros(det.x.shape)
     assem_powder = np.zeros(det.frame_shape)
