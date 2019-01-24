@@ -73,7 +73,7 @@ double maximize() {
 	}
 
 	avg_likelihood = combine_information_mpi(common_data) ;
-	if (det[0].with_bg && param->need_scaling)
+	if (det[0].with_bg && param->need_scaling && param->update_scale)
 		update_scale_bg(common_data) ;
 	
 	if (!param->rank) {
@@ -81,6 +81,8 @@ double maximize() {
 		save_prob(common_data) ;
 	}
 	free_memory(common_data) ;
+	
+	fprintf(stderr, "scales: %.2f %.2f %.2f\n", iter->scale[0], iter->scale[1], iter->scale[2]) ;
 	
 	return avg_likelihood ;
 }
@@ -101,6 +103,8 @@ void allocate_memory(struct max_data *data) {
 	data->prob = malloc(frames->tot_num_data * sizeof(double*)) ;
 	data->place_prob = malloc(frames->tot_num_data * sizeof(int*)) ;
 	data->num_prob = calloc(frames->tot_num_data, sizeof(int)) ;
+	if (param->need_scaling && param->update_scale)
+		data->psum_d = calloc(frames->tot_num_data, sizeof(double)) ;
 		
 	if (!data->within_openmp) { // common_data
 		data->u = malloc(det[0].num_det * sizeof(double*)) ;
@@ -122,8 +126,6 @@ void allocate_memory(struct max_data *data) {
 		data->model = calloc(param->modes*iter->vol, sizeof(double)) ;
 		data->weight = calloc(param->modes*iter->vol, sizeof(double)) ;
 		
-		if (param->need_scaling && param->update_scale)
-			data->psum_d = calloc(frames->tot_num_data, sizeof(double)) ;
 		data->psum_r = calloc(det[0].num_det, sizeof(double)) ;
 		
 		for (d = 0 ; d < frames->tot_num_data ; ++d) {
@@ -141,7 +143,7 @@ void allocate_memory(struct max_data *data) {
 			data->W_new = malloc(det[0].num_det * sizeof(double*)) ;
 			data->W_latest = malloc(det[0].num_det * sizeof(double*)) ;
 			for (detn = 0 ; detn < det[0].num_det ; ++detn) {
-				data->mask[d] = calloc(det[d].num_pix, sizeof(uint8_t*)) ;
+				data->mask[detn] = calloc(det[detn].num_pix, sizeof(uint8_t)) ;
 				data->G_old[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
 				data->G_new[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
 				data->G_latest[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
@@ -833,12 +835,12 @@ void update_tomogram_bg(int r, double scalemin, struct max_data *priv, struct ma
 void gradient_d(struct max_data *common, uint8_t *mask, double *scale, double *grad) {
 	int d ;
 	 
-	for (d = 0 ; d < frames->tot_num_data ; ++d)
-		grad[d] = - common->psum_d[d] ;
+	memset(grad, 0, frames->tot_num_data*sizeof(double)) ;
 	
 	#pragma omp parallel default(shared) private(d)
 	{
 		int r, d, t, detn, curr_d, pixel, rotind, mode, ind, dset = 0 ;
+		int omp_rank = omp_get_thread_num() ;
 		double val ;
 		double *view, **views = malloc(det[0].num_det * sizeof(double*)) ;
 		for (detn = 0 ; detn < det[0].num_det ; ++detn)
@@ -848,7 +850,6 @@ void gradient_d(struct max_data *common, uint8_t *mask, double *scale, double *g
 		
 		#pragma omp for schedule(static,1)
 	 	for (r = 0 ; r < quat->num_rot_p ; ++r) {
-			d = curr->num_data_prev + curr_d ;
 			rotind = (r*param->num_proc + param->rank) / param->modes ;
 			mode = (r*param->num_proc + param->rank) % param->modes ;
 			for (detn = 0 ; detn < det[0].num_det ; ++detn)
@@ -858,6 +859,8 @@ void gradient_d(struct max_data *common, uint8_t *mask, double *scale, double *g
 			while (curr != NULL) {
 				view = views[det[0].mapping[dset]] ;
 				for (curr_d = 0 ; curr_d < curr->num_data ; ++curr_d) {
+					d = curr->num_data_prev + curr_d ;
+					
 					if (mask[d] > 0)
 						continue ;
 					
@@ -903,6 +906,9 @@ void gradient_d(struct max_data *common, uint8_t *mask, double *scale, double *g
 	}
 	
 	MPI_Allreduce(MPI_IN_PLACE, grad, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
+	
+	for (d = 0 ; d < frames->tot_num_data ; ++d)
+		grad[d] = - common->psum_d[d] ;
 }
 
 void update_scale_bg(struct max_data *common) {
@@ -914,20 +920,20 @@ void update_scale_bg(struct max_data *common) {
 	double *Gd_new = calloc(frames->tot_num_data, sizeof(double)) ;
 	double *Gd_latest = calloc(frames->tot_num_data, sizeof(double)) ;
 	uint8_t *mask = calloc(frames->tot_num_data, sizeof(uint8_t)) ;
-	for (d = 0 ; d < frames->tot_num_data ; ++d)
-	if (frames->blacklist[d])
-		mask[d] = 255 ;
-	
-	// Set search bounds
-	// 	Calculate G(0)
-	gradient_d(common, mask, scale_old, Gd_old) ;
-	// 	Calculate phi_max and G(phi_max)
 	for (d = 0 ; d < frames->tot_num_data ; ++d) {
+		if (frames->blacklist[d])
+			mask[d] = 255 ;
+		
 		if (param->iteration > 1 || param->known_scale)
 			scale_new[d] = 4. * iter->scale[d] ;
 		else
 			scale_new[d] = 100. ;
 	}
+	
+	// Set search bounds
+	// 	Calculate G(0)
+	gradient_d(common, mask, scale_old, Gd_old) ;
+	// 	Calculate phi_max and G(phi_max)
 	for (i = 0 ; i < 5 ; ++i) {
 		gradient_d(common, mask, scale_new, Gd_new) ;
 		num_mask = 0 ;
@@ -949,7 +955,11 @@ void update_scale_bg(struct max_data *common) {
 			break ;
 	}
 	if (i == 5)
-		fprintf(stderr, "WARNING: Could not find search bounds\n") ;
+		fprintf(stderr, "WARNING: Could not find search bounds (%d/%d)\n", num_mask, frames->tot_num_data) ;
+	fprintf(stderr, "scales_o: %.2f %.2f %.2f\n", scale_old[0], scale_old[1], scale_old[2]) ;
+	fprintf(stderr, "scales_l: %.2f %.2f %.2f\n", scale_latest[0], scale_latest[1], scale_latest[2]) ;
+	fprintf(stderr, "scales_n: %.2f %.2f %.2f\n", scale_new[0], scale_new[1], scale_new[2]) ;
+	fprintf(stderr, "scales_f: %.2f %.2f %.2f\n", iter->scale[0], iter->scale[1], iter->scale[2]) ;
 	
 	// Bounded root finding using bisection/regula falsi
 	for (i = 0 ; i < 50 ; ++i) {
@@ -991,12 +1001,19 @@ void update_scale_bg(struct max_data *common) {
 			break ;
 	}
 	if (i == 50)
-		fprintf(stderr, "WARNING: phi maximization did not converge\n") ;
+		fprintf(stderr, "WARNING: phi optimization did not converge (%d/%d)\n", num_mask, frames->tot_num_data) ;
+	
+	fprintf(stderr, "scales_o: %.2f %.2f %.2f\n", scale_old[0], scale_old[1], scale_old[2]) ;
+	fprintf(stderr, "scales_l: %.2f %.2f %.2f\n", scale_latest[0], scale_latest[1], scale_latest[2]) ;
+	fprintf(stderr, "scales_n: %.2f %.2f %.2f\n", scale_new[0], scale_new[1], scale_new[2]) ;
+	fprintf(stderr, "scales_f: %.2f %.2f %.2f\n", iter->scale[0], iter->scale[1], iter->scale[2]) ;
+	MPI_Bcast(iter->scale, frames->tot_num_data, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
 	
 	// Free memory
 	free(scale_old) ; free(scale_new) ; free(scale_latest) ;
 	free(Gd_old) ; free(Gd_new) ; free(Gd_latest) ;
 	free(mask) ;
+	print_max_time("scale", "", !param->rank) ;
 }
 
 void merge_tomogram(int r, struct max_data *priv) {
@@ -1069,15 +1086,11 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 		common->num_prob[d] = resparsify(common->prob[d], common->place_prob[d], common->num_prob[d], PROB_MIN) ;
 	
 	if (param->need_scaling && param->update_scale) {
-		if (omp_rank == 0)
-			memset(iter->scale, 0, frames->tot_num_data * sizeof(double)) ;
-		#pragma omp barrier
-		
 		#pragma omp critical(scale)
 		{
 			for (d = 0 ; d < frames->tot_num_data ; ++d)
 			if (!frames->blacklist[d])
-				iter->scale[d] += priv->psum_d[d] ;
+				common->psum_d[d] += priv->psum_d[d] ;
 		}
 	}
 	
@@ -1160,11 +1173,14 @@ double combine_information_mpi(struct max_data *data) {
 	// Calculate updated scale factor using count[d] (total photons in frame d)
 	if (param->need_scaling && param->update_scale) {
 		// Combine scale factor information from all MPI ranks
-		MPI_Allreduce(MPI_IN_PLACE, iter->scale, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
+		MPI_Allreduce(MPI_IN_PLACE, data->psum_d, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 		
-		for (d = 0 ; d < frames->tot_num_data ; ++d)
-		if (!frames->blacklist[d])
-			iter->scale[d] = frames->count[d] / iter->scale[d] ;
+		// If with_bg, use update_scale_bg function
+		if (!det[0].with_bg) {
+			for (d = 0 ; d < frames->tot_num_data ; ++d)
+			if (!frames->blacklist[d])
+				iter->scale[d] = frames->count[d] / data->psum_d[d] ;
+		}
 	}
 	
 	if (param->modes > 1)
@@ -1188,6 +1204,8 @@ void free_memory(struct max_data *data) {
 	free(data->prob) ;
 	free(data->place_prob) ;
 	free(data->num_prob) ;
+	if (param->need_scaling && param->update_scale)
+		free(data->psum_d) ;
 	
 	if (!data->within_openmp) {
 		free(data->max_exp) ;
@@ -1196,17 +1214,15 @@ void free_memory(struct max_data *data) {
 		free(data->offset_prob) ;
 	}
 	else {
-		for (d = 0 ; d < det[0].num_det ; ++d)
-			free(data->all_views[d]) ;
+		for (detn = 0 ; detn < det[0].num_det ; ++detn)
+			free(data->all_views[detn]) ;
 		free(data->all_views) ;
-		if (param->need_scaling && param->update_scale)
-			free(data->psum_d) ;
 		free(data->model) ;
 		free(data->weight) ;
 		free(data->psum_r) ;
 		if (det[0].with_bg && param->need_scaling) {
 			for (detn = 0 ; detn < det[0].num_det ; ++detn) {
-				free(data->mask[d]) ;
+				free(data->mask[detn]) ;
 				free(data->G_old[detn]) ;
 				free(data->G_new[detn]) ;
 				free(data->G_latest[detn]) ;
