@@ -962,7 +962,7 @@ double combine_information_mpi(struct max_data *data) {
 	// Combine sparse probabilities across MPI ranks
 	int p, q, tot_num_prob ;
 	int *num_prob_p = calloc(frames->tot_num_data * param->num_proc, sizeof(int)) ;
-	int *displ_prob_p ;
+	int *displ_prob_p = NULL ;
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
 		num_prob_p[d*param->num_proc + param->rank] = data->num_prob[d] ;
 	if (param->rank) {
