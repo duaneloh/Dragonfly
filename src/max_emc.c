@@ -35,6 +35,7 @@ static double calc_psum_r(int, struct max_data*, struct max_data*) ;
 static void gradient_rt(int, struct max_data*, struct max_data*, double**, double**) ;
 static void update_tomogram_bg(int, double, struct max_data*, struct max_data*) ;
 static void update_tomogram_nobg(int, struct max_data*, struct max_data*) ;
+void update_scale_bg(struct max_data*) ;
 static void print_max_time(char*, char*, int) ;
 
 double maximize() {
@@ -72,6 +73,9 @@ double maximize() {
 	}
 
 	avg_likelihood = combine_information_mpi(common_data) ;
+	if (det[0].with_bg && param->need_scaling)
+		update_scale_bg(common_data) ;
+	
 	if (!param->rank) {
 		save_metrics(common_data) ;
 		save_prob(common_data) ;
@@ -697,21 +701,6 @@ void gradient_rt(int r, struct max_data *priv, struct max_data *common, double *
 }
 
 void update_tomogram_bg(int r, double scalemin, struct max_data *priv, struct max_data *common) {
-	/*
-	==========================
-	Root finding on derivative
-	==========================
-	* 1. Calculate gradient of likelihood G_old at W_old = 0
-	* 2. Calculate G_new at W_new = <large> or -B_t/phi_d_min depending on sign of G_old
-	* 3. Iterate till convergence:
-	* 	If (Regula falsi): W_latest = (W_old*G_new - W_new*G_old) / (G_new - G_old)
-	* 	If (Bisection): W_latest = 0.5 * (W_old + W_new)
-	* 	Calculate G_latest at W_latest
-	* 	If G_latest*G_old > 0:
-	* 		W_old = W_latest ; G_old = G_latest
-	* 	Else:
-	* 		W_new = W_latest ; G_new = G_latest
-	*/
 	int i, t, detn ;
 	int nmask, tot_num_pix = 0 ;
 	double val ;
@@ -839,6 +828,175 @@ void update_tomogram_bg(int r, double scalemin, struct max_data *priv, struct ma
 	}
 	if (i == 50)
 		fprintf(stderr, "%.4d not converged, %d\n", r, nmask) ;
+}
+
+void gradient_d(struct max_data *common, uint8_t *mask, double *scale, double *grad) {
+	int d ;
+	 
+	for (d = 0 ; d < frames->tot_num_data ; ++d)
+		grad[d] = - common->psum_d[d] ;
+	
+	#pragma omp parallel default(shared) private(d)
+	{
+		int r, d, t, detn, curr_d, pixel, rotind, mode, ind, dset = 0 ;
+		double val ;
+		double *view, **views = malloc(det[0].num_det * sizeof(double*)) ;
+		for (detn = 0 ; detn < det[0].num_det ; ++detn)
+			views[detn] = malloc(det[detn].num_pix * sizeof(double)) ;
+		double *priv_grad = calloc(frames->tot_num_data, sizeof(double)) ;
+		struct dataset *curr ;
+		
+		#pragma omp for schedule(static,1)
+	 	for (r = 0 ; r < quat->num_rot_p ; ++r) {
+			d = curr->num_data_prev + curr_d ;
+			rotind = (r*param->num_proc + param->rank) / param->modes ;
+			mode = (r*param->num_proc + param->rank) % param->modes ;
+			for (detn = 0 ; detn < det[0].num_det ; ++detn)
+				(*slice_gen)(&quat->quat[rotind*5], 0., views[detn], &iter->model1[mode*iter->vol], iter->size, &det[detn]) ;
+			curr = frames ;
+			
+			while (curr != NULL) {
+				view = views[det[0].mapping[dset]] ;
+				for (curr_d = 0 ; curr_d < curr->num_data ; ++curr_d) {
+					if (mask[d] > 0)
+						continue ;
+					
+					// check if current frame has significant probability
+					ind = -1 ;
+					for (t = 0 ; t < common->num_prob[d] ; ++t)
+					if (r*param->num_proc + param->rank == common->place_prob[d][t]) {
+						ind = t ;
+						break ;
+					}
+					if (ind == -1)
+						continue ;
+					
+					// For each pixel with one photon
+					for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
+						pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
+						val = view[pixel] * scale[d] + det[detn].background[pixel] ;
+						grad[d] += common->prob[d][ind] * view[pixel] / val ;
+					}
+					
+					// For each pixel with count_multi photons
+					for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
+						pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
+						val = view[pixel] * scale[d] + det[detn].background[pixel] ;
+						grad[d] += common->prob[d][ind] * curr->count_multi[curr->multi_accum[curr_d] + t] * view[pixel] / val ;
+					}
+				}
+				
+				dset++ ;
+				curr = curr->next ;
+			}
+		}
+		
+		#pragma omp critical(grad)
+		{
+			for (d = 0 ; d < frames->tot_num_data ; ++d)
+				grad[d] += priv_grad[d] ;
+		}
+		
+		free(priv_grad) ;
+		for (detn = 0 ; detn < det[0].num_det ; ++detn)
+			free(views[detn]) ;
+	}
+	
+	MPI_Allreduce(MPI_IN_PLACE, grad, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
+}
+
+void update_scale_bg(struct max_data *common) {
+	int d, i, num_mask ;
+	double *scale_old = calloc(frames->tot_num_data, sizeof(double)) ;
+	double *scale_new = calloc(frames->tot_num_data, sizeof(double)) ;
+	double *scale_latest = calloc(frames->tot_num_data, sizeof(double)) ;
+	double *Gd_old = calloc(frames->tot_num_data, sizeof(double)) ;
+	double *Gd_new = calloc(frames->tot_num_data, sizeof(double)) ;
+	double *Gd_latest = calloc(frames->tot_num_data, sizeof(double)) ;
+	uint8_t *mask = calloc(frames->tot_num_data, sizeof(uint8_t)) ;
+	for (d = 0 ; d < frames->tot_num_data ; ++d)
+	if (frames->blacklist[d])
+		mask[d] = 255 ;
+	
+	// Set search bounds
+	// 	Calculate G(0)
+	gradient_d(common, mask, scale_old, Gd_old) ;
+	// 	Calculate phi_max and G(phi_max)
+	for (d = 0 ; d < frames->tot_num_data ; ++d) {
+		if (param->iteration > 1 || param->known_scale)
+			scale_new[d] = 4. * iter->scale[d] ;
+		else
+			scale_new[d] = 100. ;
+	}
+	for (i = 0 ; i < 5 ; ++i) {
+		gradient_d(common, mask, scale_new, Gd_new) ;
+		num_mask = 0 ;
+		
+		for (d = 0 ; d < frames->tot_num_data ; ++d) {
+			if (mask[d] != 0) {
+				num_mask++ ;
+			}
+			else if (Gd_new[d] < 0.) {
+				mask[d] = 192 ;
+				num_mask++ ;
+			}
+			else {
+				scale_new[d] *= 4. ;
+			}
+		}
+		
+		if (num_mask == frames->tot_num_data)
+			break ;
+	}
+	if (i == 5)
+		fprintf(stderr, "WARNING: Could not find search bounds\n") ;
+	
+	// Bounded root finding using bisection/regula falsi
+	for (i = 0 ; i < 50 ; ++i) {
+		num_mask = 0 ;
+		for (d = 0 ; d < frames->tot_num_data ; ++d) {
+			if (mask[d] == 255) {
+				num_mask++ ;
+			}
+			else if (mask[d] == 192) {
+				num_mask++ ;
+				mask[d] = 0 ;
+				scale_latest[d] = 0.5 * (scale_old[d] + scale_new[d]) ;
+			}
+			else {
+				scale_latest[d] = 0.5 * (scale_old[d] + scale_new[d]) ;
+			}
+		}
+		
+		gradient_d(common, mask, scale_latest, Gd_latest) ;
+		
+		for (d = 0 ; d < frames->tot_num_data ; ++d)
+		if (mask[d] < 255) {
+			if (fabs(Gd_latest[d]) < 1.e-5) {
+				iter->scale[d] = scale_latest[d] ;
+				mask[d] = 255 ;
+				num_mask++ ;
+			}
+			else if (Gd_latest[d] * Gd_old[d] > 0) {
+				scale_old[d] = scale_latest[d] ;
+				Gd_old[d] = Gd_latest[d] ;
+			}
+			else {
+				scale_new[d] = scale_latest[d] ;
+				Gd_new[d] = Gd_latest[d] ;
+			}
+		}
+
+		if (num_mask == frames->tot_num_data)
+			break ;
+	}
+	if (i == 50)
+		fprintf(stderr, "WARNING: phi maximization did not converge\n") ;
+	
+	// Free memory
+	free(scale_old) ; free(scale_new) ; free(scale_latest) ;
+	free(Gd_old) ; free(Gd_new) ; free(Gd_latest) ;
+	free(mask) ;
 }
 
 void merge_tomogram(int r, struct max_data *priv) {
