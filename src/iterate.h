@@ -22,6 +22,7 @@ struct iterate {
 
 	// For refinement
 	int *quat_mapping, **rel_quat, *num_rel_quat ;
+	double **rel_prob ;
 	
 	double *rescale, *mean_count ; // For each detector
 	double mutual_info, rms_change ;
@@ -34,7 +35,7 @@ void calc_powder(struct dataset*, struct detector*, struct iterate*) ;
 void calc_scale(struct dataset*, struct detector*, struct iterate*) ;
 void normalize_scale(struct dataset*, struct iterate*) ;
 void parse_input(char*, double, int, int, struct iterate*) ;
-int parse_rel_quat(char*, int, struct iterate*) ;
+int parse_rel_quat(char*, int, int, struct iterate*) ;
 void free_iterate(struct iterate*) ;
 
 #endif //ITERATE_H

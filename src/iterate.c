@@ -144,7 +144,7 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 		iter->quat_mapping = malloc(qfine->num_rot * sizeof(int)) ;
 		voronoi_subset(qcoarse, qfine, iter->quat_mapping) ;
 		
-		if (parse_rel_quat(probs_fname, qcoarse->num_rot, iter))
+		if (parse_rel_quat(probs_fname, qcoarse->num_rot, 0, iter))
 			return 1 ;
 		
 		free_quat(qcoarse) ;
@@ -367,7 +367,7 @@ void parse_input(char *fname, double mean, int rank, int recon_type, struct iter
 	}
 }
 
-int parse_rel_quat(char *fname, int num_rot_coarse, struct iterate *iter) {
+int parse_rel_quat(char *fname, int num_rot_coarse, int parse_prob, struct iterate *iter) {
 	int num_rot_prob ;
 	char line[8], hdfheader[8] = {137, 'H', 'D', 'F', '\r', '\n', 26, '\n'} ;
 	
@@ -424,6 +424,27 @@ int parse_rel_quat(char *fname, int num_rot_coarse, struct iterate *iter) {
 		H5Dclose(dset) ;
 		H5Tclose(dtype) ;
 		H5Sclose(dspace) ;
+		
+		if (parse_prob) {
+			fprintf(stderr, "Parsing sparse probabilities\n") ;
+			dset = H5Dopen(file, "probabilities/prob", H5P_DEFAULT) ;
+			dtype = H5Tvlen_create(H5T_IEEE_F64LE) ;
+			dspace = H5Dget_space(dset) ;
+			H5Sget_simple_extent_dims(dspace, &num_data, NULL) ;
+			
+			buffer = malloc(num_data * sizeof(hvl_t)) ;
+			iter->rel_prob = malloc(num_data * sizeof(double*)) ;
+			
+			H5Dread(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, buffer) ;
+			for (d = 0 ; d < num_data ; ++d)
+				iter->rel_prob[d] = buffer[d].p ;
+			
+			free(buffer) ;
+			H5Dclose(dset) ;
+			H5Tclose(dtype) ;
+			H5Sclose(dspace) ;
+		}
+		
 		H5Fclose(file) ;
 #else // WITH_HDF5
 		fprintf(stderr, "H5 output file support not compiled. Cannot parse rel_quat.\n") ;
@@ -456,6 +477,14 @@ int parse_rel_quat(char *fname, int num_rot_coarse, struct iterate *iter) {
 		for (d = 0 ; d < num_data ; ++d) {
 			iter->rel_quat[d] = malloc(iter->num_rel_quat[d] * sizeof(int)) ;
 			fread(iter->rel_quat[d], sizeof(int), iter->num_rel_quat[d], fp) ;
+		}
+		if (parse_prob) {
+			fprintf(stderr, "Parsing sparse probabilities\n") ;
+			iter->rel_prob = malloc(num_data * sizeof(double*)) ;
+			for (d = 0 ; d < num_data ; ++d) {
+				iter->rel_prob[d] = malloc(iter->num_rel_quat[d] * sizeof(int)) ;
+				fread(iter->rel_prob[d], sizeof(int), iter->num_rel_quat[d], fp) ;
+			}
 		}
 		
 		fclose(fp) ;
