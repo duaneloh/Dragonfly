@@ -814,25 +814,33 @@ int quat_gen(int num_div, struct rotation *quat) {
 	return quat->num_rot ;
 }
 
-int parse_quat(char *fname, struct rotation *quat) {
-	int r, t ;
+int parse_quat(char *fname, int with_weights, struct rotation *quat) {
+	int r, t, tmax = 4 ;
+	double total_weight = 0. ;
+	
+	if (with_weights)
+		tmax++ ;
 	
 	FILE *fp = fopen(fname, "r") ;
 	if (fp == NULL) {
 		fprintf(stderr, "quaternion file %s not found. Exiting.\n", fname) ;
 		return -1 ;
 	}
-	double total_weight = 0. ;
 	fscanf(fp, "%d", &quat->num_rot) ;
-	quat->quat = malloc(quat->num_rot * 5 * sizeof(double)) ;
+	quat->quat = calloc(quat->num_rot * 5, sizeof(double)) ;
+	
 	for (r = 0 ; r < quat->num_rot ; ++r) {
-		for (t = 0 ; t < 5 ; ++t)
+		for (t = 0 ; t < tmax ; ++t)
 			fscanf(fp, "%lf", &quat->quat[r*5 + t]) ;
 		total_weight += quat->quat[r*5 + 4] ;
 	}
-	total_weight = 1. / total_weight ;
-	for (r = 0 ; r < quat->num_rot ; ++r)
-		quat->quat[r*5 + 4] *= total_weight ;
+	
+	if (with_weights) {
+		total_weight = 1. / total_weight ;
+		for (r = 0 ; r < quat->num_rot ; ++r)
+			quat->quat[r*5 + 4] *= total_weight ;
+	}
+	
 	fclose(fp) ;
 	
 	return quat->num_rot ;
@@ -940,7 +948,7 @@ int generate_quaternion(char *config_fname, char *config_section, struct rotatio
 	else if (num_div > 0)
 		num = quat_gen(num_div, quat_ptr) ;
 	else
-		num = parse_quat(quat_fname, quat_ptr) ;
+		num = parse_quat(quat_fname, 1, quat_ptr) ;
 	
 	if (num < 0)
 		return 1 ;
