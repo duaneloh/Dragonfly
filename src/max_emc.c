@@ -856,6 +856,9 @@ void gradient_rt(int r, struct max_data *priv, struct max_data *common, double *
 				grad[t] = - priv->psum_r[detn] ;
 				priv->mask[detn][t] = 1 ;
 			}
+			else if (priv->mask[detn][t] == 160) {
+				grad[t] = -DBL_MAX ;
+			}
 			else {
 				grad[t] = 0. ;
 			}
@@ -913,6 +916,9 @@ void gradient_rt(int r, struct max_data *priv, struct max_data *common, double *
 				else if (priv->mask[detn][pixel] == 128) {
 					grad[pixel] += prob[d][ind] ;
 				}
+				else if (priv->mask[detn][pixel] == 160) {
+					grad[pixel] = fmax(grad[pixel], iter->scale[d]) ;
+				}
 			}
 			
 			// For each pixel with count_multi photons
@@ -925,6 +931,9 @@ void gradient_rt(int r, struct max_data *priv, struct max_data *common, double *
 				}
 				else if (priv->mask[detn][pixel] == 128) {
 					grad[pixel] += prob[d][ind] * curr->count_multi[curr->multi_accum[curr_d] + t] ;
+				}
+				else if (priv->mask[detn][pixel] == 160) {
+					grad[pixel] = fmax(grad[pixel], iter->scale[d]) ;
 				}
 			}
 		}
@@ -988,7 +997,8 @@ void update_tomogram_bg(int r, double scalemax, struct max_data *priv, struct ma
 		for (t = 0 ; t < det[detn].num_pix ; ++t) {
 			if (priv->mask[detn][t] == 0) {
 				if (priv->G_old[detn][t] < 0. && priv->G_new[detn][t] < 0.) {
-					priv->W_new[detn][t] = 1.e-8*pow(0.01, i+1) - det[detn].background[t] / scalemax ;
+					//priv->W_new[detn][t] = 1.e-8*pow(0.01, i+1) - det[detn].background[t] / scalemax ;
+					priv->mask[detn][t] = 160 ;
 				}
 				else if (priv->G_old[detn][t] > 0. && priv->G_new[detn][t] > 0.) {
 					priv->W_new[detn][t] *= 100 ;
@@ -997,6 +1007,9 @@ void update_tomogram_bg(int r, double scalemax, struct max_data *priv, struct ma
 					priv->mask[detn][t] = 192 ;
 					nmask++ ;
 				}
+			}
+			else if (priv->mask[detn][t] == 160) {
+				priv->W_new[detn][t] = 1.e-8 - det[detn].background[t] / priv->G_new[detn][t] ;
 			}
 			else {
 				nmask++ ;
@@ -1093,7 +1106,6 @@ void gradient_d(struct max_data *common, uint8_t *mask, double *scale, double *g
 	#pragma omp parallel default(shared) private(d)
 	{
 		int r, d, t, detn, curr_d, pixel, rotind, mode, ind, dset ;
-		int omp_rank = omp_get_thread_num() ;
 		double val ;
 		double *view, **views = malloc(det[0].num_det * sizeof(double*)) ;
 		for (detn = 0 ; detn < det[0].num_det ; ++detn)
