@@ -402,12 +402,12 @@ void normalize_prob(struct max_data *priv, struct max_data *common) {
 }
 
 void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
-	double scalemin ;
+	double scalemax ;
 	
-	scalemin = calc_psum_r(r, priv, common) ;
+	scalemax = calc_psum_r(r, priv, common) ;
 	
 	if (det[0].with_bg && param->need_scaling)
-		update_tomogram_bg(r, scalemin, priv, common) ;
+		update_tomogram_bg(r, scalemax, priv, common) ;
 	else
 		update_tomogram_nobg(r, priv, common) ;
 }
@@ -665,12 +665,12 @@ int resparsify(double *vals, int *pos, int num_vals, double thresh) {
 
 double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 	int dset = 0, d, curr_d, detn, rotind, mode, t, ind ;
-	double temp, scalemin ;
+	double temp, scalemax ;
 	struct dataset *curr = frames ;
 	double **prob = priv->prob ;
 	int **place_prob = priv->place_prob, *num_prob = priv->num_prob ;
 	
-	scalemin = DBL_MAX ;
+	scalemax = -DBL_MAX ;
 	memset(priv->psum_r, 0, (det[0].num_det)*sizeof(double)) ;
 	rotind = (r*param->num_proc + param->rank) / param->modes ;
 	mode = (r*param->num_proc + param->rank) % param->modes ;
@@ -741,14 +741,14 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 			// Calculate mutual information of probability distribution
 			priv->info[d] += prob[d][ind] * log(prob[d][ind] / quat->quat[rotind*5 + 4] * param->modes) ;
 			
-			if (param->need_scaling && iter->scale[d] < scalemin)
-				scalemin = iter->scale[d] ;
+			if (param->need_scaling && iter->scale[d] > scalemax)
+				scalemax = iter->scale[d] ;
 		}
 		dset++ ;
 		curr = curr->next ;
 	}
 	
-	return scalemin ;
+	return scalemax ;
 }
 
 void update_tomogram_nobg(int r, struct max_data *priv, struct max_data *common) {
@@ -934,7 +934,7 @@ void gradient_rt(int r, struct max_data *priv, struct max_data *common, double *
 	}
 }
 
-void update_tomogram_bg(int r, double scalemin, struct max_data *priv, struct max_data *common) {
+void update_tomogram_bg(int r, double scalemax, struct max_data *priv, struct max_data *common) {
 	int i, t, detn ;
 	int nmask, tot_num_pix = 0 ;
 	double val ;
@@ -949,11 +949,11 @@ void update_tomogram_bg(int r, double scalemin, struct max_data *priv, struct ma
 		
 		for (t = 0 ; t < det[detn].num_pix ; ++t) {
 			if (det[detn].mask[t] < 2) {
-				if (det[detn].background[t] / scalemin < 1.e-2 * det[detn].powder[t]) {
+				if (det[detn].background[t] / scalemax < 1.e-2 * det[detn].powder[t]) {
 					priv->mask[detn][t] = 128 ;
 				}
 				else {
-					priv->W_new[detn][t] = 1.e-8 - det[detn].background[t] / scalemin ;
+					priv->W_new[detn][t] = 1.e-8 - det[detn].background[t] / scalemax ;
 					priv->mask[detn][t] = 0 ;
 				}
 			}
@@ -988,7 +988,7 @@ void update_tomogram_bg(int r, double scalemin, struct max_data *priv, struct ma
 		for (t = 0 ; t < det[detn].num_pix ; ++t) {
 			if (priv->mask[detn][t] == 0) {
 				if (priv->G_old[detn][t] < 0. && priv->G_new[detn][t] < 0.) {
-					priv->W_new[detn][t] = 1.e-8*pow(0.01, i+1) - det[detn].background[t] / scalemin ;
+					priv->W_new[detn][t] = 1.e-8*pow(0.01, i+1) - det[detn].background[t] / scalemax ;
 				}
 				else if (priv->G_old[detn][t] > 0. && priv->G_new[detn][t] > 0.) {
 					priv->W_new[detn][t] *= 100 ;
@@ -1006,6 +1006,25 @@ void update_tomogram_bg(int r, double scalemin, struct max_data *priv, struct ma
 		if (nmask == tot_num_pix)
 			break ;
 	}
+	if (i == 5 && nmask/((double)tot_num_pix) < 0.9)
+		fprintf(stderr, "%.5d bad search bounds, %d/%d\n", r, nmask, tot_num_pix) ;
+	/*
+	if (r == 391) {
+		FILE *fp ;
+		fp = fopen("data/mask_391.bin", "w") ;
+		fwrite(priv->mask[0], sizeof(uint8_t), det[0].num_pix, fp) ;
+		fclose(fp) ;
+		fp = fopen("data/G_old_391.bin", "w") ;
+		fwrite(priv->G_old[0], sizeof(double), det[0].num_pix, fp) ;
+		fclose(fp) ;
+		fp = fopen("data/G_new_391.bin", "w") ;
+		fwrite(priv->G_new[0], sizeof(double), det[0].num_pix, fp) ;
+		fclose(fp) ;
+		fp = fopen("data/W_new_391.bin", "w") ;
+		fwrite(priv->W_new[0], sizeof(double), det[0].num_pix, fp) ;
+		fclose(fp) ;
+	}
+	*/
 	
 	// Bounded root-finding using bisection/regula falsi
 	for (i = 0 ; i < 50 ; ++i) { // Doing 50 iterations
@@ -1061,7 +1080,7 @@ void update_tomogram_bg(int r, double scalemin, struct max_data *priv, struct ma
 			break ;
 	}
 	if (i == 50 && nmask/((double)tot_num_pix) < 0.9)
-		fprintf(stderr, "%.5d not converged, %d / %d\n", r, nmask, tot_num_pix) ;
+		fprintf(stderr, "%.5d not converged, %d/%d\n", r, nmask, tot_num_pix) ;
 }
 
 void gradient_d(struct max_data *common, uint8_t *mask, double *scale, double *grad) {
