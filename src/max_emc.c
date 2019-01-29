@@ -1010,6 +1010,7 @@ void update_tomogram_bg(int r, double scalemax, struct max_data *priv, struct ma
 			}
 			else if (priv->mask[detn][t] == 160) {
 				priv->W_new[detn][t] = 1.e-8 - det[detn].background[t] / priv->G_new[detn][t] ;
+				priv->mask[detn][t] = 0 ;
 			}
 			else {
 				nmask++ ;
@@ -1021,23 +1022,6 @@ void update_tomogram_bg(int r, double scalemax, struct max_data *priv, struct ma
 	}
 	if (i == 5 && nmask/((double)tot_num_pix) < 0.9)
 		fprintf(stderr, "%.5d bad search bounds, %d/%d\n", r, nmask, tot_num_pix) ;
-	/*
-	if (r == 391) {
-		FILE *fp ;
-		fp = fopen("data/mask_391.bin", "w") ;
-		fwrite(priv->mask[0], sizeof(uint8_t), det[0].num_pix, fp) ;
-		fclose(fp) ;
-		fp = fopen("data/G_old_391.bin", "w") ;
-		fwrite(priv->G_old[0], sizeof(double), det[0].num_pix, fp) ;
-		fclose(fp) ;
-		fp = fopen("data/G_new_391.bin", "w") ;
-		fwrite(priv->G_new[0], sizeof(double), det[0].num_pix, fp) ;
-		fclose(fp) ;
-		fp = fopen("data/W_new_391.bin", "w") ;
-		fwrite(priv->W_new[0], sizeof(double), det[0].num_pix, fp) ;
-		fclose(fp) ;
-	}
-	*/
 	
 	// Bounded root-finding using bisection/regula falsi
 	for (i = 0 ; i < 50 ; ++i) { // Doing 50 iterations
