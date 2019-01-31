@@ -1087,7 +1087,7 @@ void gradient_d(struct max_data *common, uint8_t *mask, double *scale, double *g
 	if (mask[d] == 0)
 		grad[d] = 0. ;
 	
-	#pragma omp parallel default(shared) private(d)
+	#pragma omp parallel default(shared)
 	{
 		int r, d, t, detn, curr_d, pixel, rotind, mode, ind, dset ;
 		double val ;
@@ -1131,15 +1131,19 @@ void gradient_d(struct max_data *common, uint8_t *mask, double *scale, double *g
 					// For each pixel with one photon
 					for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
 						pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
-						val = view[pixel] * scale[d] + det[detn].background[pixel] ;
-						grad[d] += common->prob[d][ind] * view[pixel] / val ;
+						if (det[detn].mask[pixel] < 1) { // Use only relevant pixels
+							val = view[pixel] * scale[d] + det[detn].background[pixel] ;
+							priv_grad[d] += common->prob[d][ind] * view[pixel] / val ;
+						}
 					}
 					
 					// For each pixel with count_multi photons
 					for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
 						pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
-						val = view[pixel] * scale[d] + det[detn].background[pixel] ;
-						grad[d] += common->prob[d][ind] * curr->count_multi[curr->multi_accum[curr_d] + t] * view[pixel] / val ;
+						if (det[detn].mask[pixel] < 1) {
+							val = view[pixel] * scale[d] + det[detn].background[pixel] ;
+							priv_grad[d] += common->prob[d][ind] * curr->count_multi[curr->multi_accum[curr_d] + t] * view[pixel] / val ;
+						}
 					}
 				}
 				
@@ -1157,12 +1161,13 @@ void gradient_d(struct max_data *common, uint8_t *mask, double *scale, double *g
 		free(priv_grad) ;
 		for (detn = 0 ; detn < det[0].num_det ; ++detn)
 			free(views[detn]) ;
+		free(views) ;
 	}
 	
 	MPI_Allreduce(MPI_IN_PLACE, grad, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 	
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
-	if (mask[d] == 0.)
+	if (mask[d] == 0)
 		grad[d] -= common->psum_d[d] ;
 }
 
@@ -1176,8 +1181,11 @@ void update_scale_bg(struct max_data *common) {
 	double *Gd_latest = calloc(frames->tot_num_data, sizeof(double)) ;
 	uint8_t *mask = calloc(frames->tot_num_data, sizeof(uint8_t)) ;
 	for (d = 0 ; d < frames->tot_num_data ; ++d) {
-		if (frames->blacklist[d])
+		if (frames->blacklist[d]) {
 			mask[d] = 255 ;
+			iter->scale[d] = -1. ;
+			continue ;
+		}
 		
 		if (param->iteration > 1 || param->known_scale)
 			scale_new[d] = 4. * iter->scale[d] ;
@@ -1188,6 +1196,18 @@ void update_scale_bg(struct max_data *common) {
 	// Set search bounds
 	// 	Calculate G(0)
 	gradient_d(common, mask, scale_old, Gd_old) ;
+	for (d = 0 ; d < frames->tot_num_data ; ++d)
+	if (mask[d] != 255) {
+		if (fabs(Gd_old[d]) < 1.e-6) {
+			iter->scale[d] = 0. ;
+			mask[d] = 255 ;
+		}
+		else if (Gd_old[d] < 0.) { // TODO Handle this better
+			//iter->scale[d] = 0. ;
+			mask[d] = 255 ; // Leave iter->scale unchanged
+		}
+	}
+	
 	// 	Calculate phi_max and G(phi_max)
 	for (i = 0 ; i < 5 ; ++i) {
 		gradient_d(common, mask, scale_new, Gd_new) ;
@@ -1268,7 +1288,9 @@ void update_scale_bg(struct max_data *common) {
 	free(scale_old) ; free(scale_new) ; free(scale_latest) ;
 	free(Gd_old) ; free(Gd_new) ; free(Gd_latest) ;
 	free(mask) ;
-	print_max_time("scale", "", !param->rank) ;
+	char tag[128] ;
+	sprintf(tag, "(%d iterations)", i) ;
+	print_max_time("scale", tag, !param->rank) ;
 }
 
 void print_max_time(char *pre_tag, char *post_tag, int flag) {
