@@ -44,30 +44,38 @@ class Detector(object):
     def __init__(self, det_fname=None, detd_pix=None, ewald_rad=None, mask_flag=False, keep_mask_1=True):
         self.detd = detd_pix
         self.ewald_rad = ewald_rad
+        self.background = None
         if det_fname is not None:
             self.parse(det_fname, mask_flag, keep_mask_1)
 
     def parse(self, fname, mask_flag=False, keep_mask_1=True):
         """ Parse Dragonfly detector from file
         
-        File can either be in the HDF5 or ASCII formats
+        File can either be in the HDF5 or ASCII format
         """
         self.det_fname = fname
         if HDF5_MODE and h5py.is_hdf5(self.det_fname):
-            self._parse_h5geom(mask_flag, keep_mask_1)
+            self._parse_h5det(mask_flag, keep_mask_1)
         elif os.path.splitext(self.det_fname)[1] == '.h5':
             fheader = np.fromfile(self.det_fname, '=c', count=8)
             if fheader == chr(137)+'HDF\r\n'+chr(26)+'\n':
                 if not HDF5_MODE:
                     raise IOError('Unable to parse HDF5 detector')
                 else:
-                    self._parse_h5geom(mask_flag, keep_mask_1)
+                    self._parse_h5det(mask_flag, keep_mask_1)
             else:
-                self._parse_asciigeom(mask_flag, keep_mask_1)
+                self._parse_asciidet(mask_flag, keep_mask_1)
         else:
-            self._parse_asciigeom(mask_flag, keep_mask_1)
+            self._parse_asciidet(mask_flag, keep_mask_1)
 
     def write(self, fname):
+        """ Write Dragonfly detector to file
+        
+        If h5py is available and the file name as a '.h5' extension,
+        an HDF5 detector will be written, otherwise an ASCII file will be generated.
+        
+        Note that the background array can only be stored in an HDF5 detector
+        """
         try:
             val = self.qx + self.qy + self.qz + self.corr + self.raw_mask
             val = self.detd + self.ewald_rad
@@ -82,15 +90,17 @@ class Detector(object):
             else:
                 raise IOError('Unable to write HDF5 detector without h5py')
         else:
+            print('Writing ASCII detector file')
             self._write_asciidet(fname)
 
-    def _parse_asciigeom(self, mask_flag, keep_mask_1):
+    def _parse_asciidet(self, mask_flag, keep_mask_1):
         """ (Internal) Detector file parser
         
         Arguments:
             mask_flag (bool, optional) - Whether to read the mask column
             keep_mask_1 (bool, optional) - Whether to keep mask=1 within the boolean mask
         """
+        print('Parsing ASCII detector file')
         self._check_header()
         sys.stderr.write('Reading %s...'%self.det_fname)
         if mask_flag:
@@ -104,9 +114,10 @@ class Detector(object):
                                                       for key in ['qx', 'qy', 'qz', 'corr']])
         self.raw_mask = np.array(dframe['mask']).astype('u1')
         sys.stderr.write('done\n')
-        self._process_geom(mask_flag, keep_mask_1)
+        self._process_det(mask_flag, keep_mask_1)
 
-    def _parse_h5geom(self, mask_flag, keep_mask_1):
+    def _parse_h5det(self, mask_flag, keep_mask_1):
+        print('Parsing HDF5 detector file')
         sys.stderr.write('Reading %s...'%self.det_fname)
         if mask_flag:
             sys.stderr.write('with mask...')
@@ -118,10 +129,13 @@ class Detector(object):
             self.raw_mask = fptr['mask'][:].astype('u1')
             self.detd = fptr['detd'].value
             self.ewald_rad = fptr['ewald_rad'].value
+            if 'background' in fptr:
+                self.background = fptr['background'][:]
         sys.stderr.write('done\n')
-        self._process_geom(mask_flag, keep_mask_1)
+        self._process_det(mask_flag, keep_mask_1)
 
     def _write_asciidet(self, fname):
+        print('Writing ASCII detector file')
         qx = self.qx.ravel()
         qy = self.qy.ravel()
         qz = self.qz.ravel()
@@ -135,6 +149,7 @@ class Detector(object):
                 fptr.write(txt)
 
     def _write_h5det(self, fname):
+        print('Writing HDF5 detector file')
         with h5py.File(fname, "w") as fptr:
             fptr['qx'] = self.qx.ravel()
             fptr['qy'] = self.qy.ravel()
@@ -143,6 +158,8 @@ class Detector(object):
             fptr['mask'] = self.raw_mask.ravel().astype('u1')
             fptr['detd'] = self.detd
             fptr['ewald_rad'] = self.ewald_rad
+            if self.background is not None:
+                fptr['background'] = self.background.ravel()
 
     def _check_header(self):
         with open(self.det_fname, 'r') as fptr:
@@ -156,7 +173,7 @@ class Detector(object):
             if self.ewald_rad is None:
                 raise TypeError('Old type detector file. Need ewald_rad')
 
-    def _process_geom(self, mask_flag, keep_mask_1):
+    def _process_det(self, mask_flag, keep_mask_1):
         if mask_flag:
             mask = np.copy(self.raw_mask)
             if keep_mask_1:
