@@ -349,6 +349,8 @@ void parse_input(char *fname, double mean, int rank, int recon_type, struct iter
 			gsl_rng_free(rng) ;
 		}
 		else {
+			fprintf(stderr, "Starting from %s\n", fname) ;
+			
 #ifdef WITH_HDF5
 			fclose(fp) ;
 			hid_t file, dset ;
@@ -358,8 +360,6 @@ void parse_input(char *fname, double mean, int rank, int recon_type, struct iter
 			H5Dclose(dset) ;
 			H5Fclose(file) ;
 #else // WITH_HDF5
-			fprintf(stderr, "Starting from %s\n", fname) ;
-			
 			fread(iter->model1, sizeof(double), tot_vol, fp) ;
 			fclose(fp) ;
 #endif // WITH_HDF5
