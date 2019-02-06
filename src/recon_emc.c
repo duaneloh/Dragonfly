@@ -107,6 +107,11 @@ void emc() {
 			update_model(likelihood) ;
 		if (param->need_scaling && param->recon_type == RECON3D)
 			normalize_scale(frames, iter) ;
+		if (!param->rank) {
+			save_models() ;
+			gettimeofday(&tr2, NULL) ;
+			update_log_file((double)(tr2.tv_sec - tr1.tv_sec) + 1.e-6*(tr2.tv_usec - tr1.tv_usec), likelihood) ;
+		}
 		print_recon_time("Updated 3D intensity", &tr2, &tr3, param->rank) ;
 		
 		MPI_Bcast(&iter->rms_change, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
@@ -146,10 +151,4 @@ void update_model(double likelihood) {
 			iter->model1[x] = iter->model2[x] ;
 	}
 	iter->rms_change = sqrt(change / param->modes / iter->vol) ;
-	
-	save_models() ;
-	
-	gettimeofday(&tr2, NULL) ;
-	
-	update_log_file((double)(tr2.tv_sec - tr1.tv_sec) + 1.e-6*(tr2.tv_usec - tr1.tv_usec), likelihood) ;
 }
