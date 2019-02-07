@@ -51,6 +51,7 @@ class VolumePlotter(object):
         self.fig = fig
         self.canvas = fig.canvas
         self.vol = None
+        self.rots = None
         self.old_modenum = None
         self.main_subp = None
         self.imshow_args = None
@@ -59,7 +60,7 @@ class VolumePlotter(object):
         self.need_replot = False
         self.image_exists = False
 
-    def parse(self, fname, modenum=0):
+    def parse(self, fname, modenum=0, rots=True):
         '''Parse volume defined in options panel
         Can be either 3D volume or 2d slice stack depending on mode in config file
         '''
@@ -67,11 +68,20 @@ class VolumePlotter(object):
             if h5py.is_hdf5(fname):
                 h5_output = True
                 with h5py.File(fname, 'r') as f:
-                    self.vol = f['intens'][modenum]
+                    self.vol = f['intens'][:]
+                    if rots:
+                        self.rots = f['orientations'][:]
+                if self.num_modes == 1:
+                    self.vol = self.vol[0]
                 size = self.vol.shape[-1]
             else:
                 h5_output = False
                 self.vol = np.fromfile(fname, dtype='f8')
+                if rots:
+                    # Assuming fname is <out_folder>/output/output_???.bin
+                    iternum = int(fname[-7:-4])
+                    out_folder = fname[:-21]
+                    self.rots = np.fromfile(out_folder+'/orientations/orientations_%.3d.bin'%iternum, '=i4')
         else:
             sys.stderr.write("Unable to open %s\n"%fname)
             return 0, 0
@@ -167,7 +177,10 @@ class VolumePlotter(object):
         rangemin, rangemax = tuple(vrange)
         self.main_subp.clear()
         self.main_subp.imshow(self.vol[mode], **self.imshow_args)
-        self.main_subp.set_title('Class %d'%mode)
+        if self.rots is None:
+            self.main_subp.set_title('Class %d'%mode)
+        else:
+            self.main_subp.set_title('Class %d (%d frames)'%(mode, (self.rots%self.num_modes == mode).sum()))
         self.main_subp.axis('off')
         self.canvas.draw()
 
@@ -176,6 +189,7 @@ class LogPlotter(object):
         self.fig = fig
         self.canvas = fig.canvas
         self.folder = folder
+        self.rots = None
 
     def plot(self, fname, cmap):
         '''Plot various metrics from the log file as a function of iteration
@@ -288,7 +302,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self._read_config(config)
         self._init_ui()
         if model is not None:
-            self._parse_and_plot()
+            self._parse_and_plot(rots=False)
         self.old_fname = self.fname.text()
 
     def _init_ui(self):
@@ -614,7 +628,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         else:
             self.vol_plotter.plot(num, **argsdict)
 
-    def _parse_and_plot(self, force=False):
+    def _parse_and_plot(self, force=False, rots=True):
         if force or not self.vol_plotter.image_exists or self.old_fname != self.fname.text():
             if self.num_modes > 1:
                 self._init_sliders('mode', self.num_modes, self.modenum.value())
@@ -622,13 +636,13 @@ class ProgressViewer(QtWidgets.QMainWindow):
             else:
                 modenum = 0
             self.old_fname, size, center = self.vol_plotter.parse(self.fname.text(),
-                                            modenum=modenum)
+                                            modenum=modenum, rots=rots)
             if self.recon_type == '3d':
                 self._init_sliders('layer', size, center)
             self._plot_vol()
         elif self.num_modes > 1 and self.modenum.value() != self.old_modenum:
             self.old_fname, size, center = self.vol_plotter.parse(self.fname.text(),
-                                             modenum=self.modenum.value())
+                                             modenum=self.modenum.value(), rots=rots)
             if self.recon_type == '3d':
                 self._init_sliders('layer', size, center)
             elif self.num_modes > 1:

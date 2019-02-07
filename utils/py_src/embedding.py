@@ -125,6 +125,8 @@ class EmbeddingPanel(QtWidgets.QWidget):
         self.embedder.fit(converted)
         self.embed = self.embedder.embedding_
         self.embed_plot = self.embed
+        if method_ind == 5:
+            self.embed_plot = np.hstack((self.embed_plot, self.embed_plot[:,-1]))
 
         self._gen_hist()
         self._plot_embedding()
