@@ -664,6 +664,40 @@ int write_dataset(struct dataset *frames) {
 	return 0 ;
 }
 
+void calc_powder(struct detector *det, struct dataset *frames) {
+	int dset = 0, detn, d, t, pixel ;
+	int *nframes = calloc(det[0].num_det, sizeof(int)) ;
+	struct dataset *curr = frames ;
+	
+	for (detn = 0 ; detn < det[0].num_det ; ++detn)
+		det[detn].powder = calloc(det[detn].num_pix, sizeof(double)) ;
+	
+	while (curr != NULL) {
+		detn = det[0].mapping[dset] ;
+		for (d = 0 ; d < curr->num_data ; ++d) {
+			nframes[detn]++ ;
+			for (t = 0 ; t < curr->ones[d] ; ++t) {
+				pixel = curr->place_ones[curr->ones_accum[d] + t] ;
+				if (det[detn].mask[pixel] < 1)
+					det[detn].powder[pixel]++ ;
+			}
+			for (t = 0 ; t < curr->multi[d] ; ++t) {
+				pixel = curr->place_multi[curr->multi_accum[d] + t] ;
+				if (det[detn].mask[pixel] < 1)
+					det[detn].powder[pixel] += curr->count_multi[curr->multi_accum[d] + t] ;
+			}
+		}
+		
+		dset++ ;
+		curr = curr->next ;
+	}
+	
+	for (detn = 0 ; detn < det[0].num_det ; ++detn)
+		for (t = 0 ; t < det[detn].num_pix ; ++t)
+			det[detn].powder[t] /= nframes[detn] ;
+	free(nframes) ;
+}
+
 void free_data(int scale_flag, struct dataset *frames) {
 	struct dataset *temp, *curr = frames ;
 	

@@ -46,6 +46,7 @@ int parse_dataset_list(char*, struct detector*, struct dataset*) ;
 void generate_blacklist(char*, struct dataset*) ;
 void make_blacklist(char*, int, struct dataset*) ;
 int write_dataset(struct dataset*) ;
+void calc_powder(struct detector*, struct dataset*) ;
 void free_data(int, struct dataset*) ;
 
 #endif //DATASET_H
