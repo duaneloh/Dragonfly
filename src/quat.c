@@ -823,7 +823,7 @@ int parse_quat(char *fname, int with_weights, struct rotation *quat) {
 	
 	FILE *fp = fopen(fname, "r") ;
 	if (fp == NULL) {
-		fprintf(stderr, "quaternion file %s not found. Exiting.\n", fname) ;
+		fprintf(stderr, "quaternion file %s not found.\n", fname) ;
 		return -1 ;
 	}
 	fscanf(fp, "%d", &quat->num_rot) ;
