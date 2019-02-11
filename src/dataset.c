@@ -212,7 +212,7 @@ int generate_data(char *config_fname, char *config_section, char *type_string, s
 		if (frames_list == NULL)
 			frames_list = malloc(sizeof(struct dataset)) ;
 		frames_list->next = NULL ;
-		if ((num_datasets = parse_data(data_flist, det_list, frames_list)) < 0)
+		if ((num_datasets = parse_dataset_list(data_flist, det_list, frames_list)) < 0)
 			return 1 ;
 	}
 	else if (strcmp(type_string, "in") == 0) {
@@ -326,7 +326,7 @@ int parse_dataset(char *fname, struct detector *det, struct dataset *current) {
 	return err ;
 }
 
-int parse_data(char *flist, struct detector *det, struct dataset *frames) {
+int parse_dataset_list(char *flist, struct detector *det, struct dataset *frames) {
 	struct dataset *curr ;
 	char data_fname[1024] ;
 	char flist_folder[1024], rel_fname[1024] ;
