@@ -69,7 +69,7 @@ int generate_quat_list(char *config_fname) {
 	return 0 ;
 }
 
-int generate_globals(char *config_fname, char *output_fname) {
+int generate_globals(char *config_fname, char *output_fname, char *scale_fname) {
 	char line[1024], section_name[1024], *token ;
 	
 	frames = malloc(sizeof(struct dataset)) ;
@@ -90,6 +90,8 @@ int generate_globals(char *config_fname, char *output_fname) {
 				iter->size = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "out_merge_file") == 0)
 				strcpy(output_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "scale_file") == 0)
+				strcpy(scale_fname, strtok(NULL, " =\n")) ;
 		}
 	}
 	fclose(config_fp) ;
@@ -147,6 +149,7 @@ int generate_rel_quat(char *config_fname) {
 int setup(char *fname, char *output_fname) {
 	double qmax = -1 ;
 	FILE *fp ;
+	char scale_fname[1024] ;
 	
 	fp = fopen(fname, "r") ;
 	if (fp == NULL) {
@@ -154,15 +157,19 @@ int setup(char *fname, char *output_fname) {
 		return 1 ;
 	}
 	fclose(fp) ;
-	if (generate_globals(fname, output_fname))
+	if (generate_globals(fname, output_fname, scale_fname))
 		return 1 ;
 	if ((qmax = generate_detectors(fname, "merge", &det, 1)) < 0.)
 		return 1 ;
 	calculate_size(qmax, iter) ;
 	if (generate_data(fname, "merge", "in", det, frames))
 		return 1 ;
+	iter->tot_num_data = frames->tot_num_data ;
+	iter->scale = malloc(iter->tot_num_data * sizeof(double)) ;
 	if (generate_quat_list(fname) && generate_rel_quat(fname))
 		return 1 ;
+	
+	parse_scale(scale_fname, iter) ;
 	
 	return 0 ;
 }
@@ -203,7 +210,7 @@ int main(int argc, char *argv[]) {
 	#pragma omp parallel default(shared)
 	{
 		int omp_rank = omp_get_thread_num() ;
-		long detn, d, t, r, dset = 0, old_detn = -1 ;
+		long detn, curr_d, d, t, r, dset = 0, old_detn = -1 ;
 		double *pview = NULL ;
 		double *priv_model = calloc(vol, sizeof(double)) ;
 		double *priv_weight = calloc(vol, sizeof(double)) ;
@@ -221,12 +228,17 @@ int main(int argc, char *argv[]) {
 			}
 			
 			#pragma omp for schedule(static,1)
-			for (d = 0 ; d < curr->num_data ; ++d) {
+			for (curr_d = 0 ; curr_d < curr->num_data ; ++curr_d) {
+				d = curr->num_data_prev + curr_d ;
+				
 				memset(view, 0, det[detn].num_pix * sizeof(double)) ;
-				for (t = 0 ; t < curr->ones[d] ; ++t)
-					view[curr->place_ones[curr->ones_accum[d]+t]] += 1 ;
-				for (t = 0 ; t < curr->multi[d] ; ++t)
-					view[curr->place_multi[curr->multi_accum[d]+t]] += curr->count_multi[curr->multi_accum[d]+t] ;
+				for (t = 0 ; t < curr->ones[curr_d] ; ++t)
+					view[curr->place_ones[curr->ones_accum[curr_d]+t]] += 1 ;
+				for (t = 0 ; t < curr->multi[curr_d] ; ++t)
+					view[curr->place_multi[curr->multi_accum[curr_d]+t]] += curr->count_multi[curr->multi_accum[curr_d]+t] ;
+				
+				for (t = 0 ; t < det[detn].num_pix ; ++t)
+					view[t] *= iter->scale[d] ;
 				
 				if (iter->rel_quat == NULL) {
 					slice_merge3d(&quat->quat[5*d], view, priv_model, priv_weight, iter->size, &det[detn]) ;
