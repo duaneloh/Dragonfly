@@ -162,6 +162,162 @@ static int parse_h5dataset(char *fname, struct detector *det, struct dataset *cu
 }
 #endif // WITH_HDF5
 
+static int get_val(void* buffer, int pixel, int valtype) {
+	if (valtype == 0)
+		return (int) ((uint8_t*) buffer)[pixel] ;
+	else if (valtype == 1)
+		return (int) ((int8_t*) buffer)[pixel] ;
+	else if (valtype == 2)
+		return (int) ((uint16_t*) buffer)[pixel] ;
+	else if (valtype == 3)
+		return (int) ((int16_t*) buffer)[pixel] ;
+	else if (valtype == 4)
+		return (int) ((uint32_t*) buffer)[pixel] ;
+	else if (valtype == 5)
+		return (int) ((int32_t*) buffer)[pixel] ;
+	else if (valtype == 6)
+		return (int) ((uint64_t*) buffer)[pixel] ;
+	else
+		return (int) ((int64_t*) buffer)[pixel] ;
+}
+
+#ifdef WITH_HDF5
+static int parse_dense_dataset(char *fname, char *dset_name, struct detector *det, struct dataset *current) {
+	int d, t, ndims, val, valtype = -1 ;
+	hid_t file, dset, dspace, mspace, dtype ;
+	hsize_t *bufsize, *single, *start, *stride ;
+	H5T_sign_t sign ;
+	size_t typesize ;
+	void *buffer ;
+	
+	file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT) ;
+	
+	dset = H5Dopen(file, dset_name, H5P_DEFAULT) ;
+	dspace = H5Dget_space(dset) ;
+	// Get ndims
+	ndims = H5Sget_simple_extent_ndims(dspace) ;
+	if (ndims < 2) {
+		fprintf(stderr, "Need frames dataset in %s to be at least 2-dimensional\n", fname) ;
+		return 1 ;
+	}
+	fprintf(stderr, "%d dimensional dataset\n", ndims) ;
+	
+	// Get dims
+	bufsize = malloc(ndims * sizeof(hsize_t)) ;
+	H5Sget_simple_extent_dims(dspace, bufsize, NULL) ;
+	current->num_data = bufsize[0] ;
+	current->tot_num_data = current->num_data ;
+	current->num_pix = 1 ;
+	for (d = 1 ; d < ndims ; ++d)
+		current->num_pix *= bufsize[d] ;
+	if (current->num_pix != det->num_pix)
+		fprintf(stderr, "WARNING! The detector file and photons file %s do not "
+		                "have the same number of pixels\n", current->filename) ;
+	fprintf(stderr, "%d pixels/frame\n", current->num_pix) ;
+	
+	// Allocate dataset memory
+	current->ones = malloc(current->num_data * sizeof(int)) ;
+	current->ones_accum = calloc(current->num_data, sizeof(long)) ;
+	current->ones_total = current->num_data * current->num_pix / 10 ;
+	current->place_ones = malloc(current->ones_total * sizeof(int)) ;
+	
+	current->multi = malloc(current->num_data * sizeof(int)) ;
+	current->multi_accum = calloc(current->num_data, sizeof(long)) ;
+	current->multi_total = current->num_data * current->num_pix / 100 ;
+	current->place_multi = malloc(current->multi_total * sizeof(int)) ;
+	current->count_multi = malloc(current->multi_total * sizeof(int)) ;
+	fprintf(stderr, "Allocated memory\n") ;
+	
+	// Get datatype and allocate single frame
+	dtype = H5Dget_type(dset) ;
+	if (H5Tget_class(dtype) != H5T_INTEGER) {
+		fprintf(stderr, "Photons need to be stored as an integer data type\n") ;
+		return 1 ;
+	}
+	typesize = H5Tget_size(dtype) ;
+	buffer = malloc(current->num_pix * typesize) ;
+	sign = H5Tget_sign(dtype) ;
+	fprintf(stderr, "Type params: %ld %d\n", typesize, sign) ;
+	if (typesize == 1) {
+		if (sign == H5T_SGN_NONE)
+			valtype = 0 ;
+		else
+			valtype = 1 ;
+	}
+	else if (typesize == 2) {
+		if (sign == H5T_SGN_NONE)
+			valtype = 2 ;
+		else
+			valtype = 3 ;
+	}
+	else if (typesize == 4) {
+		if (sign == H5T_SGN_NONE)
+			valtype = 4 ;
+		else
+			valtype = 5 ;
+	}
+	else if (typesize == 8) {
+		if (sign == H5T_SGN_NONE)
+			valtype = 6 ;
+		else
+			valtype = 7 ;
+	}
+	if (valtype == -1) {
+		fprintf(stderr, "Unknown data type in %s : %s\n", fname, dset_name) ;
+		return 1 ;
+	}
+	fprintf(stderr, "valtype = %d\n", valtype) ;
+	fprintf(stderr, "Number of frames = %d\n", current->num_data) ;
+	//return 1 ;
+	
+	// Parse and sparsify each frame
+	single = malloc(ndims * sizeof(hsize_t)) ;
+	stride = malloc(ndims * sizeof(hsize_t)) ;
+	start = calloc(ndims, sizeof(hsize_t)) ;
+	for (d = 0 ; d < ndims ; ++d) {
+		single[d] = bufsize[d] ;
+		stride[d] = 1 ;
+	}
+	single[0] = 1 ;
+	mspace = H5Screate_simple(ndims, single, NULL) ;
+	for (d = 0 ; d < current->num_data ; ++d) {
+		if (current->ones_accum[d] + current->num_pix > current->ones_total)  {
+			current->ones_total += current->num_pix ;
+			current->place_ones = realloc(current->place_ones, current->ones_total * sizeof(int)) ;
+		}
+		if (current->multi_accum[d] + current->num_pix > current->multi_total)  {
+			current->multi_total += current->num_pix ;
+			current->place_multi = realloc(current->place_multi, current->multi_total * sizeof(int)) ;
+			current->count_multi = realloc(current->count_multi, current->multi_total * sizeof(int)) ;
+		}
+		start[0] = d ;
+		H5Sselect_hyperslab(dspace, H5S_SELECT_SET, start, stride, single, NULL) ;
+		H5Dread(dset, dtype, mspace, dspace, H5P_DEFAULT, buffer) ;
+		for (t = 0 ; t < current->num_pix ; ++t)
+		if (det->mask[t] < 2) {
+			val = get_val(buffer, t, valtype) ;
+			if (val == 1) {
+				current->place_ones[current->ones_accum[d] + current->ones[d]] = t ;
+				current->ones[d]++ ;
+			}
+			else if (val > 1) {
+				current->place_multi[current->multi_accum[d] + current->multi[d]] = t ;
+				current->count_multi[current->multi_accum[d] + current->multi[d]] = val ;
+				current->multi[d]++ ;
+			}
+		}
+		current->ones_accum[d+1] = current->ones_accum[d] + current->ones[d] ;
+		current->multi_accum[d+1] = current->multi_accum[d] + current->multi[d] ;
+	}
+	
+	H5Sclose(dspace) ;
+	H5Tclose(dtype) ;
+	H5Fclose(file) ;
+	
+	return 0 ;
+}
+#endif // WITH_HDF5
+
 int generate_data(char *config_fname, char *config_section, char *type_string, struct detector *det_list, struct dataset *frames_list) {
 	int num_datasets = 0 ;
 	char data_fname[1024] = {'\0'}, data_flist[1024] = {'\0'}, out_data_fname[1024] = {'\0'} ;
@@ -200,7 +356,7 @@ int generate_data(char *config_fname, char *config_section, char *type_string, s
 	}
 	else if (data_fname[0] != '\0') {
 		if (frames_list == NULL)
-			frames_list = malloc(sizeof(struct dataset)) ;
+			frames_list = calloc(1, sizeof(struct dataset)) ;
 		if (parse_dataset(data_fname, det_list, frames_list))
 			return 1 ;
 		frames_list->num_data_prev = 0 ;
@@ -210,7 +366,7 @@ int generate_data(char *config_fname, char *config_section, char *type_string, s
 	}
 	else if (data_flist[0] != '\0') {
 		if (frames_list == NULL)
-			frames_list = malloc(sizeof(struct dataset)) ;
+			frames_list = calloc(1, sizeof(struct dataset)) ;
 		frames_list->next = NULL ;
 		if ((num_datasets = parse_dataset_list(data_flist, det_list, frames_list)) < 0)
 			return 1 ;
@@ -327,8 +483,9 @@ int parse_dataset(char *fname, struct detector *det, struct dataset *current) {
 }
 
 int parse_dataset_list(char *flist, struct detector *det, struct dataset *frames) {
+	int num_sparse = 0, num_dense = 0, retval ;
 	struct dataset *curr ;
-	char data_fname[1024] ;
+	char dset_name[1024], data_fname[1024] ;
 	char flist_folder[1024], rel_fname[1024] ;
 	char *temp_fname = strndup(flist, 1024) ;
 	sprintf(flist_folder, "%s/", dirname(temp_fname)) ;
@@ -340,11 +497,25 @@ int parse_dataset_list(char *flist, struct detector *det, struct dataset *frames
 		return -1 ;
 	}
 	
-	if (fscanf(fp, "%1023s\n", rel_fname) == 1) {
+	if ((retval = fscanf(fp, "%1023s %1023s\n", rel_fname, dset_name)) > 0) {
 		absolute_strcpy(flist_folder, data_fname, rel_fname) ;
-		if (parse_dataset(data_fname, det, frames)) {
-			fclose(fp) ;
+		if (retval > 1) {
+#ifndef WITH_HDF5
+			fprintf(stderr, "Dense dataset (%s : %s) needs HDF5 support\n", data_fname, dset_name) ;
 			return -1 ;
+#endif // WITH_HDF5
+			if (parse_dense_dataset(data_fname, dset_name, det, frames)) {
+				fclose(fp) ;
+				return -1 ;
+			}
+			num_dense++ ;
+		}
+		else {
+			if (parse_dataset(data_fname, det, frames)) {
+				fclose(fp) ;
+				return -1 ;
+			}
+			num_sparse++ ;
 		}
 	}
 	else {
@@ -357,33 +528,45 @@ int parse_dataset_list(char *flist, struct detector *det, struct dataset *frames
 	frames->tot_num_data = frames->num_data ;
 	frames->tot_mean_count = frames->num_data * frames->mean_count ;
 	frames->num_data_prev = 0 ;
-	int num_datasets = 1 ;
 	
-	while (fscanf(fp, "%1023s\n", rel_fname) == 1) {
+	while ((retval = fscanf(fp, "%1023s %1023s\n", rel_fname, dset_name)) > 0) {
 		if (strlen(rel_fname) == 0)
 			continue ;
 		absolute_strcpy(flist_folder, data_fname, rel_fname) ;
-		curr->next = malloc(sizeof(struct dataset)) ;
+		curr->next = calloc(1, sizeof(struct dataset)) ;
 		curr = curr->next ;
 		curr->next = NULL ;
 		
-		//fprintf(stderr, "%s[%d]: %d\n", data_fname, num_datasets, det[0].mapping[num_datasets]) ;
-		if (parse_dataset(data_fname, &(det[det[0].mapping[num_datasets]]), curr)) {
-			fclose(fp) ;
+		if (retval > 1) {
+#ifndef WITH_HDF5
+			fprintf(stderr, "Dense dataset (%s : %s) needs HDF5 support\n", data_fname, dset_name) ;
 			return -1 ;
+#endif // WITH_HDF5
+			if (parse_dense_dataset(data_fname, dset_name, &(det[det[0].mapping[num_sparse+num_dense]]), curr)) {
+				fclose(fp) ;
+				return -1 ;
+			}
+			num_dense++ ;
+		}
+		else {
+			if (parse_dataset(data_fname, &(det[det[0].mapping[num_sparse+num_dense]]), curr)) {
+				fclose(fp) ;
+				return -1 ;
+			}
+			num_sparse++ ;
 		}
 		
 		curr->num_data_prev = frames->tot_num_data ;
 		frames->tot_num_data += curr->num_data ;
 		frames->tot_mean_count += curr->num_data * curr->mean_count ;
-		num_datasets++ ;
 	}
 	fclose(fp) ;
 	
 	frames->tot_mean_count /= frames->tot_num_data ;
 	calc_sum_fact(det, frames) ;
 	
-	return num_datasets ;
+	fprintf(stderr, "(%d, %d) sparse and dense datasets\n", num_sparse, num_dense) ;
+	return num_sparse + num_dense ;
 }
 
 void generate_blacklist(char *config_fname, struct dataset *frames) {
