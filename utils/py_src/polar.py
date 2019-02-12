@@ -140,7 +140,7 @@ class PolarConverter(object):
                 if norm > 0.:
                     temp.append(np.absolute(np.fft.fft(corr/norm))[1:ang_max])
                 else:
-                    temp.append(np.zeros(ang_max-1))
+                    temp.append(np.zeros(ang_max-2))
             else:
                 temp.append(np.absolute(np.fft.fft(corr))[1:ang_max])
         return np.array(temp)

@@ -133,6 +133,7 @@ class FramePanel(QtWidgets.QWidget):
             mode = None
 
         if frame is not None:
+            num = None
             pass
         elif self.do_powder:
             frame = self.powder_sum
@@ -218,6 +219,8 @@ class FramePanel(QtWidgets.QWidget):
 
     def _get_plot_title(self, frame, num, mode):
         title = '%d photons' % frame.sum()
+        if num is None:
+            return title
         if frame is None and (mode == 1 or mode == 3):
             title += ' (%s)' % self.parent.classes.clist[num]
         if mode == 4 and self.parent.mlp_panel.predictions is not None:

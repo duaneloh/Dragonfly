@@ -188,9 +188,15 @@ int parse_scale(char *fname, struct iterate *iter) {
 		if (strncmp(line, hdfheader, 8) == 0) {
 #ifdef WITH_HDF5
 			fclose(fp) ;
-			hid_t file, dset ;
+			hid_t file, dset, dspace ;
 			file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT) ;
 			dset = H5Dopen(file, "/scale", H5P_DEFAULT) ;
+			dspace = H5Dget_space(dset) ;
+			if (H5Sget_simple_extent_npoints(dspace) != iter->tot_num_data) {
+				fprintf(stderr, "Number of frames in 'scale' dataset does not match. ") ;
+				fprintf(stderr, "Defaulting to uniform scale factors\n") ;
+				return 0 ;
+			}
 			H5Dread(dset, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, iter->scale) ;
 			H5Dclose(dset) ;
 			H5Fclose(file) ;
