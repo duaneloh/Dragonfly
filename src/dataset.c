@@ -318,6 +318,16 @@ static int parse_dense_dataset(char *fname, char *dset_name, struct detector *de
 }
 #endif // WITH_HDF5
 
+static int num_words(char *line) {
+	int retval = 0 ;
+	char *token = strtok(line, " \t\n") ;
+	while (token != NULL) {
+		retval++ ;
+		token = strtok(NULL, " \t\n") ;
+	}
+	return retval ;
+}
+
 int generate_data(char *config_fname, char *config_section, char *type_string, struct detector *det_list, struct dataset *frames_list) {
 	int num_datasets = 0 ;
 	char data_fname[1024] = {'\0'}, data_flist[1024] = {'\0'}, out_data_fname[1024] = {'\0'} ;
@@ -485,8 +495,9 @@ int parse_dataset(char *fname, struct detector *det, struct dataset *current) {
 int parse_dataset_list(char *flist, struct detector *det, struct dataset *frames) {
 	int num_sparse = 0, num_dense = 0, retval ;
 	struct dataset *curr ;
-	char dset_name[1024], data_fname[1024] ;
-	char flist_folder[1024], rel_fname[1024] ;
+	char line[2048] ;
+	char *dset_name, data_fname[1024] ;
+	char flist_folder[1024], *rel_fname ;
 	char *temp_fname = strndup(flist, 1024) ;
 	sprintf(flist_folder, "%s/", dirname(temp_fname)) ;
 	free(temp_fname) ;
@@ -497,13 +508,16 @@ int parse_dataset_list(char *flist, struct detector *det, struct dataset *frames
 		return -1 ;
 	}
 	
-	if ((retval = fscanf(fp, "%1023s %1023s\n", rel_fname, dset_name)) > 0) {
+	if (fgets(line, 2048, fp) != NULL) {
+		retval = num_words(line) ;
+		rel_fname = strtok(line, " \t\n") ;
 		absolute_strcpy(flist_folder, data_fname, rel_fname) ;
 		if (retval > 1) {
 #ifndef WITH_HDF5
 			fprintf(stderr, "Dense dataset (%s : %s) needs HDF5 support\n", data_fname, dset_name) ;
 			return -1 ;
 #endif // WITH_HDF5
+			dset_name = strtok(NULL, " \t\n") ;
 			if (parse_dense_dataset(data_fname, dset_name, det, frames)) {
 				fclose(fp) ;
 				return -1 ;
@@ -529,7 +543,9 @@ int parse_dataset_list(char *flist, struct detector *det, struct dataset *frames
 	frames->tot_mean_count = frames->num_data * frames->mean_count ;
 	frames->num_data_prev = 0 ;
 	
-	while ((retval = fscanf(fp, "%1023s %1023s\n", rel_fname, dset_name)) > 0) {
+	while (fgets(line, 2048, fp) != NULL) {
+		retval = num_words(line) ;
+		rel_fname = strtok(line, " \t\n") ;
 		if (strlen(rel_fname) == 0)
 			continue ;
 		absolute_strcpy(flist_folder, data_fname, rel_fname) ;
@@ -542,6 +558,7 @@ int parse_dataset_list(char *flist, struct detector *det, struct dataset *frames
 			fprintf(stderr, "Dense dataset (%s : %s) needs HDF5 support\n", data_fname, dset_name) ;
 			return -1 ;
 #endif // WITH_HDF5
+			dset_name = strtok(NULL, " \t\n") ;
 			if (parse_dense_dataset(data_fname, dset_name, &(det[det[0].mapping[num_sparse+num_dense]]), curr)) {
 				fclose(fp) ;
 				return -1 ;
