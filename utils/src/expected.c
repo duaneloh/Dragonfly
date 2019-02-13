@@ -159,9 +159,8 @@ int setup(char *fname) {
 }
 
 int main(int argc, char *argv[]) {
-	long i, vol ;
 	FILE *fp ;
-	char config_fname[1024], output_fname[1024] ;
+	char config_fname[1024] ;
 	int c ;
 	extern char *optarg ;
 	extern int optind ;
