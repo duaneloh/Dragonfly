@@ -2,7 +2,7 @@
 
 '''
 Convert frames in an h5 file or list of files into emc format
-If not all frames need to be converted, one can use a selection file or a 
+If not all frames need to be converted, one can use a selection file or a
 selection dataset
 
 Needs:
@@ -14,42 +14,50 @@ Produces:
 
 from __future__ import print_function
 import os
-import numpy as np
-import h5py
 import sys
 import logging
+import numpy as np
+import h5py
 #Add utils directory to pythonpath
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-from py_src import py_utils
-from py_src import writeemc
-from py_src import read_config
+from py_src import py_utils # pylint: disable=wrong-import-position
+from py_src import read_config # pylint: disable=wrong-import-position
+from py_src import writeemc # pylint: disable=wrong-import-position
 
-def get_dset(fp, args):
+def get_dset(fptr, args):
+    """Get dataset in h5 file to process
+
+    If name specified in command line arguments, checks for existence and returns
+    Otherwise looks for standard naming
+    """
     if args.dset_name is None:
-        for name, obj in fp['photonConverter'].items():
+        for _, obj in fptr['photonConverter'].items():
             try:
-                temp = obj.keys()
                 dset = obj['photonCount']
                 break
             except AttributeError:
                 pass
-        logging.info('Converting data in '+ dset.name)
+        logging.info('Converting data in %s', dset.name)
     else:
         try:
-            dset = fp[args.dset_name]
+            dset = fptr[args.dset_name]
         except KeyError:
             print('Dataset not found. Moving on.')
-            return None 
-        logging.info('Converting data in '+ args.dset_name)
+            return None
+        logging.info('Converting data in %s', args.dset_name)
     return dset
 
-def get_indices(fp, dset, args):
+def get_indices(fptr, dset, args, curr_num_data=0):
+    """Get the indices of the frames to be processed
+
+    Checks dataset shape and uses selection information if specified in arguments
+    """
     all_frames = False
     if args.sel_file is not None and args.sel_dset is not None:
         logging.info('Both sel_file and sel_dset specified. Pick one.')
         sys.exit(1)
     elif args.sel_file is None and args.sel_dset is None:
-        logging.info('Converting all images. dset.shape = %s' % (dset.shape,))
+        logging.info('Converting all images. dset.shape = %s', dset.shape)
         if len(dset.shape) == 3:
             ind = np.arange(dset.shape[0], dtype='i4')
         else:
@@ -59,12 +67,12 @@ def get_indices(fp, dset, args):
         ind = np.loadtxt(args.sel_file, dtype='i4')
         ind -= curr_num_data
     else:
-        ind = fp[args.sel_dset][:]
+        ind = fptr[args.sel_dset][:]
 
-    if type(ind) is np.ndarray:
+    if isinstance(ind, np.ndarray):
         if not all_frames and ind.shape[0] == dset.shape[0] and ind.max() < 2:
-            ind = np.where(ind==1)[0]
-        ind = ind[(ind>=0) & (ind<dset.shape[0])]
+            ind = np.where(ind == 1)[0]
+        ind = ind[(ind >= 0) & (ind < dset.shape[0])]
         num_frames = ind.shape[0]
     else:
         num_frames = 1
@@ -76,64 +84,76 @@ def bin_image(array, binning):
     Convenience function to bin 2D array by some bin factor
     The binning must divide the array shape
     '''
-    s = array.shape
-    out = array.reshape(s[0]/binning, binning, s[1]/binning, binning).sum(axis=(1,3))
+    x, y = array.shape
+    out = array.reshape(x/binning, binning, y/binning, binning).sum(axis=(1, 3))
     return out
 
-if __name__ == '__main__':
-    logging.basicConfig(filename='recon.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+def main():
+    """Parse command line arguments and convert file(s)"""
+    logging.basicConfig(filename='recon.log', level=logging.INFO,
+                        format='%(asctime)s - %(levelname)s - %(message)s')
     parser = py_utils.MyArgparser(description='h5toemc')
     parser.add_argument('h5_name', help='HDF5 file to convert to emc format')
-    parser.add_argument('-d', '--dset_name', help='Name of HDF5 dataset containing photon data', default=None)
-    parser.add_argument('-b', '--binning', help='Downsampling binning factor (must divide array size)', default=None, type=int)
-    parser.add_argument('-s', '--sel_file', help='Path to text file containing indices of frames\nor a set of 0 or 1 values. Default: Do all', default=None)
-    parser.add_argument('-S', '--sel_dset', help='Same as --sel_file, but pointing to the name of an HDF5 dataset', default=None)
-    parser.add_argument('-l', '--list', help='h5_name is list of h5 files rather than a single one', action='store_true', default=False)
-    parser.add_argument('-o', '--out_fname', help='Output filename if different from calculated name', default=None)
+    parser.add_argument('-d', '--dset_name',
+                        help='Name of HDF5 dataset containing photon data', default=None)
+    parser.add_argument('-b', '--binning',
+                        help='Downsampling binning factor (must divide array size)',
+                        default=None, type=int)
+    parser.add_argument('-s', '--sel_file',
+                        help='Path to text file containing indices of frames. Default: Do all',
+                        default=None)
+    parser.add_argument('-S', '--sel_dset',
+                        help='Same as --sel_file, but pointing to the name of an HDF5 dataset',
+                        default=None)
+    parser.add_argument('-l', '--list',
+                        help='h5_name is list of h5 files rather than a single one',
+                        action='store_true', default=False)
+    parser.add_argument('-o', '--out_fname',
+                        help='Output filename if different from calculated name', default=None)
     args = parser.special_parse_args()
 
     logging.info('Starting h5toemc....')
     logging.info(' '.join(sys.argv))
-    pm = read_config.get_detector_config(args.config_file, show=args.vb)
+    pm = read_config.get_detector_config(args.config_file, show=args.vb) # pylint: disable=invalid-name
     output_folder = read_config.get_filename(args.config_file, 'emc', 'output_folder')
     curr_num_data = 0
 
     if not os.path.isfile(args.h5_name):
         print('Data file %s not found. Exiting.' % args.h5_name)
-        logging.error('Data file %s not found. Exiting.' % args.h5_name)
+        logging.error('Data file %s not found. Exiting.', args.h5_name)
         sys.exit()
 
     if args.list:
-        logging.info('Reading file names in list %s' % args.h5_name)
-        with open(args.h5_name, 'r') as f:
-            flist = [os.path.realpath(fname.rstrip()) for fname in f.readlines()]
+        logging.info('Reading file names in list %s', args.h5_name)
+        with open(args.h5_name, 'r') as fptr:
+            flist = [os.path.realpath(fname.rstrip()) for fname in fptr.readlines()]
     else:
         flist = [args.h5_name]
 
     if args.out_fname is None:
-        emcwriter = writeemc.EMCWriter('%s/%s.emc' % (output_folder, os.path.splitext(os.path.basename(args.h5_name))[0]),
-                                        pm['dets_x']*pm['dets_y'])
+        fname = '%s/%s.emc' % (output_folder, os.path.splitext(os.path.basename(args.h5_name))[0])
+        emcwriter = writeemc.EMCWriter(fname, pm['dets_x']*pm['dets_y'])
     else:
         emcwriter = writeemc.EMCWriter(args.out_fname, pm['dets_x']*pm['dets_y'])
 
     for fnum, fname in enumerate(flist):
-        f = h5py.File(fname, 'r')
-        dset = get_dset(f, args)
+        fptr = h5py.File(fname, 'r')
+        dset = get_dset(fptr, args)
         if dset is None:
             continue
-        
-        ind, num_frames = get_indices(f, dset, args)
+
+        ind, num_frames = get_indices(fptr, dset, args, curr_num_data)
 
         curr_num_data += num_frames
         if not args.list:
-            logging.info('Converting %d/%d frames in %s' % (num_frames, dset.shape[0], args.h5_name))
+            logging.info('Converting %d/%d frames in %s', num_frames, dset.shape[0], args.h5_name)
 
         for i in range(num_frames):
             if len(dset.shape) == 3:
                 photons = dset[ind[i]]
             else:
                 photons = dset[:]
-            photons[photons<0] = 0
+            photons[photons < 0] = 0
             if args.binning is None:
                 emcwriter.write_frame(photons.ravel())
             else:
@@ -141,10 +161,13 @@ if __name__ == '__main__':
             if not args.list:
                 sys.stderr.write('\rFinished %d/%d' % (i+1, num_frames))
 
-        f.close()
+        fptr.close()
         if not args.list:
             sys.stderr.write('\n')
         sys.stderr.write('\rProcessed %s %d/%d' % (fname, fnum, len(flist)))
 
     sys.stderr.write('\n')
     emcwriter.finish_write()
+
+if __name__ == '__main__':
+    main()
