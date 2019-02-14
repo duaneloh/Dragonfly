@@ -61,7 +61,7 @@ def get_indices(fptr, dset, args, curr_num_data=0):
         sys.exit(1)
     elif args.sel_file is None and args.sel_dset is None:
         logging.info('Converting all images. dset.shape = %s', dset.shape)
-        if len(dset.shape) == 3:
+        if len(dset.shape) >= 3:
             ind = np.arange(dset.shape[0], dtype='i4')
         else:
             ind = 0
@@ -152,7 +152,7 @@ def main():
             logging.info('Converting %d/%d frames in %s', num_frames, dset.shape[0], args.h5_name)
 
         for i in range(num_frames):
-            if len(dset.shape) == 3:
+            if len(dset.shape) >= 3:
                 photons = dset[ind[i]]
             else:
                 photons = dset[:]
