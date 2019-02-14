@@ -12,7 +12,7 @@ except ImportError:
 
 class Detector(object):
     """Dragonfly detector
-    
+
     The detector file format is specified in github.com/duaneloh/Dragonfly/wiki
     This class reads the file and provides numpy arrays which can be used for
     further processing.
@@ -23,7 +23,7 @@ class Detector(object):
         ewald_rad (float) - Ewald sphere radius in voxels. If in doubt, = detd_pix
         mask_flag (bool) - Whether to read the mask column for each pixel
         keep_mask_1 (bool) - Whether to consider mask=1 pixels as good
-    
+
     For the new ASCII format, detd_pix and ewald_rad numbers are read from the file \
     but for the old file, they must be provided.
 
@@ -41,7 +41,8 @@ class Detector(object):
         self.raw_mask - Unassembled mask as stored in detector file
         self.unassembled_mask - Unassembled mask (1=good, 0=bad)
     """
-    def __init__(self, det_fname=None, detd_pix=None, ewald_rad=None, mask_flag=False, keep_mask_1=True):
+    def __init__(self, det_fname=None, detd_pix=None,
+                 ewald_rad=None, mask_flag=False, keep_mask_1=True):
         self.detd = detd_pix
         self.ewald_rad = ewald_rad
         self.background = None
@@ -50,7 +51,7 @@ class Detector(object):
 
     def parse(self, fname, mask_flag=False, keep_mask_1=True):
         """ Parse Dragonfly detector from file
-        
+
         File can either be in the HDF5 or ASCII format
         """
         self.det_fname = fname
@@ -70,10 +71,10 @@ class Detector(object):
 
     def write(self, fname):
         """ Write Dragonfly detector to file
-        
+
         If h5py is available and the file name as a '.h5' extension,
         an HDF5 detector will be written, otherwise an ASCII file will be generated.
-        
+
         Note that the background array can only be stored in an HDF5 detector
         """
         try:
@@ -83,7 +84,7 @@ class Detector(object):
             print('Detector attributes not populated. Cannot write to file')
             print('Need qx, qy, qz, corr, raw_mask, detd and ewald_rad')
             return
-        
+
         if os.path.splitext(fname)[1] == '.h5':
             if HDF5_MODE:
                 self._write_h5det(fname)
@@ -95,7 +96,7 @@ class Detector(object):
 
     def _parse_asciidet(self, mask_flag, keep_mask_1):
         """ (Internal) Detector file parser
-        
+
         Arguments:
             mask_flag (bool, optional) - Whether to read the mask column
             keep_mask_1 (bool, optional) - Whether to keep mask=1 within the boolean mask
@@ -141,7 +142,7 @@ class Detector(object):
         qz = self.qz.ravel()
         corr = self.corr.ravel()
         mask = self.raw_mask.ravel().astype('u1')
-        
+
         with open(fname, "w") as fptr:
             fptr.write("%d %.6f %.6f\n" % (qx.size, self.detd, self.ewald_rad))
             for par0, par1, par2, par3, par4 in zip(qx, qy, qz, corr, mask):
@@ -183,7 +184,7 @@ class Detector(object):
                 mask[mask == 2] = 1 # To keep only mask==0
             mask = 1 - mask
         else:
-            raw_mask = np.zeros(self.qx.shape, dtype='u1')
+            self.raw_mask = np.zeros(self.qx.shape, dtype='u1')
             mask = np.ones(self.qx.shape, dtype='u1')
 
         self.cx = self.qx*self.detd/(self.qz+self.ewald_rad) # pylint: disable=C0103
@@ -211,4 +212,3 @@ class Detector(object):
         '''Return 2D integer coordinates (for assembly)
         Corner of the detector at (0,0)'''
         return self.x, self.y
-
