@@ -28,15 +28,18 @@ def get_dset(fptr, args):
     """Get dataset in h5 file to process
 
     If name specified in command line arguments, checks for existence and returns
-    Otherwise looks for standard naming
+    Otherwise looks for standard names.
     """
     if args.dset_name is None:
+        dset = None
         for _, obj in fptr['photonConverter'].items():
             try:
                 dset = obj['photonCount']
                 break
             except AttributeError:
                 pass
+        if 'entry_1/data_1/data' in fptr:
+            dset = fptr['entry_1/data_1/data']
         logging.info('Converting data in %s', dset.name)
     else:
         try:
