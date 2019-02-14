@@ -2,8 +2,9 @@
 
 from __future__ import print_function
 import sys
+import os
 import numpy as np
-import numpy.ma as ma
+from numpy import ma
 try:
     import h5py
     HDF5_MODE = True
@@ -12,15 +13,15 @@ except ImportError:
 
 class EMCReader(object):
     """EMC file reader
-    
+
     Provides access to assembled or raw frames given a list of .emc filenames
 
     __init__ arguments:
-        photons_list (list of strings) - List of paths to emc files. If single file, pass as [fname]
-        geom_list (list of strings) - List of Detector objects.
+        photons_list - Path or sequence of paths to emc files. If single file, pass as [fname]
+        geom_list - Single or list of Detector objects.
         geom_mapping (list, optional) - Mapping from photons_list to geom_list
 
-    If there is only one entry in geom_list, all emc files are assumed to point \
+    If there is only one entry in geom_list, all emc files are assumed to use \
     to that detector. Otherwise, a mapping must be provided. \
     The mapping is a list of the same length as photons_list with entries \
     giving indices in geom_list for the corresponding emc file.
@@ -30,6 +31,10 @@ class EMCReader(object):
         get_powder(raw=False)
     """
     def __init__(self, photons_list, geom_list, geom_mapping=None):
+        if hasattr(photons_list, 'strip') or not hasattr(photons_list, '__getitem__'):
+            photons_list = [photons_list]
+        if not hasattr(geom_list, '__getitem__'):
+            geom_list = [geom_list]
         self.flist = [{'fname': fname} for fname in photons_list]
         num_files = len(photons_list)
         self.multiple_geom = False
@@ -49,28 +54,27 @@ class EMCReader(object):
                                  for n, p in enumerate(self.flist)]
         self._parse_headers()
 
-    def _test_h5file(self, fname):
+    @staticmethod
+    def _test_h5file(fname):
         if HDF5_MODE:
             return h5py.is_hdf5(fname)
-        elif os.path.splitext(det_fname)[1] == '.h5':
-            fheader = np.fromfile(det_fname, '=c', count=8)
+        if os.path.splitext(fname)[1] == '.h5':
+            fheader = np.fromfile(fname, '=c', count=8)
             if fheader == chr(137)+'HDF\r\n'+chr(26)+'\n':
                 return True
-            else:
-                return False
-        else:
-            return False
+        return False
 
     def _parse_headers(self):
         for i, pdict in enumerate(self.flist):
             geom = pdict['geom']
-            xsel, ysel = geom.x[geom.unassembled_mask.astype(np.bool)], geom.y[geom.unassembled_mask.astype(np.bool)]
+            xsel = geom.x[geom.unassembled_mask.astype(np.bool)]
+            ysel = geom.y[geom.unassembled_mask.astype(np.bool)]
             pdict['zoom_bounds'] = (xsel.min(), xsel.max()+1, ysel.min(), ysel.max()+1)
-            
+
             pdict['is_hdf5'] = self._test_h5file(pdict['fname'])
             if pdict['is_hdf5'] and not HDF5_MODE:
                 print('Unable to parse HDF5 dataset')
-                raise(IOError)
+                raise IOError
             elif not pdict['is_hdf5']:
                 self._parse_binaryheader(pdict)
             else:
@@ -84,7 +88,8 @@ class EMCReader(object):
                 pdict['num_data'] += self.flist[i-1]['num_data']
         self.num_frames = self.flist[-1]['num_data']
 
-    def _parse_binaryheader(self, pdict):
+    @staticmethod
+    def _parse_binaryheader(pdict):
         with open(pdict['fname'], 'rb') as fptr:
             num_data = np.fromfile(fptr, dtype='i4', count=1)[0]
             pdict['num_pix'] = np.fromfile(fptr, dtype='i4', count=1)[0]
@@ -95,7 +100,8 @@ class EMCReader(object):
         pdict['ones_accum'] = np.cumsum(ones)
         pdict['multi_accum'] = np.cumsum(multi)
 
-    def _parse_h5header(self, pdict):
+    @staticmethod
+    def _parse_h5header(pdict):
         with h5py.File(pdict['fname'], 'r') as fptr:
             pdict['num_data'] = fptr['place_ones'].shape[0]
             pdict['num_pix'] = fptr['num_pix'][0]
@@ -160,10 +166,10 @@ class EMCReader(object):
     def _read_frame(self, file_num, frame_num, raw=False, sparse=False, **kwargs):
         pdict = self.flist[file_num]
         if pdict['is_hdf5']:
-            po, pm, cm = self._read_h5frame(pdict, frame_num)
+            po, pm, cm = self._read_h5frame(pdict, frame_num) # pylint: disable=invalid-name
         else:
-            po, pm, cm = self._read_binaryframe(pdict, frame_num)
-            
+            po, pm, cm = self._read_binaryframe(pdict, frame_num) # pylint: disable=invalid-name
+
         if sparse:
             return po, pm, cm
         frame = np.zeros(pdict['num_pix'], dtype='i4')
@@ -174,14 +180,16 @@ class EMCReader(object):
             frame = self._assemble_frame(frame, file_num, **kwargs)
         return frame
 
-    def _read_h5frame(self, pdict, frame_num):
+    @staticmethod
+    def _read_h5frame(pdict, frame_num):
         with h5py.File(pdict['fname'], 'r') as fptr:
             place_ones = fptr['place_ones'][frame_num]
             place_multi = fptr['place_multi'][frame_num]
             count_multi = fptr['count_multi'][frame_num]
         return place_ones, place_multi, count_multi
 
-    def _read_binaryframe(self, pdict, frame_num):
+    @staticmethod
+    def _read_binaryframe(pdict, frame_num):
         with open(pdict['fname'], 'rb') as fptr:
             num_data = np.fromfile(fptr, dtype='i4', count=1)[0]
 
@@ -215,5 +223,4 @@ class EMCReader(object):
         if zoomed:
             b = self.flist[num]['zoom_bounds']
             return img[b[0]:b[1], b[2]:b[3]]
-        else:
-            return img
+        return img
