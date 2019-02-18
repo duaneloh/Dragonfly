@@ -73,7 +73,12 @@ def main():
 
     det.detd = pm['detd'] / pm['pixsize']
     det.ewald_rad = pm['ewald_rad']
-    det_file = output_folder + '/' + os.path.splitext(os.path.basename(args.h5_name))[0] + '.dat'
+    det_file = output_folder + '/' + os.path.splitext(os.path.basename(args.h5_name))[0]
+    try:
+        import h5py
+        det_file += '.h5'
+    except ImportError:
+        det_file += '.dat'
     logging.info('Writing detector file to %s', det_file)
     sys.stderr.write('Writing detector file to %s\n'%det_file)
     det.write(det_file)
