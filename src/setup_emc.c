@@ -2,8 +2,31 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include <unistd.h>
 #include <mpi.h>
 #include "emc.h"
+
+static void backup_log_file(struct params *param) {
+	if (access(param->log_fname, F_OK) != -1) {
+		char command[4096], copy_fname[1024], backup_fname[2048] ;
+		int i = 1 ;
+		
+		strcpy(copy_fname, param->log_fname) ;
+		sprintf(backup_fname, "%s/.%s.bak", dirname(copy_fname), basename(copy_fname)) ;
+		while (access(backup_fname, F_OK) != -1) {
+			strcpy(copy_fname, param->log_fname) ;
+			sprintf(backup_fname, "%s/.%s.bak%d", dirname(copy_fname), basename(copy_fname), i) ;
+			i++ ;
+		}
+		
+		MPI_Barrier(MPI_COMM_WORLD) ;
+		if (!param->rank) {
+			fprintf(stderr, "Creating backup of log file %s -> %s\n", param->log_fname, backup_fname) ;
+			sprintf(command, "cp -v %s %s", param->log_fname, backup_fname) ;
+			system(command) ;
+		}
+	}
+}
 
 int setup(char *s_config_fname, int continue_flag) {
 	FILE *fp ;
@@ -29,6 +52,7 @@ int setup(char *s_config_fname, int continue_flag) {
 	}
 	fclose(fp) ;
 	generate_params(config_fname, param) ;
+	backup_log_file(param) ;
 #ifndef WITH_HDF5
 	generate_output_dirs(param) ;
 #endif // WITH_HDF5
