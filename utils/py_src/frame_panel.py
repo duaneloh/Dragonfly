@@ -87,19 +87,23 @@ class FramePanel(QtWidgets.QWidget):
             hbox.addWidget(label)
             self.numstr = QtWidgets.QLineEdit('0', self)
             self.numstr.setFixedWidth(64)
+            self.numstr.setToolTip('Frame number (0-indexed)')
             hbox.addWidget(self.numstr)
             label = QtWidgets.QLabel('/%d'%self.emc_reader.num_frames, self)
+            label.setToolTip('Number of frames')
             hbox.addWidget(label)
         hbox.addStretch(1)
         if not self.do_powder and self.do_compare:
             self.compare_flag = QtWidgets.QCheckBox('Compare', self)
             self.compare_flag.clicked.connect(self._compare_flag_changed)
             self.compare_flag.setChecked(False)
+            self.compare_flag.setToolTip('Show comparison of frame with most likely tomogram')
             hbox.addWidget(self.compare_flag)
         label = QtWidgets.QLabel('PlotMax:', self)
         hbox.addWidget(label)
         self.rangestr = QtWidgets.QLineEdit('10', self)
         self.rangestr.setFixedWidth(48)
+        self.rangestr.setToolTip('Value at which color scale maximizes')
         hbox.addWidget(self.rangestr)
 
         hbox = QtWidgets.QHBoxLayout()
@@ -110,6 +114,7 @@ class FramePanel(QtWidgets.QWidget):
         if self.do_powder:
             button = QtWidgets.QPushButton('Save', self)
             button.clicked.connect(self._save_powder)
+            button.setToolTip('Save powder sum data to file')
             hbox.addWidget(button)
         else:
             gui_utils.add_scroll_hbox(self, hbox)

@@ -84,7 +84,7 @@ class VolumePlotter(object):
                     self.rots = np.fromfile(out_folder+'/orientations/orientations_%.3d.bin'%iternum, '=i4')
         else:
             sys.stderr.write("Unable to open %s\n"%fname)
-            return 0, 0
+            return 0, 0, 0
 
         if self.recon_type == '3d':
             if not h5_output:
@@ -335,6 +335,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         filemenu = menubar.addMenu('&File')
         action = QtWidgets.QAction('&Load Volume', self)
         action.triggered.connect(self._load_volume)
+        action.setToolTip('Load 3D volume (h5 or bin)')
         filemenu.addAction(action)
         action = QtWidgets.QAction('&Quit', self)
         action.triggered.connect(self.close)
@@ -344,15 +345,19 @@ class ProgressViewer(QtWidgets.QMainWindow):
         imagemenu = menubar.addMenu('&Image')
         action = QtWidgets.QAction('&Save Slices Image', self)
         action.triggered.connect(self._save_plot)
+        action.setToolTip('Save current plot of slices as image')
         imagemenu.addAction(action)
         action = QtWidgets.QAction('Save Log &Plot', self)
         action.triggered.connect(self._save_log_plot)
+        action.setToolTip('Save panel of metrics plots as image')
         imagemenu.addAction(action)
         action = QtWidgets.QAction('Save &Layer Movie', self)
         action.triggered.connect(self._save_layer_movie)
+        action.setToolTip('Save slices plot animation as a function of layer')
         imagemenu.addAction(action)
         action = QtWidgets.QAction('Save &Iteration Movie', self)
         action.triggered.connect(self._save_iter_movie)
+        action.setToolTip('Save slices plot animation as a function of iteration')
         imagemenu.addAction(action)
         
         # -- Color map picker
@@ -363,6 +368,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
             if i == 0:
                 action.setChecked(True)
             action.triggered.connect(self._cmap_changed)
+            action.setToolTip('Set color map')
             cmapmenu.addAction(action)
 
     def _init_plotarea(self):
@@ -405,16 +411,19 @@ class ProgressViewer(QtWidgets.QMainWindow):
         hbox.addWidget(label)
         self.logfname = QtWidgets.QLineEdit(self.logfname, self)
         self.logfname.setMinimumWidth(160)
+        self.logfname.setToolTip('Path to log file to get metrics and latest iterations')
         hbox.addWidget(self.logfname)
         label = QtWidgets.QLabel('VRange:', self)
         hbox.addWidget(label)
         self.rangemin = QtWidgets.QLineEdit('0', self)
         self.rangemin.setFixedWidth(48)
         self.rangemin.returnPressed.connect(self._range_changed)
+        self.rangemin.setToolTip('Minimum value of color scale')
         hbox.addWidget(self.rangemin)
         self.rangestr = QtWidgets.QLineEdit('1', self)
         self.rangestr.setFixedWidth(48)
         self.rangestr.returnPressed.connect(self._range_changed)
+        self.rangestr.setToolTip('Maximum value of color scale')
         hbox.addWidget(self.rangestr)
 
         # -- Volume file
@@ -427,12 +436,14 @@ class ProgressViewer(QtWidgets.QMainWindow):
         else:
             self.fname = QtWidgets.QLineEdit(self.model_name, self)
         self.fname.setMinimumWidth(160)
+        self.fname.setToolTip('Path to volume to be plotted')
         hbox.addWidget(self.fname)
         label = QtWidgets.QLabel('Exp:', self)
         hbox.addWidget(label)
         self.expstr = QtWidgets.QLineEdit('1', self)
         self.expstr.setFixedWidth(48)
         self.expstr.returnPressed.connect(self._range_changed)
+        self.expstr.setToolTip('Exponent, or gamma, for color scale. Enter the string "log" for the symlog normalization')
         hbox.addWidget(self.expstr)
 
         # -- Sliders
@@ -444,6 +455,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self.iter_slider.setRange(0, 1)
         self.iter_slider.sliderMoved.connect(self._iterslider_moved)
         self.iter_slider.sliderReleased.connect(self._iternum_changed)
+        self.iter_slider.setToolTip('Set iteration to view')
         hbox.addWidget(self.iter_slider)
         self.iternum = MySpinBox(self)
         self.iternum.setValue(self.iter_slider.value())
@@ -452,6 +464,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self.iternum.valueChanged.connect(self._iternum_changed)
         self.iternum.editingFinished.connect(self._iternum_changed)
         self.iternum.setFixedWidth(60)
+        self.iternum.setToolTip('Set iteration to view')
         hbox.addWidget(self.iternum)
         if self.recon_type == '3d':
             hbox = QtWidgets.QHBoxLayout()
@@ -462,6 +475,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.layer_slider.setRange(0, 200)
             self.layer_slider.sliderMoved.connect(self._layerslider_moved)
             self.layer_slider.sliderReleased.connect(self._layernum_changed)
+            self.layer_slider.setToolTip('Set layer number in 3D volume')
             hbox.addWidget(self.layer_slider)
             self.layernum = MySpinBox(self)
             self.layernum.setValue(self.layer_slider.value())
@@ -470,6 +484,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.layernum.valueChanged.connect(self._layernum_changed)
             self.layernum.editingFinished.connect(self._layernum_changed)
             self.layernum.setFixedWidth(60)
+            self.layernum.setToolTip('Set layer number in 3D volume')
             hbox.addWidget(self.layernum)
         if self.num_modes > 1:
             hbox = QtWidgets.QHBoxLayout()
@@ -480,6 +495,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.mode_slider.setRange(0, self.num_modes-1)
             self.mode_slider.sliderMoved.connect(self._modeslider_moved)
             self.mode_slider.sliderReleased.connect(self._modenum_changed)
+            self.mode_slider.setToolTip('Set mode number')
             hbox.addWidget(self.mode_slider)
             self.modenum = MySpinBox(self)
             self.modenum.setValue(self.iter_slider.value())
@@ -488,6 +504,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.modenum.valueChanged.connect(self._modenum_changed)
             self.modenum.editingFinished.connect(self._modenum_changed)
             self.modenum.setFixedWidth(60)
+            self.modenum.setToolTip('Set mode number')
             hbox.addWidget(self.modenum)
             self.old_modenum = self.modenum.value()
 
@@ -496,10 +513,12 @@ class ProgressViewer(QtWidgets.QMainWindow):
         vbox.addLayout(hbox)
         button = QtWidgets.QPushButton('Check', self)
         button.clicked.connect(self._check_for_new)
+        button.setToolTip('Examine log file to see whether any new iterations have been completed')
         hbox.addWidget(button)
         self.ifcheck = QtWidgets.QCheckBox('Keep checking', self)
         self.ifcheck.stateChanged.connect(self._keep_checking)
         self.ifcheck.setChecked(False)
+        self.ifcheck.setToolTip('Check log file every 5 seconds')
         hbox.addWidget(self.ifcheck)
         hbox.addStretch(1)
         hbox = QtWidgets.QHBoxLayout()
@@ -507,9 +526,11 @@ class ProgressViewer(QtWidgets.QMainWindow):
         hbox.addStretch(1)
         button = QtWidgets.QPushButton('Plot', self)
         button.clicked.connect(self._parse_and_plot)
+        button.setToolTip('Plot volume (shortcut: ENTER)')
         hbox.addWidget(button)
         button = QtWidgets.QPushButton('Reparse', self)
         button.clicked.connect(lambda: self._parse_and_plot(force=True))
+        button.setToolTip('Force reparsing of file and plot')
         hbox.addWidget(button)
         button = QtWidgets.QPushButton('Quit', self)
         button.clicked.connect(self.close)
@@ -533,6 +554,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self.emclog_text.setTabStopWidth(22)
         self.emclog_text.setLineWrapMode(QtWidgets.QTextEdit.NoWrap)
         self.emclog_text.setObjectName('logtext')
+        self.emclog_text.setToolTip('Log file contents')
         log_area.setWidget(self.emclog_text)
 
         return options_widget
