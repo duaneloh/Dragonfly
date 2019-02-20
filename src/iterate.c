@@ -138,17 +138,20 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 		}
 		if (quat_gen(param->fine_div, qfine) < 0) {
 			fprintf(stderr, "Problem generating quat[%d]\n", param->fine_div) ;
+			free_quat(qcoarse) ;
 			return 1 ;
 		}
 		
 		iter->quat_mapping = malloc(qfine->num_rot * sizeof(int)) ;
 		voronoi_subset(qcoarse, qfine, iter->quat_mapping) ;
+		free_quat(qfine) ;
 		
-		if (parse_rel_quat(probs_fname, qcoarse->num_rot, 0, iter))
+		if (parse_rel_quat(probs_fname, qcoarse->num_rot, 0, iter)) {
+			free_quat(qcoarse) ;
 			return 1 ;
+		}
 		
 		free_quat(qcoarse) ;
-		free_quat(qfine) ;
 	}
 	
 	model_mean = dset[0].mean_count / det[0].rel_num_pix * 2. ;
