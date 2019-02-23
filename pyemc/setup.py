@@ -1,15 +1,16 @@
 from setuptools import setup
 from setuptools.extension import Extension
 from Cython.Distutils import build_ext
-from Cython.Build import cythonize
+import os
 import sys
 import subprocess
 import glob
 import numpy as np
 try:
     import h5py
-    hdf5_cflags = ['-DWITH_HDF5', '-I/home/ayyerkar/anaconda3/include']
-    hdf5_libs = ['-L/home/ayyerkar/anaconda3/lib', '-lhdf5']
+    out = subprocess.getoutput('h5cc -shlib -show')
+    hdf5_cflags = ['-DWITH_HDF5', [s for s in out.split() if s[:2] == '-I'][0]]
+    hdf5_libs = [[s for s in out.split() if s[:2] == '-L'][0], '-lhdf5']
 except ImportError:
     hdf5_cflags = []
     hdf5_libs = []
@@ -40,7 +41,7 @@ ext_modules = [
     Extension(name='params', sources='params.pyx ../src/params.c'.split(),
         depends='../src/params.h decl.pxd'.split(), include_dirs=include_dirs,
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
-    Extension(name='iterate', sources='iterate.pyx ../src/iterate.c ../src/quat.c'.split(),
+    Extension(name='iterate', sources='iterate.pyx ../src/iterate.c ../src/quat.c ../src/dataset.c'.split(),
         depends='../src/iterate.h decl.pxd detector.pxd dataset.pxd params.pxd quat.pxd'.split(), include_dirs=include_dirs,
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
     Extension(name='max_emc', sources='max_emc.pyx ../src/setup_emc.c ../src/output_emc.c'.split(),
