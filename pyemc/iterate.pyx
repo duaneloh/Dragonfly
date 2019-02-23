@@ -51,9 +51,10 @@ cdef class iterate:
 		cdef char* c_fname = fname
 		decl.parse_input(c_fname, mean, rank, 42, self.iterate)
 
-	def parse_rel_quat(self, fname, int num_rot_coarse):
+	def parse_rel_quat(self, fname, int num_rot_coarse, parse_prob=False):
 		cdef char *c_fname = fname
-		return decl.parse_rel_quat(c_fname, num_rot_coarse, self.iterate)
+		cdef int c_parse_prob = int(parse_prob)
+		return decl.parse_rel_quat(c_fname, num_rot_coarse, c_parse_prob, self.iterate)
 
 	def free_iterate(self):
 		decl.free_iterate(self.iterate)

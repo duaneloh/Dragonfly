@@ -39,9 +39,9 @@ cdef class dataset:
 		ret = decl.parse_dataset(c_fname, self.det.det, self.dset)
 		assert ret == 0
 
-	def parse_data(self, flist):
+	def parse_dataset_list(self, flist):
 		cdef char* c_flist = flist
-		ret = decl.parse_data(c_flist, self.det.det, self.dset)
+		ret = decl.parse_dataset_list(c_flist, self.det.det, self.dset)
 		assert ret > 0
 		return ret
 

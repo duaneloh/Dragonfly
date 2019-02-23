@@ -51,9 +51,10 @@ cdef extern from '../src/dataset.h' nogil:
 	int generate_data(char*, char*, char*, detector*, dataset*)
 	void calc_sum_fact(detector*, dataset*)
 	int parse_dataset(char*, detector*, dataset*)
-	int parse_data(char*, detector*, dataset*)
+	int parse_dataset_list(char*, detector*, dataset*)
 	void generate_blacklist(char*, dataset*)
 	void make_blacklist(char*, int, dataset*)
+	void calc_powder(detector*, dataset*)
 	void free_data(int, dataset*)
 
 cdef extern from '../src/quat.h' nogil:
@@ -64,7 +65,7 @@ cdef extern from '../src/quat.h' nogil:
 
 	int generate_quaternion(char*, char*, rotation*)
 	int quat_gen(int, rotation*)
-	int parse_quat(char*, rotation*)
+	int parse_quat(char*, int, rotation*)
 	void divide_quat(int, int, int, rotation*)
 	void voronoi_subset(rotation*, rotation*, int*)
 	void free_quat(rotation*)
@@ -90,7 +91,7 @@ cdef extern from '../src/iterate.h' nogil:
 	void calc_scale(dataset*, detector*, iterate*)
 	void normalize_scale(dataset*, iterate*)
 	void parse_input(char*, double, int, int, iterate*)
-	int parse_rel_quat(char*, int, iterate*)
+	int parse_rel_quat(char*, int, int, iterate*)
 	void free_iterate(iterate*)
 
 cdef extern from '../src/interp.h' nogil:

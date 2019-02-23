@@ -27,9 +27,10 @@ cdef class rotation:
 	def quat_gen(self, int num_div):
 		return decl.quat_gen(num_div, self.rot)
 
-	def parse_quat(self, fname):
+	def parse_quat(self, fname, with_weights=True):
 		cdef char* c_fname = fname
-		return decl.parse_quat(c_fname, self.rot)
+		cdef int c_with_weights = int(with_weights)
+		return decl.parse_quat(c_fname, c_with_weights, self.rot)
 
 	def divide_quat(self, int rank, int num_proc, int num_modes):
 		decl.divide_quat(rank, num_proc, num_modes, self.rot)
