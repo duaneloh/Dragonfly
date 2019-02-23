@@ -16,8 +16,8 @@ echo Created $test_dir
 
 cd ${test_dir}
 cp ../sample_configs/testing.ini config.ini
-./sim_setup.py -y --skip_data
-./make_data -T -t 4
+./utils/sim_setup.py -y --skip_data
+./utils/make_data -T -t 4
 
 cd ${root_dir}/pyemc
 python -V
