@@ -1,4 +1,4 @@
 cimport decl
 
 cdef class rotation:
-	cdef decl.rotation* rot
+    cdef decl.rotation* rot
