@@ -10,6 +10,9 @@ cdef extern from '../src/detector.h' nogil:
         # Only relevant for first detector in list
         int num_det, num_dfiles
         int mapping[1024]
+        
+        # Powder sum for EMC
+        double *powder
 
     double generate_detectors(char*, char*, detector**, int)
     double parse_detector(char*, detector*, int)
