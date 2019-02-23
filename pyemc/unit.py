@@ -13,7 +13,7 @@ import csv
 import shutil
 from six.moves import configparser
 from builtins import bytes
-from mpi4py import MPI
+#from mpi4py import MPI
 
 import detector
 import dataset
@@ -210,18 +210,18 @@ class TestDataset(unittest.TestCase):
         self.photons_tests(dset)
         dset.parse_dataset(recon_folder+b'/data/photons.emc')
 
-    def test_parse_data(self):
-        print('=== Testing parse_data() ===')
+    def test_parse_dataset_list(self):
+        print('=== Testing parse_dataset_list() ===')
         det = self.create_det()
         dset = dataset.dataset(det)
         list_fname = b'test_dset_flist.txt'
         with open(list_fname, 'w') as f:
             f.writelines([(recon_folder+b'/data/photons.emc\n').decode('utf-8'), (recon_folder+b'/data/photons.emc\n').decode('utf-8')])
-        num_dsets = dset.parse_data(list_fname)
+        num_dsets = dset.parse_dataset_list(list_fname)
         self.photons_tests(dset, num_dsets)
         ndset = dset.next
         self.photons_tests(ndset, num_dsets, False)
-        dset.parse_data(list_fname)
+        dset.parse_dataset_list(list_fname)
         os.remove(list_fname)
 
     def test_calc_sum_fact(self):
@@ -820,7 +820,7 @@ if __name__ == '__main__':
     parser.add_argument('unittest_args', nargs='*')
     args = parser.parse_args()
 
-    recon_folder = bytes(args.recon_folder, 'utf-8')
+    recon_folder = bytes(os.path.abspath(args.recon_folder), 'utf-8')
     config_fname = recon_folder + b'/config.ini'
     print(config_fname)
     print('Testing using recon folder: %s'%recon_folder)
