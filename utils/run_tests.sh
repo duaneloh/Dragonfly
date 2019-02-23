@@ -11,7 +11,7 @@ cleanup () {
 cd $(dirname "${BASH_SOURCE[0]}")/..
 root_dir=$(pwd)
 
-test_dir=$(./dragonfly_init -t testing|grep Created|awk '{print $4}')
+test_dir=$(dragonfly_init -t testing|grep Created|awk '{print $4}')
 echo Created $test_dir
 
 cd ${test_dir}
