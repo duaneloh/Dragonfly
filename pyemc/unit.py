@@ -59,7 +59,7 @@ class TestDetector(unittest.TestCase):
     def test_parse_detector(self):
         print('=== Testing parse_detector() ===')
         det = detector.detector()
-        self.assertAlmostEqual(det.parse_detector(recon_folder+b'/data/det_sim.dat'), 70.32817314646061) 
+        self.assertAlmostEqual(det.parse_detector(recon_folder+b'/data/det_sim.dat'), 70.32817314646061)
         self.assertEqual(det.num_dfiles, 0)
         self.det_sim_tests(det)
         det.parse_detector(recon_folder+b'/data/det_sim.dat')
@@ -73,6 +73,11 @@ class TestDetector(unittest.TestCase):
         det.parse_detector(det_fname)
         self.det_sim_tests(det, old_style=True)
         os.remove(det_fname)
+        
+        det = detector.detector()
+        self.assertAlmostEqual(det.parse_detector(recon_folder+b'/data/det_sim.h5'), 70.32817314646061)
+        self.assertEqual(det.num_dfiles, 0)
+        self.det_sim_tests(det)
 
     def test_parse_detector_list(self):
         print('=== Testing parse_detector_list() ===')
@@ -82,7 +87,7 @@ class TestDetector(unittest.TestCase):
         det = detector.detector()
         with open(list_fname, 'w') as f:
             f.writelines([(recon_folder+b'/data/det_sim.dat\n').decode('utf-8'), (recon_folder+b'/data/det_sim.dat\n').decode('utf-8')])
-        self.assertAlmostEqual(det.parse_detector_list(bytes(list_fname, 'utf-8')), 70.32817314646061) 
+        self.assertAlmostEqual(det.parse_detector_list(bytes(list_fname, 'utf-8')), 70.32817314646061)
         self.assertEqual(det.num_dfiles, 2)
         self.det_sim_tests(det)
         self.assertIs(det.nth_det(1), None)
@@ -98,13 +103,24 @@ class TestDetector(unittest.TestCase):
         self.det_sim_tests(det.nth_det(1), single=False)
         self.assertIs(det.nth_det(2), None)
         
+        det = detector.detector()
+        with open(list_fname, 'w') as f:
+            f.writelines([(recon_folder+b'/data/det_sim.dat\n').decode('utf-8'), (recon_folder+b'/data/det_sim.h5\n').decode('utf-8')])
+        det.parse_detector_list(bytes(list_fname, 'utf-8'))
+        self.assertEqual(det.num_dfiles, 2)
+        self.assertEqual(det.num_det, 2)
+        npt.assert_array_equal(det.mapping, [0,1]+1022*[0])
+        self.det_sim_tests(det, single=False)
+        self.det_sim_tests(det.nth_det(1), single=False)
+        self.assertIs(det.nth_det(2), None)
+        
         os.remove(list_fname)
         os.remove(recon_folder+b'/data/det_sim_test.dat')
 
     def test_generate_detectors(self):
         print('=== Testing generate_detectors() ===')
         det = detector.detector()
-        self.assertAlmostEqual(det.generate_detectors(config_fname), 70.32817314646061) 
+        self.assertAlmostEqual(det.generate_detectors(config_fname), 70.32817314646061)
         self.assertEqual(det.num_dfiles, 0)
         self.det_sim_tests(det)
         det.generate_detectors(config_fname)
@@ -126,6 +142,12 @@ class TestDetector(unittest.TestCase):
         det.generate_detectors(config_fname)
         self.det_sim_tests(det, single=False)
         self.det_sim_tests(det.nth_det(1), single=False)
+        
+        det = detector.detector()
+        with open(list_fname, 'w') as f:
+            f.writelines(['data/det_sim.h5\n', 'data/det_sim.h5\n'])
+        det.generate_detectors(config_fname)
+        self.det_sim_tests(det)
         
         os.remove(list_fname)
         os.remove(recon_folder+b'/data/det_sim_test.dat')
