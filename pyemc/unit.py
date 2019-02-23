@@ -156,7 +156,7 @@ class TestDataset(unittest.TestCase):
         # Output of $ ./make_data -T -t 4
         self.assertEqual(dset.num_data, 3000)
         self.assertEqual(dset.num_pix, 10201)
-        self.assertEqual(os.path.normpath(dset.filename), os.path.normpath(recon_folder+b'/data/photons.emc'))
+        #self.assertEqual(os.path.normpath(dset.filename), os.path.normpath(recon_folder+b'/data/photons.emc'))
         self.assertAlmostEqual(dset.mean_count, 1424.309)
         if first_dset:
             self.assertEqual(dset.tot_num_data, num_dset*3000)
@@ -198,6 +198,14 @@ class TestDataset(unittest.TestCase):
         ndset = dset.next
         self.photons_tests(ndset, 2, False)
         
+        with open(list_fname, 'w') as f:
+            f.writelines(['data/photons.h5\n', 'data/photons.h5\n'])
+        config.modify_entry('emc', 'in_photons_list', list_fname.decode('utf-8'))
+        dset.generate_data(config_fname)
+        self.photons_tests(dset, 2)
+        ndset = dset.next
+        self.photons_tests(ndset, 2, False)
+        
         os.remove(list_fname)
         config.remove_entry('emc', 'in_photons_list')
         config.modify_entry('emc', 'in_photons_file', 'make_data:::out_photons_file')
@@ -208,7 +216,9 @@ class TestDataset(unittest.TestCase):
         dset = dataset.dataset(det)
         dset.parse_dataset(recon_folder+b'/data/photons.emc')
         self.photons_tests(dset)
-        dset.parse_dataset(recon_folder+b'/data/photons.emc')
+        dset = dataset.dataset(det)
+        dset.parse_dataset(recon_folder+b'/data/photons.h5')
+        self.photons_tests(dset)
 
     def test_parse_dataset_list(self):
         print('=== Testing parse_dataset_list() ===')
@@ -216,12 +226,22 @@ class TestDataset(unittest.TestCase):
         dset = dataset.dataset(det)
         list_fname = b'test_dset_flist.txt'
         with open(list_fname, 'w') as f:
-            f.writelines([(recon_folder+b'/data/photons.emc\n').decode('utf-8'), (recon_folder+b'/data/photons.emc\n').decode('utf-8')])
+            f.writelines([(recon_folder+b'/data/photons.emc\n').decode('utf-8'),
+                          (recon_folder+b'/data/photons.emc\n').decode('utf-8')])
         num_dsets = dset.parse_dataset_list(list_fname)
         self.photons_tests(dset, num_dsets)
         ndset = dset.next
         self.photons_tests(ndset, num_dsets, False)
         dset.parse_dataset_list(list_fname)
+        
+        with open(list_fname, 'w') as f:
+            f.writelines([(recon_folder+b'/data/photons.emc\n').decode('utf-8'),
+                          (recon_folder+b'/data/photons.h5\n').decode('utf-8')])
+        num_dsets = dset.parse_dataset_list(list_fname)
+        self.photons_tests(dset, num_dsets)
+        ndset = dset.next
+        self.photons_tests(ndset, num_dsets, False)
+        
         os.remove(list_fname)
 
     def test_calc_sum_fact(self):
