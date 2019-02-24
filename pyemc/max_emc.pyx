@@ -186,5 +186,8 @@ cdef class py_maximize:
         avg_likelihood = max_emc.combine_information_mpi(common_data.data)
         return avg_likelihood
 
+    def update_scale(self, py_max_data common_data):
+        max_emc.update_scale(common_data.data)
+
     def free_memory(self, py_max_data data):
         max_emc.free_memory(data.data)
