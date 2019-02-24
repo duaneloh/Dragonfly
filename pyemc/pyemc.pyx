@@ -14,6 +14,7 @@ cimport numpy as np
 
 cimport decl
 cimport pyemc
+cimport emc
 cimport max_emc
 cimport recon_emc
 from detector cimport detector
@@ -38,7 +39,6 @@ def main(int num_iter, bint continue_flag=False, int num_threads=openmp.omp_get_
 def setup(bytes config_fname=b'config.ini', bint continue_flag=False):
     det = detector()
     frames = dataset(det)
-    merge_frames = dataset(det)
     quat = rotation()
     iter = iterate()
     param = params()
@@ -63,7 +63,6 @@ def setup(bytes config_fname=b'config.ini', bint continue_flag=False):
     quat.generate_quaternion(config_fname)
     quat.divide_quat(param.rank, param.num_proc, param.modes)
     frames.generate_data(config_fname)
-    merge_frames.generate_data(config_fname, type_string='merge')
     frames.generate_blacklist(config_fname)
     iter.generate_iterate(config_fname, qmax, param, det, frames, continue_flag=int(continue_flag))
     
@@ -73,7 +72,6 @@ def setup(bytes config_fname=b'config.ini', bint continue_flag=False):
     pyemc.iter = iter.iterate
     pyemc.quat = quat.rot
     pyemc.param = param.param
-    pyemc.merge_frames = NULL
     
     return 0
 
@@ -99,9 +97,6 @@ def write_log_file_header(int num_threads):
 def free_mem():
     decl.free_iterate(pyemc.iter)
     pyemc.iter = NULL
-    if pyemc.merge_frames != NULL:
-        decl.free_data(pyemc.param.need_scaling, pyemc.merge_frames)
-        pyemc.merge_frames = NULL
     decl.free_data(pyemc.param.need_scaling, pyemc.frames)
     pyemc.frames = NULL
     decl.free_quat(pyemc.quat)
@@ -114,7 +109,7 @@ def free_mem():
 def maximize():
     gettimeofday(&max_emc.tm1, NULL)
     
-    common_data = <max_emc.max_data*>malloc(sizeof(max_emc.max_data))
+    common_data = <emc.max_data*>malloc(sizeof(emc.max_data))
     common_data.within_openmp = 0
     max_emc.allocate_memory(common_data)
     
@@ -124,7 +119,7 @@ def maximize():
     cdef Py_ssize_t r
     with nogil, parallel():
         #fprintf(stderr, 'Rank %d reporting\n', openmp.omp_get_thread_num())
-        priv_data = <max_emc.max_data*>malloc(sizeof(max_emc.max_data))
+        priv_data = <emc.max_data*>malloc(sizeof(emc.max_data))
         priv_data.within_openmp = 1
         max_emc.allocate_memory(priv_data)
         
@@ -134,12 +129,14 @@ def maximize():
         for r in prange(3240, schedule='static', chunksize=1):
             max_emc.update_tomogram(r, priv_data, common_data)
             max_emc.merge_tomogram(r, priv_data)
-            free(common_data.probab[r])
         max_emc.combine_information_omp(priv_data, common_data)
         max_emc.free_memory(priv_data)
     cdef double likelihood = max_emc.combine_information_mpi(common_data)
+    if pyemc.param.need_scaling and pyemc.param.update_scale:
+        max_emc.update_scale(common_data)
     if not pyemc.param.rank:
-        max_emc.save_output(common_data)
+        emc.save_metrics(common_data)
+        emc.save_prob(common_data)
     max_emc.free_memory(common_data)
     return likelihood
 
@@ -166,8 +163,12 @@ def emc(int num_iter):
         
         if not pyemc.param.rank:
             update_model(likelihood)
-        if (pyemc.param.need_scaling and pyemc.param.modes == 0):
+        if pyemc.param.need_scaling and pyemc.param.modes == 0:
             decl.normalize_scale(pyemc.frames, pyemc.iter)
+        if not pyemc.param.rank:
+            emc.save_models()
+            gettimeofday(&recon_emc.tr2, NULL)
+            emc.update_log_file(<double>(recon_emc.tr2.tv_sec - recon_emc.tr1.tv_sec) + 1.e-6*(recon_emc.tr2.tv_usec - recon_emc.tr1.tv_usec), likelihood)
         recon_emc.print_recon_time("Updated 3D intensity", &recon_emc.tr2, &recon_emc.tr3, pyemc.param.rank)
         
         MPI.COMM_WORLD.Bcast([<double[:1]>&pyemc.iter.rms_change, MPI.DOUBLE], 0)
@@ -201,17 +202,6 @@ def update_model(double likelihood):
     pyemc.iter.rms_change = np.linalg.norm(model2 - model1)
     for x in range(vol):
         if (pyemc.param.alpha > 0.):
-            pyemc.iter.model1[x] = pyemc.param.alpha * pyemc.iter.rescale * pyemc.iter.model1[x] + (1. - pyemc.param.alpha) * pyemc.iter.model2[x]
+            pyemc.iter.model1[x] = pyemc.param.alpha * pyemc.iter.model1[x] + (1. - pyemc.param.alpha) * pyemc.iter.model2[x]
         else:
             pyemc.iter.model1[x] = pyemc.iter.model2[x]
-    
-    model1.tofile("%s/output/intens_%.3d.bin" % (pyemc.param.output_folder, pyemc.param.iteration))
-    inter_weight.tofile("%s/weights/weights_%.3d.bin" % (pyemc.param.output_folder, pyemc.param.iteration))
-    
-    gettimeofday(&recon_emc.tr2, NULL)
-    
-    with open(pyemc.param.log_fname, "a") as fp:
-        fp.write("%d\t" % pyemc.param.iteration)
-        fp.write("%4.2f\t" % (<double>(recon_emc.tr2.tv_sec - recon_emc.tr1.tv_sec) + 1.e-6*(recon_emc.tr2.tv_usec - recon_emc.tr1.tv_usec)))
-        fp.write("%1.4e\t%f\t%.6e\t%-7d\t%f\n" % (pyemc.iter.rms_change, pyemc.iter.mutual_info, likelihood, pyemc.quat.num_rot, pyemc.param.beta))
-

@@ -5,7 +5,6 @@ cdef extern from "../src/emc.h":
     decl.detector *det
     decl.rotation *quat
     decl.dataset *frames
-    decl.dataset *merge_frames
     decl.iterate *iter
     decl.params *param
     
