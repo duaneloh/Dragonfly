@@ -113,10 +113,13 @@ cdef extern from '../src/params.h' nogil:
         int iteration, current_iter, start_iter, num_iter
         char output_folder[1024]
         char log_fname[1024]
+        int recon_type
         
         # Algorithm parameters
-        int beta_period, need_scaling, known_scale
+        int beta_period, need_scaling, known_scale, update_scale
         double alpha, beta_start, beta, beta_jump
+        int friedel_sym # Symmetrization for 2D recon
+        int refine, coarse_div, fine_div # If doing refinement
         
         # Gaussian EMC parameter
         double sigmasq
