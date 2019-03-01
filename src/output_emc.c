@@ -215,8 +215,11 @@ void save_metrics(struct max_data *data) {
 	H5Dclose(dset) ;
 	
 	if (param->modes > 1) {
-		len[0] = param->modes * frames->tot_num_data ;
-		dspace = H5Screate_simple(1, len, NULL) ;
+		hsize_t shape[2] ;
+		shape[0] = frames->tot_num_data ;
+		shape[1] = param->modes ;
+		H5Sclose(dspace) ;
+		dspace = H5Screate_simple(2, shape, NULL) ;
 		dset = H5Dcreate(file, "occupancies", H5T_IEEE_F64LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
 		H5Dwrite(dset, H5T_IEEE_F64LE, H5S_ALL, dspace, H5P_DEFAULT, data->quat_norm) ;
 		H5Dclose(dset) ;
