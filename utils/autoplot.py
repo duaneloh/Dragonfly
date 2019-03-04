@@ -70,7 +70,11 @@ class VolumePlotter(object):
                 with h5py.File(fname, 'r') as f:
                     self.vol = f['intens'][:]
                     if rots:
-                        self.rots = f['orientations'][:]
+                        try:
+                            self.rots = f['orientations'][:]
+                        except KeyError:
+                            print('No orientations dataset in', fname)
+                            self.rots = None
                 if self.num_modes == 1:
                     self.vol = self.vol[0]
                 size = self.vol.shape[-1]
@@ -81,7 +85,11 @@ class VolumePlotter(object):
                     # Assuming fname is <out_folder>/output/output_???.bin
                     iternum = int(fname[-7:-4])
                     out_folder = fname[:-21]
-                    self.rots = np.fromfile(out_folder+'/orientations/orientations_%.3d.bin'%iternum, '=i4')
+                    try:
+                        self.rots = np.fromfile(out_folder+'/orientations/orientations_%.3d.bin'%iternum, '=i4')
+                    except IOError:
+                        print('No orientations found for iteration %d' % iternum)
+                        self.rots = None
         else:
             sys.stderr.write("Unable to open %s\n"%fname)
             return 0, 0, 0
