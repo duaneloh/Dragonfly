@@ -432,6 +432,8 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 	int nthreads = omp_get_num_threads() ;
 	long x ;
 	
+	print_max_time("update", "", param->rank == 0 && omp_rank == 0) ;
+	 
 	#pragma omp critical(model)
 	{
 		for (x = 0 ; x < param->modes * iter->vol ; ++x) {
@@ -460,13 +462,11 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 	#pragma omp barrier
 		
 	// Allocate common prob arrays
-	if (omp_rank == 0) {
-		for (d = 0 ; d < frames->tot_num_data ; ++d) {
-			common->prob[d] = malloc(common->num_prob[d] * sizeof(double)) ;
-			common->place_prob[d] = malloc(common->num_prob[d] * sizeof(int)) ;
-		}
+	#pragma omp for schedule(static,1)
+	for (d = 0 ; d < frames->tot_num_data ; ++d) {
+		common->prob[d] = malloc(common->num_prob[d] * sizeof(double)) ;
+		common->place_prob[d] = malloc(common->num_prob[d] * sizeof(int)) ;
 	}
-	#pragma omp barrier
 	
 	// Populate common->prob array for all d
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
@@ -477,7 +477,7 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 	#pragma omp barrier
 	
 	// Sparsify probs based on PROB_MIN threshold
-	if (omp_rank == 0)
+	#pragma omp for schedule(static,1)
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
 		common->num_prob[d] = resparsify(common->prob[d], common->place_prob[d], common->num_prob[d], PROB_MIN) ;
 	
@@ -495,7 +495,7 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 		for (d = 0 ; d < frames->tot_num_data * param->modes ; ++d)
 			common->quat_norm[d] += priv->quat_norm[d] ;
 	}
-	print_max_time("update", "", param->rank == 0 && omp_rank == 0) ;
+	print_max_time("combine_omp", "", param->rank == 0 && omp_rank == 0) ;
 }
 
 double combine_information_mpi(struct max_data *data) {
