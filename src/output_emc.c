@@ -19,17 +19,17 @@ void write_log_file_header(int num_threads) {
 			num_threads, 
 			param->num_proc, 
 			param->alpha, 
-			param->beta, 
+			param->beta_start[0], 
 			param->need_scaling?"yes":"no") ;
 	fprintf(fp, "\n\nIter\ttime\trms_change\tinfo_rate\tlog-likelihood\tnum_rot\tbeta\n") ;
 	fclose(fp) ;
 }
 
-void update_log_file(double iter_time, double likelihood) {
+void update_log_file(double iter_time, double likelihood, double beta) {
 	FILE *fp = fopen(param->log_fname, "a") ;
 	fprintf(fp, "%d\t", param->iteration) ;
 	fprintf(fp, "%4.2f\t", iter_time) ;
-	fprintf(fp, "%1.4e\t%f\t%.6e\t%-7d\t%f\n", iter->rms_change, iter->mutual_info, likelihood, quat->num_rot, param->beta) ;
+	fprintf(fp, "%1.4e\t%f\t%.6e\t%-7d\t%f\n", iter->rms_change, iter->mutual_info, likelihood, quat->num_rot, beta) ;
 	fclose(fp) ;
 }
 

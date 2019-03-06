@@ -43,6 +43,29 @@ static void calc_mean_counts(struct dataset *frames, struct detector *det, struc
 	free(numd) ;
 }
 
+static void calc_beta(struct dataset *frames, struct params *param) {
+	int d ;
+	double start = param->beta_start[0] ;
+	param->beta_start = realloc(param->beta_start, frames->tot_num_data * sizeof(double)) ;
+	param->beta = malloc(frames->tot_num_data * sizeof(double)) ;
+	
+	if (!param->need_scaling && start < 0)
+		start = exp(-6.5 * pow(frames->tot_mean_count * 1.e-5, 0.15)) ; // Empirical
+	
+	if (start > 0) {
+		for (d = 0 ; d < frames->tot_num_data ; ++d)
+			param->beta_start[d] = start ;
+	}
+	else {
+		for (d = 0 ; d < frames->tot_num_data ; ++d)
+			param->beta_start[d] = exp(-6.5 * pow(frames->count[d] * 1.e-5, 0.15)) ; // Empirical
+	}
+	
+	FILE *fp = fopen("data/beta.bin", "wb") ;
+	fwrite(param->beta_start, sizeof(double), frames->tot_num_data, fp) ;
+	fclose(fp) ;
+}
+
 // Public functions below
 
 int generate_iterate(char *config_fname, char *config_section, int continue_flag, double qmax, struct params *param, struct detector *det, struct dataset *dset, struct iterate *iter) {
@@ -161,6 +184,7 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 	parse_input(input_fname, model_mean, param->rank, param->recon_type, iter) ;
 	calc_powder(det, dset) ;
 	calc_mean_counts(dset, det, iter) ;
+	calc_beta(dset, param) ;
 	
 	return 0 ;
 }
