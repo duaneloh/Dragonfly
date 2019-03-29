@@ -128,8 +128,8 @@ class Detector(object):
             self.qz = fptr['qz'][:]
             self.corr = fptr['corr'][:]
             self.raw_mask = fptr['mask'][:].astype('u1')
-            self.detd = fptr['detd'].value
-            self.ewald_rad = fptr['ewald_rad'].value
+            self.detd = fptr['detd'][()]
+            self.ewald_rad = fptr['ewald_rad'][()]
             if 'background' in fptr:
                 self.background = fptr['background'][:]
         sys.stderr.write('done\n')
