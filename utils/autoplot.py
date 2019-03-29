@@ -82,13 +82,13 @@ class VolumePlotter(object):
                 h5_output = False
                 self.vol = np.fromfile(fname, dtype='f8')
                 if rots:
-                    # Assuming fname is <out_folder>/output/output_???.bin
-                    iternum = int(fname[-7:-4])
-                    out_folder = fname[:-21]
                     try:
+                        # Assuming fname is <out_folder>/output/output_???.bin
+                        iternum = int(fname[-7:-4])
+                        out_folder = fname[:-21]
                         self.rots = np.fromfile(out_folder+'/orientations/orientations_%.3d.bin'%iternum, '=i4')
-                    except IOError:
-                        print('No orientations found for iteration %d' % iternum)
+                    except ValueError, IOError:
+                        #print('No orientations found for iteration %d' % iternum)
                         self.rots = None
         else:
             sys.stderr.write("Unable to open %s\n"%fname)

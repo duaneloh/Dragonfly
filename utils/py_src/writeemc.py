@@ -113,7 +113,7 @@ class EMCWriter(object):
                 os.system('cat ' + fptr.name + ' >> ' + self.out_fname)
                 os.system('rm ' + fptr.name)
 
-    def write_frame(self, frame, fraction=1.):
+    def write_frame(self, frame, fraction=1., partition=1):
         """Write given frame to the file
 
         Using temporary files, the sparsified version of the input is written.
@@ -121,6 +121,7 @@ class EMCWriter(object):
         Arguments:
             frame (int array) - 1D dense array with photon counts in each pixel
             fraction (float, optional) - What fraction of photons to write
+            partition (int, optional) - Partition frame into N sub-frames
 
         If fraction is less than 1, then each photon is written randomly with \
         the probability = fraction. by default, all photons are written. This \
@@ -134,15 +135,28 @@ class EMCWriter(object):
         place_multi = np.where(frame > 1)[0]
         count_multi = frame[place_multi]
 
-        if fraction < 1.:
+        if fraction < 1. and partition > 1:
+            print('Can either split or reduce data frame')
+            return
+        elif partition > 1:
+            sel_ones = (np.random.random(len(place_ones))*int(partition)).astype('i4')
+            sel_multi = (np.random.random(count_multi.sum())*int(partition)).astype('i4')
+            sum_count_multi = count_multi.cumsum()
+            for i in range(int(partition)):
+                sp_count_multi = np.array([a.sum() for a in np.split(sel_multi == i, sum_count_multi)])[:-1]
+                sp_place_multi = place_multi[sp_count_multi > 0]
+                sp_count_multi = sp_count_multi[sp_count_multi > 0]
+                self._update_file(place_ones[sel_ones == i], sp_place_multi, sp_count_multi)
+        elif fraction < 1.:
             sel = (np.random.random(len(place_ones)) < fraction)
             place_ones = place_ones[sel]
             sel = (np.random.random(count_multi.sum()) < fraction)
             count_multi = np.array([a.sum() for a in np.split(sel, count_multi.cumsum())])[:-1]
             place_multi = place_multi[count_multi > 0]
             count_multi = count_multi[count_multi > 0]
-
-        self._update_file(place_ones, place_multi, count_multi)
+            self._update_file(place_ones, place_multi, count_multi)
+        else:
+            self._update_file(place_ones, place_multi, count_multi)
 
     def write_sparse_frame(self, place_ones, place_multi, count_multi):
         """Write sparse frame to file

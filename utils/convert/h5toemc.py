@@ -102,6 +102,12 @@ def main():
     parser.add_argument('-b', '--binning',
                         help='Downsampling binning factor (must divide array size)',
                         default=None, type=int)
+    parser.add_argument('-f', '--fraction',
+                        help='Random fraction of photons to be converted',
+                        default=1., type=float)
+    parser.add_argument('-p', '--partition',
+                        help='Number of frames to partition each original frame',
+                        default=1, type=int)
     parser.add_argument('-s', '--sel_file',
                         help='Path to text file containing indices of frames. Default: Do all',
                         default=None)
@@ -125,6 +131,10 @@ def main():
         print('Data file %s not found. Exiting.' % args.h5_name)
         logging.error('Data file %s not found. Exiting.', args.h5_name)
         sys.exit()
+
+    if args.fraction < 1. and args.partition > 1:
+        print('Cannot set both fraction < 1 and partition > 1')
+        return
 
     if args.list:
         logging.info('Reading file names in list %s', args.h5_name)
@@ -157,10 +167,9 @@ def main():
             else:
                 photons = dset[:]
             photons[photons < 0] = 0
-            if args.binning is None:
-                emcwriter.write_frame(photons.ravel())
-            else:
-                emcwriter.write_frame(bin_image(photons, args.binning).ravel())
+            if args.binning is not None:
+                photons = bin_image(photons, args.binning)
+            emcwriter.write_frame(photons.ravel(), fraction=args.fraction, partition=args.partition)
             if not args.list:
                 sys.stderr.write('\rFinished %d/%d' % (i+1, num_frames))
 
