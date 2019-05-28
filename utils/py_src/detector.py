@@ -152,15 +152,15 @@ class Detector(object):
     def _write_h5det(self, fname):
         print('Writing HDF5 detector file')
         with h5py.File(fname, "w") as fptr:
-            fptr['qx'] = self.qx.ravel()
-            fptr['qy'] = self.qy.ravel()
-            fptr['qz'] = self.qz.ravel()
-            fptr['corr'] = self.corr.ravel()
+            fptr['qx'] = self.qx.ravel().astype('f8')
+            fptr['qy'] = self.qy.ravel().astype('f8')
+            fptr['qz'] = self.qz.ravel().astype('f8')
+            fptr['corr'] = self.corr.ravel().astype('f8')
             fptr['mask'] = self.raw_mask.ravel().astype('u1')
-            fptr['detd'] = self.detd
-            fptr['ewald_rad'] = self.ewald_rad
+            fptr['detd'] = float(self.detd)
+            fptr['ewald_rad'] = float(self.ewald_rad)
             if self.background is not None:
-                fptr['background'] = self.background.ravel()
+                fptr['background'] = self.background.ravel().astype('f8')
 
     def _check_header(self):
         with open(self.det_fname, 'r') as fptr:
