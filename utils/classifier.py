@@ -46,6 +46,7 @@ class Classifier(QtWidgets.QMainWindow):
         self.converted = None
         self.mode_val = 0
         self.cmap = None
+        self.blacklist = None
 
         self._get_config_params()
         if self.stack_size == 0:
