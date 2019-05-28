@@ -321,7 +321,7 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 			}
 			
 			// Only save value in prob array if it is significant
-			if (pval + PDIFF_THRESH/param->beta > priv->max_exp_p[d]) {
+			if (pval + PDIFF_THRESH/param->beta[d] > priv->max_exp_p[d]) {
 				prob[d][num_prob[d]] = pval ;
 				place_prob[d][num_prob[d]] = r*param->num_proc + param->rank ;
 				num_prob[d]++ ;
@@ -338,7 +338,7 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 			if (pval > priv->max_exp_p[d]) {
 				priv->max_exp_p[d] = pval ;
 				priv->rmax[d] = r*param->num_proc + param->rank ;
-				num_prob[d] = resparsify(prob[d], place_prob[d], num_prob[d], pval - PDIFF_THRESH/param->beta) ;
+				num_prob[d] = resparsify(prob[d], place_prob[d], num_prob[d], pval - PDIFF_THRESH/param->beta[d]) ;
 			}
 		}
 		
@@ -382,9 +382,9 @@ void normalize_prob(struct max_data *priv, struct max_data *common) {
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
 	for (r = 0 ; r < priv->num_prob[d] ; ++r) 
 	if (frames->type < 2)
-		priv_norm[d] += exp(param->beta * (priv->prob[d][r] - common->max_exp[d])) ;
+		priv_norm[d] += exp(param->beta[d] * (priv->prob[d][r] - common->max_exp[d])) ;
 	else
-		priv_norm[d] += exp(param->beta * (priv->prob[d][r] - common->max_exp[d]) / 2. / param->sigmasq) ;
+		priv_norm[d] += exp(param->beta[d] * (priv->prob[d][r] - common->max_exp[d]) / 2. / param->sigmasq) ;
 	
 	#pragma omp critical(psum)
 	{
@@ -432,6 +432,8 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 	int nthreads = omp_get_num_threads() ;
 	long x ;
 	
+	print_max_time("update", "", param->rank == 0 && omp_rank == 0) ;
+	 
 	#pragma omp critical(model)
 	{
 		for (x = 0 ; x < param->modes * iter->vol ; ++x) {
@@ -460,13 +462,11 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 	#pragma omp barrier
 		
 	// Allocate common prob arrays
-	if (omp_rank == 0) {
-		for (d = 0 ; d < frames->tot_num_data ; ++d) {
-			common->prob[d] = malloc(common->num_prob[d] * sizeof(double)) ;
-			common->place_prob[d] = malloc(common->num_prob[d] * sizeof(int)) ;
-		}
+	#pragma omp for schedule(static,1)
+	for (d = 0 ; d < frames->tot_num_data ; ++d) {
+		common->prob[d] = malloc(common->num_prob[d] * sizeof(double)) ;
+		common->place_prob[d] = malloc(common->num_prob[d] * sizeof(int)) ;
 	}
-	#pragma omp barrier
 	
 	// Populate common->prob array for all d
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
@@ -477,7 +477,7 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 	#pragma omp barrier
 	
 	// Sparsify probs based on PROB_MIN threshold
-	if (omp_rank == 0)
+	#pragma omp for schedule(static,1)
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
 		common->num_prob[d] = resparsify(common->prob[d], common->place_prob[d], common->num_prob[d], PROB_MIN) ;
 	
@@ -495,7 +495,7 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 		for (d = 0 ; d < frames->tot_num_data * param->modes ; ++d)
 			common->quat_norm[d] += priv->quat_norm[d] ;
 	}
-	print_max_time("update", "", param->rank == 0 && omp_rank == 0) ;
+	print_max_time("combine_omp", "", param->rank == 0 && omp_rank == 0) ;
 }
 
 double combine_information_mpi(struct max_data *data) {
@@ -710,9 +710,9 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 			// Exponentiate log-likelihood and normalize to get probabilities
 			temp = prob[d][ind] ;
 			if (frames->type < 2)
-				prob[d][ind] = exp(param->beta*(prob[d][ind] - common->max_exp[d])) / common->p_norm[d] ; 
+				prob[d][ind] = exp(param->beta[d] * (prob[d][ind] - common->max_exp[d])) / common->p_norm[d] ; 
 			else
-				prob[d][ind] = exp(param->beta*(prob[d][ind] - common->max_exp[d]) / 2. / param->sigmasq) / common->p_norm[d] ;
+				prob[d][ind] = exp(param->beta[d] * (prob[d][ind] - common->max_exp[d]) / 2. / param->sigmasq) / common->p_norm[d] ;
 			
 			//if (param->need_scaling)
 			//	priv->likelihood[d] += prob[d][ind] * (temp - frames->sum_fact[d] + frames->count[d]*log(iter->scale[d])) ;

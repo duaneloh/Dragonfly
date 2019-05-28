@@ -88,7 +88,8 @@ int parse_arguments(int argc, char *argv[], int *continue_flag, int *num_threads
 }
 
 void emc() {
-	double likelihood ;
+	double beta_mean, likelihood ;
+	int d ;
 	
 	for (param->iteration = param->start_iter ; param->iteration <= param->num_iter + param->start_iter - 1 ; ++param->iteration) {
 		gettimeofday(&tr1, NULL) ;
@@ -96,9 +97,15 @@ void emc() {
 		MPI_Bcast(iter->model1, param->modes * iter->vol, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
 		
 		// Increasing beta by a factor of 'beta_jump' every 'beta_period' param->iterations
-		param->beta = param->beta_start * pow(param->beta_jump, (param->iteration-1) / param->beta_period) ;
-		if (param->beta > 1.)
-			param->beta = 1. ;
+		beta_mean = 0. ;
+		for (d = 0 ; d < frames->tot_num_data ; ++d)
+		if (!frames->blacklist[d]) {
+			param->beta[d] = param->beta_start[d] * pow(param->beta_jump, (param->iteration-1) / param->beta_period) ;
+			if (param->beta[d] > 1.)
+				param->beta[d] = 1. ;
+			beta_mean += param->beta[d] ;
+		}
+		beta_mean /= (frames->tot_num_data - frames->num_blacklist) ;
 		
 		likelihood = maximize() ;
 		print_recon_time("Completed maximize", &tr1, &tr2, param->rank) ;
@@ -110,7 +117,7 @@ void emc() {
 		if (!param->rank) {
 			save_models() ;
 			gettimeofday(&tr2, NULL) ;
-			update_log_file((double)(tr2.tv_sec - tr1.tv_sec) + 1.e-6*(tr2.tv_usec - tr1.tv_usec), likelihood) ;
+			update_log_file((double)(tr2.tv_sec - tr1.tv_sec) + 1.e-6*(tr2.tv_usec - tr1.tv_usec), likelihood, beta_mean) ;
 		}
 		print_recon_time("Updated 3D intensity", &tr2, &tr3, param->rank) ;
 		

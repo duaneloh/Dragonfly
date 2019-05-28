@@ -63,9 +63,12 @@ class FramePanel(QtWidgets.QWidget):
                                                 need_scaling=self.parent.need_scaling)
         if self.do_powder:
             self.powder_sum = self.emc_reader.get_powder()
+        if self.parent.blacklist is not None:
+            self.good_ind = np.where(self.parent.blacklist==0)[0]
 
         self.numstr = '0'
         self.rangestr = '10'
+        self.skip_bad = None
 
         self._init_ui()
 
@@ -118,6 +121,9 @@ class FramePanel(QtWidgets.QWidget):
             hbox.addWidget(button)
         else:
             gui_utils.add_scroll_hbox(self, hbox)
+            if self.parent.blacklist is not None:
+                self.skip_bad = QtWidgets.QCheckBox('Skip bad', self)
+                hbox.addWidget(self.skip_bad)
         hbox.addStretch(1)
         button = QtWidgets.QPushButton('Quit', self)
         button.clicked.connect(self.parent.close)
@@ -206,19 +212,28 @@ class FramePanel(QtWidgets.QWidget):
         return subp
 
     def _next_frame(self):
-        num = int(self.numstr.text()) + 1
+        if self.skip_bad is None or not self.skip_bad.isChecked():
+            num = int(self.numstr.text()) + 1
+        else:
+            num = self.good_ind[np.searchsorted(self.good_ind, int(self.numstr.text())) + 1]
         if num < self.emc_reader.num_frames:
             self.numstr.setText(str(num))
             self.plot_frame()
 
     def _prev_frame(self):
-        num = int(self.numstr.text()) - 1
+        if self.skip_bad is None or not self.skip_bad.isChecked():
+            num = int(self.numstr.text()) - 1
+        else:
+            num = self.good_ind[np.searchsorted(self.good_ind, int(self.numstr.text())) - 1]
         if num > -1:
             self.numstr.setText(str(num))
             self.plot_frame()
 
     def _rand_frame(self):
-        num = np.random.randint(0, self.emc_reader.num_frames)
+        if self.skip_bad is None or not self.skip_bad.isChecked():
+            num = np.random.randint(0, self.emc_reader.num_frames)
+        else:
+            num = self.good_ind[np.random.randint(0, self.good_ind.size)]
         self.numstr.setText(str(num))
         self.plot_frame()
 

@@ -104,7 +104,9 @@ class EMCReader(object):
     def _parse_h5header(pdict):
         with h5py.File(pdict['fname'], 'r') as fptr:
             pdict['num_data'] = fptr['place_ones'].shape[0]
-            pdict['num_pix'] = fptr['num_pix'][0]
+            pdict['num_pix'] = fptr['num_pix'][()]
+            if type(pdict['num_pix']) is np.ndarray:
+                pdict['num_pix'] = pdict['num_pix'][0]
 
     def get_frame(self, num, **kwargs):
         """Get particular frame from file list
