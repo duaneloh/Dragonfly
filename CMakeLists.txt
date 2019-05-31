@@ -1,5 +1,11 @@
-cmake_minimum_required(VERSION 3.6)
+if(apple)
+# cmake 3.12 is required to get openmp working with clang
+cmake_minimum_required(VERSION 3.12)
+else(apple)
 # Version 3.6 required for list(FILTER)
+cmake_minimum_required(VERSION 3.6)
+endif(apple)
+
 
 set(CMAKE_INSTALL_MESSAGE LAZY)
 
@@ -57,7 +63,7 @@ target_link_libraries(emc m)
 if(HDF5_FOUND)
 	target_link_libraries(emc ${HDF5_C_LIBRARIES})
 endif()
-target_link_libraries(emc ${MPI_LIBRARIES})
+target_link_libraries(emc ${MPI_LIBRARIES} ${OpenMP_C_LIBRARIES})
 if (MPI_COMPILE_FLAGS)
 	set_target_properties(emc PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
 endif()
