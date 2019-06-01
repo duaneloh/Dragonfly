@@ -6,7 +6,7 @@ foreach(src ${utils_src})
 	
 	add_executable(${util} ${src})
 	target_link_libraries(${util} GSL::gsl GSL::gslcblas)
-	target_link_libraries(${util} m)
+	target_link_libraries(${util} m ${OpenMP_C_LIBRARIES})
 	set_target_properties(${util} PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 endforeach(src)
 
