@@ -647,7 +647,10 @@ class ProgressViewer(QtWidgets.QMainWindow):
         if self.recon_type == '2d':
             self.canvas.mpl_connect('button_press_event', self._select_mode)
             if num is None:
-                num = int(self.modenum.text())
+                if self.num_modes > 1:
+                    num = int(self.modenum.text())
+                else:
+                    num = 0
         elif num is None:
             num = int(self.layernum.text())
         argsdict = {'vrange': (float(self.rangemin.text()), float(self.rangestr.text())),
