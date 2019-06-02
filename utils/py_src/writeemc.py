@@ -35,7 +35,7 @@ class EMCWriter(object):
                emc.write_frame(frame[i].ravel())
     """
 
-    def __init__(self, out_fname, num_pix, hdf5=False):
+    def __init__(self, out_fname, num_pix, hdf5=True):
         out_folder = os.path.dirname(out_fname)
         self.h5_output = hdf5
         if hdf5 and not HDF5_MODE:
