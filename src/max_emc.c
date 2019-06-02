@@ -495,7 +495,6 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 		for (d = 0 ; d < frames->tot_num_data * param->modes ; ++d)
 			common->quat_norm[d] += priv->quat_norm[d] ;
 	}
-	print_max_time("combine_omp", "", param->rank == 0 && omp_rank == 0) ;
 }
 
 double combine_information_mpi(struct max_data *data) {
@@ -526,6 +525,7 @@ double combine_information_mpi(struct max_data *data) {
 	iter->mutual_info /= (frames->tot_num_data - frames->num_blacklist) ;
 	avg_likelihood /= (frames->tot_num_data - frames->num_blacklist) ;
 	
+	/*
 	// Combine sparse probabilities across MPI ranks
 	int p, q, tot_num_prob ;
 	int *num_prob_p = calloc(frames->tot_num_data * param->num_proc, sizeof(int)) ;
@@ -565,6 +565,7 @@ double combine_information_mpi(struct max_data *data) {
 		free(num_prob_p) ;
 		free(displ_prob_p) ;
 	}
+	*/
 	
 	// Combine scale factor information from all MPI ranks
 	if (param->need_scaling && param->update_scale)
