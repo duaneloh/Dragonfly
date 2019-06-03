@@ -40,7 +40,7 @@ class FramePanel(QtWidgets.QWidget):
         output_folder - (Only for compare mode) Folder with output data
         need_scaling - (Only for compare mode) Whether reconstruction was done with scaling
     '''
-    def __init__(self, parent, compare=False, powder=False, **kwargs):
+    def __init__(self, parent, compare=False, powder=False, noscroll=False, **kwargs):
         super(FramePanel, self).__init__(**kwargs)
 
         matplotlib.rcParams.update({
@@ -57,6 +57,7 @@ class FramePanel(QtWidgets.QWidget):
         self.emc_reader = self.parent.emc_reader
         self.do_compare = compare
         self.do_powder = powder
+        self.noscroll = noscroll
         if self.do_compare:
             self.slices = slices.SliceGenerator(self.parent.geom, 'data/quat.dat',
                                                 folder=self.parent.output_folder,
@@ -119,7 +120,7 @@ class FramePanel(QtWidgets.QWidget):
             button.clicked.connect(self._save_powder)
             button.setToolTip('Save powder sum data to file')
             hbox.addWidget(button)
-        else:
+        elif not self.noscroll:
             gui_utils.add_scroll_hbox(self, hbox)
             if self.parent.blacklist is not None:
                 self.skip_bad = QtWidgets.QCheckBox('Skip bad', self)
