@@ -28,6 +28,8 @@ except ImportError:
     import matplotlib.animation as animation
     os.environ['QT_API'] = 'pyqt'
 from py_src import read_config
+import frameviewer
+from py_src import gui_utils
 
 class MySpinBox(QtWidgets.QSpinBox):
     '''Overriding QSpinBox to update need_replot'''
@@ -45,6 +47,65 @@ class MySpinBox(QtWidgets.QSpinBox):
         else:
             self.setValue(target_value)
         self.parent.need_replot = True
+
+class MyFrameviewer(frameviewer.Frameviewer):
+    def __init__(self, config_file, mode, numlist):
+        super(MyFrameviewer, self).__init__(config_file, mask=True, noscroll=True)
+        self.mode = mode
+        self.numlist = numlist
+        
+        fp_layout = self.frame_panel.layout()
+        fp_count = fp_layout.count()
+        line = fp_layout.takeAt(fp_count-1)
+        hbox = QtWidgets.QHBoxLayout()
+        line.insertLayout(1, hbox)
+        gui_utils.add_scroll_hbox(self, hbox)
+        if self.mode >= 0:
+            self.label = QtWidgets.QLabel('Class %d frames'%self.mode)
+            hbox.addWidget(self.label)
+        fp_layout.addLayout(line)
+
+    def _next_frame(self):
+        if self.mode == -1:
+            self.frame_panel._next_frame()
+        else:
+            curr = int(self.frame_panel.numstr.text())
+            ind = np.searchsorted(self.numlist, curr, side='left')
+            if curr == self.numlist[ind]:
+                ind += 1
+            if ind > len(self.numlist) - 1:
+                ind = len(self.numlist) - 1
+            num = self.numlist[ind]
+            if num < self.frame_panel.emc_reader.num_frames:
+                self.frame_panel.numstr.setText(str(num))
+                self.frame_panel.plot_frame()
+
+    def _prev_frame(self):
+        if self.mode == -1:
+            self.frame_panel._prev_frame()
+        else:
+            curr = int(self.frame_panel.numstr.text())
+            ind = np.searchsorted(self.numlist, curr, side='left') - 1
+            if ind < 0:
+                ind = 0
+            num = self.numlist[ind]
+            if num > -1:
+                self.frame_panel.numstr.setText(str(num))
+                self.frame_panel.plot_frame()
+
+    def _rand_frame(self):
+        if self.mode == -1:
+            self.frame_panel._rand_frame()
+        else:
+            curr = int(self.frame_panel.numstr.text())
+            ind = np.searchsorted(self.numlist, curr, side='left')
+            if curr == self.numlist[ind]:
+                ind += 1
+            if ind > len(self.numlist) - 1:
+                ind = len(self.numlist) - 1
+            num = self.numlist[np.random.randint(len(self.numlist))]
+            self.frame_panel.numstr.setText(str(num))
+            self.frame_panel.plot_frame()
 
 class VolumePlotter(object):
     def __init__(self, fig, recon_type='3d', num_modes=1):
@@ -312,6 +373,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         if model is not None:
             self._parse_and_plot(rots=False)
         self.old_fname = self.fname.text()
+        self.fr = None
 
     def _init_ui(self):
         with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'py_src/style.css'), 'r') as f:
@@ -378,6 +440,13 @@ class ProgressViewer(QtWidgets.QMainWindow):
             action.triggered.connect(self._cmap_changed)
             action.setToolTip('Set color map')
             cmapmenu.addAction(action)
+
+        # Frames menu
+        framesmenu = menubar.addMenu('&Analysis')
+        action = QtWidgets.QAction('Open &Frameviewer', self)
+        action.triggered.connect(self._open_frameviewer)
+        action.setToolTip('View frames related to given mode')
+        framesmenu.addAction(action)
 
     def _init_plotarea(self):
         plot_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
@@ -726,6 +795,10 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.mode_slider.setValue(curr_mode)
             self.modenum.setValue(curr_mode)
 
+            if self.fr is not None:
+                self.fr.label.setText('Class %d frames'%curr_mode)
+                self.fr.numlist = np.where(self.vol_plotter.rots % self.num_modes == curr_mode)[0]
+
     def _load_volume(self):
         fpath = QtWidgets.QFileDialog.getOpenFileName(self, 'Load 3D Volume',
                                                       'data/', 'Binary data (*.bin)')
@@ -810,6 +883,16 @@ class ProgressViewer(QtWidgets.QMainWindow):
         if self.vol_plotter.image_exists:
             self.need_replot = True
             self._parse_and_plot()
+
+    def _open_frameviewer(self):
+        if self.fr is not None and self.fr.isVisible():
+            return
+        if self.num_modes > 1 and self.vol_plotter.rots is not None:
+            mode = self.modenum.value()
+            numlist = np.where(self.vol_plotter.rots % self.num_modes == mode)[0]
+            self.fr = MyFrameviewer(self.config, mode, numlist)
+        else:
+            self.fr = MyFrameviewer(self.config, -1, [])
 
     def keyPressEvent(self, event): # pylint: disable=C0103
         '''Override of default keyPress event handler'''
