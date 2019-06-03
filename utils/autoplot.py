@@ -796,6 +796,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.modenum.setValue(curr_mode)
 
             if self.fr is not None:
+                self.fr.mode = curr_mode
                 self.fr.label.setText('Class %d frames'%curr_mode)
                 self.fr.numlist = np.where(self.vol_plotter.rots % self.num_modes == curr_mode)[0]
 
