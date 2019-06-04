@@ -24,8 +24,8 @@ class VolReader(object):
             'num_pix': size*size}]
         self.num_frames = self.stack.shape[0]
 
-    def get_frame(self, num, raw=True):
+    def get_frame(self, num, raw=True, **kwargs):
         return self.stack[num]
 
-    def get_powder(self, raw=True):
+    def get_powder(self, raw=True, **kwargs):
         return self.stack.mean(0)
