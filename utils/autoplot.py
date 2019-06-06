@@ -794,6 +794,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         if curr_mode >= 0 and curr_mode != self.modenum.value():
             self.mode_slider.setValue(curr_mode)
             self.modenum.setValue(curr_mode)
+            self._modenum_changed()
 
             if self.fr is not None:
                 self.fr.mode = curr_mode
