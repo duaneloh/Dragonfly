@@ -187,8 +187,8 @@ class Detector(object):
             self.raw_mask = np.zeros(self.qx.shape, dtype='u1')
             mask = np.ones(self.qx.shape, dtype='u1')
 
-        self.cx = self.qx*self.detd/(self.qz+self.ewald_rad) # pylint: disable=C0103
-        self.cy = self.qy*self.detd/(self.qz+self.ewald_rad) # pylint: disable=C0103
+        self.cx = self.qx * self.detd / (self.ewald_rad - self.qz) # pylint: disable=C0103
+        self.cy = self.qy * self.detd / (self.ewald_rad - self.qz) # pylint: disable=C0103
         self.x = np.round(self.cx - self.cx.min()).astype('i4')
         self.y = np.round(self.cy - self.cy.min()).astype('i4')
 
