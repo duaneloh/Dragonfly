@@ -82,7 +82,6 @@ void generate_params(char *config_fname, struct params *param) {
 				param->alpha = atof(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "beta") == 0)
 				strcpy(beta_str, strtok(NULL, " =\n")) ;
-				//param->beta_start = atof(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "num_modes") == 0)
 				param->modes = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "num_nonrot_modes") == 0)
@@ -120,7 +119,7 @@ void generate_params(char *config_fname, struct params *param) {
 	
 	if (strcmp(beta_str, "auto") == 0)
 		param->beta_start[0] = -1. ;
-	else
+	else if (beta_str[0] != '\0')
 		param->beta_start[0] = atof(beta_str) ;
 	
 	if (!param->rank)
