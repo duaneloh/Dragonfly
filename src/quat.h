@@ -11,7 +11,7 @@
 struct rotation {
 	int num_rot, num_rot_p ;
 	double *quat ;
-	int icosahedral_flag ;
+	int icosahedral_flag, cubic_flag ;
 } ;
 
 int quat_gen(int, struct rotation*) ;

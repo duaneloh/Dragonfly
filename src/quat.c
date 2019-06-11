@@ -728,7 +728,61 @@ static int reduce_icosahedral(int n, double *quat) {
 		quat[(1+r)*5+t] = quat[(60+r)*5+t] ;
 	num_rot++ ;
 	
-	fprintf(stderr, "num_rot = %d -> %d\n", old_num_rot, num_rot) ;
+	fprintf(stderr, "A5 symmetry: num_rot = %d -> %d\n", old_num_rot, num_rot) ;
+	return num_rot ;
+}
+
+static int reduce_cubic(int n, double *quat) {
+	int r, t, i, keep_quat, vnum = 0, num_vert = 8 ;
+	int old_num_rot = 10*(5*n*n*n + n), num_rot = 0 ;
+	double dist, dist0 ;
+	
+	// For all non-vertex quaternions
+	for (r = num_vert ; r < old_num_rot ; ++r) {
+		keep_quat = 1 ;
+		
+		// Calculate distance to quat[0]
+		// which should be {-1,1,1,1}/2
+		dist0 = 0. ;
+		for (t = 0 ; t < 4 ; ++t)
+			dist0 += quat[r*5+t] * quat[vnum*5+t] ;
+		dist0 = 1. - dist0*dist0 ;
+		
+		// Calculate distance to all other tesseract vertex quaternions
+		// {-1, +-1, +-1, +-1} / 2
+		for (i = 0 ; i < num_vert ; ++i) {
+			if (i == vnum)
+				continue ;
+			
+			dist = 0 ;
+			for (t = 0 ; t < 4 ; ++t)
+				dist += quat[r*5+t] * quat[i*5+t] ;
+			dist = 1. - dist*dist ;
+			
+			if (dist < dist0) {
+				keep_quat = 0 ;
+				break ;
+			}
+		}
+		
+		// If closest vertex is 0, keep quaternion
+		if (keep_quat) {
+			for (t = 0 ; t < 5 ; ++t)
+				quat[(num_vert+num_rot)*5+t] = quat[r*5+t] ;
+			num_rot++ ;
+		}
+	}
+	
+	// Move kept quaternions to first indices
+	for (t = 0 ; t < 5 ; ++t)
+		quat[0*5+t] = quat[vnum*5+t] ;
+	
+	for (r = 0 ; r < num_rot ; ++r)
+	for (t = 0 ; t < 5 ; ++t)
+		quat[(1+r)*5+t] = quat[(num_vert+r)*5+t] ;
+	num_rot++ ;
+	
+	fprintf(stderr, "S4 symmetry: num_rot = %d -> %d\n", old_num_rot, num_rot) ;
 	return num_rot ;
 }
 
@@ -802,6 +856,8 @@ int quat_gen(int num_div, struct rotation *quat) {
 	
 	if (quat->icosahedral_flag)
 		quat->num_rot = reduce_icosahedral(num_div, quat->quat) ;
+	else if (quat->cubic_flag)
+		quat->num_rot = reduce_cubic(num_div, quat->quat) ;
 	
 	quat_free_mem(num_div) ;
 	
@@ -868,12 +924,13 @@ void free_quat(struct rotation *quat) {
 int generate_quaternion(char *config_fname, char *config_section, struct rotation *quat_ptr) {
 	int r, b, num, num_div = -1, recon_type = 3, num_rot = 0, num_beta ;
 	double beta_min = 0., beta_max = 0., beta_incr = 0. ;
-	char quat_fname[1024] = {'\0'} ;
+	char quat_fname[1024] = {'\0'}, point_group[1024] = {'\0'} ;
 	char line[1024], temp[8], section_name[1024], config_folder[1024], *token ;
 	char *temp_fname = strndup(config_fname, 1024) ;
 	sprintf(config_folder, "%s/", dirname(temp_fname)) ;
 	free(temp_fname) ;
 	quat_ptr->icosahedral_flag = 0 ;
+	quat_ptr->cubic_flag = 0 ;
 	
 	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
@@ -896,8 +953,8 @@ int generate_quaternion(char *config_fname, char *config_section, struct rotatio
 				num_rot = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "in_quat_file") == 0)
 				absolute_strcpy(config_folder, quat_fname, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "sym_icosahedral") == 0)
-				quat_ptr->icosahedral_flag = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "point_group") == 0)
+				strncpy(point_group, strtok(NULL, " =\n"), 1023) ;
 			else if (strcmp(token, "beta_range_deg") == 0) {
 				beta_min = atof(strtok(NULL, " =\n")) * M_PI / 180. ;
 				beta_max = atof(strtok(NULL, " =\n")) * M_PI / 180. ;
@@ -939,6 +996,17 @@ int generate_quaternion(char *config_fname, char *config_section, struct rotatio
 		fprintf(stderr, "Created %d (phi, beta) pairs instead of quaternions\n", quat_ptr->num_rot) ;
 		
 		return 0 ;
+	}
+	
+	if (point_group[0] != '\0') {
+		if (strncmp(point_group, "S4", 2) == 0)
+			quat_ptr->cubic_flag = 1 ;
+		else if (strncmp(point_group, "A5", 2) == 0)
+			quat_ptr->icosahedral_flag = 1 ;
+		else {
+			fprintf(stderr, "Only point groups A5 and S4 are implemented (%s unknown)\n", point_group) ;
+			return 1 ;
+		}
 	}
 	
 	if (num_div > 0 && quat_fname[0] != '\0') {

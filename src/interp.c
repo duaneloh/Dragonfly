@@ -619,6 +619,29 @@ static double cube_list[48][3][3] = {
 	{{ 0,  0, -1}, {-1,  0,  0}, { 0, -1,  0}},
 } ;
 
+/* Cubic symmetrization
+ * 	Assumes vertices are at permutations of (+-1, +-1, +-1)
+ * 	Arguments:
+ * 		Pointer to model representing centered 3D volume
+ * 		Size of model
+ * 	No return value. Symmetrization performed in-place
+ */
+void symmetrize_cubic(double *model, int size) {
+	double *temp = malloc(size*size*size*sizeof(double)) ;
+	int i ;
+	
+	memcpy(temp, model, size*size*size*sizeof(double)) ;
+	memset(model, 0, size*size*size*sizeof(double)) ;
+	
+	for (i = 0 ; i < 48 ; ++i)
+		rotate_model_openmp(cube_list[i], temp, size, model) ;
+	
+	for (i = 0 ; i < size*size*size ; ++i)
+		model[i] /= 48. ;
+	
+	free(temp) ;
+}
+
 /* Icosahedral symmetrization
  * 	Assumes vertices are at permutations of (0, +-1, +-tau)
  * 	Arguments:
