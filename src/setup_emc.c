@@ -79,7 +79,7 @@ int setup(char *s_config_fname, int continue_flag) {
 		return 1 ;
 	if (generate_quaternion(config_fname, "emc", quat))
 		return 1 ;
-	divide_quat(param->rank, param->num_proc, param->modes, quat) ;
+	divide_quat(param->rank, param->num_proc, param->modes, param->nonrot_modes, quat) ;
 	if (generate_data(config_fname, "emc", "in", det, frames))
 		return 1 ;
 	generate_blacklist(config_fname, frames) ;

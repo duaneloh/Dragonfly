@@ -80,7 +80,7 @@ int generate_iterate(char *config_fname, char *config_section, int continue_flag
 	iter->size = -1 ;
 	iter->scale = NULL ;
 	iter->rel_quat = NULL ;
-	iter->modes = param->modes ;
+	iter->modes = param->modes + param->nonrot_modes ;
 	iter->rescale = calloc(det[0].num_det, sizeof(double)) ;
 	iter->mean_count = calloc(det[0].num_det, sizeof(double)) ;
 	iter->tot_num_data = dset->tot_num_data ;

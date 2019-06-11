@@ -11,9 +11,9 @@ void write_log_file_header(int num_threads) {
 	fprintf(fp, "System size:\n") ;
 	fprintf(fp, "\tnum_rot = %d\n\tnum_pix = %d/%d\n\t", quat->num_rot, det->rel_num_pix, det->num_pix) ;
 	if (param->recon_type == RECON3D)
-		fprintf(fp, "system_volume = %d X %ld X %ld X %ld\n\n", param->modes, iter->size, iter->size, iter->size) ;
+		fprintf(fp, "system_volume = %d X %ld X %ld X %ld\n\n", iter->modes, iter->size, iter->size, iter->size) ;
 	else if (param->recon_type == RECON2D || param->recon_type == RECONRZ)
-		fprintf(fp, "system_volume = %d X %ld X %ld\n\n", param->modes, iter->size, iter->size) ;
+		fprintf(fp, "system_volume = %d X %ld X %ld\n\n", iter->modes, iter->size, iter->size) ;
 	fprintf(fp, "Reconstruction parameters:\n") ;
 	fprintf(fp, "\tnum_threads = %d\n\tnum_proc = %d\n\talpha = %.6f\n\tbeta = %.6f\n\tneed_scaling = %s", 
 			num_threads, 
@@ -59,11 +59,11 @@ void save_initial_iterate() {
 	char name[2048] ;
 	hsize_t out_size3d[4], out_size2d[3], len[1] ;
 	len[0] = frames->tot_num_data ;
-	out_size3d[0] = param->modes ;
+	out_size3d[0] = iter->modes ;
 	out_size3d[1] = iter->size ;
 	out_size3d[2] = iter->size ;
 	out_size3d[3] = iter->size ;
-	out_size2d[0] = param->modes ;
+	out_size2d[0] = iter->modes ;
 	out_size2d[1] = iter->size ;
 	out_size2d[2] = iter->size ;
 	
@@ -99,12 +99,12 @@ void save_models() {
 	
 	sprintf(fname, "%s/output/intens_%.3d.bin", param->output_folder, param->iteration) ;
 	fp = fopen(fname, "w") ;
-	fwrite(iter->model1, sizeof(double), param->modes * iter->vol, fp) ;
+	fwrite(iter->model1, sizeof(double), iter->modes * iter->vol, fp) ;
 	fclose(fp) ;
 	
 	sprintf(fname, "%s/weights/weights_%.3d.bin", param->output_folder, param->iteration) ;
 	fp = fopen(fname, "w") ;
-	fwrite(iter->inter_weight, sizeof(double), param->modes * iter->vol, fp) ;
+	fwrite(iter->inter_weight, sizeof(double), iter->modes * iter->vol, fp) ;
 	fclose(fp) ;
 
 	// Write scale factors to file even when not updating them
@@ -122,11 +122,11 @@ void save_models() {
 	hid_t file, dset, dspace ;
 	char name[2048] ;
 	hsize_t out_size3d[4], out_size2d[3] ;
-	out_size3d[0] = param->modes ;
+	out_size3d[0] = iter->modes ;
 	out_size3d[1] = iter->size ;
 	out_size3d[2] = iter->size ;
 	out_size3d[3] = iter->size ;
-	out_size2d[0] = param->modes ;
+	out_size2d[0] = iter->modes ;
 	out_size2d[1] = iter->size ;
 	out_size2d[2] = iter->size ;
 	
@@ -184,10 +184,10 @@ void save_metrics(struct max_data *data) {
 	fclose(fp_likelihood) ;
 	
 	// Write frame-by-frame mode occupancies to file
-	if (param->modes > 1) {
+	if (iter->modes > 1) {
 		sprintf(fname, "%s/modes/occupancies_%.3d.bin", param->output_folder, param->iteration) ;
 		FILE *fp_modes = fopen(fname, "w") ;
-		fwrite(data->quat_norm, sizeof(double), frames->tot_num_data*param->modes, fp_modes) ;
+		fwrite(data->quat_norm, sizeof(double), frames->tot_num_data*iter->modes, fp_modes) ;
 		fclose(fp_modes) ;
 	}
 
@@ -214,10 +214,10 @@ void save_metrics(struct max_data *data) {
 	H5Dwrite(dset, H5T_IEEE_F64LE, H5S_ALL, dspace, H5P_DEFAULT, data->likelihood) ;
 	H5Dclose(dset) ;
 	
-	if (param->modes > 1) {
+	if (iter->modes > 1) {
 		hsize_t shape[2] ;
 		shape[0] = frames->tot_num_data ;
-		shape[1] = param->modes ;
+		shape[1] = iter->modes ;
 		H5Sclose(dspace) ;
 		dspace = H5Screate_simple(2, shape, NULL) ;
 		dset = H5Dcreate(file, "occupancies", H5T_IEEE_F64LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;

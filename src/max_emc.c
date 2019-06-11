@@ -99,8 +99,8 @@ void allocate_memory(struct max_data *data) {
 	data->max_exp_p = malloc(frames->tot_num_data * sizeof(double)) ;
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
 		data->max_exp_p[d] = MAX_EXP_START ;
-	if (param->modes > 1)
-		data->quat_norm = calloc(param->modes * frames->tot_num_data, sizeof(double)) ;
+	if (iter->modes > 1)
+		data->quat_norm = calloc(iter->modes * frames->tot_num_data, sizeof(double)) ;
 	
 	data->prob = malloc(frames->tot_num_data * sizeof(double*)) ;
 	data->place_prob = malloc(frames->tot_num_data * sizeof(int*)) ;
@@ -116,8 +116,8 @@ void allocate_memory(struct max_data *data) {
 		data->p_norm = calloc(frames->tot_num_data, sizeof(double)) ;
 		data->offset_prob = calloc(frames->tot_num_data * omp_get_max_threads(), sizeof(int)) ;
 		
-		memset(iter->model2, 0, param->modes*iter->vol*sizeof(double)) ;
-		memset(iter->inter_weight, 0, param->modes*iter->vol*sizeof(double)) ;
+		memset(iter->model2, 0, iter->modes*iter->vol*sizeof(double)) ;
+		memset(iter->inter_weight, 0, iter->modes*iter->vol*sizeof(double)) ;
 		print_max_time("alloc", "", param->rank == 0) ;
 	}
 	else { // priv_data
@@ -125,8 +125,8 @@ void allocate_memory(struct max_data *data) {
 		for (d = 0 ; d < det[0].num_det ; ++d)
 			data->all_views[d] = malloc(det[d].num_pix * sizeof(double)) ;
 		
-		data->model = calloc(param->modes*iter->vol, sizeof(double)) ;
-		data->weight = calloc(param->modes*iter->vol, sizeof(double)) ;
+		data->model = calloc(iter->modes*iter->vol, sizeof(double)) ;
+		data->weight = calloc(iter->modes*iter->vol, sizeof(double)) ;
 		
 		data->psum_r = calloc(det[0].num_det, sizeof(double)) ;
 		
@@ -176,6 +176,12 @@ void calculate_rescale(struct max_data *data) {
 		for (r = 0 ; r < quat->num_rot_p ; ++r) {
 			rotind = (r*param->num_proc + param->rank) / param->modes ;
 			mode = (r*param->num_proc + param->rank) % param->modes ;
+			if (rotind >= quat->num_rot) {
+				mode = r*param->num_proc + param->rank - param->modes * (quat->num_rot - 1) ;
+				rotind = 0 ;
+			}
+			//fprintf(stderr, "%d: %.3d - %.2d %.2d\n", omp_get_thread_num(), r, rotind, mode) ;
+			
 			for (detn = 0 ; detn < det[0].num_det ; ++detn) {
 				// Second argument being 0. tells slice_gen to generate un-rescaled tomograms
 				(*slice_gen)(&quat->quat[rotind*5], 0., views[detn], &iter->model1[mode*iter->vol], iter->size, &det[detn]) ;
@@ -208,6 +214,8 @@ void calculate_rescale(struct max_data *data) {
 		#pragma omp for schedule(static,1) 
 		for (r = 0 ; r < quat->num_rot_p ; ++r) {
 			rotind = (r*param->num_proc + param->rank) / param->modes ;
+			if (rotind >= quat->num_rot)
+				rotind = 0 ;
 			for (detn = 0 ; detn < det[0].num_det ; ++detn)
 				data->u[detn][r] = log(quat->quat[rotind*5 + 4]) - data->u[detn][r] ;
 		}
@@ -215,7 +223,7 @@ void calculate_rescale(struct max_data *data) {
 	
 	sprintf(res_string, "(=") ;
 	for (detn = 0 ; detn < det[0].num_det ; ++detn) {
-		iter->rescale[detn] = iter->mean_count[detn] / total[detn] * param->modes ;
+		iter->rescale[detn] = iter->mean_count[detn] / total[detn] * iter->modes ;
 		sprintf(res_string + strlen(res_string), " %.6e", iter->rescale[detn]) ;
 	}
 	sprintf(res_string + strlen(res_string), ")") ;
@@ -231,6 +239,10 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 	
 	rotind = (r*param->num_proc + param->rank) / param->modes ;
 	mode = (r*param->num_proc + param->rank) % param->modes ;
+	if (rotind >= quat->num_rot) {
+		mode = r*param->num_proc + param->rank - param->modes * (quat->num_rot - 1) ;
+		rotind = 0 ;
+	}
 	
 	// Linked list of data sets from different files
 	while (curr != NULL) {
@@ -347,7 +359,7 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 	}
 	
 	if ((r*param->num_proc + param->rank)%(quat->num_rot * param->modes / 10) == 0)
-		fprintf(stderr, "\t\tFinished r = %d/%d\n", r*param->num_proc + param->rank, quat->num_rot * param->modes) ;
+		fprintf(stderr, "\t\tFinished r = %d/%d\n", r*param->num_proc + param->rank, quat->num_rot * param->modes + param->nonrot_modes) ;
 	if (r == quat->num_rot_p - 1)
 		print_max_time("prob", "", param->rank == 0) ;
 }
@@ -417,6 +429,10 @@ void merge_tomogram(int r, struct max_data *priv) {
 	
 	rotind = (r*param->num_proc + param->rank) / param->modes ;
 	mode = (r*param->num_proc + param->rank) % param->modes ;
+	if (rotind >= quat->num_rot) {
+		mode = r*param->num_proc + param->rank - param->modes * (quat->num_rot - 1) ;
+		rotind = 0 ;
+	}
 	
 	// If no data frame has any probability for this orientation, don't merge
 	for (detn = 0 ; detn < det[0].num_det ; ++detn)
@@ -424,7 +440,7 @@ void merge_tomogram(int r, struct max_data *priv) {
 		(*slice_merge)(&quat->quat[rotind*5], priv->all_views[detn], &priv->model[mode*iter->vol], &priv->weight[mode*iter->vol], iter->size, &det[detn]) ;
 	
 	if ((r*param->num_proc + param->rank)%(quat->num_rot * param->modes / 10) == 0)
-		fprintf(stderr, "\t\tFinished r = %d/%d\n", r*param->num_proc + param->rank, quat->num_rot * param->modes) ;
+		fprintf(stderr, "\t\tFinished r = %d/%d\n", r*param->num_proc + param->rank, quat->num_rot * param->modes + param->nonrot_modes) ;
 }
 
 void combine_information_omp(struct max_data *priv, struct max_data *common) {
@@ -436,7 +452,7 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 	 
 	#pragma omp critical(model)
 	{
-		for (x = 0 ; x < param->modes * iter->vol ; ++x) {
+		for (x = 0 ; x < iter->modes * iter->vol ; ++x) {
 			iter->model2[x] += priv->model[x] ;
 			iter->inter_weight[x] += priv->weight[x] ;
 		}
@@ -490,9 +506,9 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 		}
 	}
 	
-	if (param->modes > 1) {
+	if (iter->modes > 1) {
 		#pragma omp critical(quat_norm)
-		for (d = 0 ; d < frames->tot_num_data * param->modes ; ++d)
+		for (d = 0 ; d < frames->tot_num_data * iter->modes ; ++d)
 			common->quat_norm[d] += priv->quat_norm[d] ;
 	}
 }
@@ -504,12 +520,12 @@ double combine_information_mpi(struct max_data *data) {
 	
 	// Combine 3D volumes from all MPI ranks
 	if (param->rank) {
-		MPI_Reduce(iter->model2, iter->model2, param->modes*iter->vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
-		MPI_Reduce(iter->inter_weight, iter->inter_weight, param->modes*iter->vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
+		MPI_Reduce(iter->model2, iter->model2, iter->modes*iter->vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
+		MPI_Reduce(iter->inter_weight, iter->inter_weight, iter->modes*iter->vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
 	}
 	else {
-		MPI_Reduce(MPI_IN_PLACE, iter->model2, param->modes*iter->vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
-		MPI_Reduce(MPI_IN_PLACE, iter->inter_weight, param->modes*iter->vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
+		MPI_Reduce(MPI_IN_PLACE, iter->model2, iter->modes*iter->vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
+		MPI_Reduce(MPI_IN_PLACE, iter->inter_weight, iter->modes*iter->vol, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD) ;
 	}
 	
 	// Combine mutual info and likelihood from all MPI ranks
@@ -571,8 +587,8 @@ double combine_information_mpi(struct max_data *data) {
 	if (param->need_scaling && param->update_scale)
 		MPI_Allreduce(MPI_IN_PLACE, data->psum_d, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 	
-	if (param->modes > 1)
-		MPI_Allreduce(MPI_IN_PLACE, data->quat_norm, frames->tot_num_data*param->modes, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
+	if (iter->modes > 1)
+		MPI_Allreduce(MPI_IN_PLACE, data->quat_norm, frames->tot_num_data*iter->modes, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 	
 	return avg_likelihood ;
 }
@@ -595,7 +611,7 @@ void free_memory(struct max_data *data) {
 	free(data->info) ;
 	free(data->likelihood) ;
 	free(data->rmax) ;
-	if (param->modes > 1)
+	if (iter->modes > 1)
 		free(data->quat_norm) ;
 	for (d = 0 ; d < frames->tot_num_data ; ++d) {
 		free(data->prob[d]) ;
@@ -675,6 +691,10 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 	memset(priv->psum_r, 0, (det[0].num_det)*sizeof(double)) ;
 	rotind = (r*param->num_proc + param->rank) / param->modes ;
 	mode = (r*param->num_proc + param->rank) % param->modes ;
+	if (rotind >= quat->num_rot) {
+		mode = r*param->num_proc + param->rank - param->modes * (quat->num_rot - 1) ;
+		rotind = 0 ;
+	}
 	
 	while (curr != NULL) {
 		detn = det[0].mapping[dset] ;
@@ -736,11 +756,14 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 				continue ;
 			
 			// If multiple modes, calculate occupancy of frame into each mode
-			if (param->modes > 1)
+			if (iter->modes > 1)
 				priv->quat_norm[d*param->modes + mode] += prob[d][ind] ;
 			
 			// Calculate mutual information of probability distribution
-			priv->info[d] += prob[d][ind] * log(prob[d][ind] / quat->quat[rotind*5 + 4] * param->modes) ;
+			if (mode >= param->modes)
+				priv->info[d] += prob[d][ind] * log(prob[d][ind] / iter->modes) ;
+			else
+				priv->info[d] += prob[d][ind] * log(prob[d][ind] / quat->quat[rotind*5 + 4] * iter->modes) ;
 			
 			if (param->need_scaling && iter->scale[d] > scalemax)
 				scalemax = iter->scale[d] ;
@@ -1102,6 +1125,10 @@ void gradient_d(struct max_data *common, uint8_t *mask, double *scale, double *g
 	 	for (r = 0 ; r < quat->num_rot_p ; ++r) {
 			rotind = (r*param->num_proc + param->rank) / param->modes ;
 			mode = (r*param->num_proc + param->rank) % param->modes ;
+			if (rotind >= quat->num_rot) {
+				mode = r*param->num_proc + param->rank - param->modes * (quat->num_rot - 1) ;
+				rotind = 0 ;
+			}
 			for (detn = 0 ; detn < det[0].num_det ; ++detn) {
 				(*slice_gen)(&quat->quat[rotind*5], 0., views[detn], &iter->model1[mode*iter->vol], iter->size, &det[detn]) ;
 				for (t = 0 ; t < det[detn].num_pix ; ++t)

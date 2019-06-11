@@ -94,7 +94,7 @@ void emc() {
 	for (param->iteration = param->start_iter ; param->iteration <= param->num_iter + param->start_iter - 1 ; ++param->iteration) {
 		gettimeofday(&tr1, NULL) ;
 		
-		MPI_Bcast(iter->model1, param->modes * iter->vol, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
+		MPI_Bcast(iter->model1, iter->modes * iter->vol, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
 		
 		// Increasing beta by a factor of 'beta_jump' every 'beta_period' param->iterations
 		beta_mean = 0. ;
@@ -136,7 +136,7 @@ void update_model(double likelihood) {
 	long x ;
 	double diff, change = 0., norm = 1. ;
 	
-	for (x = 0 ; x < param->modes * iter->vol ; ++x)
+	for (x = 0 ; x < iter->modes * iter->vol ; ++x)
 		if (iter->inter_weight[x] > 0.)
 			iter->model2[x] *= norm / iter->inter_weight[x] ;
 	
@@ -152,7 +152,7 @@ void update_model(double likelihood) {
 		for (x = 0 ; x < param->modes ; ++x)
 			symmetrize_friedel(&iter->model2[x*iter->vol], iter->size) ;
 	
-	for (x = 0 ; x < param->modes * iter->vol ; ++x) {
+	for (x = 0 ; x < iter->modes * iter->vol ; ++x) {
 		diff = iter->model2[x] - iter->model1[x] ;
 		change += diff * diff ;
 		if (param->alpha > 0.)
@@ -160,5 +160,5 @@ void update_model(double likelihood) {
 		else
 			iter->model1[x] = iter->model2[x] ;
 	}
-	iter->rms_change = sqrt(change / param->modes / iter->vol) ;
+	iter->rms_change = sqrt(change / iter->modes / iter->vol) ;
 }

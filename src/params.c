@@ -44,6 +44,7 @@ void generate_params(char *config_fname, struct params *param) {
 	param->beta_start[0] = -1. ;
 	param->sigmasq = 0. ;
 	param->modes = 1 ;
+	param->nonrot_modes = 0 ;
 	param->rot_per_mode = 0 ;
 	param->recon_type = RECON3D ;
 	param->friedel_sym = 0 ;
@@ -84,6 +85,8 @@ void generate_params(char *config_fname, struct params *param) {
 				//param->beta_start = atof(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "num_modes") == 0)
 				param->modes = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "num_nonrot_modes") == 0)
+				param->nonrot_modes = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "num_rot") == 0)
 				param->rot_per_mode = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "beta_schedule") == 0) {

@@ -902,14 +902,15 @@ int parse_quat(char *fname, int with_weights, struct rotation *quat) {
 	return quat->num_rot ;
 }
 
-void divide_quat(int rank, int num_proc, int num_modes, struct rotation *quat) {
-	quat->num_rot_p = num_modes * (quat->num_rot / num_proc) ;
-	if (rank < (quat->num_rot % num_proc))
+void divide_quat(int rank, int num_proc, int num_modes, int num_nonrot_modes, struct rotation *quat) {
+	int tot_num_rot = num_modes * quat->num_rot + num_nonrot_modes ;
+	quat->num_rot_p = tot_num_rot / num_proc ;
+	if (rank < (tot_num_rot % num_proc))
 		quat->num_rot_p++ ;
 	if (num_proc > 1) {
 		char hname[99] ;
 		gethostname(hname, 99) ;
-		fprintf(stderr, "%d: %s: num_rot_p = %d\n", rank, hname, quat->num_rot_p) ;
+		fprintf(stderr, "%d: %s: num_rot_p = %d/%d\n", rank, hname, quat->num_rot_p, tot_num_rot) ;
 	}
 }
 

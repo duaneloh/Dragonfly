@@ -28,7 +28,7 @@ struct params {
 	double sigmasq ;
 
 	// Number of unconstrained modes
-	int modes, rot_per_mode ;
+	int modes, rot_per_mode, nonrot_modes ;
 } ;
 
 void generate_params(char*, struct params*) ;
