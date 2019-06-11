@@ -558,7 +558,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.layernum.setValue(self.layer_slider.value())
             self.layernum.setMinimum(0)
             self.layernum.setMaximum(200)
-            #self.layernum.valueChanged.connect(self._layernum_changed)
+            self.layernum.valueChanged.connect(self._layernum_changed)
             self.layernum.editingFinished.connect(self._layernum_changed)
             self.layernum.setFixedWidth(60)
             self.layernum.setToolTip('Set layer number in 3D volume')
