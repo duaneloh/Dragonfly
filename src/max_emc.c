@@ -360,8 +360,7 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 	
 	if ((r*param->num_proc + param->rank)%(quat->num_rot * param->modes / 10) == 0)
 		fprintf(stderr, "\t\tFinished r = %d/%d\n", r*param->num_proc + param->rank, quat->num_rot * param->modes + param->nonrot_modes) ;
-	if (r == quat->num_rot_p - 1)
-		print_max_time("prob", "", param->rank == 0) ;
+	print_max_time("prob", "", (r == quat->num_rot_p-1) && (param->rank == 0)) ;
 }
 
 void normalize_prob(struct max_data *priv, struct max_data *common) {
@@ -757,7 +756,7 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 			
 			// If multiple modes, calculate occupancy of frame into each mode
 			if (iter->modes > 1)
-				priv->quat_norm[d*param->modes + mode] += prob[d][ind] ;
+				priv->quat_norm[d*iter->modes + mode] += prob[d][ind] ;
 			
 			// Calculate mutual information of probability distribution
 			if (mode >= param->modes)
