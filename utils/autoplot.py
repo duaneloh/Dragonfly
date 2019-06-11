@@ -695,10 +695,12 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.recon_type = read_config.get_param(config, 'emc', 'recon_type').lower()
         except read_config.configparser.NoOptionError:
             self.recon_type = '3d'
+        self.num_modes = 1
         try:
             self.num_modes = int(read_config.get_param(config, 'emc', 'num_modes'))
+            self.num_modes += int(read_config.get_param(config, 'emc', 'num_nonrot_modes'))
         except read_config.configparser.NoOptionError:
-            self.num_modes = 1
+            pass
 
     def _init_sliders(self, slider_type, numvals, init):
         if slider_type == 'layer':
