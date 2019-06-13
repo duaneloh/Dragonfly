@@ -65,6 +65,8 @@ class MyFrameviewer(frameviewer.Frameviewer):
             hbox.addWidget(self.label)
         fp_layout.addLayout(line)
 
+        self._next_frame()
+
     def _next_frame(self):
         if self.mode == -1:
             self.frame_panel._next_frame()
@@ -108,16 +110,21 @@ class MyFrameviewer(frameviewer.Frameviewer):
             self.frame_panel.plot_frame()
 
 class VolumePlotter(object):
-    def __init__(self, fig, recon_type='3d', num_modes=1):
+    def __init__(self, fig, recon_type='3d', num_modes=1, num_nonrot=0, num_rot=None):
         self.fig = fig
         self.canvas = fig.canvas
         self.vol = None
         self.rots = None
+        self.modes = None
         self.old_modenum = None
         self.main_subp = None
         self.imshow_args = None
         self.recon_type = recon_type
         self.num_modes = num_modes
+        self.num_nonrot = num_nonrot
+        if self.num_nonrot > 0 and num_rot is None:
+            raise ValueError('Need num_rot if nonrot modes are present')
+        self.num_rot = num_rot
         self.need_replot = False
         self.image_exists = False
 
@@ -174,6 +181,11 @@ class VolumePlotter(object):
         self.old_fname = fname
         if self.num_modes > 1:
             self.old_modenum = modenum
+            if self.rots is not None:
+                rotind = self.rots // self.num_modes
+                self.modes = self.rots % self.num_modes
+                if self.num_nonrot > 0:
+                    self.modes[rotind >= self.num_rot] = self.rots[rotind >= self.num_rot] - self.num_modes * (self.num_rot - 1)
         return return_val
 
     def plot(self, num, vrange, exponent, cmap):
@@ -218,14 +230,15 @@ class VolumePlotter(object):
             subp.set_title("XY plane", y=1.01)
             subp.axis('off')
         elif self.recon_type == '2d':
-            numx = int(np.ceil(2.*np.sqrt(self.num_modes / 2.)))
-            numy = int(np.ceil(self.num_modes / float(numx)))
+            tot_num_modes = self.num_modes + self.num_nonrot
+            numx = int(np.ceil(2.*np.sqrt(tot_num_modes / 2.)))
+            numy = int(np.ceil(tot_num_modes / float(numx)))
             total_numx = numx + int(np.ceil(numx / 2)) + 1
 
             gspec = matplotlib.gridspec.GridSpec(numy, total_numx)
             gspec.update(wspace=0.02, hspace=0.02)
             self.subplot_list = []
-            for mode in range(self.num_modes):
+            for mode in range(tot_num_modes):
                 subp = self.fig.add_subplot(gspec[mode//numx, mode%numx])
                 subp.imshow(self.vol[mode], **self.imshow_args)
                 subp.text(0.05, 0.85, '%d'%mode, transform=subp.transAxes, fontsize=10, color='w')
@@ -249,7 +262,7 @@ class VolumePlotter(object):
         if self.rots is None:
             self.main_subp.set_title('Class %d'%mode)
         else:
-            self.main_subp.set_title('Class %d (%d frames)'%(mode, (self.rots%self.num_modes == mode).sum()))
+            self.main_subp.set_title('Class %d (%d frames)'%(mode, (self.modes == mode).sum()))
         self.main_subp.axis('off')
         self.canvas.draw()
 
@@ -461,7 +474,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self.canvas = FigureCanvas(self.fig)
         self.canvas.show()
         plot_splitter.addWidget(self.canvas)
-        self.vol_plotter = VolumePlotter(self.fig, self.recon_type, self.num_modes)
+        self.vol_plotter = VolumePlotter(self.fig, self.recon_type, self.num_modes, self.num_nonrot, self.num_rot)
         self.need_replot = self.vol_plotter.need_replot
 
         # Progress plots figure
@@ -696,9 +709,12 @@ class ProgressViewer(QtWidgets.QMainWindow):
         except read_config.configparser.NoOptionError:
             self.recon_type = '3d'
         self.num_modes = 1
+        self.num_nonrot = 0
+        self.num_rot = None
         try:
             self.num_modes = int(read_config.get_param(config, 'emc', 'num_modes'))
-            self.num_modes += int(read_config.get_param(config, 'emc', 'num_nonrot_modes'))
+            self.num_nonrot = int(read_config.get_param(config, 'emc', 'num_nonrot_modes'))
+            self.num_rot = int(read_config.get_param(config, 'emc', 'num_rot'))
         except read_config.configparser.NoOptionError:
             pass
 
@@ -735,7 +751,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
     def _parse_and_plot(self, force=False, rots=True):
         if force or not self.vol_plotter.image_exists or self.old_fname != self.fname.text():
             if self.num_modes > 1:
-                self._init_sliders('mode', self.num_modes, self.modenum.value())
+                self._init_sliders('mode', self.num_modes+self.num_nonrot, self.modenum.value())
                 modenum = self.modenum.value()
             else:
                 modenum = 0
@@ -893,7 +909,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
             return
         if self.num_modes > 1 and self.vol_plotter.rots is not None:
             mode = self.modenum.value()
-            numlist = np.where(self.vol_plotter.rots % self.num_modes == mode)[0]
+            numlist = np.where(self.vol_plotter.modes == mode)[0]
             self.fr = MyFrameviewer(self.config, mode, numlist)
         else:
             self.fr = MyFrameviewer(self.config, -1, [])
@@ -909,6 +925,8 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.close()
         elif QtGui.QKeySequence(mod+key) == QtGui.QKeySequence('Ctrl+S'):
             self._save_plot()
+        elif QtGui.QKeySequence(mod+key) == QtGui.QKeySequence('Ctrl+K'):
+            self._check_for_new()
         else:
             event.ignore()
 
