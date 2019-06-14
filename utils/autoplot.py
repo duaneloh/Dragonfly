@@ -190,6 +190,7 @@ class VolumePlotter(object):
             if self.rots is not None:
                 rotind = self.rots // self.num_modes
                 self.modes = self.rots % self.num_modes
+                self.modes[self.rots < 0] = -1
                 if self.num_nonrot > 0:
                     self.modes[rotind >= self.num_rot] = self.rots[rotind >= self.num_rot] - self.num_modes * (self.num_rot - 1)
         return return_val
