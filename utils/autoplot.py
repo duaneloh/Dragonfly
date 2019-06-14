@@ -49,6 +49,8 @@ class MySpinBox(QtWidgets.QSpinBox):
         self.parent.need_replot = True
 
 class MyFrameviewer(frameviewer.Frameviewer):
+    windowClosed = QtCore.pyqtSignal()
+
     def __init__(self, config_file, mode, numlist):
         super(MyFrameviewer, self).__init__(config_file, mask=True, noscroll=True)
         self.mode = mode
@@ -108,6 +110,10 @@ class MyFrameviewer(frameviewer.Frameviewer):
             num = self.numlist[np.random.randint(len(self.numlist))]
             self.frame_panel.numstr.setText(str(num))
             self.frame_panel.plot_frame()
+
+    def closeEvent(self, event):
+        self.windowClosed.emit()
+        event.accept()
 
 class VolumePlotter(object):
     def __init__(self, fig, recon_type='3d', num_modes=1, num_nonrot=0, num_rot=None):
@@ -386,7 +392,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         if model is not None:
             self._parse_and_plot(rots=False)
         self.old_fname = self.fname.text()
-        self.fr = None
+        self.fviewer = None
 
     def _init_ui(self):
         with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'py_src/style.css'), 'r') as f:
@@ -814,10 +820,10 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.modenum.setValue(curr_mode)
             self._modenum_changed()
 
-            if self.fr is not None:
-                self.fr.mode = curr_mode
-                self.fr.label.setText('Class %d frames'%curr_mode)
-                self.fr.numlist = np.where(self.vol_plotter.modes == curr_mode)[0]
+            if self.fviewer is not None:
+                self.fviewer.mode = curr_mode
+                self.fviewer.label.setText('Class %d frames'%curr_mode)
+                self.fviewer.numlist = np.where(self.vol_plotter.modes == curr_mode)[0]
 
     def _load_volume(self):
         fpath = QtWidgets.QFileDialog.getOpenFileName(self, 'Load 3D Volume',
@@ -905,14 +911,19 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self._parse_and_plot()
 
     def _open_frameviewer(self):
-        if self.fr is not None and self.fr.isVisible():
+        if self.fviewer is not None:
             return
         if self.num_modes > 1 and self.vol_plotter.rots is not None:
             mode = self.modenum.value()
             numlist = np.where(self.vol_plotter.modes == mode)[0]
-            self.fr = MyFrameviewer(self.config, mode, numlist)
+            self.fviewer = MyFrameviewer(self.config, mode, numlist)
         else:
-            self.fr = MyFrameviewer(self.config, -1, [])
+            self.fviewer = MyFrameviewer(self.config, -1, [])
+        self.fviewer.windowClosed.connect(self._fviewer_closed)
+
+    @QtCore.Slot()
+    def _fviewer_closed(self):
+        self.fviewer = None
 
     def keyPressEvent(self, event): # pylint: disable=C0103
         '''Override of default keyPress event handler'''
