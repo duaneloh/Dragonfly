@@ -169,7 +169,7 @@ class FramePanel(QtWidgets.QWidget):
             subp = self._plot_slice(num)
         else:
             subp = self.fig.add_subplot(111)
-        subp.imshow(frame.T, vmin=0, vmax=float(self.rangestr.text()),
+        subp.imshow(frame, vmin=0, vmax=float(self.rangestr.text()),
                     interpolation='none', cmap=self.parent.cmap)
         subp.set_title(self._get_plot_title(frame, num, mode))
         self.fig.tight_layout()
