@@ -766,7 +766,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
             if self.recon_type == '3d':
                 self._init_sliders('layer', size, center)
             elif self.num_modes > 1:
-                self._init_sliders('mode', self.num_modes, self.modenum.value())
+                self._init_sliders('mode', self.num_modes+self.num_nonrot, self.modenum.value())
             self._plot_vol()
         elif self.need_replot:
             self._plot_vol()
@@ -817,7 +817,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
             if self.fr is not None:
                 self.fr.mode = curr_mode
                 self.fr.label.setText('Class %d frames'%curr_mode)
-                self.fr.numlist = np.where(self.vol_plotter.rots % self.num_modes == curr_mode)[0]
+                self.fr.numlist = np.where(self.vol_plotter.modes == curr_mode)[0]
 
     def _load_volume(self):
         fpath = QtWidgets.QFileDialog.getOpenFileName(self, 'Load 3D Volume',
