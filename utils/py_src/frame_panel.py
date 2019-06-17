@@ -63,7 +63,7 @@ class FramePanel(QtWidgets.QWidget):
                                                 folder=self.parent.output_folder,
                                                 need_scaling=self.parent.need_scaling)
         if self.do_powder:
-            self.powder_sum = self.emc_reader.get_powder()
+            self.powder_sum = self.emc_reader.get_powder(raw=True)
         if self.parent.blacklist is not None:
             self.good_ind = np.where(self.parent.blacklist==0)[0]
 
@@ -103,6 +103,11 @@ class FramePanel(QtWidgets.QWidget):
             self.compare_flag.setChecked(False)
             self.compare_flag.setToolTip('Show comparison of frame with most likely tomogram')
             hbox.addWidget(self.compare_flag)
+        self.sym_flag = QtWidgets.QCheckBox('Symmetrize', self)
+        self.sym_flag.clicked.connect(self.plot_frame)
+        self.sym_flag.setChecked(False)
+        self.sym_flag.setToolTip('Centro-symmetrize frame (only meaningful at small angles)')
+        hbox.addWidget(self.sym_flag)
         label = QtWidgets.QLabel('PlotMax:', self)
         hbox.addWidget(label)
         self.rangestr = QtWidgets.QLineEdit('10', self)
@@ -134,7 +139,7 @@ class FramePanel(QtWidgets.QWidget):
         #if not self.do_compare:
         self.plot_frame()
 
-    def plot_frame(self, frame=None):
+    def plot_frame(self, event=None, frame=None):
         '''Update canvas according to GUI parameters
         Updated plot depends on mode (for classifier) and whether the GUI is in
         'compare' or 'powder' mode.
@@ -148,13 +153,14 @@ class FramePanel(QtWidgets.QWidget):
             num = None
             pass
         elif self.do_powder:
-            frame = self.powder_sum
+            det0 = self.emc_reader.flist[0]['geom']
+            frame = det0.assemble_frame(self.powder_sum, sym=self.sym_flag.isChecked())
             num = None
         else:
             num = self.get_num()
             if num is None:
                 return
-            frame = self.emc_reader.get_frame(num, zoomed=True)
+            frame = self.emc_reader.get_frame(num, zoomed=True, sym=self.sym_flag.isChecked())
 
         try:
             for point in self.parent.embedding_panel.roi_list:
