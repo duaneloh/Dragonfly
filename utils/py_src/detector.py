@@ -3,6 +3,7 @@
 import sys
 import os
 import numpy as np
+from numpy import ma
 import pandas
 try:
     import h5py
@@ -46,6 +47,7 @@ class Detector(object):
         self.detd = detd_pix
         self.ewald_rad = ewald_rad
         self.background = None
+        self._sym_shape = None
         if det_fname is not None:
             self.parse(det_fname, mask_flag, keep_mask_1)
 
@@ -93,6 +95,21 @@ class Detector(object):
         else:
             print('Writing ASCII detector file')
             self._write_asciidet(fname)
+
+    def assemble_frame(self, data, zoomed=False, sym=False):
+        if sym:
+            self._init_sym()
+            img = ma.masked_array(np.zeros(self._sym_shape, dtype='f4'), mask=1-self._sym_mask)
+            np.add.at(img, (self._sym_x, self._sym_y), data*self.unassembled_mask)
+            np.add.at(img, (self._sym_fx, self._sym_fy), data*self.unassembled_mask)
+            img.data[self._sym_bothgood] /= 2.
+        else:
+            img = ma.masked_array(np.zeros(self.frame_shape, dtype='i4'), mask=1-self.mask)
+            np.add.at(img, (self.x, self.y), data*self.unassembled_mask)
+            if zoomed:
+                b = self.zoom_bounds
+                return img[b[0]:b[1], b[2]:b[3]]
+        return img
 
     def _parse_asciidet(self, mask_flag, keep_mask_1):
         """ (Internal) Detector file parser
@@ -196,7 +213,27 @@ class Detector(object):
         self.mask = np.zeros(self.frame_shape, dtype='u1')
         self.mask[self.x, self.y] = mask.flatten()
         self.mask = np.sign(self.mask)
-        self.unassembled_mask = mask
+        self.unassembled_mask = mask.ravel()
+
+        xsel = self.x[mask.astype(np.bool)]
+        ysel = self.y[mask.astype(np.bool)]
+        self.zoom_bounds = (xsel.min(), xsel.max()+1, ysel.min(), ysel.max()+1)
+
+    def _init_sym(self):
+        if self._sym_shape is not None:
+            return
+        self._sym_shape = (2*int(np.ceil(np.abs(self.cx).max()))+1, 2*int(np.ceil(np.abs(self.cy).max()))+1)
+
+        self._sym_x = np.round(self.cx + self._sym_shape[0]//2).astype('i4')
+        self._sym_y = np.round(self.cy + self._sym_shape[1]//2).astype('i4')
+        self._sym_fx = self._sym_shape[0] - self._sym_x
+        self._sym_fy = self._sym_shape[1] - self._sym_y
+
+        self._sym_mask = np.zeros(self._sym_shape, dtype='u1')
+        np.add.at(self._sym_mask, (self._sym_x, self._sym_y), self.unassembled_mask)
+        np.add.at(self._sym_mask, (self._sym_fx, self._sym_fy), self.unassembled_mask)
+        self._sym_bothgood = (self._sym_mask == 2)
+        self._sym_mask = np.sign(self._sym_mask)
 
     @property
     def coords_xy(self):
