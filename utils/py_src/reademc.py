@@ -50,8 +50,7 @@ class EMCReader(object):
                 print('Need mapping if multiple geometries are provided')
                 raise
 
-        self._assembled_masks = [self._assemble_frame(p['geom'].unassembled_mask, n, fresh=True)
-                                 for n, p in enumerate(self.flist)]
+        self._assembled_masks = [p['geom'].mask for p in self.flist]
         self._parse_headers()
 
     @staticmethod
@@ -139,7 +138,7 @@ class EMCReader(object):
         """
         if self.multiple_geom:
             raise ValueError('Powder sum unreasonable with multiple geometries')
-        powder = np.zeros((self.flist[0]['num_pix'],), dtype='f8')
+        powder = np.zeros((self.flist[0]['num_pix'][0].astype('i8'),), dtype='f8')
 
         for pdict in self.flist:
             if pdict['is_hdf5']:
@@ -214,13 +213,10 @@ class EMCReader(object):
             count_multi = np.fromfile(fptr, dtype='i4', count=size[1])
         return place_ones, place_multi, count_multi
 
-    def _assemble_frame(self, data, num, fresh=False, zoomed=False):
+    def _assemble_frame(self, data, num, zoomed=False):
         geom = self.flist[num]['geom']
-        if fresh:
-            img = np.zeros(geom.frame_shape, dtype=data.dtype)
-        else:
-            mask = 1-self._assembled_masks[num]
-            img = ma.masked_array(np.zeros(mask.shape, dtype='i4'), mask=mask)
+        mask = 1 - self._assembled_masks[num]
+        img = ma.masked_array(np.zeros(mask.shape, dtype='i4'), mask=mask)
         np.add.at(img, (geom.x, geom.y), data)
         if zoomed:
             b = self.flist[num]['zoom_bounds']
