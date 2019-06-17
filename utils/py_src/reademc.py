@@ -50,7 +50,6 @@ class EMCReader(object):
                 print('Need mapping if multiple geometries are provided')
                 raise
 
-        self._assembled_masks = [p['geom'].mask for p in self.flist]
         self._parse_headers()
 
     @staticmethod
@@ -65,11 +64,6 @@ class EMCReader(object):
 
     def _parse_headers(self):
         for i, pdict in enumerate(self.flist):
-            geom = pdict['geom']
-            xsel = geom.x[geom.unassembled_mask.astype(np.bool)]
-            ysel = geom.y[geom.unassembled_mask.astype(np.bool)]
-            pdict['zoom_bounds'] = (xsel.min(), xsel.max()+1, ysel.min(), ysel.max()+1)
-
             pdict['is_hdf5'] = self._test_h5file(pdict['fname'])
             if pdict['is_hdf5'] and not HDF5_MODE:
                 print('Unable to parse HDF5 dataset')
@@ -113,7 +107,10 @@ class EMCReader(object):
 
         Arguments:
             num (int) - Frame number
-            raw (bool, optional) - Whether to get unassembled frame
+        Keyword arguments:
+            raw (bool) - Whether to get unassembled frame (False)
+            sparse (bool) - Whether to return sparse data (False)
+            zoomed (bool) - Whether to zoom assembled frame to non-masked region (False)
 
         Returns:
             Assembled or unassembled frame as a dense array
@@ -138,7 +135,7 @@ class EMCReader(object):
         """
         if self.multiple_geom:
             raise ValueError('Powder sum unreasonable with multiple geometries')
-        powder = np.zeros((self.flist[0]['num_pix'][0].astype('i8'),), dtype='f8')
+        powder = np.zeros((self.flist[0]['num_pix'],), dtype='f8')
 
         for pdict in self.flist:
             if pdict['is_hdf5']:
@@ -159,9 +156,9 @@ class EMCReader(object):
             np.add.at(powder, place_ones, 1)
             np.add.at(powder, place_multi, count_multi)
 
-        powder *= self.flist[0]['geom'].unassembled_mask
+        #powder *= self.flist[0]['geom'].unassembled_mask
         if not raw:
-            powder = self._assemble_frame(powder, 0, **kwargs)
+            powder = self.flist[0]['geom'].assemble_frame(powder, **kwargs)
         return powder
 
     def _read_frame(self, file_num, frame_num, raw=False, sparse=False, **kwargs):
@@ -176,9 +173,9 @@ class EMCReader(object):
         frame = np.zeros(pdict['num_pix'], dtype='i4')
         np.add.at(frame, po, 1)
         np.add.at(frame, pm, cm)
-        frame *= pdict['geom'].unassembled_mask
+        #frame *= pdict['geom'].unassembled_mask
         if not raw:
-            frame = self._assemble_frame(frame, file_num, **kwargs)
+            frame = pdict['geom'].assemble_frame(frame, **kwargs)
         return frame
 
     @staticmethod
@@ -213,12 +210,3 @@ class EMCReader(object):
             count_multi = np.fromfile(fptr, dtype='i4', count=size[1])
         return place_ones, place_multi, count_multi
 
-    def _assemble_frame(self, data, num, zoomed=False):
-        geom = self.flist[num]['geom']
-        mask = 1 - self._assembled_masks[num]
-        img = ma.masked_array(np.zeros(mask.shape, dtype='i4'), mask=mask)
-        np.add.at(img, (geom.x, geom.y), data)
-        if zoomed:
-            b = self.flist[num]['zoom_bounds']
-            return img[b[0]:b[1], b[2]:b[3]]
-        return img
