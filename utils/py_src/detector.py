@@ -193,8 +193,9 @@ class Detector(object):
         self.y = np.round(self.cy - self.cy.min()).astype('i4')
 
         self.frame_shape = (self.x.max()+1, self.y.max()+1)
-        self.mask = np.ones(self.frame_shape, dtype='u1')
+        self.mask = np.zeros(self.frame_shape, dtype='u1')
         self.mask[self.x, self.y] = mask.flatten()
+        self.mask = np.sign(self.mask)
         self.unassembled_mask = mask
 
     @property
