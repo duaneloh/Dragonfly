@@ -213,18 +213,29 @@ int parse_scale(char *fname, struct iterate *iter) {
 		flag = 1 ;
 		fread(line, sizeof(char), 8, fp) ;
 		if (strncmp(line, hdfheader, 8) == 0) {
-#ifdef WITH_HDF5
 			fclose(fp) ;
+#ifdef WITH_HDF5
 			hid_t file, dset, dspace ;
+			hsize_t npoints ;
 			file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT) ;
 			dset = H5Dopen(file, "/scale", H5P_DEFAULT) ;
 			dspace = H5Dget_space(dset) ;
-			if (H5Sget_simple_extent_npoints(dspace) != iter->tot_num_data) {
-				fprintf(stderr, "Number of frames in 'scale' dataset does not match. ") ;
-				fprintf(stderr, "Defaulting to uniform scale factors\n") ;
+			npoints = H5Sget_simple_extent_npoints(dspace) ;
+			if (npoints != iter->tot_num_data) {
+				fprintf(stderr, "Number of frames in 'scale' dataset does not match.\n") ;
+				if (npoints < iter->tot_num_data) {
+					fprintf(stderr, "Reading scale factors into first %lld frames, others unity\n", npoints) ;
+					dspace = H5S_ALL ;
+				}
+				else {
+					fprintf(stderr, "Reading only first %d scale factors out of %lld\n", iter->tot_num_data, npoints) ;
+					npoints = iter->tot_num_data ;
+					dspace = H5Screate_simple(1, &npoints, NULL) ;
+				}
+				//fprintf(stderr, "Defaulting to uniform scale factors\n") ;
 				return 0 ;
 			}
-			H5Dread(dset, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, iter->scale) ;
+			H5Dread(dset, H5T_IEEE_F64LE, dspace, H5S_ALL, H5P_DEFAULT, iter->scale) ;
 			H5Dclose(dset) ;
 			H5Fclose(file) ;
 #else // WITH_HDF5
