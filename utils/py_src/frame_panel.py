@@ -266,16 +266,17 @@ class FramePanel(QtWidgets.QWidget):
         self.setFocus()
 
     def _save_powder(self):
-        fname = '%s/assem_powder.bin' % self.parent.output_folder
-        sys.stderr.write('Saving assembled powder sum with shape %s to %s\n' %
-                         ((self.powder_sum.shape,), fname))
-        self.powder_sum.data.tofile(fname)
-
-        raw_powder = self.emc_reader.get_powder(raw=True)
         fname = '%s/powder.bin' % self.parent.output_folder
         sys.stderr.write('Saving raw powder sum with shape %s to %s\n' %
-                         ((raw_powder.shape,), fname))
-        raw_powder.tofile(fname)
+                         ((self.powder_sum.shape,), fname))
+        self.powder_sum.tofile(fname)
+
+        det0 = self.emc_reader.flist[0]['geom']
+        fr = det0.assemble_frame(self.powder_sum)
+        fname = '%s/assem_powder.bin' % self.parent.output_folder
+        sys.stderr.write('Saving assembled powder sum with shape %s to %s\n' %
+                         ((fr.shape,), fname))
+        fr.data.tofile(fname)
 
     def keyPressEvent(self, event): # pylint: disable=C0103
         '''Override of default keyPress event handler'''
