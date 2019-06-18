@@ -99,12 +99,12 @@ class Detector(object):
     def assemble_frame(self, data, zoomed=False, sym=False):
         if sym:
             self._init_sym()
-            img = ma.masked_array(np.zeros(self._sym_shape, dtype='f4'), mask=1-self._sym_mask)
+            img = ma.masked_array(np.zeros(self._sym_shape, dtype='f8'), mask=1-self._sym_mask)
             np.add.at(img, (self._sym_x, self._sym_y), data*self.unassembled_mask)
             np.add.at(img, (self._sym_fx, self._sym_fy), data*self.unassembled_mask)
             img.data[self._sym_bothgood] /= 2.
         else:
-            img = ma.masked_array(np.zeros(self.frame_shape, dtype='i4'), mask=1-self.mask)
+            img = ma.masked_array(np.zeros(self.frame_shape, dtype='f8'), mask=1-self.mask)
             np.add.at(img, (self.x, self.y), data*self.unassembled_mask)
             if zoomed:
                 b = self.zoom_bounds
@@ -208,19 +208,24 @@ class Detector(object):
         self.cy = self.qy * self.detd / (self.ewald_rad - self.qz) # pylint: disable=C0103
         self.x = np.round(self.cx - self.cx.min()).astype('i4')
         self.y = np.round(self.cy - self.cy.min()).astype('i4')
-
-        self.frame_shape = (self.x.max()+1, self.y.max()+1)
-        self.mask = np.zeros(self.frame_shape, dtype='u1')
-        self.mask[self.x, self.y] = mask.flatten()
-        self.mask = np.sign(self.mask)
         self.unassembled_mask = mask.ravel()
+        self._init_assem()
+
+    def _init_assem(self):
+        # Calculate attributes given self.x and self.y
+        mask = self.unassembled_mask
+        self.frame_shape = (self.x.max()+1, self.y.max()+1)
+
+        self.mask = np.zeros(self.frame_shape, dtype='u1')
+        self.mask[self.x, self.y] = mask
+        self.mask = np.sign(self.mask)
 
         xsel = self.x[mask.astype(np.bool)]
         ysel = self.y[mask.astype(np.bool)]
         self.zoom_bounds = (xsel.min(), xsel.max()+1, ysel.min(), ysel.max()+1)
 
-    def _init_sym(self):
-        if self._sym_shape is not None:
+    def _init_sym(self, force=False):
+        if self._sym_shape is not None and not force:
             return
         self._sym_shape = (2*int(np.ceil(np.abs(self.cx).max()))+1, 2*int(np.ceil(np.abs(self.cy).max()))+1)
 
