@@ -4,7 +4,6 @@ from __future__ import print_function
 import sys
 import os
 import numpy as np
-from numpy import ma
 try:
     import h5py
     HDF5_MODE = True
@@ -22,13 +21,13 @@ class EMCReader(object):
         geom_mapping (list, optional) - Mapping from photons_list to geom_list
 
     If there is only one entry in geom_list, all emc files are assumed to use \
-    to that detector. Otherwise, a mapping must be provided. \
+    that detector. Otherwise, a mapping must be provided. \
     The mapping is a list of the same length as photons_list with entries \
     giving indices in geom_list for the corresponding emc file.
 
     Methods:
-        get_frame(num, raw=False)
-        get_powder(raw=False)
+        get_frame(num, raw=False, sparse=False, zoomed=False, sym=False)
+        get_powder(raw=False, zoomed=False, sym=False)
     """
     def __init__(self, photons_list, geom_list, geom_mapping=None):
         if hasattr(photons_list, 'strip') or not hasattr(photons_list, '__getitem__'):
@@ -97,9 +96,7 @@ class EMCReader(object):
     def _parse_h5header(pdict):
         with h5py.File(pdict['fname'], 'r') as fptr:
             pdict['num_data'] = fptr['place_ones'].shape[0]
-            pdict['num_pix'] = fptr['num_pix'][()]
-            if type(pdict['num_pix']) is np.ndarray:
-                pdict['num_pix'] = pdict['num_pix'][0]
+            pdict['num_pix'] = np.prod(fptr['num_pix'][()])
 
     def get_frame(self, num, **kwargs):
         """Get particular frame from file list
