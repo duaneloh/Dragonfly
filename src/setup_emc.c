@@ -51,7 +51,7 @@ int setup(char *s_config_fname, int continue_flag) {
 		return 1 ;
 	}
 	fclose(fp) ;
-	generate_params(config_fname, param) ;
+	params_from_config(config_fname, param) ;
 	backup_log_file(param) ;
 #ifndef WITH_HDF5
 	generate_output_dirs(param) ;
@@ -75,15 +75,15 @@ int setup(char *s_config_fname, int continue_flag) {
 		fprintf(stderr, "recon_type not recognized\n") ;
 		return 1 ;
 	}
-	if ((qmax = generate_detectors(config_fname, "emc", &det, det_flag)) < 0.)
+	if ((qmax = detector_from_config(config_fname, "emc", &det, det_flag)) < 0.)
 		return 1 ;
-	if (generate_quaternion(config_fname, "emc", quat))
+	if (quat_from_config(config_fname, "emc", quat))
 		return 1 ;
 	divide_quat(param->rank, param->num_proc, param->modes, param->nonrot_modes, quat) ;
-	if (generate_data(config_fname, "emc", "in", det, frames))
+	if (data_from_config(config_fname, "emc", "in", det, frames))
 		return 1 ;
-	generate_blacklist(config_fname, frames) ;
-	if (generate_iterate(config_fname, "emc", continue_flag, qmax, param, det, frames, iter))
+	blacklist_from_config(config_fname, frames) ;
+	if (iterate_from_config(config_fname, "emc", continue_flag, qmax, param, det, frames, iter))
 		return 1 ;
 	if (!param->rank && param->start_iter == 1)
 		save_initial_iterate() ;

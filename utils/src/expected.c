@@ -144,7 +144,7 @@ int setup(char *fname) {
 	}
 	fprintf(stderr, "Calculating expected likelihoods using %s\n", probs_fname) ;
 	
-	if ((qmax = generate_detectors(fname, "emc", &det, 1)) < 0.)
+	if ((qmax = detector_from_config(fname, "emc", &det, 1)) < 0.)
 		return 1 ;
 	calculate_size(qmax, iter) ;
 	iter->tot_num_data = calculate_num_data(probs_fname) ;

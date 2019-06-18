@@ -922,7 +922,7 @@ void free_quat(struct rotation *quat) {
 	free(quat) ;
 }
 
-int generate_quaternion(char *config_fname, char *config_section, struct rotation *quat_ptr) {
+int quat_from_config(char *config_fname, char *config_section, struct rotation *quat_ptr) {
 	int r, b, num, num_div = -1, recon_type = 3, num_rot = 0, num_beta ;
 	double beta_min = 0., beta_max = 0., beta_incr = 0. ;
 	char quat_fname[1024] = {'\0'}, point_group[1024] = {'\0'} ;

@@ -389,7 +389,7 @@ char *generate_token(char *line, char *section_name) {
 	return token ;
 }
 
-int generate_size_params(char *config_fname) {
+int size_params_from_config(char *config_fname) {
 	double qmin, qmax, hx, hy ;
 	double detd = 0., pixsize = 0., ewald_rad = -1. ;
 	int detsize = 0, dets_x = 0, dets_y = 0 ;
@@ -446,7 +446,7 @@ int generate_size_params(char *config_fname) {
 	return 0 ;
 }
 
-int generate_intens(char *config_fname) {
+int intens_from_config(char *config_fname) {
 	FILE *fp ;
 	char intens_fname[1024], out_intens_fname[1024] ;
 	char line[1024], section_name[1024], *token ;
@@ -481,7 +481,7 @@ int generate_intens(char *config_fname) {
 	return 0 ;
 }
 
-int generate_quat_list(char *config_fname) {
+int quat_list_from_config(char *config_fname) {
 	int t ;
 	FILE *fp ;
 	char quat_fname[1024] = {'\0'} ;
@@ -516,7 +516,7 @@ int generate_quat_list(char *config_fname) {
 	return 0 ;
 }
 
-int generate_globals(char *config_fname) {
+int globals_from_config(char *config_fname) {
 	char line[1024], section_name[1024], *token ;
 	
 	size = 0 ;
@@ -633,15 +633,15 @@ int setup(char *config_fname) {
 		return 1 ;
 	}
 	fclose(fp) ;
-	if (generate_detectors(config_fname, "make_data", &det, 0) < 0.)
+	if (detector_from_config(config_fname, "make_data", &det, 0) < 0.)
 		return 1 ;
-	if (generate_globals(config_fname))
+	if (globals_from_config(config_fname))
 		return 1 ;
-	if (generate_size_params(config_fname))
+	if (size_params_from_config(config_fname))
 		return 1 ;
-	if (generate_intens(config_fname))
+	if (intens_from_config(config_fname))
 		return 1 ;
-	if (generate_quat_list(config_fname))
+	if (quat_list_from_config(config_fname))
 		return 1 ;
 
 	return 0 ;

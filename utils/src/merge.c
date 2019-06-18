@@ -32,7 +32,7 @@ char *generate_token(char *line, char *section_name) {
 	return token ;
 }
 
-int generate_quat_list(char *config_fname) {
+int quat_list_from_config(char *config_fname) {
 	int r, t, invert_quat = 0 ;
 	char quat_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;
@@ -69,7 +69,7 @@ int generate_quat_list(char *config_fname) {
 	return 0 ;
 }
 
-int generate_globals(char *config_fname, char *output_fname, char *scale_fname) {
+int globals_from_config(char *config_fname, char *output_fname, char *scale_fname) {
 	char line[1024], section_name[1024], *token ;
 	
 	frames = malloc(sizeof(struct dataset)) ;
@@ -104,7 +104,7 @@ int generate_globals(char *config_fname, char *output_fname, char *scale_fname) 
 	return 0 ;
 }
 
-int generate_rel_quat(char *config_fname) {
+int rel_quat_from_config(char *config_fname) {
 	char line[1024], section_name[1024], *token ;
 	char probs_fname[1024] ;
 	int num_div = -1 ;
@@ -157,16 +157,16 @@ int setup(char *fname, char *output_fname) {
 		return 1 ;
 	}
 	fclose(fp) ;
-	if (generate_globals(fname, output_fname, scale_fname))
+	if (globals_from_config(fname, output_fname, scale_fname))
 		return 1 ;
-	if ((qmax = generate_detectors(fname, "merge", &det, 1)) < 0.)
+	if ((qmax = detector_from_config(fname, "merge", &det, 1)) < 0.)
 		return 1 ;
 	calculate_size(qmax, iter) ;
-	if (generate_data(fname, "merge", "in", det, frames))
+	if (data_from_config(fname, "merge", "in", det, frames))
 		return 1 ;
 	iter->tot_num_data = frames->tot_num_data ;
 	iter->scale = malloc(iter->tot_num_data * sizeof(double)) ;
-	if (generate_quat_list(fname) && generate_rel_quat(fname))
+	if (quat_list_from_config(fname) && rel_quat_from_config(fname))
 		return 1 ;
 	
 	parse_scale(scale_fname, iter) ;

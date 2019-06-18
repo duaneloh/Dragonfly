@@ -68,7 +68,7 @@ static void calc_beta(struct dataset *frames, struct params *param) {
 
 // Public functions below
 
-int generate_iterate(char *config_fname, char *config_section, int continue_flag, double qmax, struct params *param, struct detector *det, struct dataset *dset, struct iterate *iter) {
+int iterate_from_config(char *config_fname, char *config_section, int continue_flag, double qmax, struct params *param, struct detector *det, struct dataset *dset, struct iterate *iter) {
 	FILE *fp ;
 	double model_mean ;
 	char input_fname[2048] = {'\0'}, scale_fname[2048] = {'\0'} ;

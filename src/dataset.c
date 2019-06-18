@@ -328,7 +328,7 @@ static int num_words(char *line) {
 	return retval ;
 }
 
-int generate_data(char *config_fname, char *config_section, char *type_string, struct detector *det_list, struct dataset *frames_list) {
+int data_from_config(char *config_fname, char *config_section, char *type_string, struct detector *det_list, struct dataset *frames_list) {
 	int num_datasets = 0 ;
 	char data_fname[1024] = {'\0'}, data_flist[1024] = {'\0'}, out_data_fname[1024] = {'\0'} ;
 	char fname_opt[64], flist_opt[64] ;
@@ -586,7 +586,7 @@ int parse_dataset_list(char *flist, struct detector *det, struct dataset *frames
 	return num_sparse + num_dense ;
 }
 
-void generate_blacklist(char *config_fname, struct dataset *frames) {
+void blacklist_from_config(char *config_fname, struct dataset *frames) {
 	char blacklist_fname[1024] = {'\0'}, sel_string[1024] = {'\0'} ;
 	char line[1024], section_name[1024], config_folder[1024], *token ;
 	char *temp_fname = strndup(config_fname, 1024) ;

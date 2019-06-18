@@ -18,7 +18,7 @@ int quat_gen(int, struct rotation*) ;
 int parse_quat(char*, int, struct rotation*) ;
 void divide_quat(int, int, int, int, struct rotation*) ;
 void free_quat(struct rotation*) ;
-int generate_quaternion(char*, char*, struct rotation*) ;
+int quat_from_config(char*, char*, struct rotation*) ;
 void voronoi_subset(struct rotation*, struct rotation*, int*) ;
 
 #endif //QUAT_H

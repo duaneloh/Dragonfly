@@ -24,7 +24,7 @@ static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
 	}
 }
 
-void generate_params(char *config_fname, struct params *param) {
+void params_from_config(char *config_fname, struct params *param) {
 	char line[2048], section_name[1024], config_folder[1024], temp[8] ;
 	char beta_str[1024] = {'\0'} ;
 	char *temp_fname = strndup(config_fname, 1024) ;

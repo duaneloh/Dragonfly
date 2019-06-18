@@ -272,7 +272,7 @@ static int parse_background_list(char *flist, struct detector **det_list) {
 	return 0 ;
 }
 
-double generate_detectors(char *config_fname, char *config_section, struct detector **det_list, int norm_flag) {
+double detector_from_config(char *config_fname, char *config_section, struct detector **det_list, int norm_flag) {
 	double qmax ;
 	char det_fname[1024] = {'\0'}, det_flist[1024] = {'\0'}, out_det_fname[1024] = {'\0'} ;
 	char bg_fname[1024] = {'\0'}, bg_flist[1024] = {'\0'} ;
