@@ -111,6 +111,7 @@ class EMCReader(object):
             raw (bool) - Whether to get unassembled frame (False)
             sparse (bool) - Whether to return sparse data (False)
             zoomed (bool) - Whether to zoom assembled frame to non-masked region (False)
+            sym (bool) - Whether to centro-symmetrize assembled frame (False)
 
         Returns:
             Assembled or unassembled frame as a dense array
@@ -127,8 +128,10 @@ class EMCReader(object):
     def get_powder(self, raw=False, **kwargs):
         """Get virtual powder sum of all frames in file list
 
-        Arguments:
-            raw (bool, optional) - Whether to return unassembled powder sum
+        Keyword arguments:
+            raw (bool) - Whether to return unassembled powder sum (False)
+            zoomed (bool) - Whether to zoom assembled frame to non-masked region (False)
+            sym (bool) - Whether to centro-symmetrize assembled frame (False)
 
         Returns:
             Assembled or unassembled powder sum as a dense array
