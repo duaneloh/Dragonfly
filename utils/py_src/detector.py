@@ -29,8 +29,10 @@ class Detector(object):
     but for the old file, they must be provided.
 
     Methods:
-        parse(fname) - Parse detector from file
-        write(fname) - Write detector to file
+        parse(fname, mask_flag=False, keep_mask_1=True)
+        write(fname)
+        assemble_frame(data, zoomed=False, sym=False)
+        calc_from_coords()
 
     On parsing, it produces the following numpy arrays (each of length num_pix)
 
@@ -97,6 +99,16 @@ class Detector(object):
             self._write_asciidet(fname)
 
     def assemble_frame(self, data, zoomed=False, sym=False):
+        ''' Assemble given raw image
+
+        Arguments:
+            data - array of num_pix values
+            zoomed (bool) - Restrict assembled image to non-masked pixels
+            sym (bool) - Centro-symmetrize image
+
+        Returns:
+            Numpy masked array representing assembled image
+        '''
         if sym:
             self._init_sym()
             img = ma.masked_array(np.zeros(self._sym_shape, dtype='f8'), mask=1-self._sym_mask)
@@ -110,6 +122,29 @@ class Detector(object):
                 b = self.zoom_bounds
                 return img[b[0]:b[1], b[2]:b[3]]
         return img
+
+    def calc_from_coords(self):
+        ''' Calculate essential detector attributes from pixel coordinates
+
+        Needs:
+            cx, cy, detd, ewald_rad
+        Calculates:
+            qx, qy, qz and corr
+        '''
+        try:
+            val = self.cx + self.cy
+            val = self.detd + self.ewald_rad
+        except AttributeError:
+            print('Need cx, cy, detd and ewald_rad to be defined')
+            print('detd must have same units as cx and cy')
+            print('ewald_rad should be in voxel units')
+            return
+
+        fac = np.sqrt(self.cx**2 + self.cy**2 + self.detd**2)
+        self.qx = self.cx * self.ewald_rad / fac
+        self.qy = self.cy * self.ewald_rad / fac
+        self.qz = self.ewald_rad * (1. - self.detd/fac)
+        self.corr = self.detd / fac**3 * (1. - self.cx**2 / fac**2)
 
     def _parse_asciidet(self, mask_flag, keep_mask_1):
         """ (Internal) Detector file parser
@@ -227,7 +262,8 @@ class Detector(object):
     def _init_sym(self, force=False):
         if self._sym_shape is not None and not force:
             return
-        self._sym_shape = (2*int(np.ceil(np.abs(self.cx).max()))+1, 2*int(np.ceil(np.abs(self.cy).max()))+1)
+        self._sym_shape = (2*int(np.ceil(np.abs(self.cx).max()))+1,
+                           2*int(np.ceil(np.abs(self.cy).max()))+1)
 
         self._sym_x = np.round(self.cx + self._sym_shape[0]//2).astype('i4')
         self._sym_y = np.round(self.cy + self._sym_shape[1]//2).astype('i4')
@@ -251,7 +287,7 @@ class Detector(object):
         return self.qx, self.qy, self.qz
 
     @property
-    def indexes_xy(self):
+    def indices_xy(self):
         '''Return 2D integer coordinates (for assembly)
         Corner of the detector at (0,0)'''
         return self.x, self.y
