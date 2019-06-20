@@ -466,6 +466,8 @@ class ProgressViewer(QtWidgets.QMainWindow):
         action = QtWidgets.QAction('Open &Frameviewer', self)
         action.triggered.connect(self._open_frameviewer)
         action.setToolTip('View frames related to given mode')
+        if self.recon_type == '3d':
+            action.setEnabled(False)
         framesmenu.addAction(action)
 
     def _init_plotarea(self):
@@ -925,6 +927,11 @@ class ProgressViewer(QtWidgets.QMainWindow):
     @QtCore.Slot()
     def _fviewer_closed(self):
         self.fviewer = None
+
+    def closeEvent(self, event): # pylint: disable=C0103
+        if self.fviewer is not None:
+            self.fviewer.close()
+        event.accept()
 
     def keyPressEvent(self, event): # pylint: disable=C0103
         '''Override of default keyPress event handler'''
