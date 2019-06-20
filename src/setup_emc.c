@@ -52,7 +52,8 @@ int setup(char *s_config_fname, int continue_flag) {
 	}
 	fclose(fp) ;
 	params_from_config(config_fname, param) ;
-	backup_log_file(param) ;
+	if (!continue_flag)
+		backup_log_file(param) ;
 #ifndef WITH_HDF5
 	generate_output_dirs(param) ;
 #endif // WITH_HDF5
