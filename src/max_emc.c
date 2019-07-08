@@ -82,8 +82,9 @@ double maximize() {
 	
 	if (!param->rank) {
 		save_metrics(common_data) ;
-		save_prob(common_data) ;
+		//save_prob(common_data) ;
 	}
+	print_max_time("save", "", param->rank == 0) ;
 	free_memory(common_data) ;
 	
 	return avg_likelihood ;
@@ -589,6 +590,7 @@ double combine_information_mpi(struct max_data *data) {
 	if (iter->modes > 1)
 		MPI_Allreduce(MPI_IN_PLACE, data->quat_norm, frames->tot_num_data*iter->modes, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 	
+	print_max_time("sync", "", param->rank == 0) ;
 	return avg_likelihood ;
 }
 
@@ -601,6 +603,7 @@ void update_scale(struct max_data *common) {
 		for (d = 0 ; d < frames->tot_num_data ; ++d)
 		if (!frames->blacklist[d])
 			iter->scale[d] = frames->count[d] / common->psum_d[d] ;
+		print_max_time("scale", "", param->rank == 0) ;
 	}
 }
 
