@@ -115,6 +115,9 @@ class Detector(object):
             np.add.at(img, (self._sym_x, self._sym_y), data*self.unassembled_mask)
             np.add.at(img, (self._sym_fx, self._sym_fy), data*self.unassembled_mask)
             img.data[self._sym_bothgood] /= 2.
+            if zoomed:
+                b = self._sym_zoom_bounds
+                return img[b[0]:b[1], b[2]:b[3]]
         else:
             img = ma.masked_array(np.zeros(self.frame_shape, dtype='f8'), mask=1-self.mask)
             np.add.at(img, (self.x, self.y), data*self.unassembled_mask)
@@ -143,7 +146,7 @@ class Detector(object):
         fac = np.sqrt(self.cx**2 + self.cy**2 + self.detd**2)
         self.qx = self.cx * self.ewald_rad / fac
         self.qy = self.cy * self.ewald_rad / fac
-        self.qz = self.ewald_rad * (1. - self.detd/fac)
+        self.qz = self.ewald_rad * (self.detd/fac - 1.)
         self.corr = self.detd / fac**3 * (1. - self.cx**2 / fac**2)
 
     def _parse_asciidet(self, mask_flag, keep_mask_1):
@@ -239,8 +242,12 @@ class Detector(object):
             self.raw_mask = np.zeros(self.qx.shape, dtype='u1')
             mask = np.ones(self.qx.shape, dtype='u1')
 
-        self.cx = self.qx * self.detd / (self.ewald_rad - self.qz) # pylint: disable=C0103
-        self.cy = self.qy * self.detd / (self.ewald_rad - self.qz) # pylint: disable=C0103
+        if self.qz.mean() > 0:
+            self.cx = self.qx * self.detd / (self.ewald_rad - self.qz) # pylint: disable=C0103
+            self.cy = self.qy * self.detd / (self.ewald_rad - self.qz) # pylint: disable=C0103
+        else:
+            self.cx = self.qx * self.detd / (self.ewald_rad + self.qz) # pylint: disable=C0103
+            self.cy = self.qy * self.detd / (self.ewald_rad + self.qz) # pylint: disable=C0103
         self.x = np.round(self.cx - self.cx.min()).astype('i4')
         self.y = np.round(self.cy - self.cy.min()).astype('i4')
         self.unassembled_mask = mask.ravel()
@@ -275,6 +282,11 @@ class Detector(object):
         np.add.at(self._sym_mask, (self._sym_fx, self._sym_fy), self.unassembled_mask)
         self._sym_bothgood = (self._sym_mask == 2)
         self._sym_mask = np.sign(self._sym_mask)
+
+        mask = self.unassembled_mask
+        xsel = np.concatenate((self._sym_x[mask.astype('bool')], self._sym_fx[mask.astype('bool')]))
+        ysel = np.concatenate((self._sym_y[mask.astype('bool')], self._sym_fy[mask.astype('bool')]))
+        self._sym_zoom_bounds = (xsel.min(), xsel.max()+1, ysel.min(), ysel.max()+1)
 
     @property
     def coords_xy(self):
