@@ -154,7 +154,7 @@ class FramePanel(QtWidgets.QWidget):
             pass
         elif self.do_powder:
             det0 = self.emc_reader.flist[0]['geom']
-            frame = det0.assemble_frame(self.powder_sum, sym=self.sym_flag.isChecked())
+            frame = det0.assemble_frame(self.powder_sum, zoomed=True, sym=self.sym_flag.isChecked())
             num = None
         else:
             num = self.get_num()
