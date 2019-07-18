@@ -49,7 +49,7 @@ int main(int argc, char* argv[]) {
 	strcat(strcat(line, "/"), quat_fname) ;
 	fprintf(stderr, "Output name: %s\n", line) ;
 
-	quat = malloc(sizeof(struct rotation)) ;
+	quat = calloc(1, sizeof(struct rotation)) ;
 	quat_gen(num_div, quat) ;
 	
 	fp = fopen(line, "w") ;

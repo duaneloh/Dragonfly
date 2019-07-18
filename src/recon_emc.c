@@ -87,29 +87,80 @@ int parse_arguments(int argc, char *argv[], int *continue_flag, int *num_threads
 	return num_iter ;
 }
 
-void write_log_file_header(int num_threads) {
-	FILE *fp = fopen(param->log_fname, "w") ;
-	fprintf(fp, "Cryptotomography with the EMC algorithm using MPI+OpenMP\n\n") ;
-	fprintf(fp, "Data parameters:\n") ;
-	if (frames->num_blacklist == 0)
-		fprintf(fp, "\tnum_data = %d\n\tmean_count = %f\n\n", frames->tot_num_data, frames->tot_mean_count) ;
-	else
-		fprintf(fp, "\tnum_data = %d/%d\n\tmean_count = %f\n\n", frames->tot_num_data-frames->num_blacklist, frames->tot_num_data, frames->tot_mean_count) ;
-	fprintf(fp, "System size:\n") ;
-	fprintf(fp, "\tnum_rot = %d\n\tnum_pix = %d/%d\n\t", quat->num_rot, det->rel_num_pix, det->num_pix) ;
-	if (param->recon_type == RECON3D)
-		fprintf(fp, "system_volume = %d X %ld X %ld X %ld\n\n", param->modes, iter->size, iter->size, iter->size) ;
-	else if (param->recon_type == RECON2D)
-		fprintf(fp, "system_volume = %d X %ld X %ld\n\n", param->modes, iter->size, iter->size) ;
-	fprintf(fp, "Reconstruction parameters:\n") ;
-	fprintf(fp, "\tnum_threads = %d\n\tnum_proc = %d\n\talpha = %.6f\n\tbeta = %.6f\n\tneed_scaling = %s", 
-			num_threads, 
-			param->num_proc, 
-			param->alpha, 
-			param->beta, 
-			param->need_scaling?"yes":"no") ;
-	fprintf(fp, "\n\nIter\ttime\trms_change\tinfo_rate\tlog-likelihood\tnum_rot\tbeta\n") ;
-	fclose(fp) ;
+void emc() {
+	double beta_mean, likelihood ;
+	int d ;
+	
+	for (param->iteration = param->start_iter ; param->iteration <= param->num_iter + param->start_iter - 1 ; ++param->iteration) {
+		gettimeofday(&tr1, NULL) ;
+		
+		MPI_Bcast(iter->model1, iter->modes * iter->vol, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
+		
+		// Increasing beta by a factor of 'beta_jump' every 'beta_period' param->iterations
+		beta_mean = 0. ;
+		for (d = 0 ; d < frames->tot_num_data ; ++d)
+		if (!frames->blacklist[d]) {
+			param->beta[d] = param->beta_start[d] * pow(param->beta_jump, (param->iteration-1) / param->beta_period) ;
+			if (param->beta[d] > 1.)
+				param->beta[d] = 1. ;
+			beta_mean += param->beta[d] ;
+		}
+		beta_mean /= (frames->tot_num_data - frames->num_blacklist) ;
+		
+		likelihood = maximize() ;
+		print_recon_time("Completed maximize", &tr1, &tr2, param->rank) ;
+		
+		if (!param->rank)
+			update_model(likelihood) ;
+		if (param->need_scaling && param->recon_type == RECON3D)
+			normalize_scale(frames, iter) ;
+		if (!param->rank) {
+			save_models() ;
+			gettimeofday(&tr2, NULL) ;
+			update_log_file((double)(tr2.tv_sec - tr1.tv_sec) + 1.e-6*(tr2.tv_usec - tr1.tv_usec), likelihood, beta_mean) ;
+		}
+		print_recon_time("Updated 3D intensity", &tr2, &tr3, param->rank) ;
+		
+		MPI_Bcast(&iter->rms_change, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
+		if (isnan(iter->rms_change)) {
+			fprintf(stderr, "rms_change = NAN\n") ;
+			break ;
+		}
+	}
+	
+	if (!param->rank)
+		fprintf(stderr, "Finished all iterations\n") ;
+}
+
+void update_model(double likelihood) {
+	long x ;
+	double diff, change = 0., norm = 1. ;
+	
+	for (x = 0 ; x < iter->modes * iter->vol ; ++x)
+		if (iter->inter_weight[x] > 0.)
+			iter->model2[x] *= norm / iter->inter_weight[x] ;
+	
+	if (param->recon_type == RECONRZ || (param->recon_type == RECON2D && param->friedel_sym))
+		symmetrize_friedel2d(iter->model2, param->modes, iter->size) ;
+	else if (param->recon_type == RECON3D && quat->icosahedral_flag)
+		for (x = 0 ; x < param->modes ; ++x)
+			symmetrize_icosahedral(&iter->model2[x*iter->vol], iter->size) ;
+	else if (param->recon_type == RECON3D && quat->cubic_flag)
+		for (x = 0 ; x < param->modes ; ++x)
+			symmetrize_cubic(&iter->model2[x*iter->vol], iter->size) ;
+	else if (param->recon_type == RECON3D)
+		for (x = 0 ; x < param->modes ; ++x)
+			symmetrize_friedel(&iter->model2[x*iter->vol], iter->size) ;
+	
+	for (x = 0 ; x < iter->modes * iter->vol ; ++x) {
+		diff = iter->model2[x] - iter->model1[x] ;
+		change += diff * diff ;
+		if (param->alpha > 0.)
+			iter->model1[x] = param->alpha * iter->model1[x] + (1. - param->alpha) * iter->model2[x] ;
+		else
+			iter->model1[x] = iter->model2[x] ;
+	}
+	iter->rms_change = sqrt(change / iter->modes / iter->vol) ;
 }
 
 void emc() {

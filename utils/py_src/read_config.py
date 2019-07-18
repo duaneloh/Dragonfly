@@ -122,6 +122,7 @@ def compute_q_params(det_dist, dets_x, dets_y, pix_size, in_wavelength, ewald_ra
 
 def compute_polarization(polarization, polx, poly, norm):
     '''Returns polarization given pixel coordinates and type
+    
     Parameters:
         polarization: Can be 'x', 'y' or 'none'
         polx, poly: x and y coordinates of pixel
@@ -139,6 +140,11 @@ def compute_polarization(polarization, polx, poly, norm):
 def read_gui_config(gui, section):
     ''' Read config file parameters needed for GUI operation
     '''
+    # Defaults
+    gui.polar_params = ['5', '60', '2.', '10.']
+    gui.class_fname = 'my_classes.dat'
+    gui.stack_size = 0
+
     # Photons file list
     try:
         pfile = get_filename(gui.config_file, section, 'in_photons_file')

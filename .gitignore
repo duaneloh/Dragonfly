@@ -1,6 +1,7 @@
 # Executable
 emc
 bin/
+build/
 
 # Data files
 *.dat

@@ -51,9 +51,9 @@ int main(int argc, char *argv[]) {
 	if (parse_arguments(argc, argv, config_fname, powder_fname))
 		return 1 ;
 	
-	generate_detectors(config_fname, "emc", &det, 1) ;
+	detector_from_config(config_fname, "emc", &det, 1) ;
 	frames = malloc(sizeof(struct dataset)) ;
-	generate_data(config_fname, "in", "emc", det, frames) ;
+	data_from_config(config_fname, "in", "emc", det, frames) ;
 	
 	powder = malloc(det->num_pix * sizeof(double)) ;
 	fp = fopen(powder_fname, "rb") ;

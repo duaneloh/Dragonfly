@@ -9,6 +9,7 @@
 
 #define RECON3D 42
 #define RECON2D 43
+#define RECONRZ 44
 
 struct params {
 	int rank, num_proc ;
@@ -17,17 +18,20 @@ struct params {
 	int recon_type ;
 	
 	// Algorithm parameters
-	int beta_period, need_scaling, known_scale ;
-	double alpha, beta, beta_jump ;
+	int beta_period, need_scaling, known_scale, update_scale ;
+	double alpha, beta_jump ;
+	double *beta, *beta_start ;
+	int friedel_sym ; // Symmetrization for 2D recon
+	int refine, coarse_div, fine_div ; // If doing refinement
 	
 	// Gaussian EMC parameter
 	double sigmasq ;
 
 	// Number of unconstrained modes
-	int modes, rot_per_mode ;
+	int modes, rot_per_mode, nonrot_modes ;
 } ;
 
-void generate_params(char*, struct params*) ;
+void params_from_config(char*, struct params*) ;
 void generate_output_dirs(struct params*) ;
 
 #endif //PARAMS_H

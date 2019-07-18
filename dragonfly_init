@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 import sys
-from utils import init_new_recon
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), os.pardir, 'utils'))
+import init_new_recon
 
 sys.exit(init_new_recon.main())

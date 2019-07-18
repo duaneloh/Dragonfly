@@ -9,6 +9,7 @@ except ImportError:
 
 def add_scroll_hbox(gui, hbox):
     '''Adds buttons to hbox for scrolling through frames
+    
     Connects to the class's update functions
     '''
     button = QtWidgets.QPushButton('Prev', gui)

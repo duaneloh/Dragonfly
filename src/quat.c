@@ -728,7 +728,61 @@ static int reduce_icosahedral(int n, double *quat) {
 		quat[(1+r)*5+t] = quat[(60+r)*5+t] ;
 	num_rot++ ;
 	
-	fprintf(stderr, "num_rot = %d -> %d\n", old_num_rot, num_rot) ;
+	fprintf(stderr, "A5 symmetry: num_rot = %d -> %d\n", old_num_rot, num_rot) ;
+	return num_rot ;
+}
+
+static int reduce_cubic(int n, double *quat) {
+	int r, t, i, keep_quat, vnum = 0, num_vert = 8 ;
+	int old_num_rot = 10*(5*n*n*n + n), num_rot = 0 ;
+	double dist, dist0 ;
+	
+	// For all non-vertex quaternions
+	for (r = num_vert ; r < old_num_rot ; ++r) {
+		keep_quat = 1 ;
+		
+		// Calculate distance to quat[0]
+		// which should be {-1,1,1,1}/2
+		dist0 = 0. ;
+		for (t = 0 ; t < 4 ; ++t)
+			dist0 += quat[r*5+t] * quat[vnum*5+t] ;
+		dist0 = 1. - dist0*dist0 ;
+		
+		// Calculate distance to all other tesseract vertex quaternions
+		// {-1, +-1, +-1, +-1} / 2
+		for (i = 0 ; i < num_vert ; ++i) {
+			if (i == vnum)
+				continue ;
+			
+			dist = 0 ;
+			for (t = 0 ; t < 4 ; ++t)
+				dist += quat[r*5+t] * quat[i*5+t] ;
+			dist = 1. - dist*dist ;
+			
+			if (dist < dist0) {
+				keep_quat = 0 ;
+				break ;
+			}
+		}
+		
+		// If closest vertex is 0, keep quaternion
+		if (keep_quat) {
+			for (t = 0 ; t < 5 ; ++t)
+				quat[(num_vert+num_rot)*5+t] = quat[r*5+t] ;
+			num_rot++ ;
+		}
+	}
+	
+	// Move kept quaternions to first indices
+	for (t = 0 ; t < 5 ; ++t)
+		quat[0*5+t] = quat[vnum*5+t] ;
+	
+	for (r = 0 ; r < num_rot ; ++r)
+	for (t = 0 ; t < 5 ; ++t)
+		quat[(1+r)*5+t] = quat[(num_vert+r)*5+t] ;
+	num_rot++ ;
+	
+	fprintf(stderr, "S4 symmetry: num_rot = %d -> %d\n", old_num_rot, num_rot) ;
 	return num_rot ;
 }
 
@@ -741,85 +795,6 @@ static void quat_free_mem(int num) {
 		free(face_points) ;
 	if (num > 3)
 		free(cell_points) ;
-}
-
-int quat_gen(int num_div, struct rotation *quat) {
-	int r ;
-	double min_dist2, total_weight = 0. ;
-	
-	make_vertex(num_div) ; 
-	min_dist2 = calc_min_dist2() ;
-	make_edge(num_div, min_dist2) ;
-	make_face(num_div, min_dist2) ; 
-	make_cell(num_div, min_dist2) ;
-	make_map(min_dist2) ;
-	
-	quat_setup(num_div, &quat->quat, &quat->num_rot) ;
-	
-	if (num_div > 1)
-		refine_edge(num_div) ;
-	if (num_div > 2)
-		refine_face(num_div) ;
-	if (num_div > 3)
-		refine_cell(num_div) ;
-	
-	print_quat(num_div, quat->quat) ;
-	
-	if (quat->icosahedral_flag)
-		quat->num_rot = reduce_icosahedral(num_div, quat->quat) ;
-	
-	quat_free_mem(num_div) ;
-	
-	for (r = 0 ; r < quat->num_rot ; ++r)
-		total_weight += quat->quat[r*5 + 4] ;
-	total_weight = 1. / total_weight ;
-	for (r = 0 ; r < quat->num_rot ; ++r)
-		quat->quat[r*5 + 4] *= total_weight ;
-	
-	return quat->num_rot ;
-}
-
-int parse_quat(char *fname, struct rotation *quat) {
-	int r, t ;
-	
-	FILE *fp = fopen(fname, "r") ;
-	if (fp == NULL) {
-		fprintf(stderr, "quaternion file %s not found. Exiting.\n", fname) ;
-		return -1 ;
-	}
-	double total_weight = 0. ;
-	fscanf(fp, "%d", &quat->num_rot) ;
-	quat->quat = malloc(quat->num_rot * 5 * sizeof(double)) ;
-	for (r = 0 ; r < quat->num_rot ; ++r) {
-		for (t = 0 ; t < 5 ; ++t)
-			fscanf(fp, "%lf", &quat->quat[r*5 + t]) ;
-		total_weight += quat->quat[r*5 + 4] ;
-	}
-	total_weight = 1. / total_weight ;
-	for (r = 0 ; r < quat->num_rot ; ++r)
-		quat->quat[r*5 + 4] *= total_weight ;
-	fclose(fp) ;
-	
-	return quat->num_rot ;
-}
-
-void divide_quat(int rank, int num_proc, int num_modes, struct rotation *quat) {
-	quat->num_rot_p = num_modes * quat->num_rot / num_proc ;
-	if (rank < (quat->num_rot % num_proc))
-		quat->num_rot_p++ ;
-	if (num_proc > 1) {
-		char hname[99] ;
-		gethostname(hname, 99) ;
-		fprintf(stderr, "%d: %s: num_rot_p = %d\n", rank, hname, quat->num_rot_p) ;
-	}
-}
-
-void free_quat(struct rotation *quat) {
-	if (quat == NULL)
-		return ;
-	
-	free(quat->quat) ;
-	free(quat) ;
 }
 
 static char *generate_token(char *line, char *section_name) {
@@ -846,14 +821,117 @@ static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
 	}
 }
 
-int generate_quaternion(char *config_fname, char *config_section, struct rotation *quat_ptr) {
-	int r, num, num_div = -1, recon_type = 3, num_rot = 0 ;
-	char quat_fname[1024] = {'\0'} ;
+static double qdist(double *q1, double *q2) {
+	// Assumes both q1 and q1 are unit quaternions
+	int i ;
+	double d = 0. ;
+	for (i = 0 ; i < 4 ; ++i)
+		d += q1[i]*q2[i] ;
+	return 1. - d*d ;
+}
+
+// Public functions below
+
+int quat_gen(int num_div, struct rotation *quat) {
+	int r ;
+	double min_dist2, total_weight = 0. ;
+	
+	make_vertex(num_div) ; 
+	min_dist2 = calc_min_dist2() ;
+	make_edge(num_div, min_dist2) ;
+	make_face(num_div, min_dist2) ; 
+	make_cell(num_div, min_dist2) ;
+	make_map(min_dist2) ;
+	
+	quat_setup(num_div, &quat->quat, &quat->num_rot) ;
+	
+	if (num_div > 1)
+		refine_edge(num_div) ;
+	if (num_div > 2)
+		refine_face(num_div) ;
+	if (num_div > 3)
+		refine_cell(num_div) ;
+	
+	print_quat(num_div, quat->quat) ;
+	
+	if (quat->icosahedral_flag)
+		quat->num_rot = reduce_icosahedral(num_div, quat->quat) ;
+	else if (quat->cubic_flag)
+		quat->num_rot = reduce_cubic(num_div, quat->quat) ;
+	
+	quat_free_mem(num_div) ;
+	
+	for (r = 0 ; r < quat->num_rot ; ++r)
+		total_weight += quat->quat[r*5 + 4] ;
+	total_weight = 1. / total_weight ;
+	for (r = 0 ; r < quat->num_rot ; ++r)
+		quat->quat[r*5 + 4] *= total_weight ;
+	
+	return quat->num_rot ;
+}
+
+int parse_quat(char *fname, int with_weights, struct rotation *quat) {
+	int r, t, tmax = 4 ;
+	double total_weight = 0. ;
+	
+	if (with_weights)
+		tmax++ ;
+	
+	FILE *fp = fopen(fname, "r") ;
+	if (fp == NULL) {
+		fprintf(stderr, "quaternion file %s not found.\n", fname) ;
+		return -1 ;
+	}
+	fscanf(fp, "%d", &quat->num_rot) ;
+	quat->quat = calloc(quat->num_rot * 5, sizeof(double)) ;
+	
+	for (r = 0 ; r < quat->num_rot ; ++r) {
+		for (t = 0 ; t < tmax ; ++t)
+			fscanf(fp, "%lf", &quat->quat[r*5 + t]) ;
+		total_weight += quat->quat[r*5 + 4] ;
+	}
+	
+	if (with_weights) {
+		total_weight = 1. / total_weight ;
+		for (r = 0 ; r < quat->num_rot ; ++r)
+			quat->quat[r*5 + 4] *= total_weight ;
+	}
+	
+	fclose(fp) ;
+	
+	return quat->num_rot ;
+}
+
+void divide_quat(int rank, int num_proc, int num_modes, int num_nonrot_modes, struct rotation *quat) {
+	int tot_num_rot = num_modes * quat->num_rot + num_nonrot_modes ;
+	quat->num_rot_p = tot_num_rot / num_proc ;
+	if (rank < (tot_num_rot % num_proc))
+		quat->num_rot_p++ ;
+	if (num_proc > 1) {
+		char hname[99] ;
+		gethostname(hname, 99) ;
+		fprintf(stderr, "%d: %s: num_rot_p = %d/%d\n", rank, hname, quat->num_rot_p, tot_num_rot) ;
+	}
+}
+
+void free_quat(struct rotation *quat) {
+	if (quat == NULL)
+		return ;
+	
+	free(quat->quat) ;
+	free(quat) ;
+}
+
+int quat_from_config(char *config_fname, char *config_section, struct rotation *quat_ptr) {
+	int r, b, num, num_div = -1, recon_type = 3, num_rot = 0, num_beta ;
+	double beta_min = 0., beta_max = 0., beta_incr = 0. ;
+	char quat_fname[1024] = {'\0'}, point_group[1024] = {'\0'} ;
 	char line[1024], temp[8], section_name[1024], config_folder[1024], *token ;
 	char *temp_fname = strndup(config_fname, 1024) ;
 	sprintf(config_folder, "%s/", dirname(temp_fname)) ;
 	free(temp_fname) ;
 	quat_ptr->icosahedral_flag = 0 ;
+	quat_ptr->cubic_flag = 0 ;
 	
 	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
@@ -864,9 +942,11 @@ int generate_quaternion(char *config_fname, char *config_section, struct rotatio
 			if (strcmp(token, "recon_type") == 0) {
 				strncpy(temp, strtok(NULL, " =\n"), 8) ;
 				if (strcmp(temp, "3d") == 0)
-					recon_type = 3 ;
+					recon_type = 42 ;
 				else if (strcmp(temp, "2d") == 0)
-					recon_type = 2 ;
+					recon_type = 43 ;
+				else if (strcmp(temp, "rz") == 0)
+					recon_type = 44 ;
 			}
 			else if (strcmp(token, "num_div") == 0)
 				num_div = atoi(strtok(NULL, " =\n")) ;
@@ -874,8 +954,59 @@ int generate_quaternion(char *config_fname, char *config_section, struct rotatio
 				num_rot = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "in_quat_file") == 0)
 				absolute_strcpy(config_folder, quat_fname, strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "sym_icosahedral") == 0)
-				quat_ptr->icosahedral_flag = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "point_group") == 0)
+				strncpy(point_group, strtok(NULL, " =\n"), 1023) ;
+			else if (strcmp(token, "beta_range_deg") == 0) {
+				beta_min = atof(strtok(NULL, " =\n")) * M_PI / 180. ;
+				beta_max = atof(strtok(NULL, " =\n")) * M_PI / 180. ;
+				beta_incr = atof(strtok(NULL, " =\n")) * M_PI / 180. ;
+			}
+		}
+	}
+	fclose(config_fp) ;
+	
+	if (recon_type == 43) {
+		if (num_rot == 0) {
+			fprintf(stderr, "Need num_rot if recon_type is 2d\n") ;
+			return 1 ;
+		}
+		fprintf(stderr, "Creating angles array instead of quaternions\n") ;
+		quat_ptr->num_rot = num_rot ;
+		quat_ptr->quat = calloc(quat_ptr->num_rot * 5, sizeof(double)) ;
+		for (r = 0 ; r < quat_ptr->num_rot ; ++r) {
+			quat_ptr->quat[r*5+0] = 2. * M_PI * r / num_rot ;
+			quat_ptr->quat[r*5+4] = 1. / num_rot ;
+		}
+		
+		return 0 ;
+	}
+	else if (recon_type == 44) {
+		if (num_rot == 0 || beta_incr == 0.) {
+			fprintf(stderr, "Need num_rot and 3 beta_range_deg values if recon_type is rz\n") ;
+			return 1 ;
+		}
+		num_beta = floor((beta_max - beta_min) / beta_incr) ;
+		quat_ptr->num_rot = num_rot * num_beta ;
+		quat_ptr->quat = calloc(quat_ptr->num_rot * 5, sizeof(double)) ;
+		for (r = 0 ; r < num_rot ; ++r)
+		for (b = 0 ; b < num_beta ; ++b) {
+			quat_ptr->quat[r*5 + 0] = 2. * M_PI * r / num_rot ;
+			quat_ptr->quat[r*5 + 1] = beta_min + beta_incr*b ;
+			quat_ptr->quat[r*5+4] = 1. / num_rot / num_beta ;
+		}
+		fprintf(stderr, "Created %d (phi, beta) pairs instead of quaternions\n", quat_ptr->num_rot) ;
+		
+		return 0 ;
+	}
+	
+	if (point_group[0] != '\0') {
+		if (strncmp(point_group, "S4", 2) == 0)
+			quat_ptr->cubic_flag = 1 ;
+		else if (strncmp(point_group, "A5", 2) == 0)
+			quat_ptr->icosahedral_flag = 1 ;
+		else {
+			fprintf(stderr, "Only point groups A5 and S4 are implemented (%s unknown)\n", point_group) ;
+			return 1 ;
 		}
 	}
 	fclose(config_fp) ;
@@ -903,11 +1034,31 @@ int generate_quaternion(char *config_fname, char *config_section, struct rotatio
 	else if (num_div > 0)
 		num = quat_gen(num_div, quat_ptr) ;
 	else
-		num = parse_quat(quat_fname, quat_ptr) ;
+		num = parse_quat(quat_fname, 1, quat_ptr) ;
 	
 	if (num < 0)
 		return 1 ;
 	
 	return 0 ;
+}
+
+void voronoi_subset(struct rotation *qcoarse, struct rotation *qfine, int *nearest_coarse) {
+	#pragma omp parallel default(shared)
+	{
+		int i, j ;
+		double dist, dmin ;
+		
+		#pragma omp for schedule(static, 1)
+		for (i = 0 ; i < qfine->num_rot ; ++i) {
+			dmin = 2. ;
+			for (j = 0 ; j < qcoarse->num_rot ; ++j) {
+				dist = qdist(&qfine->quat[i*5], &qcoarse->quat[j*5]) ;
+				if (dist < dmin) {
+					dmin = dist ;
+					nearest_coarse[i] = j ;
+				}
+			}
+		}
+	}
 }
 

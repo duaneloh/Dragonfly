@@ -15,6 +15,7 @@ from . import gui_utils
 
 class ManualPanel(QtWidgets.QWidget):
     '''Manual classification panel of the Classifier GUI
+    
     Class names are [a-z], i.e. the lower case alphabet.
     In classification mode, pressing an alphabet key assigns the class and goes to the next frame.
     '''

@@ -8,6 +8,9 @@
 #include <stdint.h>
 #include <libgen.h>
 #include <math.h>
+#ifdef WITH_HDF5
+#include <hdf5.h>
+#endif // WITH_HDF5
 
 struct detector {
 	int num_pix, rel_num_pix ;
@@ -17,9 +20,16 @@ struct detector {
 	
 	// Only relevant for first detector in list
 	int num_det, num_dfiles, mapping[1024] ;
+	
+	// Background input for EMC
+	double *background ;
+	int with_bg ;
+	
+	// Powder sum for EMC
+	double *powder ;
 } ;
 
-double generate_detectors(char*, char*, struct detector**, int) ;
+double detector_from_config(char*, char*, struct detector**, int) ;
 double parse_detector(char*, struct detector*, int) ;
 double parse_detector_list(char*, struct detector**, int) ;
 void free_detector(struct detector*) ;

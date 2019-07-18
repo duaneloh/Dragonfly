@@ -3,6 +3,7 @@
 '''Module to make simulated data'''
 
 import sys
+import os
 import subprocess
 import argparse
 import logging
@@ -35,36 +36,42 @@ def main():
     logging.info("\n\nStarting.... setup")
     logging.info(' '.join(sys.argv))
 
+    base_dir = os.path.realpath(os.path.dirname(args.config_file))
+    print(base_dir)
+    curr_dir = os.getcwd()
+    os.chdir(base_dir)
+
+    if args.yes:
+        yes = ' -y'
+    else:
+        yes = ''
+    
     # Sequentially step through the simulation workflow
     if not args.skip_densities:
-        cmd = "./make_densities.py -c " + args.config_file + " -v"
-        if args.yes:
-            cmd += " -y"
+        cmd = "utils/make_densities.py -c " + args.config_file + " -v" + yes
         logging.info(20*"=" + "\n")
         logging.info(20*"=" + "\n" + cmd)
-        subprocess.call(cmd, shell=True)
+        subprocess.call(cmd.split())
 
     if not args.skip_intensities:
-        cmd = "./make_intensities.py -c " + args.config_file + " -v"
-        if args.yes:
-            cmd += " -y"
+        cmd = "utils/make_intensities.py -c " + args.config_file + " -v" + yes
         logging.info(20*"=" + "\n")
         logging.info(20*"=" + "\n" + cmd)
-        subprocess.call(cmd, shell=True)
+        subprocess.call(cmd.split())
 
     if not args.skip_detector:
-        cmd = "./make_detector.py -c " + args.config_file + " -v"
-        if args.yes:
-            cmd += " -y"
+        cmd = "utils/make_detector.py -c " + args.config_file + " -v" + yes
         logging.info(20*"=" + "\n")
         logging.info(20*"=" + "\n" + cmd)
-        subprocess.call(cmd, shell=True)
+        subprocess.call(cmd.split())
 
     if not args.skip_data:
-        cmd = "./make_data -c " + args.config_file
+        cmd = "utils/make_data -c " + args.config_file + yes
         logging.info(20*"=" + "\n")
         logging.info(20*"=" + "\n" + cmd)
-        subprocess.call(cmd, shell=True)
+        subprocess.call(cmd.split())
+
+    os.chdir(curr_dir)
 
 if __name__ == "__main__":
     main()
