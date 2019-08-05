@@ -1009,23 +1009,6 @@ int quat_from_config(char *config_fname, char *config_section, struct rotation *
 			return 1 ;
 		}
 	}
-	fclose(config_fp) ;
-	
-	if (recon_type == 2) {
-		if (num_rot == 0) {
-			fprintf(stderr, "Need num_rot if recon_type is 2d\n") ;
-			return 1 ;
-		}
-		fprintf(stderr, "Creating angles array instead of quaternions\n") ;
-		quat_ptr->num_rot = num_rot ;
-		quat_ptr->quat = calloc(quat_ptr->num_rot * 5, sizeof(double)) ;
-		for (r = 0 ; r < quat_ptr->num_rot ; ++r) {
-			quat_ptr->quat[r*5+0] = 2. * M_PI * r / num_rot ;
-			quat_ptr->quat[r*5+4] = 1. / num_rot ;
-		}
-		
-		return 0 ;
-	}
 	
 	if (num_div > 0 && quat_fname[0] != '\0') {
 		fprintf(stderr, "Config file contains both num_div as well as in_quat_file. Pick one.\n") ;
