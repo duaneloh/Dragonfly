@@ -274,8 +274,8 @@ class Detector(object):
 
         self._sym_x = np.round(self.cx + self._sym_shape[0]//2).astype('i4')
         self._sym_y = np.round(self.cy + self._sym_shape[1]//2).astype('i4')
-        self._sym_fx = self._sym_shape[0] - self._sym_x
-        self._sym_fy = self._sym_shape[1] - self._sym_y
+        self._sym_fx = self._sym_shape[0] - 1 - self._sym_x
+        self._sym_fy = self._sym_shape[1] - 1 - self._sym_y
 
         self._sym_mask = np.zeros(self._sym_shape, dtype='u1')
         np.add.at(self._sym_mask, (self._sym_x, self._sym_y), self.unassembled_mask)
