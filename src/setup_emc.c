@@ -78,6 +78,8 @@ int setup(char *s_config_fname, int continue_flag) {
 	}
 	if ((qmax = detector_from_config(config_fname, "emc", &det, det_flag)) < 0.)
 		return 1 ;
+	if (param->radius > 0)
+		remask_detector(det, param->radius) ;
 	if (quat_from_config(config_fname, "emc", quat))
 		return 1 ;
 	divide_quat(param->rank, param->num_proc, param->modes, param->nonrot_modes, quat) ;
