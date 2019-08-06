@@ -54,11 +54,6 @@ void free_mem(void) ;
 // max_emc.c
 double maximize(void) ;
 
-// recon_emc.c
-int parse_arguments(int, char**, int*, int*, char*) ;
-void emc(void) ;
-void update_model(double) ;
-
 // output_emc.c
 void write_log_file_header(int) ;
 void update_log_file(double, double, double) ;
