@@ -488,7 +488,6 @@ void copy_detector(struct detector *in_det, struct detector *out_det) {
 void remask_detector(struct detector *det, double radius) {
 	int t ;
 	double q, *pix ;
-	fprintf(stderr, "Remasking detector for a relevant qmax = %.3f voxels\n", radius) ;
 	
 	for (t = 0 ; t < det->num_pix ; ++t) {
 		pix = &(det->pixels[t*4]) ;
@@ -498,7 +497,6 @@ void remask_detector(struct detector *det, double radius) {
 			det->rel_num_pix -= 1 ;
 		}
 	}
-	fprintf(stderr, "Done remasking\n") ;
 }
 
 void free_detector(struct detector *det) {
