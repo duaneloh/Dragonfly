@@ -23,6 +23,10 @@ struct params {
 	double *beta, *beta_start ;
 	int friedel_sym ; // Symmetrization for 2D recon
 	int refine, coarse_div, fine_div ; // If doing refinement
+
+	// Radius refinement
+	int radius_period ;
+	double radius, radius_jump, oversampling ;
 	
 	// Gaussian EMC parameter
 	double sigmasq ;

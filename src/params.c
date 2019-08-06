@@ -35,6 +35,10 @@ void params_from_config(char *config_fname, struct params *param) {
 	param->start_iter = 1 ;
 	param->beta_period = 100 ;
 	param->beta_jump = 1. ;
+	param->radius = 0. ;
+	param->radius_period = 100 ;
+	param->radius_jump = 0. ;
+	param->oversampling = 10. ;
 	param->need_scaling = 0 ;
 	param->update_scale = 1 ;
 	param->alpha = 0. ;
@@ -82,6 +86,8 @@ void params_from_config(char *config_fname, struct params *param) {
 				param->alpha = atof(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "beta") == 0)
 				strcpy(beta_str, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "radius") == 0)
+				param->radius = atof(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "num_modes") == 0)
 				param->modes = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "num_nonrot_modes") == 0)
@@ -92,6 +98,12 @@ void params_from_config(char *config_fname, struct params *param) {
 				param->beta_jump = atof(strtok(NULL, " =\n")) ;
 				param->beta_period = atoi(strtok(NULL, " =\n")) ;
 			}
+			else if (strcmp(token, "radius_schedule") == 0) {
+				param->radius_jump = atof(strtok(NULL, " =\n")) ;
+				param->radius_period = atoi(strtok(NULL, " =\n")) ;
+			}
+			else if (strcmp(token, "oversampling") == 0)
+				param->oversampling = atof(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "gaussian_sigma") == 0) {
 				param->sigmasq = atof(strtok(NULL, " =\n")) ;
 				param->sigmasq *= param->sigmasq ;
