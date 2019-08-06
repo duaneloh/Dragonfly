@@ -460,6 +460,47 @@ double parse_detector_list(char *flist, struct detector **det_ptr, int norm_flag
 	return qmax ;
 }
 
+void copy_detector(struct detector *in_det, struct detector *out_det) {
+	out_det->num_pix = in_det->num_pix ;
+	out_det->rel_num_pix = in_det->rel_num_pix ;
+	out_det->detd = in_det->detd ;
+	out_det->ewald_rad = in_det->ewald_rad ;
+	out_det->num_det = in_det->num_det ;
+	out_det->num_dfiles = in_det->num_dfiles ;
+	out_det->with_bg = in_det->with_bg ;
+	
+	out_det->pixels = malloc(out_det->num_pix * 4 * sizeof(double)) ;
+	out_det->mask = malloc(out_det->num_pix * sizeof(uint8_t)) ;
+	memcpy(out_det->pixels, in_det->pixels, out_det->num_pix*4*sizeof(double)) ;
+	memcpy(out_det->mask, in_det->mask, out_det->num_pix*sizeof(uint8_t)) ;
+	
+	if (in_det->powder != NULL) {
+		out_det->powder = malloc(out_det->num_pix * sizeof(double)) ;
+		memcpy(out_det->powder, in_det->powder, out_det->num_pix*sizeof(double)) ;
+	}
+	
+	if (in_det->with_bg) {
+		out_det->background = malloc(out_det->num_pix * sizeof(double)) ;
+		memcpy(out_det->background, in_det->background, out_det->num_pix*sizeof(double)) ;
+	}
+}
+
+void remask_detector(struct detector *det, double radius) {
+	int t ;
+	double q, *pix ;
+	fprintf(stderr, "Remasking detector for a relevant qmax = %.3f voxels\n", radius) ;
+	
+	for (t = 0 ; t < det->num_pix ; ++t) {
+		pix = &(det->pixels[t*4]) ;
+		q = sqrt(pix[0]*pix[0] + pix[1]*pix[1] * pix[2]*pix[2]) ;
+		if (det->mask[t] == 0 && q > radius) {
+			det->mask[t] = 1 ;
+			det->rel_num_pix -= 1 ;
+		}
+	}
+	fprintf(stderr, "Done remasking\n") ;
+}
+
 void free_detector(struct detector *det) {
 	int detn ;
 	

@@ -32,6 +32,8 @@ struct detector {
 double detector_from_config(char*, char*, struct detector**, int) ;
 double parse_detector(char*, struct detector*, int) ;
 double parse_detector_list(char*, struct detector**, int) ;
+void copy_detector(struct detector*, struct detector*) ;
+void remask_detector(struct detector*, double) ;
 void free_detector(struct detector*) ;
 
 #endif //DETECTOR_H
