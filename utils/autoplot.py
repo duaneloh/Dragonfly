@@ -119,15 +119,18 @@ class VolumePlotter(object):
     def __init__(self, fig, recon_type='3d', num_modes=1, num_nonrot=0, num_rot=None):
         self.fig = fig
         self.canvas = fig.canvas
+        self.recon_type = recon_type
+        self.num_modes = num_modes
+        self.num_nonrot = num_nonrot
+
         self.vol = None
         self.rots = None
         self.modes = None
         self.old_modenum = None
         self.main_subp = None
         self.imshow_args = None
-        self.recon_type = recon_type
-        self.num_modes = num_modes
-        self.num_nonrot = num_nonrot
+        self.intrad = None
+        
         if self.num_nonrot > 0 and num_rot is None:
             raise ValueError('Need num_rot if nonrot modes are present')
         self.num_rot = num_rot
@@ -272,6 +275,39 @@ class VolumePlotter(object):
             self.main_subp.set_title('Class %d (%d frames)'%(mode, (self.modes == mode).sum()))
         self.main_subp.axis('off')
         self.canvas.draw()
+
+    def _get_intrad(self):
+        if self.intrad is not None and self.size == self.vol.shape[1]:
+            return
+
+        self.size = self.vol.shape[1]
+        cen = self.size // 2
+        single_vol = self.vol[0] if self.num_modes > 1 else self.vol
+        if self.recon_type == '2d':
+            self.x, self.y = np.indices(single_vol.shape)
+            self.x -= cen
+            self.y -= cen
+            self.intrad = np.sqrt(self.x**2 + self.y**2).astype('i4')
+        elif self.recon_type == '3d':
+            self.x, self.y, self.z = np.indices(single_vol.shape)
+            self.x -= cen
+            self.y -= cen
+            self.z -= cen
+            self.intrad = np.sqrt(self.x**2 + self.y**2 + self.z**2).astype('i4')
+
+    def subtract_radmin(self):
+        if self.vol is None:
+            return
+        self._get_intrad()
+        if self.num_modes > 1:
+            for m in range(self.num_modes):
+                radmin = np.ones(self.intrad.max()+1) * 1e20
+                np.minimum.at(radmin, self.intrad, self.vol[m])
+                self.vol[m] -= radmin[self.intrad]
+        else:
+            radmin = np.ones(self.intrad.max()+1) * 1e20
+            np.minimum.at(radmin, self.intrad, self.vol)
+            self.vol -= radmin[self.intrad]
 
 class LogPlotter(object):
     def __init__(self, fig, folder='data/'):
@@ -461,14 +497,18 @@ class ProgressViewer(QtWidgets.QMainWindow):
             action.setToolTip('Set color map')
             cmapmenu.addAction(action)
 
-        # Frames menu
-        framesmenu = menubar.addMenu('&Analysis')
+        # Analysis menu
+        analysismenu = menubar.addMenu('&Analysis')
         action = QtWidgets.QAction('Open &Frameviewer', self)
         action.triggered.connect(self._open_frameviewer)
         action.setToolTip('View frames related to given mode')
         if self.recon_type == '3d':
             action.setEnabled(False)
-        framesmenu.addAction(action)
+        analysismenu.addAction(action)
+        action = QtWidgets.QAction('Subtract radial minimum', self)
+        action.triggered.connect(self._subtract_radmin)
+        action.setToolTip('Subtract radial minimum from intensities')
+        analysismenu.addAction(action)
 
     def _init_plotarea(self):
         plot_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
@@ -923,6 +963,10 @@ class ProgressViewer(QtWidgets.QMainWindow):
         else:
             self.fviewer = MyFrameviewer(self.config, -1, [])
         self.fviewer.windowClosed.connect(self._fviewer_closed)
+
+    def _subtract_radmin(self):
+        self.vol_plotter.subtract_radmin()
+        self._plot_vol()
 
     @QtCore.Slot()
     def _fviewer_closed(self):
