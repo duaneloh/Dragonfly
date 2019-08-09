@@ -145,15 +145,18 @@ class VolumePlotter(object):
             if h5py.is_hdf5(fname):
                 h5_output = True
                 with h5py.File(fname, 'r') as f:
-                    self.vol = f['intens'][:]
+                    if self.recon_type == '3d':
+                        self.vol = f['intens'][modenum]
+                    else:
+                        self.vol = f['intens'][:]
+                        if self.num_modes == 1:
+                            self.vol = self.vol[0]
                     if rots:
                         try:
                             self.rots = f['orientations'][:]
                         except KeyError:
                             print('No orientations dataset in', fname)
                             self.rots = None
-                if self.num_modes == 1:
-                    self.vol = self.vol[0]
                 size = self.vol.shape[-1]
             else:
                 h5_output = False
@@ -282,14 +285,13 @@ class VolumePlotter(object):
 
         self.size = self.vol.shape[1]
         cen = self.size // 2
-        single_vol = self.vol[0] if self.num_modes > 1 else self.vol
         if self.recon_type == '2d':
-            self.x, self.y = np.indices(single_vol.shape)
+            self.x, self.y = np.indices(self.vol[0].shape)
             self.x -= cen
             self.y -= cen
             self.intrad = np.sqrt(self.x**2 + self.y**2).astype('i4')
         elif self.recon_type == '3d':
-            self.x, self.y, self.z = np.indices(single_vol.shape)
+            self.x, self.y, self.z = np.indices(self.vol.shape)
             self.x -= cen
             self.y -= cen
             self.z -= cen
