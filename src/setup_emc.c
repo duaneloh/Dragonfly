@@ -51,7 +51,7 @@ int setup(char *s_config_fname, int continue_flag) {
 		return 1 ;
 	}
 	fclose(fp) ;
-	params_from_config(config_fname, param) ;
+	params_from_config(config_fname, "emc", param) ;
 	if (!continue_flag)
 		backup_log_file(param) ;
 #ifndef WITH_HDF5
@@ -85,7 +85,7 @@ int setup(char *s_config_fname, int continue_flag) {
 	divide_quat(param->rank, param->num_proc, param->modes, param->nonrot_modes, quat) ;
 	if (data_from_config(config_fname, "emc", "in", det, frames))
 		return 1 ;
-	blacklist_from_config(config_fname, frames) ;
+	blacklist_from_config(config_fname, "emc", frames) ;
 	if (iterate_from_config(config_fname, "emc", continue_flag, qmax, param, det, frames, iter))
 		return 1 ;
 	if (!param->rank && param->start_iter == 1)

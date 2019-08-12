@@ -586,7 +586,7 @@ int parse_dataset_list(char *flist, struct detector *det, struct dataset *frames
 	return num_sparse + num_dense ;
 }
 
-void blacklist_from_config(char *config_fname, struct dataset *frames) {
+void blacklist_from_config(char *config_fname, char *config_section, struct dataset *frames) {
 	char blacklist_fname[1024] = {'\0'}, sel_string[1024] = {'\0'} ;
 	char line[1024], section_name[1024], config_folder[1024], *token ;
 	char *temp_fname = strndup(config_fname, 1024) ;
@@ -598,7 +598,7 @@ void blacklist_from_config(char *config_fname, struct dataset *frames) {
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
 		
-		if (strcmp(section_name, "emc") == 0) {
+		if (strcmp(section_name, config_section) == 0) {
 			if (strcmp(token, "blacklist_file") == 0)
 				absolute_strcpy(config_folder, blacklist_fname, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "selection") == 0)

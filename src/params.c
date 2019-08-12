@@ -24,7 +24,7 @@ static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
 	}
 }
 
-void params_from_config(char *config_fname, struct params *param) {
+void params_from_config(char *config_fname, char *config_section, struct params *param) {
 	char line[2048], section_name[1024], config_folder[1024], temp[8] ;
 	char beta_str[1024] = {'\0'} ;
 	char *temp_fname = strndup(config_fname, 1024) ;
@@ -64,7 +64,7 @@ void params_from_config(char *config_fname, struct params *param) {
 		if ((token = generate_token(line, section_name)) == NULL)
 			continue ;
 		
-		if (strcmp(section_name, "emc") == 0) {
+		if (strcmp(section_name, config_section) == 0) {
 			if (strcmp(token, "output_folder") == 0)
 				absolute_strcpy(config_folder, param->output_folder, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "log_file") == 0)

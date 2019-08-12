@@ -35,7 +35,7 @@ struct params {
 	int modes, rot_per_mode, nonrot_modes ;
 } ;
 
-void params_from_config(char*, struct params*) ;
+void params_from_config(char*, char*, struct params*) ;
 void generate_output_dirs(struct params*) ;
 
 #endif //PARAMS_H
