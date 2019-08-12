@@ -798,6 +798,8 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.vol_plotter.update_mode(num, **argsdict)
         else:
             self.vol_plotter.plot(num, **argsdict)
+        if self.num_modes > 1:
+            self.old_modenum = self.modenum.value()
 
     def _parse_and_plot(self, force=False, rots=True):
         if force or not self.vol_plotter.image_exists or self.old_fname != self.fname.text():
