@@ -385,14 +385,16 @@ void slice_mergerz(double *phibeta, double *slice, double *model, double *weight
  * 		s - Size of model. Center assumed to be at (s/2, s/2, s/2)
  * 		rotmodel - Pointer to rotated model
  */
-void rotate_model(double rot[3][3], double *m, int s, double *rotmodel) {
+void rotate_model(double rot[3][3], double *m, int s, int max_r, double *rotmodel) {
 	int x, y, z, i, c = s/2, vx, vy, vz ;
 	double fx, fy, fz, cx, cy, cz ;
 	double rot_vox[3] ;
+	if (max_r == 0)
+		max_r = c ;
 	
-	for (vx = -c ; vx < s-c ; ++vx)
-	for (vy = -c ; vy < s-c ; ++vy)
-	for (vz = -c ; vz < s-c ; ++vz) {
+	for (vx = -max_r ; vx < max_r ; ++vx)
+	for (vy = -max_r ; vy < max_r ; ++vy)
+	for (vz = -max_r ; vz < max_r ; ++vz) {
 		for (i = 0 ; i < 3 ; ++i) {
 			rot_vox[i] = 0. ;
 			rot_vox[i] += rot[i][0]*vx + rot[i][1]*vy + rot[i][2]*vz ;
