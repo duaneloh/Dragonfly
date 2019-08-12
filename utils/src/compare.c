@@ -105,7 +105,7 @@ void calc_corr(struct rotation *quat, double *m1, double *m2) {
 			// Rotate model
 			memset(rotmodel, 0, vol*sizeof(double)) ;
 			make_rot_quat(&(quat->quat[r*5]), rot) ;
-			rotate_model(rot, m1, s, rotmodel) ;
+			rotate_model(rot, m1, s, rmax, rotmodel) ;
 			
 			// Calculate i1i1 and i1i2
 			i1i1 = 0. ;
@@ -151,7 +151,7 @@ void calc_radial_corr(struct rotation *quat, double *m1, double *m2, char *fname
 	
 	// Calculate rotated model
 	make_rot_quat(&quat->quat[max_r*5], rot) ;
-	rotate_model(rot, m1, s, rotmodel) ;
+	rotate_model(rot, m1, s, rmax, rotmodel) ;
 	
 	// Calculate radial i1i1r, i1i2r and i2i2r
 	i1i1r = calloc(c, sizeof(double)) ;
@@ -202,7 +202,7 @@ void save_rotmodel(struct rotation *quat, double *m1, char *fname) {
 	
 	// Calculate rotated model
 	make_rot_quat(&quat->quat[max_r*5], rot) ;
-	rotate_model(rot, m1, s, rotmodel) ;
+	rotate_model(rot, m1, s, rmax, rotmodel) ;
 	
 	// Write rotmodel to file
 	char *base = remove_ext(extract_fname(fname)) ;
