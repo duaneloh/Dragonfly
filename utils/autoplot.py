@@ -301,7 +301,7 @@ class VolumePlotter(object):
         if self.vol is None:
             return
         self._get_intrad()
-        if self.num_modes > 1:
+        if self.recon_type == '2d':
             for m in range(self.num_modes):
                 radmin = np.ones(self.intrad.max()+1) * 1e20
                 np.minimum.at(radmin, self.intrad, self.vol[m])
