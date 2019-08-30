@@ -38,6 +38,7 @@ void save_initial_iterate() {
 	FILE *fp ;
 	char fname[2048] ;
 	long tot_vol = iter->modes * iter->vol ;
+	int d ;
 	
 	sprintf(fname, "%s/output/intens_000.bin", param->output_folder) ;
 	fp = fopen(fname, "w") ;
@@ -96,6 +97,7 @@ void save_models() {
 #ifndef WITH_HDF5
 	FILE *fp ;
 	char fname[2048] ;
+	int d ;
 	
 	sprintf(fname, "%s/output/intens_%.3d.bin", param->output_folder, param->iteration) ;
 	fp = fopen(fname, "w") ;
