@@ -34,7 +34,7 @@ char output_fname[1024], likelihood_fname[1024], scale_fname[1024] ;
 
 void rescale_intens() ;
 void allocate_data_memory(int*) ;
-double calc_dataset() ;
+double calc_dataset(int*) ;
 void write_dataset() ;
 int setup(char*) ;
 void free_mem() ;
