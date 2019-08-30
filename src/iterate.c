@@ -43,29 +43,6 @@ static void calc_mean_counts(struct dataset *frames, struct detector *det, struc
 	free(numd) ;
 }
 
-static void calc_beta(struct dataset *frames, struct params *param) {
-	int d ;
-	double start = param->beta_start[0] ;
-	param->beta_start = realloc(param->beta_start, frames->tot_num_data * sizeof(double)) ;
-	param->beta = malloc(frames->tot_num_data * sizeof(double)) ;
-	
-	if (!param->need_scaling && start < 0)
-		start = exp(-6.5 * pow(frames->tot_mean_count * 1.e-5, 0.15)) ; // Empirical
-	
-	if (start > 0) {
-		for (d = 0 ; d < frames->tot_num_data ; ++d)
-			param->beta_start[d] = start ;
-	}
-	else {
-		for (d = 0 ; d < frames->tot_num_data ; ++d)
-			param->beta_start[d] = exp(-6.5 * pow(frames->count[d] * 1.e-5, 0.15)) ; // Empirical
-	}
-	
-	FILE *fp = fopen("data/beta.bin", "wb") ;
-	fwrite(param->beta_start, sizeof(double), frames->tot_num_data, fp) ;
-	fclose(fp) ;
-}
-
 // Public functions below
 
 int iterate_from_config(char *config_fname, char *config_section, int continue_flag, double qmax, struct params *param, struct detector *det, struct dataset *dset, struct iterate *iter) {
@@ -233,9 +210,9 @@ int parse_scale(char *fname, struct iterate *iter) {
 					dspace = H5Screate_simple(1, &npoints, NULL) ;
 				}
 				//fprintf(stderr, "Defaulting to uniform scale factors\n") ;
-				return 0 ;
+				//return 0 ;
 			}
-			H5Dread(dset, H5T_IEEE_F64LE, dspace, H5S_ALL, H5P_DEFAULT, iter->scale) ;
+			H5Dread(dset, H5T_IEEE_F64LE, dspace, dspace, H5P_DEFAULT, iter->scale) ;
 			H5Dclose(dset) ;
 			H5Fclose(file) ;
 #else // WITH_HDF5
@@ -363,10 +340,48 @@ void parse_input(char *fname, double mean, int rank, int recon_type, struct iter
 			
 #ifdef WITH_HDF5
 			fclose(fp) ;
-			hid_t file, dset ;
+			hid_t file, dset, dspace ;
+			hsize_t *dims ;
+			int ndims = 4 ? recon_type == RECON3D : 3 ;
+			dims = malloc(ndims * sizeof(hsize_t)) ;
+			
 			file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT) ;
 			dset = H5Dopen(file, "/intens", H5P_DEFAULT) ;
+			dspace = H5Dget_space(dset) ;
+			H5Sget_simple_extent_dims(dspace, dims, NULL) ;
+			
+			if (dims[0] != iter->modes) {
+				fprintf(stderr, "Number of modes is different (%d vs %d) in %s\n", (int)dims[0], iter->modes, fname) ;
+				if (dims[0] > iter->modes) {
+					fprintf(stderr, "Reading in only first %d intensities\n", iter->modes) ;
+					dims[0] = iter->modes ;
+					H5Sclose(dspace) ;
+					dspace = H5Screate_simple(ndims, dims, NULL) ;
+					H5Dread(dset, H5T_IEEE_F64LE, dspace, dspace, H5P_DEFAULT, iter->model1) ;
+				}
+				else {
+					fprintf(stderr, "Reading into only first %d intensities (rest noisy copies)\n", (int)dims[0]) ;
+					H5Dread(dset, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, iter->model1) ;
+					
+					long m, x ;
+					const gsl_rng_type *T ;
+					struct timeval t ;
+					gsl_rng_env_setup() ;
+					T = gsl_rng_default ;
+					gsl_rng *rng = gsl_rng_alloc(T) ;
+					gettimeofday(&t, NULL) ;
+					gsl_rng_set(rng, t.tv_sec + t.tv_usec) ;
+					
+					for (m = dims[0] ; m < iter->modes ; ++m)
+					for (x = 0 ; x < iter->vol ; ++x)
+						iter->model1[m*iter->vol + x] = iter->model1[(m-dims[0])*iter->vol + x] * (0.4 * gsl_rng_uniform(rng) + 0.8) ;
+					
+					gsl_rng_free(rng) ;
+				}
+			}
 			H5Dread(dset, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, iter->model1) ;
+			
+			H5Sclose(dspace) ;
 			H5Dclose(dset) ;
 			H5Fclose(file) ;
 #else // WITH_HDF5
@@ -501,6 +516,29 @@ int parse_rel_quat(char *fname, int num_rot_coarse, int parse_prob, struct itera
 	}
 	
 	return 0 ;
+}
+
+void calc_beta(struct dataset *frames, struct params *param) {
+	int d ;
+	double start = param->beta_start[0] ;
+	param->beta_start = realloc(param->beta_start, frames->tot_num_data * sizeof(double)) ;
+	param->beta = malloc(frames->tot_num_data * sizeof(double)) ;
+	
+	if (!param->need_scaling && start < 0)
+		start = exp(-6.5 * pow(frames->tot_mean_count * 1.e-5, 0.15)) ; // Empirical
+	
+	if (start > 0) {
+		for (d = 0 ; d < frames->tot_num_data ; ++d)
+			param->beta_start[d] = start ;
+	}
+	else {
+		for (d = 0 ; d < frames->tot_num_data ; ++d)
+			param->beta_start[d] = exp(-6.5 * pow(frames->count[d] * 1.e-5, 0.15)) ; // Empirical
+	}
+	
+	FILE *fp = fopen("data/beta.bin", "wb") ;
+	fwrite(param->beta_start, sizeof(double), frames->tot_num_data, fp) ;
+	fclose(fp) ;
 }
 
 void free_iterate(struct iterate *iter) {

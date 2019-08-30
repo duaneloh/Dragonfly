@@ -35,6 +35,7 @@ void calc_scale(struct dataset*, struct detector*, struct iterate*) ;
 void normalize_scale(struct dataset*, struct iterate*) ;
 void parse_input(char*, double, int, int, struct iterate*) ;
 int parse_rel_quat(char*, int, int, struct iterate*) ;
+void calc_beta(struct dataset*, struct params*) ;
 void free_iterate(struct iterate*) ;
 
 #endif //ITERATE_H
