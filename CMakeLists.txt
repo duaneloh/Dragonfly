@@ -8,6 +8,7 @@ endif(apple)
 
 
 set(CMAKE_INSTALL_MESSAGE LAZY)
+cmake_policy(SET CMP0074 NEW)
 
 project(dragonfly LANGUAGES C)
 
