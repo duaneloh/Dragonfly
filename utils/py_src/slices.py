@@ -100,10 +100,7 @@ class SliceGenerator(object):
 
         if raw:
             return dslice, self.stats['info'][num]
-        imslice = np.zeros(self.geom.frame_shape)
-        np.add.at(imslice, (self.geom.x, self.geom.y), dslice)
-        #return imslice * self.geom.mask * self.stats['scale'][num], self.stats['info'][num]
-        return imslice * self.geom.mask, self.stats['info'][num]
+        return self.geom.assemble_frame(dslice), self.stats['info'][num]
 
     def get_quat(self, iteration, num):
         '''Return best match quaternion for given iteration and frame number'''
