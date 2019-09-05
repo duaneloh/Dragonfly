@@ -968,14 +968,16 @@ void gradient_rt(int r, struct max_data *priv, struct max_data *common, double *
 		curr = curr->next ;
 	}
 	
-	if ((r*param->num_proc + param->rank)%(quat->num_rot * param->modes / 10) == 0)
-		fprintf(stderr, "\t\tFinished r = %d/%d\n", r*param->num_proc + param->rank, quat->num_rot * param->modes) ;
+	//if ((r*param->num_proc + param->rank)%(quat->num_rot * param->modes / 10) == 0)
+	//	fprintf(stderr, "\t\tFinished r = %d/%d\n", r*param->num_proc + param->rank, quat->num_rot * param->modes) ;
 }
 
 void update_tomogram_bg(int r, double scalemax, struct max_data *priv, struct max_data *common) {
 	int i, t, detn ;
 	int nmask, tot_num_pix = 0 ;
 	double val ;
+	//double x0, x1, f0, f1, f2 ; // For Ridder's method
+	double grad_tol = 1.e-4 ;
 	
 	nmask = 0 ;
 	for (detn = 0 ; detn < det[0].num_det ; ++detn) {
@@ -1001,43 +1003,48 @@ void update_tomogram_bg(int r, double scalemax, struct max_data *priv, struct ma
 		}
 	}
 	
+	// mask values:
+	//   0 : Still to be optimized
+	// 128 : Negligible background (can do standard update)
+	// 160 : Signal to gradient_rt() to calculate scale_max rather than gradient
+	// 192 : Had to adjust search window to have opposite signs
+	// 255 : Optimal pixel
 	// Set search bounds
 	// Calculate G(0) and check sign
 	gradient_rt(r, priv, common, priv->W_old, priv->G_old) ;
 	for (detn = 0 ; detn < det[0].num_det ; ++detn)
 	for (t = 0 ; t < det[detn].num_pix ; ++t) {
-		if (fabs(priv->G_old[detn][t]) < 1.e-6) {
+		if (fabs(priv->G_old[detn][t]) < grad_tol) {
 			priv->all_views[detn][t] = 0. ;
 			priv->mask[detn][t] = 255 ;
 		}
 		else if (priv->G_old[detn][t] > 0.) {
-			val = frames->tot_mean_count / det[detn].num_pix ;
-			priv->W_new[detn][t] = det[detn].powder[t] > val ? det[detn].powder[t] : val ; // Large number
-			priv->W_new[detn][t] *= 1000. ;
+			val = frames->tot_mean_count / det[detn].num_pix ; // Average photons/pixel
+			priv->W_new[detn][t] = det[detn].powder[t] > val ? det[detn].powder[t] : val ; // Check against powder sum value
+			priv->W_new[detn][t] *= 2. ; // Double
 		}
 	}
 	
 	// Find far end of search window
-	for (i = 0 ; i < 5 ; ++i) {
+	for (i = 0 ; i < 10 ; ++i) {
 		nmask = 0 ;
 		gradient_rt(r, priv, common, priv->W_new, priv->G_new) ;
 		
 		for (detn = 0 ; detn < det[0].num_det ; ++detn)
 		for (t = 0 ; t < det[detn].num_pix ; ++t) {
 			if (priv->mask[detn][t] == 0) {
-				if (priv->G_old[detn][t] < 0. && priv->G_new[detn][t] < 0.) {
-					//priv->W_new[detn][t] = 1.e-8*pow(0.01, i+1) - det[detn].background[t] / scalemax ;
-					priv->mask[detn][t] = 160 ;
+				if (priv->G_old[detn][t] < 0. && priv->G_new[detn][t] < 0.) {      // If both negative, calculate scale_max
+					priv->mask[detn][t] = 160 ; // Forces gradient_rt to calculate scale_max
 				}
-				else if (priv->G_old[detn][t] > 0. && priv->G_new[detn][t] > 0.) {
-					priv->W_new[detn][t] *= 100 ;
+				else if (priv->G_old[detn][t] > 0. && priv->G_new[detn][t] > 0.) { // If both positive, double W_new
+					priv->W_new[detn][t] *= 2 ;
 				}
-				else {
+				else {                                                             // If opposite signs, stop updating
 					priv->mask[detn][t] = 192 ;
 					nmask++ ;
 				}
 			}
-			else if (priv->mask[detn][t] == 160) {
+			else if (priv->mask[detn][t] == 160) { // Set W_new to be just above minimum background
 				priv->W_new[detn][t] = 1.e-8 - det[detn].background[t] / priv->G_new[detn][t] ;
 				priv->mask[detn][t] = 0 ;
 			}
@@ -1049,18 +1056,19 @@ void update_tomogram_bg(int r, double scalemax, struct max_data *priv, struct ma
 		if (nmask == tot_num_pix)
 			break ;
 	}
-	if (i == 5 && nmask/((double)tot_num_pix) < 0.9)
+	if (i == 10 && nmask/((double)tot_num_pix) < 0.9)
 		fprintf(stderr, "%.5d bad search bounds, %d/%d\n", r, nmask, tot_num_pix) ;
 	
-	// Bounded root-finding using bisection/regula falsi
+	// Bounded root-finding using bisection/regula falsi/Ridder's
 	for (i = 0 ; i < 50 ; ++i) { // Doing 50 iterations
 		nmask = 0 ;
+		// Update value of W_latest
 		for (detn = 0 ; detn < det[0].num_det ; ++detn)
 		for (t = 0 ; t < det[detn].num_pix ; ++t) {
-			if (priv->mask[detn][t] == 255) { // Already optimal
+			if (priv->mask[detn][t] == 255) {      // Already optimal
 				nmask++ ;
 			}
-			else if (priv->mask[detn][t] == 1) { // No photon at pixel
+			else if (priv->mask[detn][t] == 1) {   // No photon at pixel
 				priv->mask[detn][t] = 255 ;
 				priv->all_views[detn][t] = 0. ;
 				nmask++ ;
@@ -1070,33 +1078,64 @@ void update_tomogram_bg(int r, double scalemax, struct max_data *priv, struct ma
 				priv->mask[detn][t] = 255 ;
 				nmask++ ;
 			}
-			else if (priv->mask[detn][t] == 192) { // W_new had to be adjusted
+			else if (priv->mask[detn][t] == 192) { // W_new had to be adjusted when finding search window
 				priv->mask[detn][t] = 0 ;
 				priv->W_latest[detn][t] = 0.5 * (priv->W_old[detn][t] + priv->W_new[detn][t]) ;
+				/*
+				if (i % 2 == 0) {
+					priv->W_latest[detn][t] = 0.5 * (priv->W_old[detn][t] + priv->W_new[detn][t]) ;
+				}
+				else {
+					x0 = priv->W_old[detn][t] ;
+					x1 = priv->W_latest[detn][t] ;
+					f0 = priv->G_old[detn][t] ;
+					f1 = priv->G_latest[detn][t] ;
+					f2 = priv->G_new[detn][t] ;
+					priv->W_latest[detn][t] = x1 + (x1-x0)*copysign(1, f0)*f1/sqrt(f1*f1 - f0*f2) ;
+				}
+				*/
 			}
-			else if (priv->mask[detn][t] == 0) {
+			else if (priv->mask[detn][t] == 0) {   // Searching for root
 				// Regula falsi (secant) update
 				//priv->W_latest[detn][t] = (priv->W_old[detn][t]*priv->G_new[detn][t] - priv->W_new[detn][t]*priv->G_old[detn][t]) / (priv->G_new[detn][t] - priv->G_old[detn][t]) ;
 				// Bisection update
 				priv->W_latest[detn][t] = 0.5 * (priv->W_old[detn][t] + priv->W_new[detn][t]) ;
+				// Ridder's update
+				/*
+				if (i % 2 == 0) {
+					priv->W_latest[detn][t] = 0.5 * (priv->W_old[detn][t] + priv->W_new[detn][t]) ;
+				}
+				else {
+					x0 = priv->W_old[detn][t] ;
+					x1 = priv->W_latest[detn][t] ;
+					f0 = priv->G_old[detn][t] ;
+					f1 = priv->G_latest[detn][t] ;
+					f2 = priv->G_new[detn][t] ;
+					priv->W_latest[detn][t] = x1 + (x1-x0)*copysign(1, f0)*f1/sqrt(f1*f1 - f0*f2) ;
+				}
+				*/
 			}
 		}
 		
+		// Calculate G_latest(W_latest)
 		gradient_rt(r, priv, common, priv->W_latest, priv->G_latest) ;
 		
+		// Test for convergence and change search window
 		for (detn = 0 ; detn < det[0].num_det ; ++detn)
 		for (t = 0 ; t < det[detn].num_pix ; ++t)
 		if (priv->mask[detn][t] < 255) {
-			if (fabs(priv->G_latest[detn][t]) < 1.e-5) {
+			if (fabs(priv->G_latest[detn][t]) < grad_tol) {                // Converged
 				priv->all_views[detn][t] = priv->W_latest[detn][t] ;
 				priv->mask[detn][t] = 255 ;
 				nmask++ ;
 			}
-			else if (priv->G_latest[detn][t] * priv->G_old[detn][t] > 0) {
+			//else if (i % 2 == 1 && priv->G_latest[detn][t] * priv->G_old[detn][t] > 0) {
+			else if (priv->G_latest[detn][t] * priv->G_old[detn][t] > 0) { // Shift window to W_old
 				priv->W_old[detn][t] = priv->W_latest[detn][t] ;
 				priv->G_old[detn][t] = priv->G_latest[detn][t] ;
 			}
-			else {
+			//else if (i % 2 == 1) {
+			else {                                                         // Shift window towards W_new
 				priv->W_new[detn][t] = priv->W_latest[detn][t] ;
 				priv->G_new[detn][t] = priv->G_latest[detn][t] ;
 			}
@@ -1164,7 +1203,8 @@ void gradient_d(struct max_data *common, uint8_t *mask, double *scale, double *g
 					// For each pixel with one photon
 					for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
 						pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
-						if (det[detn].mask[pixel] < 1) { // Use only relevant pixels
+						//if (det[detn].mask[pixel] < 1) { // Use only relevant pixels
+						if (det[detn].mask[pixel] < 2) { // Exclude bad pixels
 							val = view[pixel] * scale[d] + det[detn].background[pixel] ;
 							priv_grad[d] += common->prob[d][ind] * view[pixel] / val ;
 						}
@@ -1173,7 +1213,8 @@ void gradient_d(struct max_data *common, uint8_t *mask, double *scale, double *g
 					// For each pixel with count_multi photons
 					for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
 						pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
-						if (det[detn].mask[pixel] < 1) {
+						//if (det[detn].mask[pixel] < 1) { // Use only relevant pixels
+						if (det[detn].mask[pixel] < 2) { // Exclude bad pixels
 							val = view[pixel] * scale[d] + det[detn].background[pixel] ;
 							priv_grad[d] += common->prob[d][ind] * curr->count_multi[curr->multi_accum[curr_d] + t] * view[pixel] / val ;
 						}
@@ -1206,6 +1247,7 @@ void gradient_d(struct max_data *common, uint8_t *mask, double *scale, double *g
 
 void update_scale_bg(struct max_data *common) {
 	int d, i, num_mask ;
+	//double x0, x1, f0, f1, f2 ; // For Ridders method
 	double *scale_old = calloc(frames->tot_num_data, sizeof(double)) ;
 	double *scale_new = calloc(frames->tot_num_data, sizeof(double)) ;
 	double *scale_latest = calloc(frames->tot_num_data, sizeof(double)) ;
@@ -1265,8 +1307,7 @@ void update_scale_bg(struct max_data *common) {
 	if (i == 5)
 		fprintf(stderr, "WARNING: Could not find search bounds (%d/%d)\n", num_mask, frames->tot_num_data) ;
 	
-	//FILE *fp = fopen("data/grads.dat", "w") ;
-	// Bounded root finding using bisection/regula falsi
+	// Bounded root finding using bisection/regula falsi/Ridder's
 	for (i = 0 ; i < 50 ; ++i) {
 		num_mask = 0 ;
 		for (d = 0 ; d < frames->tot_num_data ; ++d) {
@@ -1281,27 +1322,54 @@ void update_scale_bg(struct max_data *common) {
 				mask[d] = 0 ;
 				//scale_latest[d] = (scale_old[d]*Gd_new[d] - scale_new[d]*Gd_old[d]) / (Gd_new[d] - Gd_old[d]) ;
 				scale_latest[d] = 0.5 * (scale_old[d] + scale_new[d]) ;
+				/*
+				if (i % 2 == 0) {
+					scale_latest[d] = 0.5 * (scale_old[d] + scale_new[d]) ;
+				}
+				else {
+					x0 = scale_old[d] ;
+					x1 = scale_latest[d] ;
+					f0 = Gd_old[d] ;
+					f1 = Gd_latest[d] ;
+					f2 = Gd_new[d] ;
+					scale_latest[d] = x1 + (x1-x0)*copysign(1, f0)*f1/sqrt(f1*f1 - f0*f2) ;
+				}
+				*/
 			}
 			else {
 				//scale_latest[d] = (scale_old[d]*Gd_new[d] - scale_new[d]*Gd_old[d]) / (Gd_new[d] - Gd_old[d]) ;
 				scale_latest[d] = 0.5 * (scale_old[d] + scale_new[d]) ;
+				/*
+				if (i % 2 == 0) {
+					scale_latest[d] = 0.5 * (scale_old[d] + scale_new[d]) ;
+				}
+				else {
+					x0 = scale_old[d] ;
+					x1 = scale_latest[d] ;
+					f0 = Gd_old[d] ;
+					f1 = Gd_latest[d] ;
+					f2 = Gd_new[d] ;
+					scale_latest[d] = x1 + (x1-x0)*copysign(1, f0)*f1/sqrt(f1*f1 - f0*f2) ;
+				}
+				*/
 			}
 		}
 		
 		gradient_d(common, mask, scale_latest, Gd_latest) ;
-		//fprintf(fp, "%.2d : %.4e %.4e %.4e %.4e %.4e %.4e\n", i, scale_old[0], scale_new[0], scale_latest[0], Gd_old[0], Gd_new[0], Gd_latest[0]) ;
 		
 		for (d = 0 ; d < frames->tot_num_data ; ++d)
 		if (mask[d] < 255) {
-			if (fabs(Gd_latest[d]) < 1.e-5) {
+			if (fabs(Gd_latest[d]) < 1.e-3) {
 				iter->scale[d] = scale_latest[d] ;
 				mask[d] = 255 ;
 				num_mask++ ;
 			}
+			//else if (i % 2 == 1 && Gd_latest[d] * Gd_old[d] > 0) {
 			else if (Gd_latest[d] * Gd_old[d] > 0) {
 				scale_old[d] = scale_latest[d] ;
 				Gd_old[d] = Gd_latest[d] ;
 			}
+			//else if (i % 2 == 1) {
 			else {
 				scale_new[d] = scale_latest[d] ;
 				Gd_new[d] = Gd_latest[d] ;
@@ -1311,9 +1379,8 @@ void update_scale_bg(struct max_data *common) {
 		if (num_mask == frames->tot_num_data)
 			break ;
 	}
-	//fclose(fp) ;
 	if (i == 50)
-		fprintf(stderr, "WARNING: phi optimization did not converge (%d/%d)\n", num_mask, frames->tot_num_data) ;
+		fprintf(stderr, "WARNING: scale optimization did not converge (%d/%d)\n", num_mask, frames->tot_num_data) ;
 	
 	MPI_Bcast(iter->scale, frames->tot_num_data, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
 	
