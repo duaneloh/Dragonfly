@@ -14,6 +14,7 @@ except ImportError:
     from matplotlib.backends.backend_qt4agg import FigureCanvas, NavigationToolbar2QT #pylint: disable=no-name-in-module
 import matplotlib
 from matplotlib.figure import Figure
+from matplotlib import colors
 from . import slices
 from . import gui_utils
 
@@ -210,8 +211,10 @@ class FramePanel(QtWidgets.QWidget):
             subp = self.fig.add_subplot(121)
             subpc = self.fig.add_subplot(122)
             tomo, info = self.slices.get_slice(iteration, num)
-            subpc.imshow(tomo.T**0.2, cmap=self.parent.cmap, vmin=0,
-                         vmax=float(self.rangestr.text()), interpolation='none')
+            vmax = float(self.rangestr.text())
+            subpc.imshow(tomo, cmap=self.parent.cmap,
+                         norm=colors.SymLogNorm(vmin=tomo.min(), linthresh=1e-2, vmax=vmax),
+                         interpolation='none')
             subpc.set_title('Mutual Info. = %f'%info)
         else:
             subp = self.fig.add_subplot(111)
