@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
 		write_log_file_header(num_threads) ;
 	
 	emc() ;
-	free_mem() ;
+	//free_mem() ;
 	
 	MPI_Finalize() ;
 	
@@ -102,7 +102,7 @@ static void emc() {
 		
 		MPI_Bcast(iter->model1, iter->modes * iter->vol, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
 		
-		// Increasing beta by a factor of 'beta_jump' every 'beta_period' param->iterations
+		// Increasing beta by a factor of 'beta_jump' every 'beta_period' param->iterations or by 'beta_factor'
 		beta_mean = update_beta() ;
 		
 		// Regenerating detector mask using radius_jump and radius_period parameters
@@ -169,11 +169,15 @@ static void update_model(double likelihood) {
 
 static double update_beta() {
 	int d ;
-	double beta_mean = 0. ;
+	double factor, beta_mean = 0. ;
+	if (param->beta_factor <= 0.)
+		factor = pow(param->beta_jump, (param->iteration-1) / param->beta_period) ;
+	else
+		factor = param->beta_factor ;
 	
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
 	if (!frames->blacklist[d]) {
-		param->beta[d] = param->beta_start[d] * pow(param->beta_jump, (param->iteration-1) / param->beta_period) ;
+		param->beta[d] = param->beta_start[d] * factor ;
 		if (param->beta[d] > 1.)
 			param->beta[d] = 1. ;
 		beta_mean += param->beta[d] ;
