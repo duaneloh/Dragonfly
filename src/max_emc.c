@@ -296,14 +296,14 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 					for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
 						pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
 						if (det[detn].mask[pixel] < 1)
-							pval += log(view[pixel] * iter->scale[d] + det[detn].background[pixel]) ;
+							pval += log(view[pixel] * iter->scale[d] + iter->bgscale[d] * det[detn].background[pixel]) ;
 					}
 					
 					// For each pixel with count_multi photons
 					for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
 						pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
 						if (det[detn].mask[pixel] < 1)
-							pval += curr->count_multi[curr->multi_accum[curr_d] + t] * log(view[pixel] * iter->scale[d] + det[detn].background[pixel]) ;
+							pval += curr->count_multi[curr->multi_accum[curr_d] + t] * log(view[pixel] * iter->scale[d] + iter->bgscale[d] * det[detn].background[pixel]) ;
 					}
 				}
 				else {
@@ -935,7 +935,7 @@ void gradient_rt(int r, struct max_data *priv, struct max_data *common, double *
 			for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
 				pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
 				if (priv->mask[detn][pixel] < 128) {
-					val = view[pixel] * iter->scale[d] + det[detn].background[pixel] ;
+					val = view[pixel] * iter->scale[d] + iter->bgscale[d] * det[detn].background[pixel] ;
 					grad[pixel] += prob[d][ind] * iter->scale[d] / val ;
 					priv->mask[detn][pixel] = 0 ;
 				}
@@ -951,7 +951,7 @@ void gradient_rt(int r, struct max_data *priv, struct max_data *common, double *
 			for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
 				pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
 				if (priv->mask[detn][pixel] < 128) {
-					val = view[pixel] * iter->scale[d] + det[detn].background[pixel] ;
+					val = view[pixel] * iter->scale[d] + iter->bgscale[d] * det[detn].background[pixel] ;
 					grad[pixel] += prob[d][ind] * curr->count_multi[curr->multi_accum[curr_d] + t] * iter->scale[d] / val ;
 					priv->mask[detn][pixel] = 0 ;
 				}
@@ -1205,7 +1205,7 @@ void gradient_d(struct max_data *common, uint8_t *mask, double *scale, double *g
 						pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
 						//if (det[detn].mask[pixel] < 1) { // Use only relevant pixels
 						if (det[detn].mask[pixel] < 2) { // Exclude bad pixels
-							val = view[pixel] * scale[d] + det[detn].background[pixel] ;
+							val = view[pixel] * scale[d] + iter->bgscale[d] * det[detn].background[pixel] ;
 							priv_grad[d] += common->prob[d][ind] * view[pixel] / val ;
 						}
 					}
@@ -1215,7 +1215,7 @@ void gradient_d(struct max_data *common, uint8_t *mask, double *scale, double *g
 						pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
 						//if (det[detn].mask[pixel] < 1) { // Use only relevant pixels
 						if (det[detn].mask[pixel] < 2) { // Exclude bad pixels
-							val = view[pixel] * scale[d] + det[detn].background[pixel] ;
+							val = view[pixel] * scale[d] + iter->bgscale[d] * det[detn].background[pixel] ;
 							priv_grad[d] += common->prob[d][ind] * curr->count_multi[curr->multi_accum[curr_d] + t] * view[pixel] / val ;
 						}
 					}
