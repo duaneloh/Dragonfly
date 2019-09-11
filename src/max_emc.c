@@ -943,7 +943,7 @@ void gradient_rt(int r, struct max_data *priv, struct max_data *common, double *
 					grad[pixel] += prob[d][ind] ;
 				}
 				else if (priv->mask[detn][pixel] == 160) {
-					grad[pixel] = fmax(grad[pixel], iter->scale[d]) ;
+					grad[pixel] = fmax(grad[pixel], iter->scale[d] / iter->bgscale[d]) ;
 				}
 			}
 			
@@ -959,7 +959,7 @@ void gradient_rt(int r, struct max_data *priv, struct max_data *common, double *
 					grad[pixel] += prob[d][ind] * curr->count_multi[curr->multi_accum[curr_d] + t] ;
 				}
 				else if (priv->mask[detn][pixel] == 160) {
-					grad[pixel] = fmax(grad[pixel], iter->scale[d]) ;
+					grad[pixel] = fmax(grad[pixel], iter->scale[d] / iter->bgscale[d]) ;
 				}
 			}
 		}
@@ -1057,7 +1057,7 @@ void update_tomogram_bg(int r, double scalemax, struct max_data *priv, struct ma
 			break ;
 	}
 	if (i == 10 && nmask/((double)tot_num_pix) < 0.9)
-		fprintf(stderr, "%.5d bad search bounds, %d/%d\n", r, nmask, tot_num_pix) ;
+		fprintf(stderr, "%.5d bad search bounds, %d/%d\n", r*param->num_proc + param->rank, nmask, tot_num_pix) ;
 	
 	// Bounded root-finding using bisection/regula falsi/Ridder's
 	for (i = 0 ; i < 50 ; ++i) { // Doing 50 iterations
@@ -1145,7 +1145,7 @@ void update_tomogram_bg(int r, double scalemax, struct max_data *priv, struct ma
 			break ;
 	}
 	if (i == 50 && nmask/((double)tot_num_pix) < 0.9)
-		fprintf(stderr, "%.5d not converged, %d/%d\n", r, nmask, tot_num_pix) ;
+		fprintf(stderr, "%.5d not converged, %d/%d\n", r*param->num_proc + param->rank, nmask, tot_num_pix) ;
 }
 
 void gradient_d(struct max_data *common, uint8_t *mask, double *scale, double *grad) {
