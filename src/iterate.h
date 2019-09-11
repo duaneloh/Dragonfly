@@ -18,7 +18,7 @@ struct iterate {
 	long size, center, vol ;
 	int modes, tot_num_data ;
 	double *model1, *model2, *inter_weight ;
-	double *scale ;
+	double *scale, *bgscale ;
 
 	// For refinement
 	int *quat_mapping, **rel_quat, *num_rel_quat ;
@@ -30,7 +30,7 @@ struct iterate {
 
 int iterate_from_config(char*, char*, int, double, struct params*, struct detector*, struct dataset*, struct iterate*) ;
 void calculate_size(double, struct iterate*) ;
-int parse_scale(char*, struct iterate*) ;
+int parse_scale(char*, double*, struct iterate*) ;
 void calc_scale(struct dataset*, struct detector*, struct iterate*) ;
 void normalize_scale(struct dataset*, struct iterate*) ;
 void parse_input(char*, double, int, int, struct iterate*) ;

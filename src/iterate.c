@@ -49,13 +49,14 @@ int iterate_from_config(char *config_fname, char *config_section, int continue_f
 	FILE *fp ;
 	double model_mean ;
 	char input_fname[2048] = {'\0'}, scale_fname[2048] = {'\0'} ;
-	char probs_fname[2048] = {'\0'} ;
+	char probs_fname[2048] = {'\0'}, bgscale_fname[2048] = {'\0'} ;
 	char line[2048], section_name[1024], config_folder[1024], *token ;
 	char *temp_fname = strndup(config_fname, 1024) ;
 	sprintf(config_folder, "%s/", dirname(temp_fname)) ;
 	free(temp_fname) ;
 	iter->size = -1 ;
 	iter->scale = NULL ;
+	iter->bgscale = NULL ;
 	iter->rel_quat = NULL ;
 	iter->modes = param->modes + param->nonrot_modes ;
 	iter->rescale = calloc(det[0].num_det, sizeof(double)) ;
@@ -76,6 +77,8 @@ int iterate_from_config(char *config_fname, char *config_section, int continue_f
 				absolute_strcpy(config_folder, scale_fname, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "probs_file") == 0)
 				absolute_strcpy(config_folder, probs_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "bgscale_file") == 0)
+				absolute_strcpy(config_folder, bgscale_fname, strtok(NULL, " =\n")) ;
 		}
 	}
 	fclose(config_fp) ;
@@ -114,7 +117,8 @@ int iterate_from_config(char *config_fname, char *config_section, int continue_f
 	
 	if (param->need_scaling) {
 		calc_scale(dset, det, iter) ;
-		param->known_scale = parse_scale(scale_fname, iter) ;
+		param->known_scale = parse_scale(scale_fname, iter->scale, iter) ;
+		parse_scale(bgscale_fname, iter->bgscale, iter) ;
 		
 		if (param->update_scale == 0 && param->known_scale == 0) {
 			fprintf(stderr, "If not updating scales, need input scale_file.\n") ;
@@ -177,7 +181,7 @@ void calculate_size(double qmax, struct iterate *iter) {
 	iter->center = iter->size / 2 ;
 }
 
-int parse_scale(char *fname, struct iterate *iter) {
+int parse_scale(char *fname, double *scales, struct iterate *iter) {
 	int flag = 0 ;
 	char line[8], hdfheader[8] = {137, 'H', 'D', 'F', '\r', '\n', 26, '\n'} ;
 	
@@ -212,7 +216,7 @@ int parse_scale(char *fname, struct iterate *iter) {
 				//fprintf(stderr, "Defaulting to uniform scale factors\n") ;
 				//return 0 ;
 			}
-			H5Dread(dset, H5T_IEEE_F64LE, dspace, dspace, H5P_DEFAULT, iter->scale) ;
+			H5Dread(dset, H5T_IEEE_F64LE, dspace, dspace, H5P_DEFAULT, scales) ;
 			H5Dclose(dset) ;
 			H5Fclose(file) ;
 #else // WITH_HDF5
@@ -225,7 +229,7 @@ int parse_scale(char *fname, struct iterate *iter) {
 			fseek(fp, 0, SEEK_SET) ;
 			int d ;
 			for (d = 0 ; d < iter->tot_num_data ; ++d)
-				fscanf(fp, "%lf", &iter->scale[d]) ;
+				fscanf(fp, "%lf", &scales[d]) ;
 			fclose(fp) ;
 		}
 	}
@@ -239,6 +243,7 @@ void calc_scale(struct dataset *frames, struct detector *det, struct iterate *it
 	curr = frames ;
 	
 	iter->scale = calloc(iter->tot_num_data, sizeof(double)) ;
+	iter->bgscale = calloc(iter->tot_num_data, sizeof(double)) ;
 	frames->count = calloc(iter->tot_num_data, sizeof(int)) ;
 	
 	while (curr != NULL) {
@@ -246,6 +251,7 @@ void calc_scale(struct dataset *frames, struct detector *det, struct iterate *it
 		if (curr->type == 0) {
 			for (d = 0 ; d < curr->num_data ; ++d) {
 				iter->scale[curr->num_data_prev + d] = 1. ;
+				iter->bgscale[curr->num_data_prev + d] = 1. ;
 				for (t = 0 ; t < curr->ones[d] ; ++t)
 				if (det[detn].mask[curr->place_ones[curr->ones_accum[d] + t]] < 1)
 					frames->count[curr->num_data_prev + d]++ ;
@@ -258,6 +264,7 @@ void calc_scale(struct dataset *frames, struct detector *det, struct iterate *it
 		else if (curr->type == 1) {
 			for (d = 0 ; d < curr->num_data ; ++d) {
 				iter->scale[curr->num_data_prev + d] = 1. ;
+				iter->bgscale[curr->num_data_prev + d] = 1. ;
 				for (t = 0 ; t < curr->num_pix ; ++t)
 					frames->count[curr->num_data_prev+d] += curr->int_frames[d*curr->num_pix + t] ;
 			}
@@ -265,6 +272,7 @@ void calc_scale(struct dataset *frames, struct detector *det, struct iterate *it
 		else if (curr->type == 2) {
 			for (d = 0 ; d < curr->num_data ; ++d) {
 				iter->scale[curr->num_data_prev + d] = 1. ;
+				iter->bgscale[curr->num_data_prev + d] = 1. ;
 				for (t = 0 ; t < curr->num_pix ; ++t)
 					frames->count[curr->num_data_prev+d] += curr->frames[d*curr->num_pix + t] ;
 			}
@@ -555,6 +563,8 @@ void free_iterate(struct iterate *iter) {
 		free(iter->inter_weight) ;
 	if (iter->scale != NULL)
 		free(iter->scale) ;
+	if (iter->bgscale != NULL)
+		free(iter->bgscale) ;
 	if (iter->rescale != NULL)
 		free(iter->rescale) ;
 	if (iter->rel_quat != NULL) {
