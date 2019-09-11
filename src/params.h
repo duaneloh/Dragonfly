@@ -19,7 +19,7 @@ struct params {
 	
 	// Algorithm parameters
 	int beta_period, need_scaling, known_scale, update_scale ;
-	double alpha, beta_jump ;
+	double alpha, beta_jump, beta_factor ;
 	double *beta, *beta_start ;
 	int friedel_sym ; // Symmetrization for 2D recon
 	int refine, coarse_div, fine_div ; // If doing refinement

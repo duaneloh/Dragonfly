@@ -35,6 +35,7 @@ void params_from_config(char *config_fname, char *config_section, struct params 
 	param->start_iter = 1 ;
 	param->beta_period = 100 ;
 	param->beta_jump = 1. ;
+	param->beta_factor = -1. ;
 	param->radius = 0. ;
 	param->radius_period = 100 ;
 	param->radius_jump = 0. ;
@@ -55,8 +56,8 @@ void params_from_config(char *config_fname, char *config_section, struct params 
 	param->refine = 0 ;
 	param->coarse_div = 0 ;
 	param->fine_div = 0 ;
-	sprintf(param->log_fname, "%s/EMC.log", config_folder) ;
-	sprintf(param->output_folder, "%s/data/", config_folder) ;
+	sprintf(param->log_fname, "%.1015s/EMC.log", config_folder) ;
+	sprintf(param->output_folder, "%.1017s/data/", config_folder) ;
 	
 	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 2048, config_fp) != NULL) {
@@ -86,6 +87,8 @@ void params_from_config(char *config_fname, char *config_section, struct params 
 				param->alpha = atof(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "beta") == 0)
 				strcpy(beta_str, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "beta_factor") == 0)
+				param->beta_factor = atof(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "radius") == 0)
 				param->radius = atof(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "num_modes") == 0)
@@ -133,6 +136,9 @@ void params_from_config(char *config_fname, char *config_section, struct params 
 		param->beta_start[0] = -1. ;
 	else if (beta_str[0] != '\0')
 		param->beta_start[0] = atof(beta_str) ;
+	
+	if (param->beta_jump != 1. && param->beta_factor >= 0.)
+		fprintf(stderr, "WARNING: Both beta_schedule and beta_factor specified. beta_schedule will be ignored.\n") ;
 	
 	if (!param->rank)
 		fprintf(stderr, "Parsed params from config file\n") ;
