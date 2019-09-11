@@ -152,7 +152,7 @@ int setup(char *fname) {
 		return 1 ;
 	parse_input(probs_fname, 1., 0, RECON3D, iter) ;
 	iter->scale = malloc(iter->tot_num_data * sizeof(double)) ;
-	if (!parse_scale(probs_fname, iter))
+	if (!parse_scale(probs_fname, iter->scale, iter))
 		return 1 ;
 	
 	return 0 ;

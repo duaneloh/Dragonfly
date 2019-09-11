@@ -169,7 +169,7 @@ int setup(char *fname, char *output_fname) {
 	if (quat_list_from_config(fname) && rel_quat_from_config(fname))
 		return 1 ;
 	
-	parse_scale(scale_fname, iter) ;
+	parse_scale(scale_fname, iter->scale, iter) ;
 	
 	return 0 ;
 }
