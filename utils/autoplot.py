@@ -924,7 +924,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
             sys.stderr.write('Saving layer animation to %s ...' % fname)
             Writer = animation.writers['ffmpeg']
             writer = Writer(fps=20, codec='h264', bitrate=1800)
-            anim = animation.FuncAnimation(self.fig, self._plot_layer, self.layer_slider.maximum(), interval=50, repeat=False)
+            anim = animation.FuncAnimation(self.fig, self._plot_layer, self.layer_slider.maximum()+1, interval=50, repeat=False)
             anim.save(fname, writer=writer)
             self._parse_and_plot(force=True)
             sys.stderr.write('done\n')
@@ -947,7 +947,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
             sys.stderr.write('Saving iteration animation to %s ...' % fname)
             Writer = animation.writers['ffmpeg']
             writer = Writer(fps=10, codec='h264', bitrate=1800)
-            anim = animation.FuncAnimation(self.fig, self._plot_iter, self.iter_slider.maximum(), interval=50, repeat=False)
+            anim = animation.FuncAnimation(self.fig, self._plot_iter, self.iter_slider.maximum()+1, interval=50, repeat=False)
             anim.save(fname, writer=writer)
             self._parse_and_plot(force=True)
             sys.stderr.write('done\n')
