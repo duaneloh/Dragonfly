@@ -36,7 +36,7 @@ static void free_memory(struct max_data*) ;
 static int resparsify(double*, int*, int, double) ;
 static double calc_psum_r(int, struct max_data*, struct max_data*) ;
 static void update_tomogram_nobg(int, struct max_data*, struct max_data*) ;
-static void gradient_rt(int, struct max_data*, struct max_data*, double**, double**) ;
+static void gradient_rt(int, struct max_data*, double**, double**) ;
 static void update_tomogram_bg(int, double, struct max_data*, struct max_data*) ;
 void gradient_d(struct max_data*, uint8_t*, double*, double*) ;
 void update_scale_bg(struct max_data*) ;
@@ -106,6 +106,10 @@ void allocate_memory(struct max_data *data) {
 	
 	data->prob = malloc(frames->tot_num_data * sizeof(double*)) ;
 	data->place_prob = malloc(frames->tot_num_data * sizeof(int*)) ;
+	for (d = 0 ; d < frames->tot_num_data ; ++d) {
+		data->prob[d] = NULL ;
+		data->place_prob[d] = NULL ;
+	}
 	data->num_prob = calloc(frames->tot_num_data, sizeof(int)) ;
 	if (param->need_scaling && param->update_scale)
 		data->psum_d = calloc(frames->tot_num_data, sizeof(double)) ;
@@ -619,6 +623,7 @@ void free_memory(struct max_data *data) {
 	free(data->rmax) ;
 	if (iter->modes > 1)
 		free(data->quat_norm) ;
+	if (data->prob[0] != NULL)
 	for (d = 0 ; d < frames->tot_num_data ; ++d) {
 		free(data->prob[d]) ;
 		free(data->place_prob[d]) ;
@@ -867,7 +872,7 @@ void update_tomogram_nobg(int r, struct max_data *priv, struct max_data *common)
 		priv->all_views[detn][t] /= priv->psum_r[detn] ;
 }
 
-void gradient_rt(int r, struct max_data *priv, struct max_data *common, double **views, double **gradients) {
+void gradient_rt(int r, struct max_data *priv, double **views, double **gradients) {
 	int dset = 0, t, d, curr_d, pixel, detn, ind ;
 	double val, *grad, *view ;
 	struct dataset *curr = frames ;
@@ -971,9 +976,6 @@ void gradient_rt(int r, struct max_data *priv, struct max_data *common, double *
 		dset++ ;
 		curr = curr->next ;
 	}
-	
-	//if ((r*param->num_proc + param->rank)%(quat->num_rot * param->modes / 10) == 0)
-	//	fprintf(stderr, "\t\tFinished r = %d/%d\n", r*param->num_proc + param->rank, quat->num_rot * param->modes) ;
 }
 
 void update_tomogram_bg(int r, double scalemax, struct max_data *priv, struct max_data *common) {
@@ -1015,7 +1017,7 @@ void update_tomogram_bg(int r, double scalemax, struct max_data *priv, struct ma
 	// 255 : Optimal pixel
 	// Set search bounds
 	// Calculate G(0) and check sign
-	gradient_rt(r, priv, common, priv->W_old, priv->G_old) ;
+	gradient_rt(r, priv, priv->W_old, priv->G_old) ;
 	for (detn = 0 ; detn < det[0].num_det ; ++detn)
 	for (t = 0 ; t < det[detn].num_pix ; ++t) {
 		if (fabs(priv->G_old[detn][t]) < grad_tol) {
@@ -1032,7 +1034,7 @@ void update_tomogram_bg(int r, double scalemax, struct max_data *priv, struct ma
 	// Find far end of search window
 	for (i = 0 ; i < 10 ; ++i) {
 		nmask = 0 ;
-		gradient_rt(r, priv, common, priv->W_new, priv->G_new) ;
+		gradient_rt(r, priv, priv->W_new, priv->G_new) ;
 		
 		for (detn = 0 ; detn < det[0].num_det ; ++detn)
 		for (t = 0 ; t < det[detn].num_pix ; ++t) {
@@ -1122,7 +1124,7 @@ void update_tomogram_bg(int r, double scalemax, struct max_data *priv, struct ma
 		}
 		
 		// Calculate G_latest(W_latest)
-		gradient_rt(r, priv, common, priv->W_latest, priv->G_latest) ;
+		gradient_rt(r, priv, priv->W_latest, priv->G_latest) ;
 		
 		// Test for convergence and change search window
 		for (detn = 0 ; detn < det[0].num_det ; ++detn)
