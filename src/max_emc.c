@@ -82,7 +82,8 @@ double maximize() {
 	
 	if (!param->rank) {
 		save_metrics(common_data) ;
-		//save_prob(common_data) ;
+		if (param->save_prob)
+			save_prob(common_data) ;
 	}
 	print_max_time("save", "", param->rank == 0) ;
 	free_memory(common_data) ;
@@ -466,36 +467,39 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 		}
 	}
 	
-	// Calculate offsets to combine sparse probabilities for each OpenMP rank
-	#pragma omp critical(offset_prob)
-	{
-		for (d = 0 ; d < frames->tot_num_data ; ++d) {
-			common->num_prob[d] += priv->num_prob[d] ;
-			for (r = omp_rank + 1 ; r < nthreads ; ++r)
-				common->offset_prob[d*nthreads + r] += priv->num_prob[d] ;
+	// Only calculate common probabilities if needed for update_scale or to save
+	if ((param->need_scaling && param->update_scale && det[0].with_bg) || (param->save_prob)) {
+		// Calculate offsets to combine sparse probabilities for each OpenMP rank
+		#pragma omp critical(offset_prob)
+		{
+			for (d = 0 ; d < frames->tot_num_data ; ++d) {
+				common->num_prob[d] += priv->num_prob[d] ;
+				for (r = omp_rank + 1 ; r < nthreads ; ++r)
+					common->offset_prob[d*nthreads + r] += priv->num_prob[d] ;
+			}
 		}
-	}
-	#pragma omp barrier
+		#pragma omp barrier
+			
+		// Allocate common prob arrays
+		#pragma omp for schedule(static,1)
+		for (d = 0 ; d < frames->tot_num_data ; ++d) {
+			common->prob[d] = malloc(common->num_prob[d] * sizeof(double)) ;
+			common->place_prob[d] = malloc(common->num_prob[d] * sizeof(int)) ;
+		}
 		
-	// Allocate common prob arrays
-	#pragma omp for schedule(static,1)
-	for (d = 0 ; d < frames->tot_num_data ; ++d) {
-		common->prob[d] = malloc(common->num_prob[d] * sizeof(double)) ;
-		common->place_prob[d] = malloc(common->num_prob[d] * sizeof(int)) ;
+		// Populate common->prob array for all d
+		for (d = 0 ; d < frames->tot_num_data ; ++d)
+		for (r = 0 ; r < priv->num_prob[d] ; ++r) {
+			common->prob[d][common->offset_prob[d*nthreads + omp_rank] + r] = priv->prob[d][r] ;
+			common->place_prob[d][common->offset_prob[d*nthreads + omp_rank] + r] = priv->place_prob[d][r] ;
+		}
+		#pragma omp barrier
+		
+		// Sparsify probs based on PROB_MIN threshold
+		#pragma omp for schedule(static,1)
+		for (d = 0 ; d < frames->tot_num_data ; ++d)
+			common->num_prob[d] = resparsify(common->prob[d], common->place_prob[d], common->num_prob[d], PROB_MIN) ;
 	}
-	
-	// Populate common->prob array for all d
-	for (d = 0 ; d < frames->tot_num_data ; ++d)
-	for (r = 0 ; r < priv->num_prob[d] ; ++r) {
-		common->prob[d][common->offset_prob[d*nthreads + omp_rank] + r] = priv->prob[d][r] ;
-		common->place_prob[d][common->offset_prob[d*nthreads + omp_rank] + r] = priv->place_prob[d][r] ;
-	}
-	#pragma omp barrier
-	
-	// Sparsify probs based on PROB_MIN threshold
-	#pragma omp for schedule(static,1)
-	for (d = 0 ; d < frames->tot_num_data ; ++d)
-		common->num_prob[d] = resparsify(common->prob[d], common->place_prob[d], common->num_prob[d], PROB_MIN) ;
 	
 	if (param->need_scaling && param->update_scale) {
 		#pragma omp critical(scale)
@@ -541,47 +545,47 @@ double combine_information_mpi(struct max_data *data) {
 	iter->mutual_info /= (frames->tot_num_data - frames->num_blacklist) ;
 	avg_likelihood /= (frames->tot_num_data - frames->num_blacklist) ;
 	
-	/*
-	// Combine sparse probabilities across MPI ranks
-	int p, q, tot_num_prob ;
-	int *num_prob_p = calloc(frames->tot_num_data * param->num_proc, sizeof(int)) ;
-	int *displ_prob_p = NULL ;
-	for (d = 0 ; d < frames->tot_num_data ; ++d)
-		num_prob_p[d*param->num_proc + param->rank] = data->num_prob[d] ;
-	if (param->rank) {
-		MPI_Reduce(num_prob_p, NULL, frames->tot_num_data*param->num_proc, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD) ;
-		free(num_prob_p) ;
-	}
-	else {
-		MPI_Reduce(MPI_IN_PLACE, num_prob_p, frames->tot_num_data*param->num_proc, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD) ;
-		displ_prob_p = malloc(param->num_proc * sizeof(int)) ;
-	}
-	for (d = 0 ; d < frames->tot_num_data ; ++d) {
+	// Only calculate common probabilities if needed for update_scale or to save
+	if ((param->need_scaling && param->update_scale && det[0].with_bg) || (param->save_prob)) {
+		int p, q, tot_num_prob ;
+		int *num_prob_p = calloc(frames->tot_num_data * param->num_proc, sizeof(int)) ;
+		int *displ_prob_p = NULL ;
+		for (d = 0 ; d < frames->tot_num_data ; ++d)
+			num_prob_p[d*param->num_proc + param->rank] = data->num_prob[d] ;
 		if (param->rank) {
-			MPI_Gatherv(data->place_prob[d], data->num_prob[d], MPI_INT, NULL, 0, 0, MPI_INT, 0, MPI_COMM_WORLD) ;
-			MPI_Gatherv(data->prob[d], data->num_prob[d], MPI_DOUBLE, NULL, 0, 0, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
+			MPI_Reduce(num_prob_p, NULL, frames->tot_num_data*param->num_proc, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD) ;
+			free(num_prob_p) ;
 		}
 		else {
-			tot_num_prob = 0 ;
-			memset(displ_prob_p, 0, param->num_proc*sizeof(int)) ;
-			for (p = 0 ; p < param->num_proc ; ++p) {
-				tot_num_prob += num_prob_p[d*param->num_proc + p] ;
-				for (q = 0 ; q < p ; ++q)
-					displ_prob_p[p] += num_prob_p[d*param->num_proc + q] ;
+			MPI_Reduce(MPI_IN_PLACE, num_prob_p, frames->tot_num_data*param->num_proc, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD) ;
+			displ_prob_p = malloc(param->num_proc * sizeof(int)) ;
+		}
+		for (d = 0 ; d < frames->tot_num_data ; ++d) {
+			if (param->rank) {
+				MPI_Gatherv(data->place_prob[d], data->num_prob[d], MPI_INT, NULL, 0, 0, MPI_INT, 0, MPI_COMM_WORLD) ;
+				MPI_Gatherv(data->prob[d], data->num_prob[d], MPI_DOUBLE, NULL, 0, 0, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
 			}
-			data->prob[d] = realloc(data->prob[d], tot_num_prob * sizeof(double)) ;
-			data->place_prob[d] = realloc(data->place_prob[d], tot_num_prob * sizeof(int)) ;
-			
-			MPI_Gatherv(MPI_IN_PLACE, 0, MPI_INT, data->place_prob[d], &num_prob_p[d*param->num_proc], displ_prob_p, MPI_INT, 0, MPI_COMM_WORLD) ;
-			MPI_Gatherv(MPI_IN_PLACE, 0, MPI_DOUBLE, data->prob[d], &num_prob_p[d*param->num_proc], displ_prob_p, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
-			data->num_prob[d] = tot_num_prob ;
+			else {
+				tot_num_prob = 0 ;
+				memset(displ_prob_p, 0, param->num_proc*sizeof(int)) ;
+				for (p = 0 ; p < param->num_proc ; ++p) {
+					tot_num_prob += num_prob_p[d*param->num_proc + p] ;
+					for (q = 0 ; q < p ; ++q)
+						displ_prob_p[p] += num_prob_p[d*param->num_proc + q] ;
+				}
+				data->prob[d] = realloc(data->prob[d], tot_num_prob * sizeof(double)) ;
+				data->place_prob[d] = realloc(data->place_prob[d], tot_num_prob * sizeof(int)) ;
+				
+				MPI_Gatherv(MPI_IN_PLACE, 0, MPI_INT, data->place_prob[d], &num_prob_p[d*param->num_proc], displ_prob_p, MPI_INT, 0, MPI_COMM_WORLD) ;
+				MPI_Gatherv(MPI_IN_PLACE, 0, MPI_DOUBLE, data->prob[d], &num_prob_p[d*param->num_proc], displ_prob_p, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
+				data->num_prob[d] = tot_num_prob ;
+			}
+		}
+		if (!param->rank) {
+			free(num_prob_p) ;
+			free(displ_prob_p) ;
 		}
 	}
-	if (!param->rank) {
-		free(num_prob_p) ;
-		free(displ_prob_p) ;
-	}
-	*/
 	
 	// Combine scale factor information from all MPI ranks
 	if (param->need_scaling && param->update_scale)
