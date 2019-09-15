@@ -11,6 +11,7 @@
 #ifdef WITH_HDF5
 #include <hdf5.h>
 #endif // WITH_HDF5
+#include "utils.h"
 
 struct detector {
 	int num_pix, rel_num_pix ;

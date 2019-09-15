@@ -5,26 +5,12 @@
 #include <math.h>
 #include <float.h>
 #include <omp.h>
+#include "../../src/utils.h"
 #include "../../src/quat.h"
 #include "../../src/interp.h"
 
 long s, c, rmax, rmin, max_r = 0 ;
 double i2i2, max_corr ;
-
-char* extract_fname(char* fullName) {
-	return 
-		strrchr(fullName,'/') != NULL
-			? strrchr(fullName,'/') + 1
-			: fullName ;
-}
-
-char* remove_ext(char *fullName) {
-	char *out = malloc(500 * sizeof(char)) ;
-	strcpy(out,fullName) ;
-	if (strrchr(out,'.') != NULL)
-		*strrchr(out,'.') = 0 ;
-	return out ;
-}
 
 int parse_arguments(int argc, char *argv[], char *output_fname, char *intens_fname1, char *intens_fname2) {
 	extern char *optarg ;

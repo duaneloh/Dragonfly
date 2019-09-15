@@ -9,6 +9,7 @@
 #ifdef WITH_HDF5
 #include <hdf5.h>
 #endif // WITH_HDF5
+#include "utils.h"
 #include "dataset.h"
 #include "detector.h"
 #include "params.h"

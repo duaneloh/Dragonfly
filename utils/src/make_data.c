@@ -14,6 +14,7 @@
 #include <float.h>
 #include <stdint.h>
 #include <libgen.h>
+#include "../../src/utils.h"
 #include "../../src/detector.h"
 #include "../../src/interp.h"
 
@@ -373,20 +374,6 @@ void write_dataset() {
 		H5Fclose(file) ;
 	}
 #endif
-}
-
-char *generate_token(char *line, char *section_name) {
-	char *token = strtok(line, " =") ;
-	if (token[0] == '#' || token[0] == '\n')
-		return NULL ;
-	
-	if (line[0] == '[') {
-		token = strtok(line, "[]") ;
-		strcpy(section_name, token) ;
-		return NULL ;
-	}
-	
-	return token ;
 }
 
 int size_params_from_config(char *config_fname) {

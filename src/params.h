@@ -6,6 +6,7 @@
 #include <string.h>
 #include <libgen.h>
 #include <sys/stat.h>
+#include "utils.h"
 
 #define RECON3D 42
 #define RECON2D 43

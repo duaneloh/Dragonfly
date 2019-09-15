@@ -1,29 +1,5 @@
 #include "params.h"
 
-static char *generate_token(char *line, char *section_name) {
-	char *token = strtok(line, " =") ;
-	if (token[0] == '#' || token[0] == '\n')
-		return NULL ;
-	
-	if (line[0] == '[') {
-		token = strtok(line, "[]") ;
-		strcpy(section_name, token) ;
-		return NULL ;
-	}
-	
-	return token ;
-}
-
-static void absolute_strcpy(char *config_folder, char *path, char *rel_path) {
-	if (rel_path[0] == '/' || strstr(rel_path, ":::") != NULL) {
-		strcpy(path, rel_path) ;
-	}
-	else {
-		strcpy(&path[strlen(config_folder)], rel_path) ;
-		strncpy(path, config_folder, strlen(config_folder)) ;
-	}
-}
-
 void params_from_config(char *config_fname, char *config_section, struct params *param) {
 	char line[2048], section_name[1024], config_folder[1024], temp[8] ;
 	char beta_str[1024] = {'\0'} ;

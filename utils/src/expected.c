@@ -8,6 +8,7 @@
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_sf_bessel.h>
 
+#include "../../src/utils.h"
 #include "../../src/params.h"
 #include "../../src/detector.h"
 #include "../../src/interp.h"
@@ -18,20 +19,6 @@ struct detector *det ;
 struct dataset *frames ;
 struct iterate *iter ;
 struct rotation *quat ;
-
-char *generate_token(char *line, char *section_name) {
-	char *token = strtok(line, " =") ;
-	if (token[0] == '#' || token[0] == '\n')
-		return NULL ;
-	
-	if (line[0] == '[') {
-		token = strtok(line, "[]") ;
-		strcpy(section_name, token) ;
-		return NULL ;
-	}
-	
-	return token ;
-}
 
 int generate_rel_quat(char *probs_fname, int num_div) {
 	if (probs_fname[0] == '\0') {

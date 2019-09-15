@@ -5,6 +5,7 @@
 #include <math.h>
 #include <hdf5.h>
 
+#include "../../src/utils.h"
 #include "../../src/params.h"
 #include "../../src/dataset.h"
 #include "../../src/detector.h"
@@ -24,20 +25,6 @@ static void print_recon_time(char *message, struct timeval *time_1, struct timev
 		gettimeofday(time_2, NULL) ;
 		fprintf(stderr, "%s: %f s\n", message, (double)(time_2->tv_sec - time_1->tv_sec) + 1.e-6*(time_2->tv_usec - time_1->tv_usec)) ;
 	}
-}
-
-char *generate_token(char *line, char *section_name) {
-	char *token = strtok(line, " =") ;
-	if (token[0] == '#' || token[0] == '\n')
-		return NULL ;
-	
-	if (line[0] == '[') {
-		token = strtok(line, "[]") ;
-		strcpy(section_name, token) ;
-		return NULL ;
-	}
-	
-	return token ;
 }
 
 int parse_arguments(int argc, char *argv[], int *num_threads, char *config_fname) {
