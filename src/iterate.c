@@ -21,7 +21,9 @@ static void calc_mean_counts(struct dataset *frames, struct detector *det, struc
 
 // Public functions below
 
-int iterate_from_config(char *config_fname, char *config_section, int continue_flag, double qmax, struct params *param, struct detector *det, struct dataset *dset, struct iterate *iter) {
+int iterate_from_config(char *config_fname, char *config_section, int continue_flag,
+						double qmax, struct params *param, struct detector *det,
+						struct dataset *dset, struct iterate *iter) {
 	FILE *fp ;
 	double model_mean ;
 	char input_fname[2048] = {'\0'}, scale_fname[2048] = {'\0'} ;
@@ -94,7 +96,8 @@ int iterate_from_config(char *config_fname, char *config_section, int continue_f
 	if (param->need_scaling) {
 		calc_scale(dset, det, iter) ;
 		param->known_scale = parse_scale(scale_fname, iter->scale, iter) ;
-		parse_scale(bgscale_fname, iter->bgscale, iter) ;
+		if (det[0].with_bg)
+			parse_scale(bgscale_fname, iter->bgscale, iter) ;
 		
 		if (param->update_scale == 0 && param->known_scale == 0) {
 			fprintf(stderr, "If not updating scales, need input scale_file.\n") ;
