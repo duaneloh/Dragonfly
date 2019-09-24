@@ -33,6 +33,7 @@ class Detector(object):
         write(fname)
         assemble_frame(data, zoomed=False, sym=False)
         calc_from_coords()
+        remask(qradius)
 
     On parsing, it produces the following numpy arrays (each of length num_pix)
 
@@ -149,6 +150,17 @@ class Detector(object):
         self.qz = self.ewald_rad * (self.detd/fac - 1.)
         self.corr = self.detd / fac**3 * (1. - self.cx**2 / fac**2)
 
+    def remask(self, qradius):
+        ''' Remask detector with given q-radius
+
+        Sets mask value of all good pixels (mask==0) with q-radius greater than specified
+        to be irrelevant (mask==1).
+        This is useful when doing coarse orientational alignment
+        '''
+        if self._qrad is None:
+            self._qrad = np.sqrt(self.qx**2 + self.qy**2 + self.qz**2)
+        self.raw_mask[(self.raw_mask == 0) & (self._qrad > qradius)] = 1
+
     def _parse_asciidet(self, mask_flag, keep_mask_1):
         """ (Internal) Detector file parser
 
@@ -251,10 +263,11 @@ class Detector(object):
         self.x = np.round(self.cx - self.cx.min()).astype('i4')
         self.y = np.round(self.cy - self.cy.min()).astype('i4')
         self.unassembled_mask = mask.ravel()
+        self.shape = self.qx.shape
         self._init_assem()
 
     def _init_assem(self):
-        # Calculate attributes given self.x and self.y
+        '''Calculate attributes given self.x and self.y'''
         mask = self.unassembled_mask
         self.frame_shape = (self.x.max()+1, self.y.max()+1)
 
