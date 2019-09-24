@@ -20,13 +20,8 @@ class Detector(object):
 
     __init__ arguments (optional):
         det_fname (string) - Path to detector file to populate attributes
-        detd_pix (float) - Detector distance in pixels (detd/pixsize)
-        ewald_rad (float) - Ewald sphere radius in voxels. If in doubt, = detd_pix
         mask_flag (bool) - Whether to read the mask column for each pixel
         keep_mask_1 (bool) - Whether to consider mask=1 pixels as good
-
-    For the new ASCII format, detd_pix and ewald_rad numbers are read from the file \
-    but for the old file, they must be provided.
 
     Methods:
         parse(fname, mask_flag=False, keep_mask_1=True)
@@ -45,10 +40,7 @@ class Detector(object):
         self.raw_mask - Unassembled mask as stored in detector file
         self.unassembled_mask - Unassembled mask (1=good, 0=bad)
     """
-    def __init__(self, det_fname=None, detd_pix=None,
-                 ewald_rad=None, mask_flag=False, keep_mask_1=True):
-        self.detd = detd_pix
-        self.ewald_rad = ewald_rad
+    def __init__(self, det_fname=None, mask_flag=False, keep_mask_1=True):
         self.background = None
         self._sym_shape = None
         if det_fname is not None:
@@ -232,14 +224,11 @@ class Detector(object):
     def _check_header(self):
         with open(self.det_fname, 'r') as fptr:
             line = fptr.readline().rstrip().split()
-        if len(line) > 1:
+        if len(line) != 1:
             self.detd = float(line[1])
             self.ewald_rad = float(line[2])
         else:
-            if self.detd is None:
-                raise TypeError('Old type detector file. Need detd_pix')
-            if self.ewald_rad is None:
-                raise TypeError('Old type detector file. Need ewald_rad')
+            raise ValueError('Need 3 values on header line: num_pix, detd_pix, ewald_rad_vox')
 
     def _process_det(self, mask_flag, keep_mask_1):
         if mask_flag:
