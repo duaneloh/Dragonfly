@@ -27,6 +27,7 @@ class EMCReader(object):
     Methods:
         get_frame(num, raw=False, sparse=False, zoomed=False, sym=False)
         get_powder(raw=False, zoomed=False, sym=False)
+        get_blacklist(fname, sel_string=None)
     """
     def __init__(self, photons_list, det_list, dset_list=None, det_mapping=None):
         '''Create object for given photons file list and detector list
@@ -144,15 +145,22 @@ class EMCReader(object):
             powder = self.flist[0]['det'].assemble_frame(powder, **kwargs)
         return powder
 
-    @staticmethod
-    def _test_h5file(fname):
-        if HDF5_MODE:
-            return h5py.is_hdf5(fname)
-        if os.path.splitext(fname)[1] == '.h5':
-            fheader = np.fromfile(fname, '=c', count=8)
-            if fheader == chr(137)+'HDF\r\n'+chr(26)+'\n':
-                return True
-        return False
+    def get_blacklist(self, fname, sel_string=None):
+        '''Generate blacklist from file and selection string
+        
+        Blacklist file contains one number (0 or 1) per line for each frame indicating whether
+        the frame is blacklisted (1) or considered good (0).
+        
+        On top of that for dataset splitting, one can provide a selection string, either
+        'odd_only' or 'even_only' to take only half of the good frames.
+        '''
+        if os.path.isfile(fname):
+            self.blacklist = pandas.read_csv(fname, header=None, squeeze=True, dtype='u1').array
+
+        if sel_string is 'odd_only':
+            self.blacklist[self.blacklist==0][0::2] = 1
+        elif sel_string is 'even_only':
+            self.blacklist[self.blacklist==0][1::2] = 1
 
     def _parse_headers(self):
         for i, pdict in enumerate(self.flist):
@@ -172,6 +180,18 @@ class EMCReader(object):
             if i > 0:
                 pdict['num_data'] += self.flist[i-1]['num_data']
         self.num_frames = self.flist[-1]['num_data']
+        self.blacklist = np.zeros(self.num_frames, dtype='u1')
+        self.num_blacklist = 0
+
+    @staticmethod
+    def _test_h5file(fname):
+        if HDF5_MODE:
+            return h5py.is_hdf5(fname)
+        if os.path.splitext(fname)[1] == '.h5':
+            fheader = np.fromfile(fname, '=c', count=8)
+            if fheader == chr(137)+'HDF\r\n'+chr(26)+'\n':
+                return True
+        return False
 
     @staticmethod
     def _parse_binaryheader(pdict):
