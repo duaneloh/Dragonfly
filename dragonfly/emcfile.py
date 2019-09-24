@@ -28,13 +28,14 @@ class EMCReader(object):
         get_frame(num, raw=False, sparse=False, zoomed=False, sym=False)
         get_powder(raw=False, zoomed=False, sym=False)
     """
-    def __init__(self, photons_list, geom_list, geom_mapping=None):
+    def __init__(self, photons_list, geom_list, dset_list=None, geom_mapping=None):
         if hasattr(photons_list, 'strip') or not hasattr(photons_list, '__getitem__'):
             photons_list = [photons_list]
         if not hasattr(geom_list, '__getitem__'):
             geom_list = [geom_list]
         self.flist = [{'fname': fname} for fname in photons_list]
         num_files = len(photons_list)
+
         self.multiple_geom = False
         if len(geom_list) == 1:
             for i in range(num_files):
@@ -47,6 +48,13 @@ class EMCReader(object):
             except TypeError:
                 print('Need mapping if multiple geometries are provided')
                 raise
+
+        if dset_list is not None:
+            if len(dset_list) != len(photons_list):
+                raise ValueError('dset_list must be same length as photons_list')
+            self._dset_list = dset_list
+        else:
+            self._dset_list = [None] * len(photons_list)
 
         self._parse_headers()
 
@@ -62,10 +70,10 @@ class EMCReader(object):
 
     def _parse_headers(self):
         for i, pdict in enumerate(self.flist):
+            pdict['dset_name'] = self._dset_list[i]
             pdict['is_hdf5'] = self._test_h5file(pdict['fname'])
             if pdict['is_hdf5'] and not HDF5_MODE:
-                print('Unable to parse HDF5 dataset')
-                raise IOError
+                raise IOError('Unable to parse HDF5 dataset')
             elif not pdict['is_hdf5']:
                 self._parse_binaryheader(pdict)
             else:
@@ -84,6 +92,7 @@ class EMCReader(object):
         with open(pdict['fname'], 'rb') as fptr:
             num_data = np.fromfile(fptr, dtype='i4', count=1)[0]
             pdict['num_pix'] = np.fromfile(fptr, dtype='i4', count=1)[0]
+            pdict['frame_type'] = np.fromfile(fptr, dtype='i4', count=1)[0]
             fptr.seek(1024, 0)
             ones = np.fromfile(fptr, dtype='i4', count=num_data)
             multi = np.fromfile(fptr, dtype='i4', count=num_data)
@@ -94,8 +103,15 @@ class EMCReader(object):
     @staticmethod
     def _parse_h5header(pdict):
         with h5py.File(pdict['fname'], 'r') as fptr:
-            pdict['num_data'] = fptr['place_ones'].shape[0]
-            pdict['num_pix'] = np.prod(fptr['num_pix'][()])
+            if pdict['dset_name'] is None:
+                pdict['frame_type'] = 0
+                pdict['num_data'] = fptr['place_ones'].shape[0]
+                pdict['num_pix'] = np.prod(fptr['num_pix'][()])
+            else:
+                pdict['frame_type'] = 1
+                dset = fptr[pdict['dset_name']]
+                pdict['num_data'] = dset.shape[0]
+                pdict['num_pix'] = np.prod(dset.shape[1:])
 
     def get_frame(self, num, **kwargs):
         """Get particular frame from file list
@@ -137,25 +153,39 @@ class EMCReader(object):
         powder = np.zeros((self.flist[0]['num_pix'],), dtype='f8')
 
         for pdict in self.flist:
-            if pdict['is_hdf5']:
-                with h5py.File(pdict['fname'], 'r') as fptr:
-                    place_ones = np.hstack(fptr['place_ones'][:])
-                    place_multi = np.hstack(fptr['place_multi'][:])
-                    count_multi = np.hstack(fptr['count_multi'][:])
+            if pdict['frame_type'] == 0:
+                if pdict['is_hdf5']:
+                    with h5py.File(pdict['fname'], 'r') as fptr:
+                        place_ones = np.hstack(fptr['place_ones'][:])
+                        place_multi = np.hstack(fptr['place_multi'][:])
+                        count_multi = np.hstack(fptr['count_multi'][:])
+                else:
+                    with open(pdict['fname'], 'rb') as fptr:
+                        num_data = np.fromfile(fptr, dtype='i4', count=1)[0]
+                        fptr.seek(1024, 0)
+                        ones = np.fromfile(fptr, dtype='i4', count=num_data)
+                        multi = np.fromfile(fptr, dtype='i4', count=num_data)
+                        place_ones = np.fromfile(fptr, dtype='i4', count=ones.sum())
+                        place_multi = np.fromfile(fptr, dtype='i4', count=multi.sum())
+                        count_multi = np.fromfile(fptr, dtype='i4', count=multi.sum())
+
+                np.add.at(powder, place_ones, 1)
+                np.add.at(powder, place_multi, count_multi)
             else:
-                with open(pdict['fname'], 'rb') as fptr:
-                    num_data = np.fromfile(fptr, dtype='i4', count=1)[0]
-                    fptr.seek(1024, 0)
-                    ones = np.fromfile(fptr, dtype='i4', count=num_data)
-                    multi = np.fromfile(fptr, dtype='i4', count=num_data)
-                    place_ones = np.fromfile(fptr, dtype='i4', count=ones.sum())
-                    place_multi = np.fromfile(fptr, dtype='i4', count=multi.sum())
-                    count_multi = np.fromfile(fptr, dtype='i4', count=multi.sum())
+                if pdict['is_hdf5']:
+                    with h5py.File(pdict['fname'], 'r') as fptr:
+                        powder += fptr[pdict['dset_name']][:].sum(0).ravel()
+                else:
+                    with open(pdict['fname'], 'rb') as fptr:
+                        num_data = np.fromfile(fptr, dtype='i4', count=1)[0]
+                        fptr.seek(1024, 0)
+                        if pdict['frame_type'] == 1:
+                            for _ in range(num_data):
+                                powder += np.fromfile(fptr, dtype='i4', count=pdict['num_pix'])
+                        elif pdict['frame_type'] == 2:
+                            for _ in range(num_data):
+                                powder += np.fromfile(fptr, dtype='f8', count=pdict['num_pix'])
 
-            np.add.at(powder, place_ones, 1)
-            np.add.at(powder, place_multi, count_multi)
-
-        #powder *= self.flist[0]['geom'].unassembled_mask
         if not raw:
             powder = self.flist[0]['geom'].assemble_frame(powder, **kwargs)
         return powder
@@ -163,16 +193,22 @@ class EMCReader(object):
     def _read_frame(self, file_num, frame_num, raw=False, sparse=False, **kwargs):
         pdict = self.flist[file_num]
         if pdict['is_hdf5']:
-            po, pm, cm = self._read_h5frame(pdict, frame_num) # pylint: disable=invalid-name
+            frame_data = self._read_h5frame(pdict, frame_num) # pylint: disable=invalid-name
         else:
-            po, pm, cm = self._read_binaryframe(pdict, frame_num) # pylint: disable=invalid-name
+            frame_data = self._read_binaryframe(pdict, frame_num) # pylint: disable=invalid-name
 
-        if sparse:
-            return po, pm, cm
-        frame = np.zeros(pdict['num_pix'], dtype='i4')
-        np.add.at(frame, po, 1)
-        np.add.at(frame, pm, cm)
-        #frame *= pdict['geom'].unassembled_mask
+        if pdict['frame_type'] == 0:
+            po, pm, cm = frame_data
+            if sparse:
+                return po, pm, cm
+            frame = np.zeros(pdict['num_pix'], dtype='i4')
+            np.add.at(frame, po, 1)
+            np.add.at(frame, pm, cm)
+        else:
+            if sparse:
+                raise ValueError('Asking for sparse data when the file contains dense frames')
+            frame = frame_data
+
         if not raw:
             frame = pdict['geom'].assemble_frame(frame, **kwargs)
         return frame
@@ -180,16 +216,20 @@ class EMCReader(object):
     @staticmethod
     def _read_h5frame(pdict, frame_num):
         with h5py.File(pdict['fname'], 'r') as fptr:
-            place_ones = fptr['place_ones'][frame_num]
-            place_multi = fptr['place_multi'][frame_num]
-            count_multi = fptr['count_multi'][frame_num]
-        return place_ones, place_multi, count_multi
+            if pdict['frame_type'] == 0:
+                place_ones = fptr['place_ones'][frame_num]
+                place_multi = fptr['place_multi'][frame_num]
+                count_multi = fptr['count_multi'][frame_num]
+                return place_ones, place_multi, count_multi
+            else:
+                return fptr[pdict['dset_name']][frame_num].ravel()
 
     @staticmethod
     def _read_binaryframe(pdict, frame_num):
-        with open(pdict['fname'], 'rb') as fptr:
-            num_data = np.fromfile(fptr, dtype='i4', count=1)[0]
+        fptr = open(pdict['fname'], 'rb')
+        num_data = np.fromfile(fptr, dtype='i4', count=1)[0]
 
+        if pdict['frame_type'] == 0:
             accum = [pdict['ones_accum'], pdict['multi_accum']]
             offset = [0, 0]
             size = [0, 0]
@@ -207,7 +247,19 @@ class EMCReader(object):
             place_multi = np.fromfile(fptr, dtype='i4', count=size[1])
             fptr.seek(1024 + num_data*8 + accum[0][-1]*4 + accum[1][-1]*4 + offset[1]*4, 0)
             count_multi = np.fromfile(fptr, dtype='i4', count=size[1])
-        return place_ones, place_multi, count_multi
+            fptr.close()
+
+            return place_ones, place_multi, count_multi
+        elif pdict['frame_type'] == 1:
+            fptr.seek(1024 + frame_num*pdict['num_pix']*4, 0)
+            frame = np.fromfile(fptr, dtype='i4', count=pdict['num_pix'])
+            fptr.close()
+            return frame
+        elif pdict['frame_type'] == 2:
+            fptr.seek(1024 + frame_num*pdict['num_pix']*8, 0)
+            frame = np.fromfile(fptr, dtype='f8', count=pdict['num_pix'])
+            fptr.close()
+            return frame
 
 class EMCWriter(object):
     """EMC file writer class
