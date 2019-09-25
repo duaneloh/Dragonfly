@@ -5,11 +5,7 @@ import os
 import numpy as np
 from numpy import ma
 import pandas
-try:
-    import h5py
-    HDF5_MODE = True
-except ImportError:
-    HDF5_MODE = False
+import h5py
 
 class Detector(object):
     """Dragonfly detector
@@ -52,15 +48,12 @@ class Detector(object):
         File can either be in the HDF5 or ASCII format
         """
         self.det_fname = fname
-        if HDF5_MODE and h5py.is_hdf5(self.det_fname):
+        if h5py.is_hdf5(self.det_fname):
             self._parse_h5det(mask_flag, keep_mask_1)
         elif os.path.splitext(self.det_fname)[1] == '.h5':
             fheader = np.fromfile(self.det_fname, '=c', count=8)
             if fheader == chr(137)+'HDF\r\n'+chr(26)+'\n':
-                if not HDF5_MODE:
-                    raise IOError('Unable to parse HDF5 detector')
-                else:
-                    self._parse_h5det(mask_flag, keep_mask_1)
+                self._parse_h5det(mask_flag, keep_mask_1)
             else:
                 self._parse_asciidet(mask_flag, keep_mask_1)
         else:
@@ -83,10 +76,7 @@ class Detector(object):
             return
 
         if os.path.splitext(fname)[1] == '.h5':
-            if HDF5_MODE:
-                self._write_h5det(fname)
-            else:
-                raise IOError('Unable to write HDF5 detector without h5py')
+            self._write_h5det(fname)
         else:
             print('Writing ASCII detector file')
             self._write_asciidet(fname)
