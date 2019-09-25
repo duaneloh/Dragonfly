@@ -59,9 +59,9 @@ int quat_list_from_config(char *config_fname) {
 int globals_from_config(char *config_fname, char *output_fname, char *scale_fname) {
 	char line[1024], section_name[1024], *token ;
 	
-	frames = malloc(sizeof(struct dataset)) ;
-	iter = malloc(sizeof(struct iterate)) ;
-	quat = malloc(sizeof(struct rotation)) ;
+	frames = calloc(1, sizeof(struct dataset)) ;
+	iter = calloc(1, sizeof(struct iterate)) ;
+	quat = calloc(1, sizeof(struct rotation)) ;
 	
 	iter->size = -1 ;
 	iter->model2 = NULL ;
