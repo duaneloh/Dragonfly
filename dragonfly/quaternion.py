@@ -3,6 +3,7 @@
 from __future__ import print_function
 import sys
 import numpy as np
+from scipy.spatial import distance
 
 NUM_VERT = 120
 NUM_EDGE = 720
@@ -16,10 +17,10 @@ class QPoints():
         self.weight = np.empty((size,), dtype='i4')
 
 class Quaternion():
-    def __init__(self, num_div=None):
+    def __init__(self, num_div=None, point_group=''):
         self.num_div = num_div
-        self.cubic_flag = False
-        self.icosahedral_flag = False
+        self.cubic_flag = (point_group == 'S4')
+        self.icosahedral_flag = (point_group == 'A5')
         self.num_rot = 0
         self.num_rot_p = 0
         self.quat = None
@@ -29,18 +30,18 @@ class Quaternion():
 
     def generate(self, num_div):
         self.num_div = num_div
+        self.num_rot = 10 * (5 * num_div**3 + num_div)
+        self.quat = np.empty((self.num_rot, 5))
 
         self._make_600cell()
-        self._quat_setup()
 
+        offset = self._vertex_quats()
         if num_div > 1:
-            self._refine_edge()
+            offset = self._edge_quats(offset)
         if num_div > 2:
-            self._refine_face()
+            offset = self._face_quats(offset)
         if num_div > 3:
-            self._refine_cell()
-
-        self._print_quat()
+            offset = self._cell_quats(offset)
 
         if self.icosahedral_flag:
             self.reduce_icosahedral()
@@ -51,7 +52,8 @@ class Quaternion():
 
         return self.num_rot
 
-    def _allocate(self):
+    def _make_600cell(self):
+        '''Generate vertices, edges, faces and cells for 600-cell sampling of 3-sphere'''
         self._vertices = np.empty((NUM_VERT, 4))
         self._vec_vertices = np.zeros((NUM_VERT, 4, 2))
         self._edges = np.empty((NUM_EDGE, 2), dtype='i4')
@@ -61,22 +63,8 @@ class Quaternion():
         self._edge2cell = np.empty((NUM_EDGE, 4), dtype='i4')
         self._face2cell = np.empty((NUM_FACE, 4), dtype='i4')
 
-        num = self.num_div
-        self.num_rot = 10 * (5 * num**3 + num)
-        self.quat = np.empty((self.num_rot, 5))
-
-        self._vertex_points = QPoints(NUM_VERT)
-        if num > 1:
-            self._edge_points = QPoints(NUM_EDGE * (num - 1))
-        if num > 2:
-            self._face_points = QPoints(NUM_FACE * (num - 2) * (num - 1) // 2)
-        if num > 3:
-            self._cell_points = QPoints(NUM_CELL * (num - 3) * (num - 2) * (num - 1) // 6)
-
-    def _make_600cell(self):
-        '''Generate vertices, edges, faces and cells for 600-cell sampling of 3-sphere'''
         # Make vertices and vertex weights
-        corners = np.stack(np.meshgrid([0., 1.], [0, 1], [0, 1], [0, 1]), -1).reshape(-1, 4)
+        corners = np.stack(np.meshgrid([0., 1.], [0, 1], [0, 1], [0, 1], indexing='ij'), -1).reshape(-1, 4)
         self._vertices[:16] = corners - 0.5
         self._vec_vertices[:16,:,0] = (2 * corners - 1) * self.num_div
 
@@ -107,9 +95,11 @@ class Quaternion():
 
         # Make edges and nearest-neighbour list
         idx = 0
+        # -- Get pairwise distances
+        dist = distance.squareform(distance.pdist(self._vertices))
         for i in range(NUM_VERT):
             # Find connected vertices
-            sel = np.where(np.linalg.norm(self._vertices[i+1:] - self._vertices[i], axis=1) < min_dist)[0]
+            sel = np.where(dist[i,i+1:] < min_dist)[0]
             num_sel = sel.shape[0]
             # Add to edge list
             self._edges[idx:idx+num_sel, 0] = i
@@ -159,7 +149,7 @@ class Quaternion():
 
             test2 = np.linalg.norm(self._vertices[nn] - self._vertices[nn[sel[0]]], axis=1) < min_dist
             sel2 = np.where(test & test2)[0]
-            sel2 = sel2[(nn[sel2]>nn[sel[0]])]
+            sel2 = sel2[nn[sel2] > nn[sel[0]]]
 
             self._edge2cell[i, 0] = edge[0]
             self._edge2cell[i, 1] = edge[1]
@@ -179,24 +169,126 @@ class Quaternion():
             self._face2cell[i, 2] = face[2]
             self._face2cell[i, 3] = nn[sel[0]]
 
-    def _quat_setup(self):
+    def _vertex_quats(self):
         visited_vert = np.zeros(NUM_VERT, dtype='bool')
+        tau = (np.sqrt(5) + 1) / 2.
+        num_quat = 1
+        vecs = np.zeros((num_quat*NUM_VERT, 4, 2), dtype='i4')
+        weights = np.zeros(num_quat*NUM_VERT)
         
         for i, cell in enumerate(self._cells):
             verts = cell[~visited_vert[cell]]
             if len(verts) == 0:
                 continue
             visited_vert[verts] = True
-            self._vertex_points.vec[verts] = self._vec_vertices[verts]
+
             v_q = self._vertices[verts]
             v_c = v_q.sum(0)
-            self._vertex_points.weight[verts] = 5.*(v_q*v_c).sum() / (6 * np.linalg.norm(v_q, axis=1)**4 * np.linalg.norm(v_c))
+            w = (v_q*v_c).sum() / np.linalg.norm(v_q, axis=1)**4 / np.linalg.norm(v_c)
 
-    def _refine_edge(self):
-        pass
+            vecs[verts] = self._vec_vertices[verts]
+            weights[verts] = 5 * w / 6
 
-    def _refine_face(self):
-        pass
+        vsign = np.sign(vecs).reshape(-1, 8)
+        sel = np.array([vs[vs!=0][0] > 0 for vs in vsign])
+        vquats = (vecs[sel,:,0] + vecs[sel,:,1]*tau) / 2 / self.num_div
+        end = num_quat*NUM_VERT//2
+        self.quat[:end, :4] = vquats / np.linalg.norm(vquats, axis=1, keepdims=True)
+        self.quat[:end, 4] = weights[sel]
 
-    def _refine_cell(self):
-        pass
+        return end
+
+    def _edge_quats(self, offset):
+        num = self.num_div
+        tau = (np.sqrt(5) + 1) / 2.
+        num_quat = num - 1
+        vecs = np.zeros((num_quat*NUM_EDGE, 4, 2), dtype='i4')
+        weights = np.zeros(num_quat*NUM_EDGE)
+
+        for i, edge in enumerate(self._edges):
+            start_v = self._vec_vertices[edge[0]]
+            end_v = self._vec_vertices[edge[1]]
+            vec_d_v = (end_v - start_v) / num
+
+            v_c = self._vertices[self._edge2cell[i]].sum(0)
+            v_interp = np.array([start_v + j * vec_d_v
+                                 for j in np.arange(1, num)])
+            v_q = (v_interp[:,:,0] + v_interp[:,:,1]*tau) / 2 / num
+            w = (v_q*v_c).sum() / np.linalg.norm(v_q, axis=1)**4 / np.linalg.norm(v_c)
+            
+            vecs[i*num_quat:(i+1)*num_quat] = v_interp
+            weights[i*num_quat:(i+1)*num_quat] = 35 * w / 36
+
+        vsign = np.sign(vecs).reshape(-1, 8)
+        sel = np.array([vs[vs!=0][0] > 0 for vs in vsign])
+        vquats = (vecs[sel,:,0] + vecs[sel,:,1]*tau) / 2 / self.num_div
+        end = offset + num_quat * NUM_EDGE // 2
+        self.quat[offset:end, :4] = vquats / np.linalg.norm(vquats, axis=1, keepdims=True)
+        self.quat[offset:end, 4] = weights[sel]
+        
+        return end
+
+    def _face_quats(self, offset):
+        num = self.num_div
+        tau = (np.sqrt(5) + 1) / 2.
+        num_quat = (num - 1) * (num - 2) // 2
+        vecs = np.zeros((num_quat*NUM_FACE, 4, 2), dtype='i4')
+        weights = np.zeros(num_quat*NUM_FACE)
+
+        for i, face in enumerate(self._faces):
+            start_v = self._vec_vertices[face[0]]
+            vec_d_v1 = (self._vec_vertices[face[1]] - start_v) / num
+            vec_d_v2 = (self._vec_vertices[face[2]] - start_v) / num
+
+            v_c = self._vertices[self._face2cell[i]].sum(0)
+            v_interp = np.array([start_v + j*vec_d_v1 + k*vec_d_v2
+                                 for j in range(1, num-1)
+                                 for k in range(1, num-j)])
+            v_q = (v_interp[:,:,0] + v_interp[:,:,1]*tau) / 2 / num
+            w = (v_q*v_c).sum() / np.linalg.norm(v_q, axis=1)**4 / np.linalg.norm(v_c)
+
+            vecs[i*num_quat:(i+1)*num_quat] = v_interp
+            weights[i*num_quat:(i+1)*num_quat] = w
+
+        vsign = np.sign(vecs).reshape(-1, 8)
+        sel = np.array([vs[vs!=0][0] > 0 for vs in vsign])
+        vquats = (vecs[sel,:,0] + vecs[sel,:,1]*tau) / 2 / self.num_div
+        end = offset + num_quat * NUM_FACE // 2
+        self.quat[offset:end, :4] = vquats / np.linalg.norm(vquats, axis=1, keepdims=True)
+        self.quat[offset:end, 4] = weights[sel]
+        
+        return end
+
+    def _cell_quats(self, offset):
+        num = self.num_div
+        tau = (np.sqrt(5) + 1) / 2.
+        num_quat = (num - 1) * (num - 2) * (num - 3) // 6
+        vecs = np.zeros((num_quat*NUM_CELL, 4, 2), dtype='i4')
+        weights = np.zeros(num_quat*NUM_CELL)
+
+        for i, cell in enumerate(self._cells):
+            start_v = self._vec_vertices[cell[0]]
+            vec_d_v1 = (self._vec_vertices[cell[1]] - start_v) / num
+            vec_d_v2 = (self._vec_vertices[cell[2]] - start_v) / num
+            vec_d_v3 = (self._vec_vertices[cell[3]] - start_v) / num
+
+            v_c = self._vertices[cell].sum(0)
+            v_interp = np.array([start_v + j*vec_d_v1 + k*vec_d_v2 + m*vec_d_v3
+                                 for j in range(1,num-2)
+                                 for k in range(1,num-1-j)
+                                 for m in range(1,num-j-k)])
+            v_q = (v_interp[:,:,0] + v_interp[:,:,1]*tau) / 2 / num
+            w = (v_q*v_c).sum() / np.linalg.norm(v_q, axis=1)**4 / np.linalg.norm(v_c)
+
+            vecs[i*num_quat:(i+1)*num_quat] = v_interp
+            weights[i*num_quat:(i+1)*num_quat] = w
+
+        vsign = np.sign(vecs).reshape(-1, 8)
+        sel = np.array([vs[vs!=0][0] > 0 for vs in vsign])
+        vquats = (vecs[sel,:,0] + vecs[sel,:,1]*tau) / 2 / self.num_div
+        end = offset + num_quat * NUM_CELL // 2
+        self.quat[offset:end, :4] = vquats / np.linalg.norm(vquats, axis=1, keepdims=True)
+        self.quat[offset:end, 4] = weights[sel]
+        
+        return end
+
