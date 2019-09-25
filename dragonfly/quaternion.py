@@ -11,11 +11,6 @@ NUM_FACE = 1200
 NUM_CELL = 600
 NNN = 12
 
-class QPoints():
-    def __init__(self, size):
-        self.vec = np.empty((size, 4, 2), dtype='i4')
-        self.weight = np.empty((size,), dtype='i4')
-
 class Quaternion():
     def __init__(self, num_div=None, point_group=''):
         self.num_div = num_div
@@ -180,14 +175,14 @@ class Quaternion():
             verts = cell[~visited_vert[cell]]
             if len(verts) == 0:
                 continue
-            visited_vert[verts] = True
 
-            v_q = self._vertices[verts]
+            v_q = self._vertices[cell]
             v_c = v_q.sum(0)
-            w = (v_q*v_c).sum() / np.linalg.norm(v_q, axis=1)**4 / np.linalg.norm(v_c)
+            w = (v_q*v_c).sum(1) / np.linalg.norm(v_q, axis=1)**4 / np.linalg.norm(v_c)
 
             vecs[verts] = self._vec_vertices[verts]
-            weights[verts] = 5 * w / 6
+            weights[verts] = 5 * w[~visited_vert[cell]] / 6
+            visited_vert[verts] = True
 
         vsign = np.sign(vecs).reshape(-1, 8)
         sel = np.array([vs[vs!=0][0] > 0 for vs in vsign])
@@ -214,7 +209,7 @@ class Quaternion():
             v_interp = np.array([start_v + j * vec_d_v
                                  for j in np.arange(1, num)])
             v_q = (v_interp[:,:,0] + v_interp[:,:,1]*tau) / 2 / num
-            w = (v_q*v_c).sum() / np.linalg.norm(v_q, axis=1)**4 / np.linalg.norm(v_c)
+            w = (v_q*v_c).sum(1) / np.linalg.norm(v_q, axis=1)**4 / np.linalg.norm(v_c)
             
             vecs[i*num_quat:(i+1)*num_quat] = v_interp
             weights[i*num_quat:(i+1)*num_quat] = 35 * w / 36
@@ -245,7 +240,7 @@ class Quaternion():
                                  for j in range(1, num-1)
                                  for k in range(1, num-j)])
             v_q = (v_interp[:,:,0] + v_interp[:,:,1]*tau) / 2 / num
-            w = (v_q*v_c).sum() / np.linalg.norm(v_q, axis=1)**4 / np.linalg.norm(v_c)
+            w = (v_q*v_c).sum(1) / np.linalg.norm(v_q, axis=1)**4 / np.linalg.norm(v_c)
 
             vecs[i*num_quat:(i+1)*num_quat] = v_interp
             weights[i*num_quat:(i+1)*num_quat] = w
@@ -278,7 +273,7 @@ class Quaternion():
                                  for k in range(1,num-1-j)
                                  for m in range(1,num-j-k)])
             v_q = (v_interp[:,:,0] + v_interp[:,:,1]*tau) / 2 / num
-            w = (v_q*v_c).sum() / np.linalg.norm(v_q, axis=1)**4 / np.linalg.norm(v_c)
+            w = (v_q*v_c).sum(1) / np.linalg.norm(v_q, axis=1)**4 / np.linalg.norm(v_c)
 
             vecs[i*num_quat:(i+1)*num_quat] = v_interp
             weights[i*num_quat:(i+1)*num_quat] = w
