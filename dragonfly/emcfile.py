@@ -3,11 +3,7 @@
 from __future__ import print_function
 import sys
 import numpy as np
-try:
-    import h5py
-    HDF5_MODE = True
-except ImportError:
-    HDF5_MODE = False
+import h5py
 
 class EMCReader(object):
     """EMC file reader
@@ -165,13 +161,11 @@ class EMCReader(object):
     def _parse_headers(self):
         for i, pdict in enumerate(self.flist):
             pdict['dset_name'] = self._dset_list[i]
-            pdict['is_hdf5'] = self._test_h5file(pdict['fname'])
-            if pdict['is_hdf5'] and not HDF5_MODE:
-                raise IOError('Unable to parse HDF5 dataset')
-            elif not pdict['is_hdf5']:
-                self._parse_binaryheader(pdict)
-            else:
+            pdict['is_hdf5'] = h5py.is_hdf5(pdict['fname'])
+            if pdict['is_hdf5']:
                 self._parse_h5header(pdict)
+            else:
+                self._parse_binaryheader(pdict)
 
             if pdict['num_pix'] != len(pdict['det'].x):
                 sys.stderr.write(
@@ -182,16 +176,6 @@ class EMCReader(object):
         self.num_frames = self.flist[-1]['num_data']
         self.blacklist = np.zeros(self.num_frames, dtype='u1')
         self.num_blacklist = 0
-
-    @staticmethod
-    def _test_h5file(fname):
-        if HDF5_MODE:
-            return h5py.is_hdf5(fname)
-        if os.path.splitext(fname)[1] == '.h5':
-            fheader = np.fromfile(fname, '=c', count=8)
-            if fheader == chr(137)+'HDF\r\n'+chr(26)+'\n':
-                return True
-        return False
 
     @staticmethod
     def _parse_binaryheader(pdict):
@@ -319,10 +303,6 @@ class EMCWriter(object):
     def __init__(self, out_fname, num_pix, hdf5=True):
         out_folder = os.path.dirname(out_fname)
         self.h5_output = hdf5
-        if hdf5 and not HDF5_MODE:
-            print('Could not import h5py. Generating .emc output')
-            out_fname = os.path.splitext(out_fname)[0] + '.emc.'
-            self.h5_output = False
 
         self.out_fname = out_fname
         print('Writing emc file to', out_fname)
