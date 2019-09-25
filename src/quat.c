@@ -679,6 +679,15 @@ static void print_quat(int num, double *quat) {
 	}
 }
 
+static double qdist(double *q1, double *q2) {
+	// Assumes both q1 and q1 are unit quaternions
+	int i ;
+	double d = 0. ;
+	for (i = 0 ; i < 4 ; ++i)
+		d += q1[i]*q2[i] ;
+	return 1. - d*d ;
+}
+
 static int reduce_icosahedral(int n, double *quat) {
 	int r, t, i, keep_quat, vnum = 8 ;
 	int old_num_rot = 10*(5*n*n*n + n), num_rot = 0 ;
@@ -690,21 +699,14 @@ static int reduce_icosahedral(int n, double *quat) {
 		
 		// Calculate distance to quat[8]
 		// which should be {1,0,0,0}
-		dist0 = 0. ;
-		for (t = 0 ; t < 4 ; ++t)
-			dist0 += quat[r*5+t] * quat[vnum*5+t] ;
-		dist0 = 1. - dist0*dist0 ;
+		dist0 = qdist(&quat[r*5], &quat[vnum*5]) ;
 		
 		// Calculate distance to all other vertex quaternions
 		for (i = 0 ; i < 60 ; ++i) {
 			if (i == vnum)
 				continue ;
 			
-			dist = 0 ;
-			for (t = 0 ; t < 4 ; ++t)
-				dist += quat[r*5+t] * quat[i*5+t] ;
-			dist = 1. - dist*dist ;
-			
+			dist = qdist(&quat[r*5], &quat[i*5]) ;
 			if (dist < dist0) {
 				keep_quat = 0 ;
 				break ;
@@ -733,54 +735,67 @@ static int reduce_icosahedral(int n, double *quat) {
 }
 
 static int reduce_cubic(int n, double *quat) {
-	int r, t, i, keep_quat, vnum = 0, num_vert = 8 ;
+	int r, t, i, j, k, keep_quat ;
 	int old_num_rot = 10*(5*n*n*n + n), num_rot = 0 ;
 	double dist, dist0 ;
+	double cube_quat[24][4] = {{0}} ;
 	
-	// For all non-vertex quaternions
-	for (r = num_vert ; r < old_num_rot ; ++r) {
+	// Generating all cubic point group quaternions
+	for (r = 0 ; r < 4 ; ++r)
+		cube_quat[r][r] = 1 ;
+	
+	for (i = 0 ; i < 2 ; ++i)
+	for (j = 0 ; j < 2 ; ++j)
+	for (k = 0 ; k < 2 ; ++k) {
+		cube_quat[r][0] = 0.5 ;
+		cube_quat[r][1] = (2*i - 1) * 0.5 ;
+		cube_quat[r][1] = (2*j - 1) * 0.5 ;
+		cube_quat[r][1] = (2*k - 1) * 0.5 ;
+		r++ ;
+	}
+	
+	for (i = 0 ; i < 3 ; ++i) {
+		cube_quat[r][0] = sqrt(0.5) ;
+		cube_quat[r][i+1] = sqrt(0.5) ;
+		r++ ;
+	}
+	
+	for (i = 0 ; i < 3 ; ++i) {
+		cube_quat[r][0] = sqrt(0.5) ;
+		cube_quat[r][i+1] = -sqrt(0.5) ;
+		r++ ;
+	}
+	
+	int perm32[6][2] = {{0,1}, {0,2}, {1,0}, {1,2}, {2,0}, {2,1}} ;
+	for (i = 0 ; i < 6 ; ++i) {
+		cube_quat[r][perm32[i][0]] = sqrt(0.5) ;
+		cube_quat[r][perm32[i][1]] = -sqrt(0.5) ;
+		r++ ;
+	}
+	
+	// For all quaternions
+	for (r = 0 ; r < old_num_rot ; ++r) {
 		keep_quat = 1 ;
 		
-		// Calculate distance to quat[0]
-		// which should be {-1,1,1,1}/2
-		dist0 = 0. ;
-		for (t = 0 ; t < 4 ; ++t)
-			dist0 += quat[r*5+t] * quat[vnum*5+t] ;
-		dist0 = 1. - dist0*dist0 ;
+		// Calculate distance to identity 
+		dist0 = qdist(&quat[r*5], cube_quat[0]) ;
 		
-		// Calculate distance to all other tesseract vertex quaternions
-		// {-1, +-1, +-1, +-1} / 2
-		for (i = 0 ; i < num_vert ; ++i) {
-			if (i == vnum)
-				continue ;
-			
-			dist = 0 ;
-			for (t = 0 ; t < 4 ; ++t)
-				dist += quat[r*5+t] * quat[i*5+t] ;
-			dist = 1. - dist*dist ;
-			
+		// Calculate distance to all other cube quaternions
+		for (i = 0 ; i < 24 ; ++i) {
+			dist = qdist(&quat[r*5], cube_quat[i]) ;
 			if (dist < dist0) {
 				keep_quat = 0 ;
 				break ;
 			}
 		}
 		
-		// If closest vertex is 0, keep quaternion
+		// If closest cube quaternion is identity, keep quaternion
 		if (keep_quat) {
 			for (t = 0 ; t < 5 ; ++t)
-				quat[(num_vert+num_rot)*5+t] = quat[r*5+t] ;
+				quat[num_rot*5+t] = quat[r*5+t] ;
 			num_rot++ ;
 		}
 	}
-	
-	// Move kept quaternions to first indices
-	for (t = 0 ; t < 5 ; ++t)
-		quat[0*5+t] = quat[vnum*5+t] ;
-	
-	for (r = 0 ; r < num_rot ; ++r)
-	for (t = 0 ; t < 5 ; ++t)
-		quat[(1+r)*5+t] = quat[(num_vert+r)*5+t] ;
-	num_rot++ ;
 	
 	fprintf(stderr, "S4 symmetry: num_rot = %d -> %d\n", old_num_rot, num_rot) ;
 	return num_rot ;
@@ -795,15 +810,6 @@ static void quat_free_mem(int num) {
 		free(face_points) ;
 	if (num > 3)
 		free(cell_points) ;
-}
-
-static double qdist(double *q1, double *q2) {
-	// Assumes both q1 and q1 are unit quaternions
-	int i ;
-	double d = 0. ;
-	for (i = 0 ; i < 4 ; ++i)
-		d += q1[i]*q2[i] ;
-	return 1. - d*d ;
 }
 
 // Public functions below
