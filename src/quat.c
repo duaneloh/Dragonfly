@@ -769,7 +769,10 @@ static int reduce_cubic(int n, double *quat) {
 	int perm32[6][2] = {{0,1}, {0,2}, {1,0}, {1,2}, {2,0}, {2,1}} ;
 	for (i = 0 ; i < 6 ; ++i) {
 		cube_quat[r][perm32[i][0]] = sqrt(0.5) ;
-		cube_quat[r][perm32[i][1]] = -sqrt(0.5) ;
+		if (perm32[i][0] < perm32[i][1])
+			cube_quat[r][perm32[i][1]] = -sqrt(0.5) ;
+		else
+			cube_quat[r][perm32[i][1]] = sqrt(0.5) ;
 		r++ ;
 	}
 	
