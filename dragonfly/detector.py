@@ -143,6 +143,13 @@ class Detector(object):
             self._qrad = np.sqrt(self.qx**2 + self.qy**2 + self.qz**2)
         self.raw_mask[(self.raw_mask == 0) & (self._qrad > qradius)] = 1
 
+    def parse_background(self, fname):
+        if h5py.ishdf5(fname):
+            with h5py.File(fname, 'r'):
+                self.background = f['background'][:].ravel()
+        else:
+            self.background = np.fromfile(fname)
+
     def _parse_asciidet(self, mask_flag, keep_mask_1):
         """ (Internal) Detector file parser
 
@@ -179,8 +186,6 @@ class Detector(object):
             self.raw_mask = fptr['mask'][:].astype('u1')
             self.detd = fptr['detd'][()]
             self.ewald_rad = fptr['ewald_rad'][()]
-            if 'background' in fptr:
-                self.background = fptr['background'][:]
         sys.stderr.write('done\n')
         self._process_det(mask_flag, keep_mask_1)
 
