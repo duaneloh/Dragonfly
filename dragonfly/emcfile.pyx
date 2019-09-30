@@ -2,7 +2,9 @@
 
 from __future__ import print_function
 import sys
+import os
 import numpy as np
+import pandas
 import h5py
 
 class EMCReader(object):
@@ -158,10 +160,29 @@ class EMCReader(object):
         elif sel_string is 'even_only':
             self.blacklist[self.blacklist==0][1::2] = 1
 
+    def parse_all(self):
+        for pdict in self.flist:
+            if pdict['is_hdf5']:
+                with h5py.File(pdict['fname'], 'r') as fptr:
+                    pdict['place_ones'] = fptr['place_ones'][:]
+                    pdict['place_multi'] = fptr['place_multi'][:]
+                    pdict['count_multi'] = fptr['count_multi'][:]
+            else:
+                fptr = open(pdict['fname'], 'rb')
+                num_data = np.fromfile(fptr, dtype='i4', count=1)
+                fptr.seek(1024, 0)
+                pdict['ones'] = np.fromfile(fptr, dtype='i4', count=num_data)
+                pdict['multi'] = np.fromfile(fptr, dtype='i4', count=num_data)
+                pdict['place_ones'] = np.fromfile(fptr, dtype='i4', count=pdict['ones_accum'][-1])
+                pdict['place_multi'] = np.fromfile(fptr, dtype='i4', count=pdict['multi_accum'][-1])
+                pdict['count_multi'] = np.fromfile(fptr, dtype='i4', count=pdict['multi_accum'][-1])
+            pdict['parsed'] = True
+
     def _parse_headers(self):
         for i, pdict in enumerate(self.flist):
             pdict['dset_name'] = self._dset_list[i]
             pdict['is_hdf5'] = h5py.is_hdf5(pdict['fname'])
+            pdict['parsed'] = False
             if pdict['is_hdf5']:
                 self._parse_h5header(pdict)
             else:
@@ -273,6 +294,34 @@ class EMCReader(object):
         if not raw:
             frame = pdict['det'].assemble_frame(frame, **kwargs)
         return frame
+
+'''
+    def _file_counts(self, file_num):
+        pdict = self.flist[file_num]
+        if pdict['is_hdf5']:
+            return self._file_counts_h5(pdict)
+        else:
+            return self._file_counts_binary(pdict)
+
+    def _file_counts_h5(self, pdict):
+        mask = pdict['det'].unassembled_mask.astype('bool')
+        with h5py.File(pdict['fname'], 'r') as fptr:
+            if pdict['frame_type'] == 0:
+                counts = np.array([mask[p].sum() for p in fptr['place_ones']])
+                counts += np.array(c[mask[p]].sum() for p, c in zip(fptr['place_multi'], fptr['count_multi'])])
+            else:
+                counts = np.array([fr.ravel()[mask].sum() for fr in fptr[pdict['dset_name']]])
+        return counts
+
+    def _file_counts_binary(self, pdict):
+        fptr = open(pdict['fname'], 'rb')
+        num_data = np.fromfile(fptr, dtype='i4', count=1)[0]
+
+        if pdict['frame_type'] == 0:
+            fptr.seek(1024 + num_data*8, 0)
+            place_ones = np.fromfile(fptr, dtype='i4', count=pdict['ones_accum'][-1])
+        fptr.close()
+'''
 
 class EMCWriter(object):
     """EMC file writer class
