@@ -8,7 +8,7 @@ import pandas
 import h5py
 
 class Detector(object):
-    """Dragonfly detector
+    """Dragonfly detector cython class
 
     The detector file format is specified in github.com/duaneloh/Dragonfly/wiki
     This class reads the file and provides numpy arrays which can be used for
@@ -29,7 +29,7 @@ class Detector(object):
     On parsing, it produces the following numpy arrays (each of length num_pix)
 
     Attributes:
-        self.qx, self.qy, self.qz - Voxel space coordinates (origin at (0,0,0))
+        self.qvals - Voxel space coordinates (origin at (0,0,0))
         self.cx, self.cy - Floating point 2D coordinates (origin at (0,0))
         self.x, self.y - Integer and shifted 2D coordinates (corner at (0,0))
         self.mask - Assembled mask
@@ -67,13 +67,12 @@ class Detector(object):
 
         Note that the background array can only be stored in an HDF5 detector
         """
-        try:
-            val = self.qx + self.qy + self.qz + self.corr + self.raw_mask
-            val = self.detd + self.ewald_rad
-        except AttributeError:
-            print('Detector attributes not populated. Cannot write to file')
-            print('Need qx, qy, qz, corr, raw_mask, detd and ewald_rad')
-            return
+        if not (hasattr(self, "qvals") and
+                hasattr(self, "corr") and
+                hasattr(self, "raw_mask") and
+                hasattr(self, "detd") and
+                hasattr(self, "ewald_rad")):
+            raise AttributeError('Detector attributes not populated. Cannot write to file')
 
         if os.path.splitext(fname)[1] == '.h5':
             self._write_h5det(fname)
@@ -115,7 +114,7 @@ class Detector(object):
         Needs:
             cx, cy, detd, ewald_rad
         Calculates:
-            qx, qy, qz and corr
+            qvals and corr
         '''
         try:
             val = self.cx + self.cy
@@ -127,9 +126,10 @@ class Detector(object):
             return
 
         fac = np.sqrt(self.cx**2 + self.cy**2 + self.detd**2)
-        self.qx = self.cx * self.ewald_rad / fac
-        self.qy = self.cy * self.ewald_rad / fac
-        self.qz = self.ewald_rad * (self.detd/fac - 1.)
+        qvals = np.empty((3,) + self.cx.shape)
+        self.qvals[:,0] = self.cx * self.ewald_rad / fac
+        self.qvals[:,1] = self.cy * self.ewald_rad / fac
+        self.qvals[:,2] = self.ewald_rad * (self.detd/fac - 1.)
         self.corr = self.detd / fac**3 * (1. - self.cx**2 / fac**2)
 
     def remask(self, qradius):
@@ -140,13 +140,13 @@ class Detector(object):
         This is useful when doing coarse orientational alignment
         '''
         if self._qrad is None:
-            self._qrad = np.sqrt(self.qx**2 + self.qy**2 + self.qz**2)
+            self._qrad = np.linalg.norm(self.qvals, axis=1)
         self.raw_mask[(self.raw_mask == 0) & (self._qrad > qradius)] = 1
 
     def parse_background(self, fname):
         if h5py.ishdf5(fname):
-            with h5py.File(fname, 'r'):
-                self.background = f['background'][:].ravel()
+            with h5py.File(fname, 'r') as fptr:
+                self.background = fptr['background'][:].ravel()
         else:
             self.background = np.fromfile(fname)
 
@@ -167,8 +167,9 @@ class Detector(object):
             delim_whitespace=True, skiprows=1, engine='c', header=None,
             names=['qx', 'qy', 'qz', 'corr', 'mask'],
             dtype={'qx':'f8', 'qy':'f8', 'qz':'f8', 'corr':'f8', 'mask':'u1'})
-        self.qx, self.qy, self.qz, self.corr = tuple([np.array(dframe[key]) # pylint: disable=C0103
-                                                      for key in ['qx', 'qy', 'qz', 'corr']])
+        qx, qy, qz, self.corr = tuple([np.array(dframe[key]) # pylint: disable=C0103
+                                       for key in ['qx', 'qy', 'qz', 'corr']])
+        self.qvals = np.array([qx, qy, qz]).T
         self.raw_mask = np.array(dframe['mask']).astype('u1')
         sys.stderr.write('done\n')
         self._process_det(mask_flag, keep_mask_1)
@@ -179,9 +180,7 @@ class Detector(object):
         if mask_flag:
             sys.stderr.write('with mask...')
         with h5py.File(self.det_fname, 'r') as fptr:
-            self.qx = fptr['qx'][:]
-            self.qy = fptr['qy'][:]
-            self.qz = fptr['qz'][:]
+            self.qvals = np.array([fptr['qx'][:], fptr['qy'][:], fptr['qz'][:]]).T
             self.corr = fptr['corr'][:]
             self.raw_mask = fptr['mask'][:].astype('u1')
             self.detd = fptr['detd'][()]
@@ -191,9 +190,9 @@ class Detector(object):
 
     def _write_asciidet(self, fname):
         print('Writing ASCII detector file')
-        qx = self.qx.ravel()
-        qy = self.qy.ravel()
-        qz = self.qz.ravel()
+        qx = self.qvals[:,0].ravel()
+        qy = self.qvals[:,1].ravel()
+        qz = self.qvals[:,2].ravel()
         corr = self.corr.ravel()
         mask = self.raw_mask.ravel().astype('u1')
 
@@ -206,9 +205,9 @@ class Detector(object):
     def _write_h5det(self, fname):
         print('Writing HDF5 detector file')
         with h5py.File(fname, "w") as fptr:
-            fptr['qx'] = self.qx.ravel().astype('f8')
-            fptr['qy'] = self.qy.ravel().astype('f8')
-            fptr['qz'] = self.qz.ravel().astype('f8')
+            fptr['qx'] = self.qvals[:,0].ravel().astype('f8')
+            fptr['qy'] = self.qvals[:,1].ravel().astype('f8')
+            fptr['qz'] = self.qvals[:,2].ravel().astype('f8')
             fptr['corr'] = self.corr.ravel().astype('f8')
             fptr['mask'] = self.raw_mask.ravel().astype('u1')
             fptr['detd'] = float(self.detd)
@@ -235,19 +234,19 @@ class Detector(object):
                 mask[mask == 2] = 1 # To keep only mask==0
             mask = 1 - mask
         else:
-            self.raw_mask = np.zeros(self.qx.shape, dtype='u1')
-            mask = np.ones(self.qx.shape, dtype='u1')
+            self.raw_mask = np.zeros(self.corr.shape, dtype='u1')
+            mask = np.ones(self.corr.shape, dtype='u1')
 
         if self.qz.mean() > 0:
-            self.cx = self.qx * self.detd / (self.ewald_rad - self.qz) # pylint: disable=C0103
-            self.cy = self.qy * self.detd / (self.ewald_rad - self.qz) # pylint: disable=C0103
+            self.cx = self.qvals[:,0] * self.detd / (self.ewald_rad - self.qvals[:,2]) # pylint: disable=C0103
+            self.cy = self.qvals[:,1] * self.detd / (self.ewald_rad - self.qvals[:,2]) # pylint: disable=C0103
         else:
-            self.cx = self.qx * self.detd / (self.ewald_rad + self.qz) # pylint: disable=C0103
-            self.cy = self.qy * self.detd / (self.ewald_rad + self.qz) # pylint: disable=C0103
+            self.cx = self.qvals[:,0] * self.detd / (self.ewald_rad + self.qvals[:,2]) # pylint: disable=C0103
+            self.cy = self.qvals[:,1] * self.detd / (self.ewald_rad + self.qvals[:,2]) # pylint: disable=C0103
         self.x = np.round(self.cx - self.cx.min()).astype('i4')
         self.y = np.round(self.cy - self.cy.min()).astype('i4')
         self.unassembled_mask = mask.ravel()
-        self.shape = self.qx.shape
+        self.shape = self.corr.shape
         self._init_assem()
 
     def _init_assem(self):
@@ -289,11 +288,6 @@ class Detector(object):
     def coords_xy(self):
         '''Return 2D pixel coordinates'''
         return self.cx, self.cy
-
-    @property
-    def qvals_xyz(self):
-        '''Return 3D voxel values'''
-        return self.qx, self.qy, self.qz
 
     @property
     def indices_xy(self):
