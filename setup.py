@@ -11,6 +11,7 @@ link_args = '-lm -fopenmp'.split()
 ext_modules = [
     Extension(name='dragonfly.detector', sources=['dragonfly/detector.pyx']),
     Extension(name='dragonfly.emcfile', sources=['dragonfly/emcfile.pyx']),
+    Extension(name='dragonfly.model', sources=['dragonfly/model.pyx']),
     Extension(name='dragonfly.quaternion', sources='dragonfly/quaternion.pyx dragonfly/src/quat.c'.split(),
         depends='dragonfly/src/quat.h dragonfly/quaternion.pxd'.split(), include_dirs=include_dirs,
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
