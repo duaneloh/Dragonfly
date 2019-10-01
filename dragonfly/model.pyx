@@ -4,6 +4,9 @@ import os
 import numpy as np
 from scipy import ndimage
 import h5py
+import pandas
+
+cimport numpy as np
 
 class Model():
     def __init__(self):
