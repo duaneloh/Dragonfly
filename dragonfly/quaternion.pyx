@@ -29,13 +29,13 @@ cdef class Quaternion:
         self.quat.icosahedral_flag = (point_group == 'A5')
         self.quat.num_rot_p = 0
         self.quat.quats = NULL
-
-        #self._reduced = False
+        self.reduced = False
 
         if num_div > 0:
             self.generate(num_div)
 
     def generate(self, int num_div):
+        self.reduced = False
         return c_quat.quat_gen(num_div, self.quat)
 
     def save(self, fname):
@@ -65,51 +65,43 @@ cdef class Quaternion:
         for i in np.arange(5*self.num_rot):
             self.quat.quats[i] = quats[i]
 
-    @property
-    def num_div(self): return self.quat.num_div
-    @property
-    def num_rot(self): return self.quat.num_rot
-    @property
-    def num_rot_p(self): return self.quat.num_rot_p
-    @property
-    def icosahedral_flag(self): return bool(self.quat.icosahedral_flag)
-    @property
-    def cubic_flag(self): return bool(self.quat.cubic_flag)
-    @property
-    def quats(self): return np.asarray(<double[:self.num_rot*5]> self.quat.quats).reshape(-1,5)
-
-'''
     def divide(self, rank, num_proc, num_modes=1, num_nonrot_modes=0):
         tot_num_rot = num_modes * self.num_rot + num_nonrot_modes
         self.num_rot_p = tot_num_rot / num_proc
         if rank < (tot_num_rot % num_proc):
-            self.num_rot_p += 1
+            self.quat.num_rot_p += 1
         if num_proc > 1:
-            print("%d: %s: num_rot_p = %d/%d\n", rank, gethostname(), self.num_rot_p, tot_num_rot)
+            print("%d: %s: num_rot_p = %d/%d" % (rank, gethostname(), self.num_rot_p, tot_num_rot))
 
     def reduce_icosahedral(self):
-        if self.quat is None:
+        if self.quat.quats == NULL:
             raise AttributeError('Generate quaternion first before reducing')
-        if self._reduced:
+        if self.reduced:
             print('Already reduced')
             return self.num_rot
 
+        cdef int r, t
+
+        quats = self.quats
         # Icosahedral point group quaternions are just the vertex ones
         # Keep quaternions whose closest vertex_quat is the identity
-        vert_dist = distance.cdist(self.quat[:60,:4], self.quat[60:,:4])
+        vert_dist = distance.cdist(quats[:60,:4], quats[60:,:4])
         sel = np.where(vert_dist.argmin(axis=0) == 8)[0]
         self.num_rot = 1 + sel.shape[0]
-        self.quat[0] = np.copy(self.quat[8])
-        self.quat[1:self.num_rot] = self.quat[sel+60]
-        self.quat = np.copy(self.quat[:self.num_rot])
 
-        self._reduced = True
+        for t in range(5):
+            self.quat.quats[t] = self.quat.quats[8*5 + t]
+        for r in range(1, self.num_rot):
+            for t in range(5):
+                self.quat.quats[r*5 + t] = self.quat.quats[(sel[r-1]+60)*5 + t]
+
+        self.reduced = True
         return self.num_rot
 
     def reduce_cubic(self):
-        if self.quat is None:
+        if self.quat.quats == NULL:
             raise AttributeError('Generate quaternion first before reducing')
-        if self._reduced:
+        if self.reduced:
             print('Already reduced')
             return self.num_rot
 
@@ -134,13 +126,38 @@ cdef class Quaternion:
         for i, pos in enumerate(itertools.permutations(range(3), 2)):
             cube_quat[18 + i, np.array(pos) + 1] = [val, -val] if pos[0] < pos[1] else [val, val]
 
+        cdef int r, t
+        quats = self.quats
+
         # Keep quaternions whose closest cube_quat is the identity
-        cube_dist = distance.cdist(cube_quat, self.quat[:,:4])
+        cube_dist = distance.cdist(cube_quat, quats[:,:4])
         sel = np.where(cube_dist.argmin(axis=0) == 0)[0]
         self.num_rot = sel.shape[0]
-        self.quat[:self.num_rot] = self.quat[sel]
-        self.quat = np.copy(self.quat[:self.num_rot])
+        for r in range(self.num_rot):
+            for t in range(5):
+                self.quat.quats[r*5 + t] = self.quat.quats[sel[r]*5 + t]
 
-        self._reduced = True
+        self.reduced = True
         return self.num_rot
-'''
+
+    @property
+    def num_div(self): return self.quat.num_div
+    @property
+    def num_rot(self): return self.quat.num_rot
+    @num_rot.setter
+    def num_rot(self, val): self.quat.num_rot = val
+    @property
+    def num_rot_p(self): return self.quat.num_rot_p
+    @num_rot_p.setter
+    def num_rot_p(self, val): self.quat.num_rot_p = val
+    @property
+    def reduced(self): return bool(self.quat.reduced)
+    @reduced.setter
+    def reduced(self, val): self.quat.reduced = int(val)
+    @property
+    def icosahedral_flag(self): return bool(self.quat.icosahedral_flag)
+    @property
+    def cubic_flag(self): return bool(self.quat.cubic_flag)
+    @property
+    def quats(self): return np.asarray(<double[:self.num_rot*5]> self.quat.quats).reshape(-1,5)
+
