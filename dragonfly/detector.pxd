@@ -6,16 +6,12 @@ cdef struct detector:
     double *qvals
     double *corr
     uint8_t *raw_mask
+
+    double detd, ewald_rad
+
+    # Background
+    uint8_t with_bg
     double *background
 
-    # For python interface
-    double detd, ewald_rad
-    double *cx
-    double *cy
-    int *x
-    int *y
-    uint8_t *mask
-    uint8_t *assembled_mask
-
-cdef class Detector:
+cdef class CDetector:
     cdef detector* det
