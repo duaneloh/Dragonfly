@@ -7,7 +7,166 @@ import numpy as np
 import pandas
 import h5py
 
-class EMCReader(object):
+from . cimport emcfile as c_dset
+from .emcfile cimport CDataset
+from .detector cimport CDetector
+from libc.stdio cimport FILE, fopen, fclose, fread, fseek
+from libc.stdlib cimport malloc, calloc, free
+from libc.string cimport strcpy, memcpy
+
+cdef class CDataset:
+    def __init__(self, fname=None, CDetector det=None):
+        self.dset = <dataset*> calloc(1, sizeof(dataset))
+        self.dset.det = det.det if det is not None else NULL
+        if fname is not None:
+            self.parse(fname)
+
+    def parse(self, fname):
+        if self.dset.det == NULL:
+            raise AttributeError('Set detector before parsing')
+        self.dset.fname = <char*> malloc(len(fname)+1)
+        strcpy(self.dset.fname, bytes(fname, 'utf-8'))
+
+        if h5py.is_hdf5(self.fname):
+            self._parse_h5()
+        else:
+            self._parse_binary()
+
+    def append(self, CDataset next_dset):
+        self.dset.next = next_dset.dset
+        return self.next
+
+    def free(self):
+        if self.dset.ones != NULL: free(self.dset.ones)
+        if self.dset.multi != NULL: free(self.dset.multi)
+        if self.dset.place_ones != NULL: free(self.dset.place_ones)
+        if self.dset.place_multi != NULL: free(self.dset.place_multi)
+        if self.dset.count_multi != NULL: free(self.dset.count_multi)
+        if self.dset.ones_accum != NULL: free(self.dset.ones_accum)
+        if self.dset.multi_accum != NULL: free(self.dset.multi_accum)
+
+    def _parse_h5(self):
+        cdef int d
+        cdef long st, ct
+        cdef int[:] arr
+
+        fptr = h5py.File(self.fname, 'r')
+        self.dset.num_data = fptr['place_ones'].shape[0]
+
+        self.dset.ones = <int*> malloc(self.num_data * sizeof(int))
+        self.dset.multi = <int*> malloc(self.num_data * sizeof(int))
+
+        self.dset.ones_accum = <long*> malloc(self.num_data * sizeof(long))
+        self.dset.multi_accum = <long*> malloc(self.num_data * sizeof(long))
+        self.dset.ones_accum[0] = 0
+        self.dset.multi_accum[0] = 0
+
+        for d in range(self.num_data):
+            self.dset.ones[d] = fptr['place_ones'][d].shape[0]
+            self.dset.multi[d] = fptr['place_multi'][d].shape[0]
+            if d > 0:
+                self.dset.ones_accum[d] = self.dset.ones_accum[d-1] + self.dset.ones[d-1]
+                self.dset.multi_accum[d] = self.dset.multi_accum[d-1] + self.dset.multi[d-1]
+        self.dset.ones_total = self.dset.ones_accum[self.num_data-1] + self.dset.ones[self.num_data-1]
+        self.dset.multi_total = self.dset.multi_accum[self.num_data-1] + self.dset.multi[self.num_data-1]
+
+        self.dset.place_ones = <int*> malloc(self.ones_total * sizeof(int))
+        self.dset.place_multi = <int*> malloc(self.multi_total * sizeof(int))
+        self.dset.count_multi = <int*> malloc(self.multi_total * sizeof(int))
+
+        for d in range(self.num_data):
+            st = self.dset.ones_accum[d]
+            ct = self.dset.ones[d] * sizeof(int)
+            arr = fptr['place_ones'][d]
+            memcpy(&(self.dset.place_ones[st]), &arr[0], ct)
+
+            st = self.dset.multi_accum[d]
+            ct = self.dset.multi[d] * sizeof(int)
+            if ct > 0:
+                arr = fptr['place_multi'][d]
+                memcpy(&(self.dset.place_multi[st]), &arr[0], ct)
+                arr = fptr['count_multi'][d]
+                memcpy(&(self.dset.count_multi[st]), &arr[0], ct)
+
+        fptr.close()
+            
+    def _parse_binary(self):
+        cdef int d
+        cdef FILE *fptr = fopen(self.dset.fname, b'rb')
+        if fptr == NULL:
+            print('Could not open file')
+            return
+        fseek(fptr, 0, 0)
+        fread(&(self.dset.num_data), sizeof(int), 1, fptr)
+        fseek(fptr, 1024, 0)
+
+        self.dset.ones = <int*> malloc(self.num_data * sizeof(int))
+        self.dset.multi = <int*> malloc(self.num_data * sizeof(int))
+        fread(self.dset.ones, sizeof(int), self.num_data, fptr)
+        fread(self.dset.multi, sizeof(int), self.num_data, fptr)
+
+        self.dset.ones_total = self.ones.sum()
+        self.dset.multi_total = self.multi.sum()
+        self.dset.ones_accum = <long*> malloc(self.num_data * sizeof(long))
+        self.dset.multi_accum = <long*> malloc(self.num_data * sizeof(long))
+        self.dset.ones_accum[0] = 0
+        self.dset.multi_accum[0] = 0
+        for d in range(1, self.num_data):
+            self.dset.ones_accum[d] = self.dset.ones_accum[d-1] + self.dset.ones[d-1]
+            self.dset.multi_accum[d] = self.dset.multi_accum[d-1] + self.dset.multi[d-1]
+
+        self.dset.place_ones = <int*> malloc(self.ones_total * sizeof(int))
+        self.dset.place_multi = <int*> malloc(self.multi_total * sizeof(int))
+        self.dset.count_multi = <int*> malloc(self.multi_total * sizeof(int))
+        fread(self.dset.place_ones, sizeof(int), self.ones_total, fptr)
+        fread(self.dset.place_multi, sizeof(int), self.multi_total, fptr)
+        fread(self.dset.count_multi, sizeof(int), self.multi_total, fptr)
+        fclose(fptr)
+
+    def __del__(self):
+        self.free_dataset()
+
+    @property
+    def fname(self): return (<bytes> self.dset.fname).decode()
+    @property
+    def num_data(self): return self.dset.num_data
+    @property
+    def det(self):
+        if self.dset.det == NULL:
+            return
+        retval = CDetector()
+        retval.det = self.dset.det
+        return retval
+    @det.setter
+    def det(self, CDetector det): self.dset.det = det.det
+    @property
+    def next(self):
+        if self.dset.next == NULL:
+           return
+        retval = CDataset()
+        retval.dset = self.dset.next
+        return retval
+
+    @property
+    def ones(self): return np.asarray(<int[:self.num_data]>self.dset.ones, dtype='i4')
+    @property
+    def multi(self): return np.asarray(<int[:self.num_data]>self.dset.multi, dtype='i4')
+    @property
+    def place_ones(self): return np.asarray(<int[:self.ones_total]>self.dset.place_ones, dtype='i4')
+    @property
+    def place_multi(self): return np.asarray(<int[:self.multi_total]>self.dset.place_multi, dtype='i4')
+    @property
+    def count_multi(self): return np.asarray(<int[:self.multi_total]>self.dset.count_multi, dtype='i4')
+    @property
+    def ones_total(self): return self.dset.ones_total
+    @property
+    def multi_total(self): return self.dset.multi_total
+    @property
+    def ones_accum(self): return np.asarray(<long[:self.num_data]>self.dset.ones_accum, dtype='i8')
+    @property
+    def multi_accum(self): return np.asarray(<long[:self.num_data]>self.dset.multi_accum, dtype='i8')
+
+class EMCReader():
     """EMC file reader
 
     Provides access to assembled or raw frames given a list of .emc filenames
@@ -142,41 +301,6 @@ class EMCReader(object):
         if not raw:
             powder = self.flist[0]['det'].assemble_frame(powder, **kwargs)
         return powder
-
-    def get_blacklist(self, fname, sel_string=None):
-        '''Generate blacklist from file and selection string
-        
-        Blacklist file contains one number (0 or 1) per line for each frame indicating whether
-        the frame is blacklisted (1) or considered good (0).
-        
-        On top of that for dataset splitting, one can provide a selection string, either
-        'odd_only' or 'even_only' to take only half of the good frames.
-        '''
-        if os.path.isfile(fname):
-            self.blacklist = pandas.read_csv(fname, header=None, squeeze=True, dtype='u1').array
-
-        if sel_string is 'odd_only':
-            self.blacklist[self.blacklist==0][0::2] = 1
-        elif sel_string is 'even_only':
-            self.blacklist[self.blacklist==0][1::2] = 1
-
-    def parse_all(self):
-        for pdict in self.flist:
-            if pdict['is_hdf5']:
-                with h5py.File(pdict['fname'], 'r') as fptr:
-                    pdict['place_ones'] = fptr['place_ones'][:]
-                    pdict['place_multi'] = fptr['place_multi'][:]
-                    pdict['count_multi'] = fptr['count_multi'][:]
-            else:
-                fptr = open(pdict['fname'], 'rb')
-                num_data = np.fromfile(fptr, dtype='i4', count=1)
-                fptr.seek(1024, 0)
-                pdict['ones'] = np.fromfile(fptr, dtype='i4', count=num_data)
-                pdict['multi'] = np.fromfile(fptr, dtype='i4', count=num_data)
-                pdict['place_ones'] = np.fromfile(fptr, dtype='i4', count=pdict['ones_accum'][-1])
-                pdict['place_multi'] = np.fromfile(fptr, dtype='i4', count=pdict['multi_accum'][-1])
-                pdict['count_multi'] = np.fromfile(fptr, dtype='i4', count=pdict['multi_accum'][-1])
-            pdict['parsed'] = True
 
     def _parse_headers(self):
         for i, pdict in enumerate(self.flist):
@@ -504,3 +628,25 @@ class EMCWriter(object):
             place_ones.astype(np.int32).tofile(self._fptrs[0])
             place_multi.astype(np.int32).tofile(self._fptrs[1])
             count_multi.astype(np.int32).tofile(self._fptrs[2])
+
+    
+#    def parse_blacklist(self, fname, sel_string=None):
+#        '''Generate blacklist from file and selection string
+#        
+#        Blacklist file contains one number (0 or 1) per line for each frame indicating whether
+#        the frame is blacklisted (1) or considered good (0).
+#        
+#        On top of that for dataset splitting, one can provide a selection string, either
+#        'odd_only' or 'even_only' to take only half of the good frames.
+#        '''
+#        cdef uint8_t[:] arr
+#        if os.path.isfile(fname):
+#            arr = pandas.read_csv(fname, header=None, squeeze=True, dtype='u1').array
+#            self.dset.blacklist = <uint8_t*> malloc(arr.shape[0] * sizeof(uint8_t))
+#            memcpy(&self.dset.blacklist, &arr[0], arr.shape[0])
+#
+#        if sel_string is 'odd_only':
+#            self.blacklist[self.blacklist==0][0::2] = 1
+#        elif sel_string is 'even_only':
+#            self.blacklist[self.blacklist==0][1::2] = 1
+#
