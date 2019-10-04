@@ -1,0 +1,27 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <hdf5.h>
+#include "detector.h"
+
+enum frame_type {SPARSE, DENSE_INT, DENSE_DOUBLE} ;
+
+struct dataset {
+	char *fname ;
+    enum frame_type ftype ;
+	int num_data, num_pix ;
+	double mean_count ;
+	struct detector *det ;
+	struct dataset *next ;
+
+	// Sparse data
+	int *ones, *multi ;
+	int *place_ones, *place_multi, *count_multi ;
+	long ones_total, multi_total ;
+	long *ones_accum, *multi_accum ;
+
+	// Dense data
+	int *int_frames ;
+	double *frames ;
+} ;
+
+int parse_dataset(char*, struct detector*, struct dataset*) ;

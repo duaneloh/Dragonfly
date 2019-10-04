@@ -3,6 +3,7 @@
 from __future__ import print_function
 import sys
 import os
+import time
 import numpy as np
 import pandas
 import h5py
@@ -27,10 +28,7 @@ cdef class CDataset:
         self.dset.fname = <char*> malloc(len(fname)+1)
         strcpy(self.dset.fname, bytes(fname, 'utf-8'))
 
-        if h5py.is_hdf5(self.fname):
-            self._parse_h5()
-        else:
-            self._parse_binary()
+        c_dset.parse_dataset(self.dset.fname, self.dset.det, self.dset)
 
     def append(self, CDataset next_dset):
         self.dset.next = next_dset.dset
@@ -45,84 +43,6 @@ cdef class CDataset:
         if self.dset.ones_accum != NULL: free(self.dset.ones_accum)
         if self.dset.multi_accum != NULL: free(self.dset.multi_accum)
 
-    def _parse_h5(self):
-        cdef int d
-        cdef long st, ct
-        cdef int[:] arr
-
-        fptr = h5py.File(self.fname, 'r')
-        self.dset.num_data = fptr['place_ones'].shape[0]
-
-        self.dset.ones = <int*> malloc(self.num_data * sizeof(int))
-        self.dset.multi = <int*> malloc(self.num_data * sizeof(int))
-
-        self.dset.ones_accum = <long*> malloc(self.num_data * sizeof(long))
-        self.dset.multi_accum = <long*> malloc(self.num_data * sizeof(long))
-        self.dset.ones_accum[0] = 0
-        self.dset.multi_accum[0] = 0
-
-        for d in range(self.num_data):
-            self.dset.ones[d] = fptr['place_ones'][d].shape[0]
-            self.dset.multi[d] = fptr['place_multi'][d].shape[0]
-            if d > 0:
-                self.dset.ones_accum[d] = self.dset.ones_accum[d-1] + self.dset.ones[d-1]
-                self.dset.multi_accum[d] = self.dset.multi_accum[d-1] + self.dset.multi[d-1]
-        self.dset.ones_total = self.dset.ones_accum[self.num_data-1] + self.dset.ones[self.num_data-1]
-        self.dset.multi_total = self.dset.multi_accum[self.num_data-1] + self.dset.multi[self.num_data-1]
-
-        self.dset.place_ones = <int*> malloc(self.ones_total * sizeof(int))
-        self.dset.place_multi = <int*> malloc(self.multi_total * sizeof(int))
-        self.dset.count_multi = <int*> malloc(self.multi_total * sizeof(int))
-
-        for d in range(self.num_data):
-            st = self.dset.ones_accum[d]
-            ct = self.dset.ones[d] * sizeof(int)
-            arr = fptr['place_ones'][d]
-            memcpy(&(self.dset.place_ones[st]), &arr[0], ct)
-
-            st = self.dset.multi_accum[d]
-            ct = self.dset.multi[d] * sizeof(int)
-            if ct > 0:
-                arr = fptr['place_multi'][d]
-                memcpy(&(self.dset.place_multi[st]), &arr[0], ct)
-                arr = fptr['count_multi'][d]
-                memcpy(&(self.dset.count_multi[st]), &arr[0], ct)
-
-        fptr.close()
-            
-    def _parse_binary(self):
-        cdef int d
-        cdef FILE *fptr = fopen(self.dset.fname, b'rb')
-        if fptr == NULL:
-            print('Could not open file')
-            return
-        fseek(fptr, 0, 0)
-        fread(&(self.dset.num_data), sizeof(int), 1, fptr)
-        fseek(fptr, 1024, 0)
-
-        self.dset.ones = <int*> malloc(self.num_data * sizeof(int))
-        self.dset.multi = <int*> malloc(self.num_data * sizeof(int))
-        fread(self.dset.ones, sizeof(int), self.num_data, fptr)
-        fread(self.dset.multi, sizeof(int), self.num_data, fptr)
-
-        self.dset.ones_total = self.ones.sum()
-        self.dset.multi_total = self.multi.sum()
-        self.dset.ones_accum = <long*> malloc(self.num_data * sizeof(long))
-        self.dset.multi_accum = <long*> malloc(self.num_data * sizeof(long))
-        self.dset.ones_accum[0] = 0
-        self.dset.multi_accum[0] = 0
-        for d in range(1, self.num_data):
-            self.dset.ones_accum[d] = self.dset.ones_accum[d-1] + self.dset.ones[d-1]
-            self.dset.multi_accum[d] = self.dset.multi_accum[d-1] + self.dset.multi[d-1]
-
-        self.dset.place_ones = <int*> malloc(self.ones_total * sizeof(int))
-        self.dset.place_multi = <int*> malloc(self.multi_total * sizeof(int))
-        self.dset.count_multi = <int*> malloc(self.multi_total * sizeof(int))
-        fread(self.dset.place_ones, sizeof(int), self.ones_total, fptr)
-        fread(self.dset.place_multi, sizeof(int), self.multi_total, fptr)
-        fread(self.dset.count_multi, sizeof(int), self.multi_total, fptr)
-        fclose(fptr)
-
     def __del__(self):
         self.free_dataset()
 
@@ -130,6 +50,10 @@ cdef class CDataset:
     def fname(self): return (<bytes> self.dset.fname).decode()
     @property
     def num_data(self): return self.dset.num_data
+    @property
+    def num_pix(self): return self.dset.num_pix
+    @property
+    def ftype(self): return ['sparse', 'dense_integer', 'dense_double'][self.dset.ftype]
     @property
     def det(self):
         if self.dset.det == NULL:
@@ -601,4 +525,3 @@ class EMCWriter(object):
             place_multi.astype(np.int32).tofile(self._fptrs[1])
             count_multi.astype(np.int32).tofile(self._fptrs[2])
 
-    
