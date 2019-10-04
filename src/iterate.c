@@ -396,7 +396,6 @@ int parse_rel_quat(char *fname, int num_rot_coarse, int parse_prob, struct itera
 		fprintf(stderr, "Parsing rel_quat from H5 output file\n") ;
 		hid_t file, dset, dspace, dtype ;
 		hsize_t d, num_data ;
-		hvl_t *buffer ;
 		
 		file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT) ;
 		if (file < 0) {
@@ -405,56 +404,92 @@ int parse_rel_quat(char *fname, int num_rot_coarse, int parse_prob, struct itera
 		}
 		
 		dset = H5Dopen(file, "probabilities/num_rot", H5P_DEFAULT) ;
-		H5Dread(dset, H5T_STD_I32LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &num_rot_prob) ;
-		H5Dclose(dset) ;
-		if (num_rot_prob != num_rot_coarse) {
-			fprintf(stderr, "Rotation sampling in probs file does not match num_rot_coarse\n") ;
-			fprintf(stderr, "%d vs %d\n", num_rot_prob, num_rot_coarse) ;
-			return 1 ;
-		}
-		
-		dset = H5Dopen(file, "probabilities/place", H5P_DEFAULT) ;
-		dtype = H5Tvlen_create(H5T_STD_I32LE) ;
-		dspace = H5Dget_space(dset) ;
-		H5Sget_simple_extent_dims(dspace, &num_data, NULL) ;
-		if ((int) num_data != iter->tot_num_data) {
-			fprintf(stderr, "num_data of rel_quat (%lld) does not match %d\n", num_data, iter->tot_num_data) ;
-			return 1 ;
-		}
-		
-		buffer = malloc(num_data * sizeof(hvl_t)) ;
-		iter->num_rel_quat = malloc(num_data * sizeof(int)) ;
-		iter->rel_quat = malloc(num_data * sizeof(int*)) ;
-		
-		H5Dread(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, buffer) ;
-		for (d = 0 ; d < num_data ; ++d) {
-			iter->num_rel_quat[d] = buffer[d].len ;
-			iter->rel_quat[d] = buffer[d].p ;
-		}
-		
-		free(buffer) ;
-		H5Dclose(dset) ;
-		H5Tclose(dtype) ;
-		H5Sclose(dspace) ;
-		
-		if (parse_prob) {
-			fprintf(stderr, "Parsing sparse probabilities\n") ;
-			dset = H5Dopen(file, "probabilities/prob", H5P_DEFAULT) ;
-			dtype = H5Tvlen_create(H5T_IEEE_F64LE) ;
+		if (dset < 0) {
+			fprintf(stderr, "No probabilities saved. Using most likely orientations\n") ;
+
+			dset = H5Dopen(file, "orientations", H5P_DEFAULT) ;
 			dspace = H5Dget_space(dset) ;
 			H5Sget_simple_extent_dims(dspace, &num_data, NULL) ;
+			if ((int) num_data != iter->tot_num_data) {
+				fprintf(stderr, "num_data of orientations (%lld) does not match %d\n", num_data, iter->tot_num_data) ;
+				return 1 ;
+			}
+			fprintf(stderr, "%lld frames in orientations data set\n", num_data) ;
+			int *buffer = malloc(num_data * sizeof(int)) ;
+			iter->num_rel_quat = malloc(num_data * sizeof(int)) ;
+			iter->rel_quat = malloc(num_data * sizeof(int*)) ;
 			
-			buffer = malloc(num_data * sizeof(hvl_t)) ;
-			iter->rel_prob = malloc(num_data * sizeof(double*)) ;
+			H5Dread(dset, H5T_STD_I32LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, buffer) ;
+			for (d = 0 ; d < num_data ; ++d) {
+				iter->num_rel_quat[d] = 1 ;
+				iter->rel_quat[d] = malloc(1 * sizeof(int)) ;
+				iter->rel_quat[d][0] = buffer[d] ;
+			}
+
+			free(buffer) ;
+			H5Dclose(dset) ;
+			H5Sclose(dspace) ;
+			
+			if (parse_prob) {
+				iter->rel_prob = malloc(num_data * sizeof(double*)) ;
+				for (d = 0 ; d < num_data ; ++d) {
+					iter->rel_prob[d] = malloc(1 * sizeof(double)) ;
+					iter->rel_prob[d][0] = 1. ;
+				}
+			}
+		}
+		else {
+			H5Dread(dset, H5T_STD_I32LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &num_rot_prob) ;
+			H5Dclose(dset) ;
+			if (num_rot_prob != num_rot_coarse) {
+				fprintf(stderr, "Rotation sampling in probs file does not match num_rot_coarse\n") ;
+				fprintf(stderr, "%d vs %d\n", num_rot_prob, num_rot_coarse) ;
+				return 1 ;
+			}
+			
+			dset = H5Dopen(file, "probabilities/place", H5P_DEFAULT) ;
+			dtype = H5Tvlen_create(H5T_STD_I32LE) ;
+			dspace = H5Dget_space(dset) ;
+			H5Sget_simple_extent_dims(dspace, &num_data, NULL) ;
+			if ((int) num_data != iter->tot_num_data) {
+				fprintf(stderr, "num_data of rel_quat (%lld) does not match %d\n", num_data, iter->tot_num_data) ;
+				return 1 ;
+			}
+			
+			hvl_t *buffer = malloc(num_data * sizeof(hvl_t)) ;
+			iter->num_rel_quat = malloc(num_data * sizeof(int)) ;
+			iter->rel_quat = malloc(num_data * sizeof(int*)) ;
 			
 			H5Dread(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, buffer) ;
-			for (d = 0 ; d < num_data ; ++d)
-				iter->rel_prob[d] = buffer[d].p ;
+			for (d = 0 ; d < num_data ; ++d) {
+				iter->num_rel_quat[d] = buffer[d].len ;
+				iter->rel_quat[d] = buffer[d].p ;
+			}
 			
 			free(buffer) ;
 			H5Dclose(dset) ;
 			H5Tclose(dtype) ;
 			H5Sclose(dspace) ;
+			
+			if (parse_prob) {
+				fprintf(stderr, "Parsing sparse probabilities\n") ;
+				dset = H5Dopen(file, "probabilities/prob", H5P_DEFAULT) ;
+				dtype = H5Tvlen_create(H5T_IEEE_F64LE) ;
+				dspace = H5Dget_space(dset) ;
+				H5Sget_simple_extent_dims(dspace, &num_data, NULL) ;
+				
+				buffer = malloc(num_data * sizeof(hvl_t)) ;
+				iter->rel_prob = malloc(num_data * sizeof(double*)) ;
+				
+				H5Dread(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, buffer) ;
+				for (d = 0 ; d < num_data ; ++d)
+					iter->rel_prob[d] = buffer[d].p ;
+				
+				free(buffer) ;
+				H5Dclose(dset) ;
+				H5Tclose(dtype) ;
+				H5Sclose(dspace) ;
+			}
 		}
 		
 		H5Fclose(file) ;
