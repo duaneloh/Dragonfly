@@ -1,17 +1,18 @@
 from libc.stdint cimport uint8_t
 
-cdef struct detector:
-    char *fname
-    int num_pix
-    double *qvals
-    double *corr
-    uint8_t *raw_mask
+cdef extern from "src/detector.h":
+    struct detector:
+        char *fname
+        int num_pix
+        double *qvals
+        double *corr
+        uint8_t *raw_mask
 
-    double detd, ewald_rad
+        double detd, ewald_rad
 
-    # Background
-    uint8_t with_bg
-    double *background
+        # Background
+        uint8_t with_bg
+        double *background
 
 cdef class CDetector:
     cdef detector* det
