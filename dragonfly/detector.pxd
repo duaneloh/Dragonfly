@@ -1,6 +1,6 @@
 from libc.stdint cimport uint8_t
 
-cdef extern from "src/detector.h":
+cdef extern from "src/detector.h" nogil:
     struct detector:
         char *fname
         int num_pix
