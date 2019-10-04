@@ -7,110 +7,124 @@ import h5py
 import pandas
 
 cimport numpy as np
+from libc.stdlib cimport malloc, calloc, free
+from libc.stdio cimport FILE, fopen, fread, fclose
+from libc.string cimport memcpy, strcpy
 
-class Model():
-    def __init__(self):
-        self.size = -1
-        self.num_modes = 1
-        self.model1 = None
-        self.model2 = None
-        self.inter_weight = None
-        self.scale = None
+from .detector cimport CDetector
+from . cimport model as c_model
+from .model cimport Model
 
-        self.bgscale = None
-        self.rms_change = 0
-
-    def parse_scale(self, fname, bg=False):
-        if h5py.is_hdf5(fname):
-            with h5py.File(fname, 'r') as f:
-                scale = f['scale'][:]
+cdef class Model:
+    def __init__(self, long size=0, int num_modes=1, model_type='3d'):
+        self.mod = <c_model.model*> calloc(1, sizeof(c_model.model))
+        if model_type.lower() == '3d':
+            self.mod.mtype = MODEL_3D
+        elif model_type.lower() == '2d':
+            self.mod.mtype = MODEL_2D
+        elif model_type.lower() == 'rz':
+            self.mod.mtype = MODEL_RZ
         else:
-            scale = pandas.read_csv(fname, header=None).array.ravel()
-        
-        if bg:
-            self.bgscale = scale
-        else:
-            self.scale = scale
+            raise ValueError('Unknown model_type %s'%model_type)
 
-    def normalize_scale(self, frames):
-        blist = frames.blacklist
-        mean_scale = self.scale[blist==0].mean()
-        self.model1 * mean_scale
-        self.scale[blist==0] /= mean_scale
-        self.rms_change *= mean_scale
+        if size > 0:
+            self.size = size
+        self.num_modes = num_modes
 
-    def parse_input(self, fname, model_mean, rank=0, recon_type='3d'):
-        ndim = 3 if recon_type == '3d' else 2
+    def allocate(self, fname, double model_mean=1., int rank=0):
+        cdef FILE* fp
+        cdef char* c_fname
+        cdef long tot_vol
+        cdef double[:] randvol
+
+        ndim = 3 if self.mod.mtype == MODEL_3D else 2
         mshape = (self.num_modes,) + ndim*(self.size,)
+        tot_vol = np.array(mshape).prod()
 
-        self.model1 = np.empty(mshape)
-        self.model2 = np.empty(mshape)
-        self.inter_weight = np.empty(mshape)
+        self.mod.model1 = <double*> malloc(tot_vol * sizeof(double))
+        self.mod.model2 = <double*> malloc(tot_vol * sizeof(double))
+        self.mod.inter_weight = <double*> malloc(tot_vol * sizeof(double))
 
         if os.path.isfile(fname):
+            print('Parsing model1 from', fname)
             if h5py.is_hdf5(fname):
                 with h5py.File(fname, 'r') as f:
                     fshape = f['intens'].shape
+                    dset = h5py.h5d.open(f.id, b'intens')
                     if fshape == mshape:
-                        self.model1[:] = f['intens'][:]
+                        dset.read(h5py.h5s.ALL, h5py.h5s.ALL, self.model1)
                     elif fshape[1:] != mshape[1:]:
                         raise ValueError('Input model has wrong grid size')
-                    elif fshape[0] < mshape[0]:
-                        print('More modes in file than expected, only reading in first %d'%self.num_modes)
-                        self.model1[:] = f['intens'][:self.num_modes]
+                    elif fshape[0] > mshape[0]:
+                        print('More modes in file than expected, only reading in first', self.num_modes)
+                        dspace = h5py.h5s.create_simple(mshape)
+                        dset.read(h5py.h5s.ALL, dspace, self.model1)
                     else:
                         print('Not enough modes in file. Filling rest with white noise')
-                        self.model1[:fshape[0]] = f['intens'][:]
-                        self.model1[fshape[0]:] = np.random.random((mshape[0]-fshape[0],) + ndim*(self.size,))
+                        mspace = h5py.h5s.create_simple(fshape)
+                        dset.read(mspace, h5py.h5s.ALL, self.model1)
+                        randvol = np.random.random((mshape[0]-fshape[0],) + ndim*(self.size,)).ravel() * model_mean
+                        memcpy(&self.mod.model1[fshape[0]*self.vol], &randvol[0], randvol.size*sizeof(double))
             else:
-                self.model1[:] = np.fromfile(fname).reshape(mshape)
+                c_fname = <char*> malloc(len(fname)+1)
+                strcpy(c_fname, bytes(fname, 'utf-8'))
+                fp = fopen(c_fname, 'rb')
+                fread(self.mod.model1, sizeof(double), tot_vol, fp)
+                fclose(fp)
         else:
-            self.model1[:] = np.random.random(mshape) * model_mean
+            print('Random model')
+            randvol = np.random.random(mshape).ravel() * model_mean
+            memcpy(self.mod.model1, &randvol[0], randvol.size*sizeof(double))
 
-    def slice_gen(self, quat, det, mode=0, rescale=1., recon_type='3d'):
-        rot = self._make_rot_quat(quat)
-        if recon_type == '3d':
-            pix = [det.qx, det.qy, det.qz]
-        else:
-            pix = [det.cx, det.cy]
-        coords = np.dot(rot, pix)
-        view = ndimage.map_coordinates(self.model1[mode], coords, 
-                                       order=1, prefilter=False,
-                                       cval=sys.float_info.min)
-        view *= det.corr
-        if rescale == 0:
-            return view
-        else:
-            return np.log(view * rescale)
+    def slice_gen(self, double[:] quat, CDetector det, int mode=0, out_slice=None):
+        if self.mod.model1 == NULL:
+            raise AttributeError('Allocate model1 first')
 
-    @staticmethod
-    def _make_rot_quat(quaternion, rot=None):
-        rot = np.zeros((3, 3))
-        q0 = quaternion[0]
-        q1 = quaternion[1]
-        q2 = quaternion[2]
-        q3 = quaternion[3]
-        
-        q01 = q0*q1
-        q02 = q0*q2
-        q03 = q0*q3
-        q11 = q1*q1
-        q12 = q1*q2
-        q13 = q1*q3
-        q22 = q2*q2
-        q23 = q2*q3
-        q33 = q3*q3
-        
-        rot[0][0] = (1. - 2.*(q22 + q33))
-        rot[0][1] = 2.*(q12 + q03)
-        rot[0][2] = 2.*(q13 - q02)
-        rot[1][0] = 2.*(q12 - q03)
-        rot[1][1] = (1. - 2.*(q11 + q33))
-        rot[1][2] = 2.*(q01 + q23)
-        rot[2][0] = 2.*(q02 + q13)
-        rot[2][1] = 2.*(q23 - q01)
-        rot[2][2] = (1. - 2.*(q11 + q22))
+        cdef double[:] out_slice_view
+        if out_slice is None:
+            out_slice_view = np.empty(det.num_pix, dtype='f8')
+        else:
+            out_slice_view = out_slice
+        print(out_slice_view.shape)
+        if self.mod.mtype == MODEL_3D:
+            print('3D model')
+            c_model.slice_gen3d(&quat[0], mode, &out_slice_view[0], det.det, self.mod)
+        elif self.mod.mtype == MODEL_2D:
+            print('2D model')
+            c_model.slice_gen2d(&quat[0], mode, &out_slice_view[0], det.det, self.mod)
+        elif self.mod.mtype == MODEL_RZ:
+            c_model.slice_genrz(&quat[0], mode, &out_slice_view[0], det.det, self.mod)
+        return np.asarray(out_slice_view)
 
     @staticmethod
-    def calculate_size(qmax):
-        return 2 * np.ceil(qmax) + 3
+    def make_rot_quat(double[:] quaternion):
+        cdef double rot[3][3]
+        c_model.make_rot_quat(&quaternion[0], rot)
+        return np.asarray(rot)
+
+    @property
+    def mtype(self): return ['MODEL_3D', 'MODEL_2D', 'MODEL_RZ'][self.mod.mtype]
+    @property
+    def ndim(self): return 3 if self.mod.mtype == MODEL_3D else 2
+    @property
+    def size(self): return self.mod.size
+    @size.setter
+    def size(self, long val):
+        self.mod.size = val
+        self.mod.center = val // 2
+        self.mod.vol = val**self.ndim
+    @property
+    def center(self): return self.mod.center
+    @property
+    def vol(self): return self.mod.vol
+    @property
+    def num_modes(self): return self.mod.num_modes
+    @num_modes.setter
+    def num_modes(self, int val): self.mod.num_modes = val
+
+    @property
+    def model1(self): return np.asarray(<double[:self.num_modes*self.size**self.ndim]>self.mod.model1).reshape((self.num_modes,) + self.ndim*(self.size,))
+    @property
+    def model2(self): return np.asarray(<double[:self.num_modes*self.size**self.ndim]>self.mod.model2).reshape((self.num_modes,) + self.ndim*(self.size,))
+    @property
+    def inter_weight(self): return np.asarray(<double[:self.num_modes*self.size**self.ndim]>self.mod.inter_weight).reshape((self.num_modes,) + self.ndim*(self.size,))
