@@ -40,3 +40,7 @@ class Iterate():
         elif sel_string is 'even_only':
             self.blacklist[self.blacklist==0][1::2] = 1
 
+    @staticmethod
+    def calculate_size(qmax):
+        return 2 * np.ceil(qmax) + 3
+
