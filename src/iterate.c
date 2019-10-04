@@ -396,14 +396,21 @@ int parse_rel_quat(char *fname, int num_rot_coarse, int parse_prob, struct itera
 		fprintf(stderr, "Parsing rel_quat from H5 output file\n") ;
 		hid_t file, dset, dspace, dtype ;
 		hsize_t d, num_data ;
+		H5E_auto2_t old_func ;
+		void *old_client_data ;
 		
 		file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT) ;
 		if (file < 0) {
 			fprintf(stderr, "Could not open rel_quat file %s\n", fname) ;
 			return 1 ;
 		}
-		
+
+		// Temporarily suppress HDF5 error messages while testing
+		H5Eget_auto(H5E_DEFAULT, &old_func, &old_client_data) ;
+		H5Eset_auto(H5E_DEFAULT, NULL, NULL) ;
 		dset = H5Dopen(file, "probabilities/num_rot", H5P_DEFAULT) ;
+		H5Eset_auto(H5E_DEFAULT, old_func, old_client_data) ;
+
 		if (dset < 0) {
 			fprintf(stderr, "No probabilities saved. Using most likely orientations\n") ;
 
