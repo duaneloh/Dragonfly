@@ -42,8 +42,8 @@ cdef class Model:
         tot_vol = np.array(mshape).prod()
 
         self.mod.model1 = <double*> malloc(tot_vol * sizeof(double))
-        self.mod.model2 = <double*> malloc(tot_vol * sizeof(double))
-        self.mod.inter_weight = <double*> malloc(tot_vol * sizeof(double))
+        self.mod.model2 = <double*> calloc(tot_vol, sizeof(double))
+        self.mod.inter_weight = <double*> calloc(tot_vol, sizeof(double))
 
         if os.path.isfile(fname):
             print('Parsing model1 from', fname)
@@ -76,31 +76,48 @@ cdef class Model:
             randvol = np.random.random(mshape).ravel() * model_mean
             memcpy(self.mod.model1, &randvol[0], randvol.size*sizeof(double))
 
-    def slice_gen(self, double[:] quat, CDetector det, int mode=0, out_slice=None):
+    def slice_gen(self, double[:] quat, CDetector det, int mode=0, view=None):
         if self.mod.model1 == NULL:
             raise AttributeError('Allocate model1 first')
 
-        cdef double[:] out_slice_view
-        if out_slice is None:
-            out_slice_view = np.empty(det.num_pix, dtype='f8')
+        cdef double[:] out_view
+        if view is None:
+            out_view = np.empty(det.num_pix, dtype='f8')
         else:
-            out_slice_view = out_slice
-        print(out_slice_view.shape)
+            out_view = view
+
         if self.mod.mtype == MODEL_3D:
-            print('3D model')
-            c_model.slice_gen3d(&quat[0], mode, &out_slice_view[0], det.det, self.mod)
+            c_model.slice_gen3d(&quat[0], mode, &out_view[0], det.det, self.mod)
         elif self.mod.mtype == MODEL_2D:
-            print('2D model')
-            c_model.slice_gen2d(&quat[0], mode, &out_slice_view[0], det.det, self.mod)
+            c_model.slice_gen2d(&quat[0], mode, &out_view[0], det.det, self.mod)
         elif self.mod.mtype == MODEL_RZ:
-            c_model.slice_genrz(&quat[0], mode, &out_slice_view[0], det.det, self.mod)
-        return np.asarray(out_slice_view)
+            c_model.slice_genrz(&quat[0], mode, &out_view[0], det.det, self.mod)
+        return np.asarray(out_view)
+
+    def slice_merge(self, double[:] quat, double[:] view, CDetector det, int mode=0):
+        if self.mod.model2 == NULL:
+            raise AttributeError('Allocate model2 first')
+
+        if self.mod.mtype == MODEL_3D:
+            c_model.slice_merge3d(&quat[0], mode, &view[0], det.det, self.mod)
+        elif self.mod.mtype == MODEL_2D:
+            c_model.slice_merge2d(&quat[0], mode, &view[0], det.det, self.mod)
+        elif self.mod.mtype == MODEL_RZ:
+            c_model.slice_mergerz(&quat[0], mode, &view[0], det.det, self.mod)
 
     @staticmethod
     def make_rot_quat(double[:] quaternion):
         cdef double rot[3][3]
         c_model.make_rot_quat(&quaternion[0], rot)
         return np.asarray(rot)
+
+    def __dealloc__(self):
+        if self.mod.model1 != NULL:
+            free(self.mod.model1)
+        if self.mod.model2 != NULL:
+            free(self.mod.model2)
+        if self.mod.inter_weight != NULL:
+            free(self.mod.inter_weight)
 
     @property
     def mtype(self): return ['MODEL_3D', 'MODEL_2D', 'MODEL_RZ'][self.mod.mtype]

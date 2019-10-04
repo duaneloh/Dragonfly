@@ -165,10 +165,12 @@ void slice_genrz(double *phibeta, int mode, double *slice, struct detector *det,
  * The locations of the pixels in slice[t] are given by det->qvals[t]
  * Only pixels with a mask value < 2 are merged
  */
-void slice_merge3d(double *quaternion, double *slice, double *model3d, double *weight, long size, struct detector *det) {
-	long t, i, j, x, y, z, center = size/2 ;
+void slice_merge3d(double *quaternion, int mode, double *slice, struct detector *det, struct model *mod) {
+	long t, i, j, x, y, z, size = mod->size ;
 	double tx, ty, tz, fx, fy, fz, cx, cy, cz, w, f ;
 	double rot_pix[3], rot[3][3] = {{0}} ;
+    double *model = &mod->model2[mode*mod->vol] ;
+    double *weight = &mod->inter_weight[mode*mod->vol] ;
 	
 	make_rot_quat(quaternion, rot) ;
 	
@@ -180,7 +182,7 @@ void slice_merge3d(double *quaternion, double *slice, double *model3d, double *w
 			rot_pix[i] = 0. ;
 			for (j = 0 ; j < 3 ; ++j)
 				rot_pix[i] += rot[i][j] * det->qvals[t*3 + j] ;
-			rot_pix[i] += center ;
+			rot_pix[i] += mod->center ;
 		}
 		
 		tx = rot_pix[0] ;
@@ -202,40 +204,39 @@ void slice_merge3d(double *quaternion, double *slice, double *model3d, double *w
 		cz = 1. - fz ;
 		
 		// Correct for solid angle and polarization
-		slice[t] /= det->corr[t] ;
-		w = slice[t] ;
+		w = slice[t] / det->corr[t] ;
 		
 		f = cx*cy*cz ;
 		weight[x*size*size + y*size + z] += f ;
-		model3d[x*size*size + y*size + z] += f * w ;
+		model[x*size*size + y*size + z] += f * w ;
 		
 		f = cx*cy*fz ;
 		weight[x*size*size + y*size + ((z+1)%size)] += f ;
-		model3d[x*size*size + y*size + ((z+1)%size)] += f * w ;
+		model[x*size*size + y*size + ((z+1)%size)] += f * w ;
 		
 		f = cx*fy*cz ;
 		weight[x*size*size + ((y+1)%size)*size + z] += f ;
-		model3d[x*size*size + ((y+1)%size)*size + z] += f * w ;
+		model[x*size*size + ((y+1)%size)*size + z] += f * w ;
 		
 		f = cx*fy*fz ;
 		weight[x*size*size + ((y+1)%size)*size + ((z+1)%size)] += f ;
-		model3d[x*size*size + ((y+1)%size)*size + ((z+1)%size)] += f * w ;
+		model[x*size*size + ((y+1)%size)*size + ((z+1)%size)] += f * w ;
 		
 		f = fx*cy*cz ;
 		weight[((x+1)%size)*size*size + y*size + z] += f ;
-		model3d[((x+1)%size)*size*size + y*size + z] += f * w ;
+		model[((x+1)%size)*size*size + y*size + z] += f * w ;
 		
 		f = fx*cy*fz ;
 		weight[((x+1)%size)*size*size + y*size + ((z+1)%size)] += f ;
-		model3d[((x+1)%size)*size*size + y*size + ((z+1)%size)] += f * w ;
+		model[((x+1)%size)*size*size + y*size + ((z+1)%size)] += f * w ;
 		
 		f = fx*fy*cz ;
 		weight[((x+1)%size)*size*size + ((y+1)%size)*size + z] += f ;
-		model3d[((x+1)%size)*size*size + ((y+1)%size)*size + z] += f * w ;
+		model[((x+1)%size)*size*size + ((y+1)%size)*size + z] += f * w ;
 		
 		f = fx*fy*fz ;
 		weight[((x+1)%size)*size*size + ((y+1)%size)*size + ((z+1)%size)] += f ;
-		model3d[((x+1)%size)*size*size + ((y+1)%size)*size + ((z+1)%size)] += f * w ;
+		model[((x+1)%size)*size*size + ((y+1)%size)*size + ((z+1)%size)] += f * w ;
 	}
 }
 
@@ -245,11 +246,13 @@ void slice_merge3d(double *quaternion, double *slice, double *model3d, double *w
  * The locations of the pixels in slice[t] are given by det->qvals[t]
  * Only pixels with a mask value < 2 are merged
  */
-void slice_merge2d(double *angle_ptr, double *slice, double *model, double *weight, long size, struct detector *det) {
-	long t, i, j, x, y, center = size/2 ;
+void slice_merge2d(double *angle_ptr, int mode, double *slice, struct detector *det, struct model *mod) {
+	long t, i, j, x, y, size = mod->size ;
 	double tx, ty, fx, fy, cx, cy, w, f ;
 	double rot_pix[2], rot[2][2] = {{0}} ;
 	double angle = *angle_ptr ;
+    double *model = &mod->model2[mode*mod->vol] ;
+    double *weight = &mod->inter_weight[mode*mod->vol] ;
 	
 	make_rot_angle(angle, rot) ;
 	
@@ -261,7 +264,7 @@ void slice_merge2d(double *angle_ptr, double *slice, double *model, double *weig
 			rot_pix[i] = 0. ;
 			for (j = 0 ; j < 2 ; ++j)
 				rot_pix[i] += rot[i][j] * det->qvals[t*3 + j] ;
-			rot_pix[i] += center ;
+			rot_pix[i] += mod->center ;
 		}
 		
 		tx = rot_pix[0] ;
@@ -279,8 +282,7 @@ void slice_merge2d(double *angle_ptr, double *slice, double *model, double *weig
 		cy = 1. - fy ;
 		
 		// Correct for solid angle and polarization
-		slice[t] /= det->corr[t] ;
-		w = slice[t] ;
+		w = slice[t] / det->corr[t] ;
 		
 		f = cx*cy ;
 		weight[x*size + y] += f ;
@@ -305,10 +307,12 @@ void slice_merge2d(double *angle_ptr, double *slice, double *model, double *weig
  * Also adds to weight[x] containing the interpolation weights
  * The locations of the pixels in slice[t] are given by detector[t]
 */
-void slice_mergerz(double *phibeta, double *slice, double *model, double *weight, long size, struct detector *det) {
-	int t, x, y ;
+void slice_mergerz(double *phibeta, int mode, double *slice, struct detector *det, struct model *mod) {
+	int t, x, y, size = mod->size ;
 	double tx, ty, fx, fy, cx, cy, w, f, fac ;
 	double q_beta[3], q_0[3], rot_phi[2][2] = {{0}}, rot_beta[2][2] = {{0}} ;
+    double *model = &mod->model2[mode*mod->vol] ;
+    double *weight = &mod->inter_weight[mode*mod->vol] ;
 	
 	make_rot_angle(phibeta[0], rot_phi) ;
 	make_rot_angle(phibeta[1], rot_beta) ;
@@ -327,8 +331,8 @@ void slice_mergerz(double *phibeta, double *slice, double *model, double *weight
 		q_beta[1] = q_0[1]*rot_beta[0][0] + q_0[2]*rot_beta[0][1] ;
 		q_beta[2] = q_0[1]*rot_beta[1][0] + q_0[2]*rot_beta[1][1] ;
 		
-		tx = (size/2)*(sqrt(q_beta[0]*q_beta[0] + q_beta[2]*q_beta[2]) + 1.) ;
-		ty = (size/2)*(1. + q_beta[1]) ;
+		tx = mod->center * (1. + sqrt(q_beta[0]*q_beta[0] + q_beta[2]*q_beta[2])) ;
+		ty = mod->center * (1. + q_beta[1]) ;
 		
 		x = tx ;
 		y = ty ;
@@ -342,8 +346,7 @@ void slice_mergerz(double *phibeta, double *slice, double *model, double *weight
 		cy = 1. - fy ;
 		
 		// Correct for solid angle and polarization
-		slice[t] /= det->corr[t] ;
-		w = slice[t] ;
+		w = slice[t] / det->corr[t] ;
 		
 		f = cx*cy ;
 		weight[x*size + y] += f ;
