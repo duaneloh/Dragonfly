@@ -2,10 +2,10 @@ from __future__ import print_function
 import sys
 import os
 import numpy as np
-from scipy import ndimage
 import h5py
 import pandas
 
+cimport cython
 cimport numpy as np
 from libc.stdlib cimport malloc, calloc, free
 from libc.stdio cimport FILE, fopen, fread, fclose
@@ -104,6 +104,48 @@ cdef class Model:
             c_model.slice_merge2d(&quat[0], mode, &view[0], det.det, self.mod)
         elif self.mod.mtype == MODEL_RZ:
             c_model.slice_mergerz(&quat[0], mode, &view[0], det.det, self.mod)
+
+    @staticmethod
+    def symmetrize_friedel(double[:,:,:] model):
+        cdef int size = model.shape[0]
+        c_model.symmetrize_friedel(&model[0,0,0], size)
+
+    @staticmethod
+    def symmetrize_octahedral(double[:,:,:] model):
+        cdef int size = model.shape[0]
+        with nogil:
+            c_model.symmetrize_octahedral(&model[0,0,0], size)
+
+    @staticmethod
+    def symmetrize_icosahedral(double[:,:,:] model):
+        cdef int size = model.shape[0]
+        with nogil:
+            c_model.symmetrize_icosahedral(&model[0,0,0], size)
+
+    @staticmethod
+    def symmetrize_friedel2d(double[:,:,:] model2d):
+        cdef int num_modes = model2d.shape[0]
+        cdef int size = model2d.shape[1]
+        with nogil:
+            c_model.symmetrize_friedel2d(&model2d[0,0,0], num_modes, size)
+
+    @staticmethod
+    def rotate_model(double[:,:,:] model, double[:,:] rot, int max_r=0, rotmodel=None):
+        cdef int i, j, size = model.shape[0]
+        cdef double[:,:,:] rotmodel_view
+        cdef double c_rot[3][3]
+        for i in range(3):
+            for j in range(3):
+                c_rot[i][j] = rot[i,j]
+
+        if rotmodel is None:
+            rotmodel_view = np.empty(3*(size,))
+        else:
+            rotmodel_view = rotmodel
+
+        with nogil:
+            c_model.rotate_model(c_rot, &model[0,0,0], size, max_r, &rotmodel_view[0,0,0])
+        return np.asarray(rotmodel_view)
 
     @staticmethod
     def make_rot_quat(double[:] quaternion):
