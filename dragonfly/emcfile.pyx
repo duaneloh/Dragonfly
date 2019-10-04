@@ -419,34 +419,6 @@ class EMCReader():
             frame = pdict['det'].assemble_frame(frame, **kwargs)
         return frame
 
-'''
-    def _file_counts(self, file_num):
-        pdict = self.flist[file_num]
-        if pdict['is_hdf5']:
-            return self._file_counts_h5(pdict)
-        else:
-            return self._file_counts_binary(pdict)
-
-    def _file_counts_h5(self, pdict):
-        mask = pdict['det'].unassembled_mask.astype('bool')
-        with h5py.File(pdict['fname'], 'r') as fptr:
-            if pdict['frame_type'] == 0:
-                counts = np.array([mask[p].sum() for p in fptr['place_ones']])
-                counts += np.array(c[mask[p]].sum() for p, c in zip(fptr['place_multi'], fptr['count_multi'])])
-            else:
-                counts = np.array([fr.ravel()[mask].sum() for fr in fptr[pdict['dset_name']]])
-        return counts
-
-    def _file_counts_binary(self, pdict):
-        fptr = open(pdict['fname'], 'rb')
-        num_data = np.fromfile(fptr, dtype='i4', count=1)[0]
-
-        if pdict['frame_type'] == 0:
-            fptr.seek(1024 + num_data*8, 0)
-            place_ones = np.fromfile(fptr, dtype='i4', count=pdict['ones_accum'][-1])
-        fptr.close()
-'''
-
 class EMCWriter(object):
     """EMC file writer class
 
