@@ -1,7 +1,7 @@
 from libc.stdint cimport uint8_t
 from .detector cimport detector
 
-cdef extern from "src/model.h":
+cdef extern from "src/model.h" nogil:
     cdef enum model_type: MODEL_3D, MODEL_2D, MODEL_RZ
 
     struct model:
@@ -22,7 +22,7 @@ cdef extern from "src/model.h":
     void slice_mergerz(double*, int, double*, detector*, model*)
     void rotate_model(double[3][3], double*, int, int, double*)
     void symmetrize_icosahedral(double*, int)
-    void symmetrize_cubic(double*, int)
+    void symmetrize_octahedral(double*, int)
     void symmetrize_friedel(double*, int)
     void symmetrize_friedel2d(double*, int, int)
 

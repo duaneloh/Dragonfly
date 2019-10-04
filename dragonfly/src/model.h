@@ -29,7 +29,7 @@ void slice_merge2d(double*, int, double*, struct detector*, struct model*) ;
 void slice_mergerz(double*, int, double*, struct detector*, struct model*) ;
 void rotate_model(double[3][3], double*, int, int, double*) ;
 void symmetrize_icosahedral(double*, int) ;
-void symmetrize_cubic(double*, int) ;
+void symmetrize_octahedral(double*, int) ;
 void symmetrize_friedel(double*, int) ;
 void symmetrize_friedel2d(double*, int, int) ;
 
