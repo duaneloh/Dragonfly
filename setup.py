@@ -27,7 +27,10 @@ py_packages = [
     'dragonfly',
 ]
 extensions = cythonize(ext_modules, language_level=3,
-                       compiler_directives={'embedsignature': True})
+                       compiler_directives={'embedsignature': True,
+                                            'boundscheck': False,
+                                            'wraparound': False,
+                                            'nonecheck': False})
 
 setup(name='dragonfly',
       packages=py_packages,
