@@ -688,122 +688,6 @@ static double qdist(double *q1, double *q2) {
 	return 1. - d*d ;
 }
 
-static int reduce_icosahedral(int n, double *quat) {
-	int r, t, i, keep_quat, vnum = 8 ;
-	int old_num_rot = 10*(5*n*n*n + n), num_rot = 0 ;
-	double dist, dist0 ;
-	
-	// For all non-vertex quaternions
-	for (r = 60 ; r < old_num_rot ; ++r) {
-		keep_quat = 1 ;
-		
-		// Calculate distance to quat[8]
-		// which should be {1,0,0,0}
-		dist0 = qdist(&quat[r*5], &quat[vnum*5]) ;
-		
-		// Calculate distance to all other vertex quaternions
-		for (i = 0 ; i < 60 ; ++i) {
-			if (i == vnum)
-				continue ;
-			
-			dist = qdist(&quat[r*5], &quat[i*5]) ;
-			if (dist < dist0) {
-				keep_quat = 0 ;
-				break ;
-			}
-		}
-		
-		// If closest vertex is 8, keep quaternion
-		if (keep_quat) {
-			for (t = 0 ; t < 5 ; ++t)
-				quat[(60+num_rot)*5+t] = quat[r*5+t] ;
-			num_rot++ ;
-		}
-	}
-	
-	// Move kept quaternions to first indices
-	for (t = 0 ; t < 5 ; ++t)
-		quat[0*5+t] = quat[8*5+t] ;
-	
-	for (r = 0 ; r < num_rot ; ++r)
-	for (t = 0 ; t < 5 ; ++t)
-		quat[(1+r)*5+t] = quat[(60+r)*5+t] ;
-	num_rot++ ;
-	
-	fprintf(stderr, "A5 symmetry: num_rot = %d -> %d\n", old_num_rot, num_rot) ;
-	return num_rot ;
-}
-
-static int reduce_cubic(int n, double *quat) {
-	int r, t, i, j, k, keep_quat ;
-	int old_num_rot = 10*(5*n*n*n + n), num_rot = 0 ;
-	double dist, dist0 ;
-	double cube_quat[24][4] = {{0}} ;
-	
-	// Generating all cubic point group quaternions
-	for (r = 0 ; r < 4 ; ++r)
-		cube_quat[r][r] = 1 ;
-	
-	for (i = 0 ; i < 2 ; ++i)
-	for (j = 0 ; j < 2 ; ++j)
-	for (k = 0 ; k < 2 ; ++k) {
-		cube_quat[r][0] = 0.5 ;
-		cube_quat[r][1] = (2*i - 1) * 0.5 ;
-		cube_quat[r][1] = (2*j - 1) * 0.5 ;
-		cube_quat[r][1] = (2*k - 1) * 0.5 ;
-		r++ ;
-	}
-	
-	for (i = 0 ; i < 3 ; ++i) {
-		cube_quat[r][0] = sqrt(0.5) ;
-		cube_quat[r][i+1] = sqrt(0.5) ;
-		r++ ;
-	}
-	
-	for (i = 0 ; i < 3 ; ++i) {
-		cube_quat[r][0] = sqrt(0.5) ;
-		cube_quat[r][i+1] = -sqrt(0.5) ;
-		r++ ;
-	}
-	
-	int perm32[6][2] = {{0,1}, {0,2}, {1,0}, {1,2}, {2,0}, {2,1}} ;
-	for (i = 0 ; i < 6 ; ++i) {
-		cube_quat[r][perm32[i][0]] = sqrt(0.5) ;
-		if (perm32[i][0] < perm32[i][1])
-			cube_quat[r][perm32[i][1]] = -sqrt(0.5) ;
-		else
-			cube_quat[r][perm32[i][1]] = sqrt(0.5) ;
-		r++ ;
-	}
-	
-	// For all quaternions
-	for (r = 0 ; r < old_num_rot ; ++r) {
-		keep_quat = 1 ;
-		
-		// Calculate distance to identity 
-		dist0 = qdist(&quat[r*5], cube_quat[0]) ;
-		
-		// Calculate distance to all other cube quaternions
-		for (i = 0 ; i < 24 ; ++i) {
-			dist = qdist(&quat[r*5], cube_quat[i]) ;
-			if (dist < dist0) {
-				keep_quat = 0 ;
-				break ;
-			}
-		}
-		
-		// If closest cube quaternion is identity, keep quaternion
-		if (keep_quat) {
-			for (t = 0 ; t < 5 ; ++t)
-				quat[num_rot*5+t] = quat[r*5+t] ;
-			num_rot++ ;
-		}
-	}
-	
-	fprintf(stderr, "S4 symmetry: num_rot = %d -> %d\n", old_num_rot, num_rot) ;
-	return num_rot ;
-}
-
 static void quat_free_mem(int num) {
 	free(vertice_points) ;
 	
@@ -816,6 +700,119 @@ static void quat_free_mem(int num) {
 }
 
 // Public functions below
+
+static int reduce_icosahedral(struct rotation *quat) {
+	int r, t, i, keep_quat ;
+	int num_rot = 0 ;
+	double dist, dist0 ;
+	quat->sym_quat = malloc(60 * sizeof(*(quat->sym_quat))) ;
+	
+	// For icosahedral symmetry, the first 60 quaternions are the symmetry operations
+	for (r = 0 ; r < 60 ; ++r)
+	for (t = 0 ; t < 4 ; ++t)
+		quat->sym_quat[r][t] = quat->quat[r*5 + t] ;
+
+	// For all quaternions
+	for (r = 0 ; r < quat->num_rot ; ++r) {
+		keep_quat = 1 ;
+		
+		// Calculate distance to identity (sym_quat[8])
+		dist0 = qdist(&quat->quat[r*5], quat->sym_quat[8]) ;
+		
+		// Calculate distance to all other vertex quaternions
+		for (i = 0 ; i < 60 ; ++i) {
+			if (i == 8)
+				continue ;
+			dist = qdist(&quat->quat[r*5], quat->sym_quat[i]) ;
+			if (dist < dist0) {
+				keep_quat = 0 ;
+				break ;
+			}
+		}
+		
+		// If closest vertex quaternion is identity, keep quaternion
+		if (keep_quat) {
+			for (t = 0 ; t < 5 ; ++t)
+				quat->quat[num_rot*5+t] = quat->quat[r*5+t] ;
+			num_rot++ ;
+		}
+	}
+	
+	fprintf(stderr, "A5 symmetry: num_rot = %d -> %d\n", quat->num_rot, num_rot) ;
+	quat->num_rot = num_rot ;
+	return num_rot ;
+}
+
+int reduce_octahedral(struct rotation *quat) {
+	int r, t, i, j, k, keep_quat ;
+	int num_rot = 0 ;
+	double dist, dist0 ;
+	quat->sym_quat = malloc(24 * sizeof(*(quat->sym_quat))) ;
+	
+	// Generating all cubic point group symmetry operations
+	for (r = 0 ; r < 4 ; ++r)
+		quat->sym_quat[r][r] = 1 ;
+	
+	for (i = 0 ; i < 2 ; ++i)
+	for (j = 0 ; j < 2 ; ++j)
+	for (k = 0 ; k < 2 ; ++k) {
+		quat->sym_quat[r][0] = 0.5 ;
+		quat->sym_quat[r][1] = (2*i - 1) * 0.5 ;
+		quat->sym_quat[r][1] = (2*j - 1) * 0.5 ;
+		quat->sym_quat[r][1] = (2*k - 1) * 0.5 ;
+		r++ ;
+	}
+	
+	for (i = 0 ; i < 3 ; ++i) {
+		quat->sym_quat[r][0] = sqrt(0.5) ;
+		quat->sym_quat[r][i+1] = sqrt(0.5) ;
+		r++ ;
+	}
+	
+	for (i = 0 ; i < 3 ; ++i) {
+		quat->sym_quat[r][0] = sqrt(0.5) ;
+		quat->sym_quat[r][i+1] = -sqrt(0.5) ;
+		r++ ;
+	}
+	
+	int perm32[6][2] = {{0,1}, {0,2}, {1,0}, {1,2}, {2,0}, {2,1}} ;
+	for (i = 0 ; i < 6 ; ++i) {
+		quat->sym_quat[r][perm32[i][0]] = sqrt(0.5) ;
+		if (perm32[i][0] < perm32[i][1])
+			quat->sym_quat[r][perm32[i][1]] = -sqrt(0.5) ;
+		else
+			quat->sym_quat[r][perm32[i][1]] = sqrt(0.5) ;
+		r++ ;
+	}
+	
+	// For all quaternions
+	for (r = 0 ; r < quat->num_rot ; ++r) {
+		keep_quat = 1 ;
+		
+		// Calculate distance to identity 
+		dist0 = qdist(&quat->quat[r*5], quat->sym_quat[0]) ;
+		
+		// Calculate distance to all other cube quaternions
+		for (i = 1 ; i < 24 ; ++i) {
+			dist = qdist(&quat->quat[r*5], quat->sym_quat[i]) ;
+			if (dist < dist0) {
+				keep_quat = 0 ;
+				break ;
+			}
+		}
+		
+		// If closest cube quaternion is identity, keep quaternion
+		if (keep_quat) {
+			for (t = 0 ; t < 5 ; ++t)
+				quat->quat[num_rot*5+t] = quat->quat[r*5+t] ;
+			num_rot++ ;
+		}
+	}
+	
+	fprintf(stderr, "S4 symmetry: num_rot = %d -> %d\n", quat->num_rot, num_rot) ;
+	quat->num_rot = num_rot ;
+	return num_rot ;
+}
 
 int quat_gen(int num_div, struct rotation *quat) {
 	int r ;
@@ -840,9 +837,9 @@ int quat_gen(int num_div, struct rotation *quat) {
 	print_quat(num_div, quat->quat) ;
 	
 	if (quat->icosahedral_flag)
-		quat->num_rot = reduce_icosahedral(num_div, quat->quat) ;
-	else if (quat->cubic_flag)
-		quat->num_rot = reduce_cubic(num_div, quat->quat) ;
+		reduce_icosahedral(quat) ;
+	else if (quat->octahedral_flag)
+		reduce_octahedral(quat) ;
 	
 	quat_free_mem(num_div) ;
 	
@@ -904,6 +901,8 @@ void free_quat(struct rotation *quat) {
 		return ;
 	
 	free(quat->quat) ;
+	if (quat->sym_quat != NULL)
+		free(quat-sym_quat) ;
 	free(quat) ;
 }
 
@@ -916,7 +915,7 @@ int quat_from_config(char *config_fname, char *config_section, struct rotation *
 	sprintf(config_folder, "%s/", dirname(temp_fname)) ;
 	free(temp_fname) ;
 	quat_ptr->icosahedral_flag = 0 ;
-	quat_ptr->cubic_flag = 0 ;
+	quat_ptr->octahedral_flag = 0 ;
 	
 	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
@@ -986,7 +985,7 @@ int quat_from_config(char *config_fname, char *config_section, struct rotation *
 	
 	if (point_group[0] != '\0') {
 		if (strncmp(point_group, "S4", 2) == 0)
-			quat_ptr->cubic_flag = 1 ;
+			quat_ptr->octahedral_flag = 1 ;
 		else if (strncmp(point_group, "A5", 2) == 0)
 			quat_ptr->icosahedral_flag = 1 ;
 		else {
