@@ -621,14 +621,14 @@ static double cube_list[48][3][3] = {
 	{{ 0,  0, -1}, {-1,  0,  0}, { 0, -1,  0}},
 } ;
 
-/* Cubic symmetrization
+/* Octahedral symmetrization
  * 	Assumes vertices are at permutations of (+-1, +-1, +-1)
  * 	Arguments:
  * 		Pointer to model representing centered 3D volume
  * 		Size of model
  * 	No return value. Symmetrization performed in-place
  */
-void symmetrize_cubic(double *model, int size) {
+void symmetrize_octahedral(double *model, int size) {
 	double *temp = malloc(size*size*size*sizeof(double)) ;
 	int i ;
 	
