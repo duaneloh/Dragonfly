@@ -902,7 +902,7 @@ void free_quat(struct rotation *quat) {
 	
 	free(quat->quat) ;
 	if (quat->sym_quat != NULL)
-		free(quat-sym_quat) ;
+		free(quat->sym_quat) ;
 	free(quat) ;
 }
 
