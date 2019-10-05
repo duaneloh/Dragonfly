@@ -1,4 +1,4 @@
-#include "quat.h"
+#include "quaternion.h"
 
 #define NUM_VERT 120 
 #define NUM_EDGE 720

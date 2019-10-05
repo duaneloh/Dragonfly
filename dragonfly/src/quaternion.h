@@ -15,4 +15,5 @@ struct quaternion {
 } ;
 
 int quat_gen(int, struct quaternion*) ;
+
 #endif //QUAT_H
