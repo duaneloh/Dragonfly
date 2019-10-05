@@ -1,5 +1,9 @@
+#ifndef EMCFILE_H
+#define EMCFILE_H
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <hdf5.h>
 #include "detector.h"
 
@@ -25,3 +29,5 @@ struct dataset {
 } ;
 
 int parse_dataset(char*, struct detector*, struct dataset*) ;
+
+#endif // EMCFILE_H
