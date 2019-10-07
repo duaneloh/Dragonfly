@@ -105,6 +105,14 @@ cdef class Model:
         elif self.mod.mtype == MODEL_RZ:
             c_model.slice_mergerz(&quat[0], mode, &view[0], det.det, self.mod)
 
+    def free(self):
+        if self.mod.model1 != NULL:
+            free(self.mod.model1)
+        if self.mod.model2 != NULL:
+            free(self.mod.model2)
+        if self.mod.inter_weight != NULL:
+            free(self.mod.inter_weight)
+        
     @staticmethod
     def symmetrize_friedel(double[:,:,:] model):
         cdef int size = model.shape[0]
@@ -153,13 +161,11 @@ cdef class Model:
         c_model.make_rot_quat(&quaternion[0], rot)
         return np.asarray(rot)
 
+    '''
     def __dealloc__(self):
-        if self.mod.model1 != NULL:
-            free(self.mod.model1)
-        if self.mod.model2 != NULL:
-            free(self.mod.model2)
-        if self.mod.inter_weight != NULL:
-            free(self.mod.inter_weight)
+        self.free()
+        # Causes problems when passing struct pointer around
+    '''
 
     @property
     def mtype(self): return ['MODEL_3D', 'MODEL_2D', 'MODEL_RZ'][self.mod.mtype]
