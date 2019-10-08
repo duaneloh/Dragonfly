@@ -9,7 +9,7 @@ import h5py
 
 from . cimport detector as c_det
 from .detector cimport CDetector
-from libc.stdlib cimport malloc, calloc
+from libc.stdlib cimport malloc, calloc, free
 from libc.string cimport strcpy
 
 cdef class CDetector:
@@ -63,6 +63,24 @@ cdef class CDetector:
                 self._parse_asciidet()
         else:
             self._parse_asciidet()
+
+    def free(self):
+        if self.det == NULL:
+            return
+        if self.det.qvals != NULL:
+            free(self.det.qvals)
+            self.det.qvals = NULL
+        if self.det.corr != NULL:
+            free(self.det.corr)
+            self.det.corr = NULL
+        if self.det.raw_mask != NULL:
+            free(self.det.raw_mask)
+            self.det.raw_mask = NULL
+        if self.det.fname != NULL:
+            free(self.det.fname)
+            self.det.fname = NULL
+        free(self.det)
+        self.det = NULL
 
     def _check_header(self):
         with open(self.fname, 'r') as fptr:
