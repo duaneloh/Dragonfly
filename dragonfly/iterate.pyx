@@ -11,7 +11,7 @@ from . cimport iterate as c_iterate
 from .iterate cimport Iterate
 from .detector cimport CDetector, detector
 from .model cimport Model
-from .emcfile cimport CDataset
+from .emcfile cimport CDataset, dataset
 from .quaternion cimport Quaternion
 
 cdef class Iterate:
@@ -39,6 +39,26 @@ cdef class Iterate:
 
     def set_model(self, Model model):
         self.iter.mod = model.mod
+
+    def set_data(self, CDataset in_dset):
+        cdef int total = 0
+        cdef dataset *curr = in_dset.dset
+
+        # Calculate total number of frames
+        while curr != NULL:
+            total += curr.num_data
+            curr = curr.next
+
+        # Check whether it matches any existing value
+        if self.iter.tot_num_data == 0:
+            self.iter.tot_num_data = total
+        elif self.iter.tot_num_data != total:
+            raise ValueError('Mismatched total number of frames')
+
+        self.iter.dset = in_dset.dset
+
+    def set_quat(self, Quaternion quaternion):
+        self.iter.quat = quaternion.quat
 
     def parse_scale(self, fname, bg=False):
         if h5py.is_hdf5(fname):
@@ -159,4 +179,9 @@ cdef class Iterate:
     def model(self):
         retval = Model()
         retval.mod = self.iter.mod
+        return retval
+    @property
+    def data(self):
+        retval = CDataset()
+        retval.dset = self.iter.dset
         return retval
