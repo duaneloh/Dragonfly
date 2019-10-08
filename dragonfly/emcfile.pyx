@@ -31,8 +31,10 @@ cdef class CDataset:
         c_dset.parse_dataset(self.dset.fname, self.dset.det, self.dset)
 
     def append(self, CDataset next_dset):
-        self.dset.next = next_dset.dset
-        return self.next
+        cdef c_dset.dataset *curr = self.dset
+        while curr.next != NULL:
+            curr = curr.next
+        curr.next = next_dset.dset
 
     def free(self):
         if self.dset.ones != NULL: free(self.dset.ones)
@@ -42,9 +44,6 @@ cdef class CDataset:
         if self.dset.count_multi != NULL: free(self.dset.count_multi)
         if self.dset.ones_accum != NULL: free(self.dset.ones_accum)
         if self.dset.multi_accum != NULL: free(self.dset.multi_accum)
-
-    def __del__(self):
-        self.free_dataset()
 
     @property
     def fname(self): return (<bytes> self.dset.fname).decode()
