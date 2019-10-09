@@ -521,7 +521,7 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 	}
 }
 
-double combine_information_mpi(struct max_data *data) {
+double combine_information_mpi(struct max_data *common) {
 	int d ;
 	double avg_likelihood = 0. ;
 	iter->mutual_info = 0. ;
@@ -537,13 +537,13 @@ double combine_information_mpi(struct max_data *data) {
 	}
 	
 	// Combine mutual info and likelihood from all MPI ranks
-	MPI_Allreduce(MPI_IN_PLACE, data->likelihood, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
-	MPI_Allreduce(MPI_IN_PLACE, data->info, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
+	MPI_Allreduce(MPI_IN_PLACE, common->likelihood, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
+	MPI_Allreduce(MPI_IN_PLACE, common->info, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 	
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
 	if (!frames->blacklist[d]) {
-		iter->mutual_info += data->info[d] ;
-		avg_likelihood += data->likelihood[d] ;
+		iter->mutual_info += common->info[d] ;
+		avg_likelihood += common->likelihood[d] ;
 	}
 	
 	iter->mutual_info /= (frames->tot_num_data - frames->num_blacklist) ;
@@ -555,7 +555,7 @@ double combine_information_mpi(struct max_data *data) {
 		int *num_prob_p = calloc(frames->tot_num_data * param->num_proc, sizeof(int)) ;
 		int *displ_prob_p = NULL ;
 		for (d = 0 ; d < frames->tot_num_data ; ++d)
-			num_prob_p[d*param->num_proc + param->rank] = data->num_prob[d] ;
+			num_prob_p[d*param->num_proc + param->rank] = common->num_prob[d] ;
 		if (param->rank) {
 			MPI_Reduce(num_prob_p, NULL, frames->tot_num_data*param->num_proc, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD) ;
 			free(num_prob_p) ;
@@ -566,8 +566,8 @@ double combine_information_mpi(struct max_data *data) {
 		}
 		for (d = 0 ; d < frames->tot_num_data ; ++d) {
 			if (param->rank) {
-				MPI_Gatherv(data->place_prob[d], data->num_prob[d], MPI_INT, NULL, 0, 0, MPI_INT, 0, MPI_COMM_WORLD) ;
-				MPI_Gatherv(data->prob[d], data->num_prob[d], MPI_DOUBLE, NULL, 0, 0, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
+				MPI_Gatherv(common->place_prob[d], common->num_prob[d], MPI_INT, NULL, 0, 0, MPI_INT, 0, MPI_COMM_WORLD) ;
+				MPI_Gatherv(common->prob[d], common->num_prob[d], MPI_DOUBLE, NULL, 0, 0, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
 			}
 			else {
 				tot_num_prob = 0 ;
@@ -577,12 +577,12 @@ double combine_information_mpi(struct max_data *data) {
 					for (q = 0 ; q < p ; ++q)
 						displ_prob_p[p] += num_prob_p[d*param->num_proc + q] ;
 				}
-				data->prob[d] = realloc(data->prob[d], tot_num_prob * sizeof(double)) ;
-				data->place_prob[d] = realloc(data->place_prob[d], tot_num_prob * sizeof(int)) ;
+				common->prob[d] = realloc(common->prob[d], tot_num_prob * sizeof(double)) ;
+				common->place_prob[d] = realloc(common->place_prob[d], tot_num_prob * sizeof(int)) ;
 				
-				MPI_Gatherv(MPI_IN_PLACE, 0, MPI_INT, data->place_prob[d], &num_prob_p[d*param->num_proc], displ_prob_p, MPI_INT, 0, MPI_COMM_WORLD) ;
-				MPI_Gatherv(MPI_IN_PLACE, 0, MPI_DOUBLE, data->prob[d], &num_prob_p[d*param->num_proc], displ_prob_p, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
-				data->num_prob[d] = tot_num_prob ;
+				MPI_Gatherv(MPI_IN_PLACE, 0, MPI_INT, common->place_prob[d], &num_prob_p[d*param->num_proc], displ_prob_p, MPI_INT, 0, MPI_COMM_WORLD) ;
+				MPI_Gatherv(MPI_IN_PLACE, 0, MPI_DOUBLE, common->prob[d], &num_prob_p[d*param->num_proc], displ_prob_p, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
+				common->num_prob[d] = tot_num_prob ;
 			}
 		}
 		if (!param->rank) {
@@ -593,10 +593,10 @@ double combine_information_mpi(struct max_data *data) {
 	
 	// Combine scale factor information from all MPI ranks
 	if (param->need_scaling && param->update_scale)
-		MPI_Allreduce(MPI_IN_PLACE, data->psum_d, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
+		MPI_Allreduce(MPI_IN_PLACE, common->psum_d, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 	
 	if (iter->modes > 1)
-		MPI_Allreduce(MPI_IN_PLACE, data->quat_norm, frames->tot_num_data*iter->modes, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
+		MPI_Allreduce(MPI_IN_PLACE, common->quat_norm, frames->tot_num_data*iter->modes, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 	
 	print_max_time("sync", "", param->rank == 0) ;
 	return avg_likelihood ;
