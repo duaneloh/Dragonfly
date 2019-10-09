@@ -15,7 +15,10 @@ struct dataset {
 	int num_data, num_pix ;
 	double mean_count ;
 	struct detector *det ;
+
+	// Linked list information
 	struct dataset *next ;
+	int num_offset ;
 
 	// Sparse data
 	int *ones, *multi ;

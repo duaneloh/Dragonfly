@@ -9,7 +9,10 @@ cdef extern from "src/emcfile.h" nogil:
         int num_data, num_pix
         double mean_count
         detector *det
+
+        # Linked list information
         dataset *next
+        int num_offset
 
         # Sparse data
         int *ones
