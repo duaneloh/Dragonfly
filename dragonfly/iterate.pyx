@@ -27,6 +27,7 @@ cdef class Iterate:
 
         # Calculate total number of frames
         while curr != NULL:
+            curr.num_offset = total
             total += curr.num_data
             curr = curr.next
 
@@ -40,6 +41,11 @@ cdef class Iterate:
 
         # Generate list of unique detectors
         self._gen_detlist()
+        
+        # If updating scale factors
+        if self.iter.update_scale != 0:
+            print('Calculating frame_counts')
+            c_iterate.calc_frame_counts(self.iter)
 
     def set_quat(self, Quaternion quaternion):
         self.iter.quat = quaternion.quat
@@ -115,6 +121,7 @@ cdef class Iterate:
 
     def normalize_scale(self):
         cdef long x, d
+        cdef double mean_scale
 
         blist = self.blacklist
         if blist is None:
@@ -128,11 +135,11 @@ cdef class Iterate:
 
         if blist is None:
             for x in range(self.iter.tot_num_data):
-                self.scale[d] /= mean_scale
+                self.iter.scale[d] /= mean_scale
         else:
             for d in range(self.iter.tot_num_data):
-                if blist[d] == 0:
-                    self.scale[d] /= mean_scale
+                if self.iter.blacklist[d] == 0:
+                    self.iter.scale[d] /= mean_scale
 
         self.iter.rms_change *= mean_scale
 
@@ -167,6 +174,8 @@ cdef class Iterate:
     @tot_num_data.setter
     def tot_num_data(self, val): self.iter.tot_num_data = val
     @property
+    def fcounts(self): return np.asarray(<int[:self.tot_num_data]>self.iter.fcounts) if self.iter.fcounts != NULL else None
+    @property
     def scale(self): return np.asarray(<double[:self.tot_num_data]>self.iter.scale) if self.iter.scale != NULL else None
     @property
     def blacklist(self): return np.asarray(<uint8_t[:self.tot_num_data]>self.iter.blacklist) if self.iter.blacklist != NULL else None
@@ -191,3 +200,8 @@ cdef class Iterate:
         retval = CDataset()
         retval.dset = self.iter.dset
         return retval
+
+    @property
+    def update_scale(self): return bool(self.iter.update_scale)
+    @update_scale.setter
+    def update_scale(self, bint val): self.iter.update_scale = <int> val

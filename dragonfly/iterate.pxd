@@ -13,6 +13,7 @@ cdef extern from "src/iterate.h" nogil:
 
         # Parameters for each frame
         int tot_num_data, num_blacklist
+        int *fcounts
         double *scale
         double *bgscale
         uint8_t *blacklist
@@ -31,6 +32,11 @@ cdef extern from "src/iterate.h" nogil:
 
         # Aggregate metrics
         double likelihood, mutual_info, rms_change
+
+        # Parameters (TODO separate into own struct)
+        int update_scale
+
+    void calc_frame_counts(iterate*)
 
 cdef class Iterate:
     cdef iterate *iter

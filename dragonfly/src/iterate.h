@@ -14,6 +14,7 @@ struct iterate {
 
 	// Parameters for each frame
 	int tot_num_data, num_blacklist ;
+	int *fcounts ;
 	double *scale, *bgscale ;
 	uint8_t *blacklist ;
 
@@ -28,6 +29,11 @@ struct iterate {
 
 	// Aggregate metrics
 	double likelihood, mutual_info, rms_change ;
+
+    // Params
+    int update_scale ;
 } ;
+
+void calc_frame_counts(struct iterate*) ;
 
 #endif // ITERATE_H
