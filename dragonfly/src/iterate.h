@@ -22,7 +22,8 @@ struct iterate {
 	double **rel_prob ;
 
 	// Parameters for each detector
-	int num_det ;
+	int num_det ; // Number of unique detectors
+	int *det_mapping ; // Mapping to unique list
 	double *rescale, *mean_count ;
 
 	// Aggregate metrics

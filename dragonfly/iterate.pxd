@@ -24,7 +24,8 @@ cdef extern from "src/iterate.h" nogil:
         double **rel_prob
     
         # Parameters for each detector
-        int num_det
+        int num_det # Number of unique detectors
+        int *det_mapping
         double *rescale
         double *mean_count
 
