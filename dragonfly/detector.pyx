@@ -11,6 +11,7 @@ from . cimport detector as c_det
 from .detector cimport CDetector
 from libc.stdlib cimport malloc, calloc, free
 from libc.string cimport strcpy
+from libc.math cimport sqrt
 
 cdef class CDetector:
     """Dragonfly detector cython class
@@ -81,6 +82,18 @@ cdef class CDetector:
             self.det.fname = NULL
         free(self.det)
         self.det = NULL
+
+    def qmax(self):
+        cdef int t, d
+        cdef double qsq, qmax = 0
+        for t in range(self.det.num_pix):
+            qsq = 0
+            for d in range(3):
+                qsq += self.det.qvals[t*3 + d]**2
+
+            if qsq > qmax:
+                qmax = qsq
+        return sqrt(qmax)
 
     def _check_header(self):
         with open(self.fname, 'r') as fptr:
