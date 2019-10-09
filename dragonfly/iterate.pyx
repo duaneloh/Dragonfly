@@ -18,25 +18,6 @@ cdef class Iterate:
     def __init__(self):
         self.iter = <c_iterate.iterate*> calloc(1, sizeof(c_iterate.iterate))
 
-    def set_detectors(self, det_list):
-        cdef int d
-        cdef CDetector in_det
-        if self.iter.det != NULL:
-            free(self.iter.det)
-
-        if isinstance(det_list, CDetector):
-            in_det = det_list
-            print('Setting single detector')
-            self.iter.det = in_det.det
-            self.iter.num_det = 1
-        else:
-            print('%d detectors in iterate' % len(det_list))
-            self.iter.num_det = len(det_list)
-            self.iter.det = <detector*> malloc(self.iter.num_det * sizeof(detector))
-            for d in range(self.iter.num_det):
-                in_det = det_list[d]
-                memcpy(&self.iter.det[d], in_det.det, sizeof(detector))
-
     def set_model(self, Model model):
         self.iter.mod = model.mod
 
@@ -56,6 +37,9 @@ cdef class Iterate:
             raise ValueError('Mismatched total number of frames')
 
         self.iter.dset = in_dset.dset
+
+        # Generate list of unique detectors
+        self._gen_detlist()
 
     def set_quat(self, Quaternion quaternion):
         self.iter.quat = quaternion.quat
@@ -151,6 +135,28 @@ cdef class Iterate:
                     self.scale[d] /= mean_scale
 
         self.iter.rms_change *= mean_scale
+
+    def _gen_detlist(self):
+        cdef int i, d, ind
+        cdef dataset *curr = self.iter.dset
+
+        fnames = []
+        while curr != NULL:
+            fnames.append(curr.det.fname)
+            curr = curr.next
+        _, indices, mapping = np.unique(fnames, return_index=True, return_inverse=True)
+        self.iter.num_det = len(indices)
+
+        self.iter.det = <detector*> calloc(len(indices), sizeof(detector))
+        for i, ind in enumerate(indices):
+            curr = self.iter.dset
+            for d in range(ind):
+                curr = curr.next
+            memcpy(&self.iter.det[i], curr.det, sizeof(detector))
+
+        self.iter.det_mapping = <int*> malloc(len(mapping) * sizeof(int))
+        for i, d in enumerate(mapping):
+            self.iter.det_mapping[i] = d
 
     @staticmethod
     def calculate_size(qmax):
