@@ -169,7 +169,6 @@ void calculate_rescale(struct max_data *data) {
 	char res_string[1024] = {'\0'}  ;
 	
 	// Calculate rescale factor by calculating mean model value over detector
-	// Only calculating based on first detector and dataset
 	#pragma omp parallel default(shared)
 	{
 		int r, t, detn, mode, rotind ;
@@ -212,20 +211,6 @@ void calculate_rescale(struct max_data *data) {
 	}
 	
 	MPI_Allreduce(MPI_IN_PLACE, total, det[0].num_det, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
-	
-	#pragma omp parallel default(shared)
-	{
-		int detn, r, rotind ;
-		
-		#pragma omp for schedule(static,1) 
-		for (r = 0 ; r < quat->num_rot_p ; ++r) {
-			rotind = (r*param->num_proc + param->rank) / param->modes ;
-			if (rotind >= quat->num_rot)
-				rotind = 0 ;
-			for (detn = 0 ; detn < det[0].num_det ; ++detn)
-				data->u[detn][r] = log(quat->quat[rotind*5 + 4]) - data->u[detn][r] ;
-		}
-	}
 	
 	sprintf(res_string, "(=") ;
 	for (detn = 0 ; detn < det[0].num_det ; ++detn) {
@@ -287,9 +272,9 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 			if (curr->type < 2) {
 				// need_scaling is for if we want to assume variable incident intensity
 				if (param->need_scaling && (param->iteration > 1 || param->known_scale))
-					pval = common->u[detn][r] * iter->scale[d] ;
+					pval = log(quat->quat[rotind*5 + 4]) - common->u[detn][r] * iter->scale[d] ;
 				else
-					pval = common->u[detn][r] * iter->rescale[detn] ;
+					pval = log(quat->quat[rotind*5 + 4]) - common->u[detn][r] * iter->rescale[detn] ;
 			}
 			else {
 				pval = 0. ;
@@ -757,7 +742,7 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 				
 				// Calculate denominator for scale factor update rule
 				if (param->update_scale)
-					priv->psum_d[d] -= prob[d][ind] * common->u[detn][r] * iter->rescale[detn] ;
+					priv->psum_d[d] += prob[d][ind] * common->u[detn][r] * iter->rescale[detn] ;
 			}
 			else
 				priv->psum_r[detn] += prob[d][ind] ; 
