@@ -30,6 +30,9 @@ ext_modules = [
     Extension(name='dragonfly.iterate', sources=['dragonfly/iterate.pyx', 'dragonfly/src/iterate.c'],
         depends=['dragonfly/src/iterate.h', 'dragonfly/iterate.pxd'], include_dirs=include_dirs,
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
+    Extension(name='dragonfly.params', sources=['dragonfly/params.pyx'],
+        depends=['dragonfly/src/params.h', 'dragonfly/params.pxd'], include_dirs=include_dirs,
+        language='c', extra_compile_args=compile_args, extra_link_args=link_args),
 ]
 py_packages = [
     'dragonfly',
