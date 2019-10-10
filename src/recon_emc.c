@@ -149,9 +149,9 @@ static void update_model(double likelihood) {
 	else if (param->recon_type == RECON3D && quat->icosahedral_flag)
 		for (x = 0 ; x < param->modes ; ++x)
 			symmetrize_icosahedral(&iter->model2[x*iter->vol], iter->size) ;
-	else if (param->recon_type == RECON3D && quat->cubic_flag)
+	else if (param->recon_type == RECON3D && quat->octahedral_flag)
 		for (x = 0 ; x < param->modes ; ++x)
-			symmetrize_cubic(&iter->model2[x*iter->vol], iter->size) ;
+			symmetrize_octahedral(&iter->model2[x*iter->vol], iter->size) ;
 	else if (param->recon_type == RECON3D)
 		for (x = 0 ; x < param->modes ; ++x)
 			symmetrize_friedel(&iter->model2[x*iter->vol], iter->size) ;
