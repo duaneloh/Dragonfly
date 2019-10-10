@@ -17,7 +17,8 @@ struct iterate {
 	// Parameters for each frame
 	int tot_num_data, num_blacklist ;
 	int *fcounts ;
-	double *scale, *bgscale, *beta, *sum_fact ;
+	double *scale, *bgscale ;
+	double *beta, *beta_start ;
 	uint8_t *blacklist ;
 
 	// For refinement
@@ -34,5 +35,6 @@ struct iterate {
 } ;
 
 void calc_frame_counts(struct iterate*) ;
+void calc_beta(double, struct iterate*) ;
 
 #endif // ITERATE_H

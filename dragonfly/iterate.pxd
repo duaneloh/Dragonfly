@@ -19,6 +19,7 @@ cdef extern from "src/iterate.h" nogil:
         double *scale
         double *bgscale
         double *beta
+        double *beta_start
         double *sum_fact
         uint8_t *blacklist
 
@@ -38,6 +39,7 @@ cdef extern from "src/iterate.h" nogil:
         double likelihood, mutual_info, rms_change
 
     void calc_frame_counts(iterate*)
+    void calc_beta(double, iterate*)
 
 cdef class Iterate:
     cdef iterate *iter

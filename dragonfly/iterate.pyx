@@ -45,10 +45,8 @@ cdef class Iterate:
         # Generate list of unique detectors
         self._gen_detlist()
         
-        # If updating scale factors
-        if self.iter.par.update_scale != 0:
-            print('Calculating frame_counts')
-            c_iterate.calc_frame_counts(self.iter)
+        print('Calculating frame_counts')
+        c_iterate.calc_frame_counts(self.iter)
 
     def set_quat(self, Quaternion quaternion):
         self.iter.quat = quaternion.quat
@@ -146,6 +144,19 @@ cdef class Iterate:
 
         self.iter.rms_change *= mean_scale
 
+    def calc_beta(self, setval=None):
+        if self.iter.dset == NULL:
+            raise AttributeError('Add data first before calculating beta for each frame')
+
+        cdef double start
+
+        if setval is not None:
+            start = setval
+        else:
+            start = -1.
+
+        c_iterate.calc_beta(start, self.iter)
+
     def _gen_detlist(self):
         cdef int i, d, ind
         cdef dataset *curr = self.iter.dset
@@ -180,6 +191,12 @@ cdef class Iterate:
     def fcounts(self): return np.asarray(<int[:self.tot_num_data]>self.iter.fcounts) if self.iter.fcounts != NULL else None
     @property
     def scale(self): return np.asarray(<double[:self.tot_num_data]>self.iter.scale) if self.iter.scale != NULL else None
+    @property
+    def bgscale(self): return np.asarray(<double[:self.tot_num_data]>self.iter.bgscale) if self.iter.bgscale != NULL else None
+    @property
+    def beta(self): return np.asarray(<double[:self.tot_num_data]>self.iter.beta) if self.iter.beta != NULL else None
+    @property
+    def beta_start(self): return np.asarray(<double[:self.tot_num_data]>self.iter.beta_start) if self.iter.beta_start != NULL else None
     @property
     def blacklist(self): return np.asarray(<uint8_t[:self.tot_num_data]>self.iter.blacklist) if self.iter.blacklist != NULL else None
 
