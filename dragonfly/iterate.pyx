@@ -8,15 +8,18 @@ from libc.stdlib cimport malloc, calloc, free
 from libc.string cimport memcpy
 cimport numpy as np
 from . cimport iterate as c_iterate
+from . cimport params as c_params
 from .iterate cimport Iterate
 from .detector cimport CDetector, detector
 from .model cimport Model
 from .emcfile cimport CDataset, dataset
 from .quaternion cimport Quaternion
+from .params cimport EMCParams
 
 cdef class Iterate:
     def __init__(self):
         self.iter = <c_iterate.iterate*> calloc(1, sizeof(c_iterate.iterate))
+        self.iter.par = <c_params.params*> calloc(1, sizeof(c_params.params))
 
     def set_model(self, Model model):
         self.iter.mod = model.mod
@@ -43,7 +46,7 @@ cdef class Iterate:
         self._gen_detlist()
         
         # If updating scale factors
-        if self.iter.update_scale != 0:
+        if self.iter.par.update_scale != 0:
             print('Calculating frame_counts')
             c_iterate.calc_frame_counts(self.iter)
 
@@ -187,21 +190,25 @@ cdef class Iterate:
         retval = [None for d in range(self.iter.num_det)]
         for d in range(self.iter.num_det):
             curr = CDetector()
+            curr.free()
             curr.det = &self.iter.det[d]
             retval[d] = curr
         return retval
     @property
     def model(self):
         retval = Model()
+        retval.free()
         retval.mod = self.iter.mod
         return retval
     @property
     def data(self):
         retval = CDataset()
+        retval.free()
         retval.dset = self.iter.dset
         return retval
-
     @property
-    def update_scale(self): return bool(self.iter.update_scale)
-    @update_scale.setter
-    def update_scale(self, bint val): self.iter.update_scale = <int> val
+    def params(self):
+        retval = EMCParams()
+        retval.free()
+        retval.par = self.iter.par
+        return retval

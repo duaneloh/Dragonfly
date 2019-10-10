@@ -5,17 +5,19 @@
 #include "emcfile.h"
 #include "quaternion.h"
 #include "model.h"
+#include "params.h"
 
 struct iterate {
 	struct detector *det ;
 	struct model *mod ;
 	struct dataset *dset ;
 	struct quaternion *quat ;
+	struct params *par ;
 
 	// Parameters for each frame
 	int tot_num_data, num_blacklist ;
 	int *fcounts ;
-	double *scale, *bgscale ;
+	double *scale, *bgscale, *beta, *sum_fact ;
 	uint8_t *blacklist ;
 
 	// For refinement
@@ -29,9 +31,6 @@ struct iterate {
 
 	// Aggregate metrics
 	double likelihood, mutual_info, rms_change ;
-
-    // Params
-    int update_scale ;
 } ;
 
 void calc_frame_counts(struct iterate*) ;

@@ -3,6 +3,7 @@ from .detector cimport detector
 from .model cimport model
 from .emcfile cimport dataset
 from .quaternion cimport quaternion
+from .params cimport params
 
 cdef extern from "src/iterate.h" nogil:
     struct iterate:
@@ -10,12 +11,15 @@ cdef extern from "src/iterate.h" nogil:
         model *mod
         dataset *dset
         quaternion *quat
+        params *par
 
         # Parameters for each frame
         int tot_num_data, num_blacklist
         int *fcounts
         double *scale
         double *bgscale
+        double *beta
+        double *sum_fact
         uint8_t *blacklist
 
         # For refinement
@@ -32,9 +36,6 @@ cdef extern from "src/iterate.h" nogil:
 
         # Aggregate metrics
         double likelihood, mutual_info, rms_change
-
-        # Parameters (TODO separate into own struct)
-        int update_scale
 
     void calc_frame_counts(iterate*)
 
