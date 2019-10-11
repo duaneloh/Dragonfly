@@ -35,15 +35,10 @@ struct max_data {
 	double **prob ; // prob[d][r] = P_dr
 	int *num_prob ; // num_prob[d] = Number of non-zero prob[d][r] entries for each d
 	int **place_prob ; // place_prob[d][r] = Position of non-zero prob[d][r]
-	
-	// Background-scaling update (private only)
-	uint8_t **mask ; // Flag mask (M_t) used to optimize update
-	double **G_old, **G_new, **G_latest ; // Gradients
-	double **W_old, **W_new, **W_latest ; // Tomograms
-	double *scale_old, *scale_new, *scale_latest ; // Scale factors
 } ;
 
-double maximize(struct iterate*) ;
+double maximize(struct max_data*) ;
+void free_max_data(struct max_data*) ;
 
 // Model function pointers
 void (*slice_gen)(double*, int, double*, struct detector*, struct model*) ;

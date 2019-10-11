@@ -20,7 +20,6 @@ static void combine_information_omp(struct max_data*, struct max_data*) ;
 // -- End OpenMP
 static double combine_information_mpi(struct max_data*) ;
 static void update_scale(struct max_data*) ;
-static void free_memory(struct max_data*) ;
 // End Maximize
 
 // Other functions
@@ -28,14 +27,19 @@ static int resparsify(double*, int*, int, double) ;
 static double calc_psum_r(int, struct max_data*, struct max_data*) ;
 static void print_max_time(char*, char*, int) ;
 
-double maximize(struct iterate *iter) {
+double maximize(struct max_data *common_data) {
 	double avg_likelihood ;
+	struct iterate *iter = common_data->iter ;
+	if (iter == NULL) {
+		fprintf(stderr, "No iterate in max_data!\n") ;
+		return -1. ;
+	}
+	
 	struct quaternion *quat = iter->quat ;
 	struct params *param = iter->par ;
+
 	gettimeofday(&tm1, NULL) ;
-	struct max_data *common_data = malloc(sizeof(struct max_data)) ;
 	common_data->within_openmp = 0 ;
-	common_data->iter = iter ;
 	
 	allocate_memory(common_data) ;
 	calculate_rescale(common_data) ;
@@ -63,7 +67,7 @@ double maximize(struct iterate *iter) {
 		
 		combine_information_omp(priv_data, common_data) ;
 		
-		free_memory(priv_data) ;
+		free_max_data(priv_data) ;
 	}
 
 	avg_likelihood = combine_information_mpi(common_data) ;
@@ -76,8 +80,7 @@ double maximize(struct iterate *iter) {
 	//		save_prob(common_data) ;
 	//}
 	//print_max_time("save", "", param->rank == 0) ;
-	free_memory(common_data) ;
-	
+    
 	return avg_likelihood ;
 }
 
@@ -663,7 +666,7 @@ void update_scale(struct max_data *common) {
 	print_max_time("scale", "", param->rank == 0) ;
 }
 
-void free_memory(struct max_data *data) {
+void free_max_data(struct max_data *data) {
 	int detn, d ;
 	struct iterate *iter = data->iter ;
 	struct model *mod = iter->mod ;
