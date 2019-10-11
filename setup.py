@@ -3,6 +3,7 @@ from setuptools.extension import Extension
 from Cython.Distutils import build_ext
 from Cython.Build import cythonize
 
+import glob
 import subprocess
 import numpy as np
 import h5py
@@ -10,10 +11,17 @@ out = subprocess.getoutput('h5cc -shlib -show')
 hdf5_cflags = [[s for s in out.split() if s[:2] == '-I'][0]]
 hdf5_libs = [[s for s in out.split() if s[:2] == '-L'][0], '-lhdf5']
 
+mpi_cflags = subprocess.getoutput('mpicc --showme:compile').strip().split()
+mpi_libs = subprocess.getoutput('mpicc --showme:link').strip().split()
+gsl_cflags = subprocess.getoutput('gsl-config --cflags').strip().split()
+gsl_libs = subprocess.getoutput('gsl-config --libs').strip().split()
+
 include_dirs = [np.get_include()]
 #compile_args = '-fopenmp -O3 -Wall -Wno-cpp -Wno-unused-result -Wno-unused-function -Wno-format-overflow -DFIXED_SEED'.split()
-compile_args = '-fopenmp -O3 -Wall -Wno-cpp -Wno-unused-result -Wno-unused-function -Wno-format-overflow'.split() + hdf5_cflags
-link_args = '-lm -fopenmp'.split() + hdf5_libs
+compile_args = '-fopenmp -O3 -Wall'.split()
+compile_args += '-Wno-cpp -Wno-unused-result -Wno-unused-function -Wno-format-overflow'.split() 
+compile_args += hdf5_cflags + gsl_cflags
+link_args = '-lm -fopenmp'.split() + hdf5_libs + gsl_libs
 ext_modules = [
     Extension(name='dragonfly.detector', sources=['dragonfly/detector.pyx'],
         depends=['dragonfly/detector.h', 'dragonfly/detector.pxd'],
@@ -33,6 +41,11 @@ ext_modules = [
     Extension(name='dragonfly.params', sources=['dragonfly/params.pyx'],
         depends=['dragonfly/src/params.h', 'dragonfly/params.pxd'], include_dirs=include_dirs,
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
+    Extension(name='dragonfly.recon', sources=['dragonfly/recon.pyx', 'dragonfly/src/maximize.c'],
+        depends=['dragonfly/src/maximize.h', 'dragonfly/recon.pxd'], include_dirs=include_dirs,
+        extra_objects=glob.glob('build/temp*/dragonfly/src/model.o'),
+        #libraries=[glob.glob('dragonfly/%s.cpython*'%n)[0] for n in ['model', 'iterate']],
+        language='c', extra_compile_args=compile_args+mpi_cflags, extra_link_args=link_args+mpi_libs),
 ]
 py_packages = [
     'dragonfly',
