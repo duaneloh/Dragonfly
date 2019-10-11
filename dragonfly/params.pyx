@@ -6,6 +6,35 @@ from .params cimport EMCParams, params
 cdef class EMCParams:
     def __init__(self):
         self.par = <c_params.params*> calloc(1, sizeof(c_params.params))
+        self.par.rank = 0
+        self.par.num_proc = 1
+        self.par.known_scale = 0
+        self.par.start_iter = 1
+        self.par.beta_period = 100
+        self.par.beta_jump = 1.
+        self.par.beta_factor = -1.
+        self.par.radius = 0.
+        self.par.radius_period = 100
+        self.par.radius_jump = 0.
+        self.par.oversampling = 10.
+        self.par.need_scaling = 0
+        self.par.update_scale = 1
+        self.par.alpha = 0.
+        self.par.sigmasq = 0.
+        self.par.num_modes = 1
+        self.par.nonrot_modes = 0
+        self.par.rot_per_mode = 0
+        self.par.rtype = c_params.RECON3D
+        self.par.friedel_sym = 0
+        self.par.save_prob = 0
+        self.par.refine = 0
+        self.par.coarse_div = 0
+        self.par.fine_div = 0
+        # TODO: Add config file path when using config file
+        self.par.log_fname = <char*> malloc(1024)
+        strcpy(self.par.log_fname, b'EMC.log')
+        self.par.output_folder= <char*> malloc(1024)
+        strcpy(self.par.output_folder , b'data/')
 
     def free(self):
         if self.par == NULL:
