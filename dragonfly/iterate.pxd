@@ -40,6 +40,7 @@ cdef extern from "src/iterate.h" nogil:
 
     void calc_frame_counts(iterate*)
     void calc_beta(double, iterate*)
+    void calc_sum_fact(iterate*)
 
 cdef class Iterate:
     cdef iterate *iter

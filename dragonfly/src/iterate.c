@@ -10,6 +10,8 @@ void calc_frame_counts(struct iterate *self) {
 		self->fcounts = calloc(self->tot_num_data, sizeof(int)) ;
 	if (self->mean_count == NULL)
 		self->mean_count = calloc(self->num_det, sizeof(double)) ;
+	if (self->rescale == NULL)
+		self->rescale = calloc(self->num_det, sizeof(double)) ;
 	
 	while (curr != NULL) {
 		cdet = curr->det ;
@@ -73,6 +75,38 @@ void calc_beta(double start, struct iterate *self) {
 	else {
 		for (d = 0 ; d < self->tot_num_data ; ++d)
 			self->beta_start[d] = exp(-6.5 * pow(self->fcounts[d] * 1.e-5, 0.15)) ; // Empirical
+	}
+}
+
+void calc_sum_fact(struct iterate *self) {
+	int dset = 0, d, t ;
+	struct dataset *curr = self->dset ;
+	struct detector *det ;
+	
+	self->sum_fact = calloc(self->tot_num_data, sizeof(double)) ;
+	
+	while (curr != NULL) {
+		det = curr->det ;
+		
+		if (curr->ftype == SPARSE) {
+			for (d = 0 ; d < curr->num_data ; ++d)
+			for (t = 0 ; t < curr->multi[d] ; ++t)
+			if (det->raw_mask[curr->place_multi[curr->multi_accum[d] + t]] < 1)
+				self->sum_fact[curr->num_offset+d] += gsl_sf_lnfact(curr->count_multi[curr->multi_accum[d] + t]) ;
+		}
+		else if (curr->ftype == DENSE_INT) {
+			for (d = 0 ; d < curr->num_data ; ++d)
+			for (t = 0 ; t < curr->num_pix ; ++t)
+			if (det->raw_mask[t] < 1)
+				self->sum_fact[curr->num_offset+d] += gsl_sf_lnfact(curr->int_frames[d*curr->num_pix + t]) ;
+		}
+		else if (curr->ftype == DENSE_DOUBLE) {
+			for (d = 0 ; d < curr->num_data ; ++d)
+				self->sum_fact[curr->num_offset+d] = 0. ;
+		}
+		
+		dset++ ;
+		curr = curr->next ;
 	}
 }
 

@@ -1,6 +1,7 @@
 #ifndef ITERATE_H
 #define ITERATE_H
 
+#include <gsl/gsl_sf_gamma.h>
 #include "detector.h"
 #include "emcfile.h"
 #include "quaternion.h"
@@ -19,6 +20,7 @@ struct iterate {
 	int *fcounts ;
 	double *scale, *bgscale ;
 	double *beta, *beta_start ;
+	double *sum_fact ;
 	uint8_t *blacklist ;
 
 	// For refinement
@@ -36,5 +38,6 @@ struct iterate {
 
 void calc_frame_counts(struct iterate*) ;
 void calc_beta(double, struct iterate*) ;
+void calc_sum_fact(struct iterate*) ;
 
 #endif // ITERATE_H
