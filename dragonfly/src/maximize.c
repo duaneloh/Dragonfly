@@ -780,7 +780,7 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 			
 			// Exponentiate log-likelihood and normalize to get probabilities
 			temp = prob[d][ind] ;
-			if (frames->ftype < 2)
+			if (curr->ftype < 2)
 				prob[d][ind] = exp(iter->beta[d] * (prob[d][ind] - common->max_exp[d])) / common->p_norm[d] ; 
 			else
 				prob[d][ind] = exp(iter->beta[d] * (prob[d][ind] - common->max_exp[d]) / 2. / param->sigmasq) / common->p_norm[d] ;

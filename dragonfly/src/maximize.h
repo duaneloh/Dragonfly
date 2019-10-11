@@ -43,7 +43,7 @@ struct max_data {
 	double *scale_old, *scale_new, *scale_latest ; // Scale factors
 } ;
 
-double maximize() ;
+double maximize(struct iterate*) ;
 
 // Model function pointers
 void (*slice_gen)(double*, int, double*, struct detector*, struct model*) ;
