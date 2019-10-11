@@ -45,11 +45,15 @@ cdef class Iterate:
         # Generate list of unique detectors
         self._gen_detlist()
         
-        print('Calculating frame_counts')
         c_iterate.calc_frame_counts(self.iter)
+        self.iter.blacklist = <uint8_t*> calloc(self.iter.tot_num_data, sizeof(uint8_t))
+        c_iterate.calc_sum_fact(self.iter)
 
     def set_quat(self, Quaternion quaternion):
         self.iter.quat = quaternion.quat
+
+    def set_params(self, EMCParams param):
+        self.iter.par = param.par
 
     def parse_scale(self, fname, bg=False):
         if h5py.is_hdf5(fname):
@@ -213,18 +217,32 @@ cdef class Iterate:
         return retval
     @property
     def model(self):
+        if self.iter.mod == NULL:
+            return
         retval = Model()
         retval.free()
         retval.mod = self.iter.mod
         return retval
     @property
+    def quat(self):
+        if self.iter.quat == NULL:
+            return
+        retval = Quaternion()
+        retval.free()
+        retval.quat = self.iter.quat
+        return retval
+    @property
     def data(self):
+        if self.iter.dset == NULL:
+            return
         retval = CDataset()
         retval.free()
         retval.dset = self.iter.dset
         return retval
     @property
     def params(self):
+        if self.iter.par == NULL:
+            return
         retval = EMCParams()
         retval.free()
         retval.par = self.iter.par
