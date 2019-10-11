@@ -44,7 +44,7 @@ cdef class Iterate:
 
         # Generate list of unique detectors
         self._gen_detlist()
-        
+
         c_iterate.calc_frame_counts(self.iter)
         self.iter.blacklist = <uint8_t*> calloc(self.iter.tot_num_data, sizeof(uint8_t))
         c_iterate.calc_sum_fact(self.iter)
@@ -160,6 +160,33 @@ cdef class Iterate:
             start = -1.
 
         c_iterate.calc_beta(start, self.iter)
+
+    def free(self):
+        if self.iter == NULL:
+            return
+
+        if self.iter.fcounts != NULL: free(self.iter.fcounts)
+        if self.iter.scale != NULL: free(self.iter.scale)
+        if self.iter.bgscale != NULL: free(self.iter.bgscale)
+        if self.iter.beta != NULL: free(self.iter.beta)
+        if self.iter.beta_start != NULL: free(self.iter.beta_start)
+        if self.iter.sum_fact != NULL: free(self.iter.sum_fact)
+        if self.iter.blacklist != NULL: free(self.iter.blacklist)
+        if self.iter.quat_mapping != NULL: free(self.iter.quat_mapping)
+        if self.iter.num_rel_quat != NULL: free(self.iter.num_rel_quat)
+        if self.iter.det_mapping != NULL: free(self.iter.det_mapping)
+        if self.iter.rescale != NULL: free(self.iter.rescale)
+        if self.iter.mean_count != NULL: free(self.iter.mean_count)
+
+        if self.iter.rel_quat != NULL:
+            for d in range(iter.tot_num_data):
+                free(self.iter.rel_quat[d])
+            free(self.iter.rel_quat)
+        if self.iter.rel_prob != NULL:
+            for d in range(iter.tot_num_data):
+                free(self.iter.rel_prob[d])
+            free(self.iter.rel_prob)
+        self.iter = NULL
 
     def _gen_detlist(self):
         cdef int i, d, ind
