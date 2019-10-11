@@ -16,12 +16,11 @@ mpi_libs = subprocess.getoutput('mpicc --showme:link').strip().split()
 gsl_cflags = subprocess.getoutput('gsl-config --cflags').strip().split()
 gsl_libs = subprocess.getoutput('gsl-config --libs').strip().split()
 
-include_dirs = [np.get_include()]
-#compile_args = '-fopenmp -O3 -Wall -Wno-cpp -Wno-unused-result -Wno-unused-function -Wno-format-overflow -DFIXED_SEED'.split()
 compile_args = '-fopenmp -O3 -Wall'.split()
 compile_args += '-Wno-cpp -Wno-unused-result -Wno-unused-function -Wno-format-overflow'.split() 
-compile_args += hdf5_cflags + gsl_cflags
+compile_args += hdf5_cflags + gsl_cflags + ['-I'+np.get_include()]
 link_args = '-lm -fopenmp'.split() + hdf5_libs + gsl_libs
+
 ext_modules = [
     Extension(name='dragonfly.detector', sources=['dragonfly/detector.pyx'],
         depends=['dragonfly/detector.h', 'dragonfly/detector.pxd'],
@@ -33,18 +32,17 @@ ext_modules = [
         depends=['dragonfly/src/model.h', 'dragonfly/model.pxd'],
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
     Extension(name='dragonfly.quaternion', sources=['dragonfly/quaternion.pyx', 'dragonfly/src/quaternion.c'],
-        depends=['dragonfly/src/quaternion.h', 'dragonfly/quaternion.pxd'], include_dirs=include_dirs,
+        depends=['dragonfly/src/quaternion.h', 'dragonfly/quaternion.pxd'],
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
     Extension(name='dragonfly.iterate', sources=['dragonfly/iterate.pyx', 'dragonfly/src/iterate.c'],
-        depends=['dragonfly/src/iterate.h', 'dragonfly/iterate.pxd'], include_dirs=include_dirs,
+        depends=['dragonfly/src/iterate.h', 'dragonfly/iterate.pxd'],
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
     Extension(name='dragonfly.params', sources=['dragonfly/params.pyx'],
-        depends=['dragonfly/src/params.h', 'dragonfly/params.pxd'], include_dirs=include_dirs,
+        depends=['dragonfly/src/params.h', 'dragonfly/params.pxd'],
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
     Extension(name='dragonfly.recon', sources=['dragonfly/recon.pyx', 'dragonfly/src/maximize.c'],
-        depends=['dragonfly/src/maximize.h', 'dragonfly/recon.pxd'], include_dirs=include_dirs,
+        depends=['dragonfly/src/maximize.h', 'dragonfly/recon.pxd'],
         extra_objects=glob.glob('build/temp*/dragonfly/src/model.o'),
-        #libraries=[glob.glob('dragonfly/%s.cpython*'%n)[0] for n in ['model', 'iterate']],
         language='c', extra_compile_args=compile_args+mpi_cflags, extra_link_args=link_args+mpi_libs),
 ]
 py_packages = [
