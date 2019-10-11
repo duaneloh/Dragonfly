@@ -3,7 +3,8 @@ cdef extern from "src/params.h" nogil:
     struct params:
         int rank, num_proc
         int iteration, current_iter, start_iter, num_iter
-        char *output_folder, *log_fname
+        char *output_folder
+        char *log_fname
         recon_type rtype
         int save_prob
         
