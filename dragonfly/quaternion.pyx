@@ -72,6 +72,7 @@ cdef class Quaternion:
             self.quat.num_rot_p += 1
         if num_proc > 1:
             print("%d: %s: num_rot_p = %d/%d" % (rank, gethostname(), self.num_rot_p, tot_num_rot))
+        return self.quat.num_rot_p
 
     def reduce_icosahedral(self):
         if self.quat.quats == NULL:
@@ -139,6 +140,13 @@ cdef class Quaternion:
 
         self.reduced = True
         return self.num_rot
+
+    def free(self):
+        if self.quat == NULL:
+            return
+        if self.quat.quats != NULL: free(self.quat.quats)
+        free(self.quat)
+        self.quat = NULL
 
     @property
     def num_div(self): return self.quat.num_div
