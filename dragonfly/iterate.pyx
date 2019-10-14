@@ -1,8 +1,9 @@
 import sys
-import os
+import os.path as op
 import numpy as np
 import pandas
 import h5py
+from configparser import ConfigParser
 
 from libc.stdlib cimport malloc, calloc, free
 from libc.string cimport memcpy
@@ -17,9 +18,83 @@ from .quaternion cimport Quaternion
 from .params cimport EMCParams
 
 cdef class Iterate:
-    def __init__(self):
+    def __init__(self, config_fname='', section_name='emc'):
         self.iter = <c_iterate.iterate*> calloc(1, sizeof(c_iterate.iterate))
         self.iter.par = <c_params.params*> calloc(1, sizeof(c_params.params))
+        if config_fname != '':
+            self.from_config(config_fname, section_name)
+
+    def from_config(self, config_fname, section_name='emc'):
+        param = EMCParams()
+        param.from_config(config_fname, section_name)
+        self.set_params(param)
+
+        config_folder = op.dirname(config_fname)
+        config = ConfigParser()
+        config.read(config_fname)
+
+        # Detector
+        det_fname = config.get(section_name, 'in_detector_file', fallback=None)
+        det_flist = config.get(section_name, 'in_detector_list', fallback=None)
+        if det_fname is not None and det_flist is not None:
+            raise ValueError("Both in_detector_file and in_detector_list specified. Pick one.")
+        elif det_fname is not None:
+            dets = [CDetector(op.join(config_folder, det_fname))]
+        elif det_flist is not None:
+            fptr = open(det_flist, 'r')
+            dets = [CDetector(op.join(config_folder, line.strip())) for line in fptr.readlines()]
+            fptr.close()
+        else:
+            raise ValueError("Need either in_detector_file or in_detector_list.")
+
+        # Photons
+        ph_fname = config.get(section_name, 'in_photons_file', fallback=None)
+        ph_flist = config.get(section_name, 'in_photons_list', fallback=None)
+        if ph_fname is not None and ph_flist is not None:
+            raise ValueError("Both in_photons_file and in_photons_list specified. Pick one.")
+        elif ph_fname is not None:
+            if len(dets) > 1:
+                print('WARNING: Multiple detectors but only one photons file. Using first detector')
+            frames = CDataset(op.join(config_folder, ph_fname), dets[0])
+        elif ph_flist is not None:
+            fptr = open(ph_flist, 'r')
+            fnames = [op.join(config_folder, line.strip()) for line in fptr.readlines()]
+            fptr.close()
+
+            frames = CDataset(fnames[0], dets[0])
+            if len(dets) > 1:
+                [frames.append(CDataset(op.join(config_folder, fnames[i]), dets[i])) for i in range(1, len(fnames))]
+            else:
+                [frames.append(CDataset(op.join(config_folder, fnames[i]), dets[0])) for i in range(1, len(fnames))]
+        else:
+            raise ValueError("Need either in_photons_file or in_photons_list.")
+        self.set_data(frames)
+
+        # Model
+        qmax = max([det.qmax() for det in dets])
+        model = Model(self.calculate_size(qmax), self.iter.par.num_modes)
+        mfile = config.get(section_name, 'start_model_file', fallback='')
+        model.allocate(op.join(config_folder, mfile))
+        self.set_model(model)
+
+        # Quaternions
+        if self.iter.par.fine_div > 0:
+            quat = Quaternion(self.iter.par.fine_div)
+        else:
+            quat = Quaternion(config.getint(section_name, 'num_div'))
+        self.set_quat(quat)
+
+        # Scale, blacklist etc.
+        if self.iter.par.need_scaling == 1:
+            self.parse_scale(op.join(config_folder, config.get(section_name, 'scale_file', fallback='')))
+            self.parse_scale(op.join(config_folder, config.get(section_name, 'bgscale_file', fallback='')), bg=True)
+        sel_string = config.get(section_name, 'selection', fallback=None)
+        self.parse_blacklist(op.join(config_folder, config.get(section_name, 'blacklist_file', fallback='')), sel_string)
+        beta_str = config.get(section_name, 'beta', fallback='auto')
+        if beta_str == 'auto':
+            self.calc_beta()
+        else:
+            self.calc_beta(float(beta_str))
 
     def set_model(self, Model model):
         self.iter.mod = model.mod
@@ -56,11 +131,16 @@ cdef class Iterate:
         self.iter.par = param.par
 
     def parse_scale(self, fname, bg=False):
-        if h5py.is_hdf5(fname):
-            with h5py.File(fname, 'r') as f:
-                scale = f['scale'][:]
+        if not op.isfile(fname):
+            if self.iter.tot_num_data == 0:
+                raise AttributeError('Need tot_num_data to initialize scale factors')
+            scale = np.ones(self.iter.tot_num_data)
         else:
-            scale = pandas.read_csv(fname, header=None).array.ravel()
+            if h5py.is_hdf5(fname):
+                with h5py.File(fname, 'r') as f:
+                    scale = f['scale'][:]
+            else:
+                scale = pandas.read_csv(fname, header=None).array.ravel()
 
         cdef double[:] scale_view = scale
 
@@ -103,7 +183,7 @@ cdef class Iterate:
         else:
             print('Applying changes to current blacklist')
 
-        if os.path.isfile(fname):
+        if op.isfile(fname):
             arr = pandas.read_csv(fname, header=None, squeeze=True, dtype='u1').to_numpy()
             if arr.shape[0] != self.iter.tot_num_data:
                 raise ValueError('Mismatched number of frames in blacklist file')
