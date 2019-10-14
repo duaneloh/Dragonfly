@@ -1,5 +1,7 @@
-cimport numpy as np
 import numpy as np
+from mpi4py import MPI
+
+cimport numpy as np
 cimport openmp
 from libc.stdlib cimport malloc, calloc, free
 from .iterate cimport Iterate
@@ -8,9 +10,11 @@ from . cimport model as c_model
 from . cimport params as c_params
 
 cdef class EMCRecon():
-    def __init__(self, int num_threads=-1):
+    def __init__(self, num_threads=-1):
         if num_threads <= 0:
             self.num_threads = openmp.omp_get_max_threads()
+        else:
+            self.num_threads = num_threads
         openmp.omp_set_num_threads(self.num_threads)
 
         self.mdata = <c_recon.max_data*> calloc(1, sizeof(c_recon.max_data))
@@ -30,31 +34,53 @@ cdef class EMCRecon():
             print('Set params for iterate first')
             return
 
+        itr.iter.quat.num_rot_p = itr.quat.divide(MPI.COMM_WORLD.rank, MPI.COMM_WORLD.size)
+        itr.iter.par.rank = MPI.COMM_WORLD.rank
+        itr.iter.par.num_proc = MPI.COMM_WORLD.size
         self.mdata.iter = itr.iter
 
     def run_iteration(self):
+        cdef double likelihood, beta_mean
+        
         if self.mdata.iter == NULL:
             print('Set iterate first')
+            return
 
         if self.mdata.iter.par.rtype == c_params.RECON3D:
             c_recon.slice_gen = &c_model.slice_gen3d
             c_recon.slice_merge = &c_model.slice_merge3d
 
-        c_recon.maximize(self.mdata)
+        #if self.iter.par.iteration == 1:
+        #    self.write_log_file_header()
 
-        print('Finished maximize')
+        cdef long vol = self.mdata.iter.mod.vol
+        MPI.COMM_WORLD.Bcast([<double[:vol]>self.mdata.iter.mod.model1, MPI.DOUBLE], 0)
+        beta_mean = self.update_beta()
+        # self.update_radius()
+        likelihood = c_recon.maximize(self.mdata)
+
+        #if self.mdata.iter.par.rank == 0:
+        #    self.update_model(likelihood)
+        if self.mdata.iter.par.need_scaling == 1 and self.mdata.iter.mod.mtype == c_model.MODEL_3D:
+            self.iter.normalize_scale()
+        #if self.mdata.iter.par.rank == 0:
+        #    self.save_models()
+        #    self.update_log_file()
+
+        if self.mdata.iter.par.rank == 0:
+            print('Finished maximize')
 
     def update_beta(self):
         cdef int d
         cdef double factor, beta_mean = 0.
 
         if self.mdata.iter.par.beta_factor <= 0.:
-            factor = self.mdata.iter.par.beta_jump ** ((self.mdata.iter.par.iteration-1) / self.mdata.iter.par.beta_period)
+            factor = self.mdata.iter.par.beta_jump ** ((self.mdata.iter.par.iteration-1) // self.mdata.iter.par.beta_period)
         else:
             factor = self.mdata.iter.par.beta_factor
 
         for d in range(self.mdata.iter.tot_num_data):
-            if self.mdata.iter.blacklist[d] > 0:
+            if self.mdata.iter.blacklist[d] == 0:
                 self.mdata.iter.beta[d] = self.mdata.iter.beta_start[d] * factor
                 if self.mdata.iter.beta[d] > 1.:
                     self.mdata.iter.beta[d] = 1.
