@@ -25,7 +25,7 @@ cdef class Quaternion:
         self.quat = <c_quat.quaternion*> malloc(sizeof(c_quat.quaternion))
         self.quat.num_div = num_div
         self.quat.num_rot = 0
-        self.quat.cubic_flag = (point_group == 'S4')
+        self.quat.octahedral_flag = (point_group == 'S4')
         self.quat.icosahedral_flag = (point_group == 'A5')
         self.quat.num_rot_p = 0
         self.quat.quats = NULL
@@ -99,7 +99,7 @@ cdef class Quaternion:
         self.reduced = True
         return self.num_rot
 
-    def reduce_cubic(self):
+    def reduce_octahedral(self):
         if self.quat.quats == NULL:
             raise AttributeError('Generate quaternion first before reducing')
         if self.reduced:
@@ -165,7 +165,7 @@ cdef class Quaternion:
     @property
     def icosahedral_flag(self): return bool(self.quat.icosahedral_flag)
     @property
-    def cubic_flag(self): return bool(self.quat.cubic_flag)
+    def octahedral_flag(self): return bool(self.quat.octahedral_flag)
     @property
     def quats(self): return np.asarray(<double[:self.num_rot*5]> self.quat.quats).reshape(-1,5)
 

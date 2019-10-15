@@ -732,7 +732,7 @@ static int reduce_icosahedral(int n, double *quat) {
 	return num_rot ;
 }
 
-static int reduce_cubic(int n, double *quat) {
+static int reduce_octahedral(int n, double *quat) {
 	int r, t, i, keep_quat, vnum = 0, num_vert = 8 ;
 	int old_num_rot = 10*(5*n*n*n + n), num_rot = 0 ;
 	double dist, dist0 ;
