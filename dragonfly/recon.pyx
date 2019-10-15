@@ -4,10 +4,12 @@ from mpi4py import MPI
 cimport numpy as np
 cimport openmp
 from libc.stdlib cimport malloc, calloc, free
+from libc.math cimport sqrt
 from .iterate cimport Iterate
 from . cimport recon as c_recon
 from . cimport model as c_model
 from . cimport params as c_params
+from . cimport quaternion as c_quat
 
 cdef class EMCRecon():
     def __init__(self, num_threads=-1):
@@ -59,16 +61,49 @@ cdef class EMCRecon():
         # self.update_radius()
         likelihood = c_recon.maximize(self.mdata)
 
-        #if self.mdata.iter.par.rank == 0:
-        #    self.update_model(likelihood)
+        if self.mdata.iter.par.rank == 0:
+            self.update_model()
         if self.mdata.iter.par.need_scaling == 1 and self.mdata.iter.mod.mtype == c_model.MODEL_3D:
             self.iter.normalize_scale()
         #if self.mdata.iter.par.rank == 0:
         #    self.save_models()
-        #    self.update_log_file()
+        #    self.update_log_file(likelihood)
 
         if self.mdata.iter.par.rank == 0:
-            print('Finished maximize')
+            print('Finished iteration', self.mdata.iter.par.iteration, '(%e)' % self.mdata.iter.rms_change)
+
+    def update_model(self):
+        cdef long x
+        cdef double diff, change
+        cdef c_model.model *mod = self.mdata.iter.mod
+        cdef c_params.params *param = self.mdata.iter.par
+        cdef c_quat.quaternion *quat = self.mdata.iter.quat
+
+        for x in range(mod.num_modes * mod.vol):
+            if mod.inter_weight[x] > 0.:
+                mod.model2[x] /= mod.inter_weight[x]
+                
+        if param.rtype == c_params.RECONRZ or (param.rtype == c_params.RECON2D and param.friedel_sym):
+            c_model.symmetrize_friedel2d(mod.model2, mod.num_modes, mod.size)
+        elif param.rtype == c_params.RECON3D and quat.icosahedral_flag:
+            for x in range(mod.num_modes):
+                c_model.symmetrize_icosahedral(&mod.model2[x*mod.vol], mod.size)
+        elif param.rtype == c_params.RECON3D and quat.octahedral_flag:
+            for x in range(mod.num_modes):
+                c_model.symmetrize_octahedral(&mod.model2[x*mod.vol], mod.size)
+        elif param.rtype == c_params.RECON3D:
+            for x in range(mod.num_modes):
+                c_model.symmetrize_friedel(&mod.model2[x*mod.vol], mod.size)
+
+        for x in range(mod.num_modes * mod.vol):
+            diff = mod.model2[x] - mod.model1[x]
+            change += diff**2
+            if param.alpha > 0.:
+                mod.model1[x] = param.alpha * mod.model1[x] + (1-param.alpha) * mod.model2[x]
+            else:
+                mod.model1[x] = mod.model2[x]
+        
+        self.mdata.iter.rms_change = sqrt(change / mod.num_modes / mod.vol)
 
     def update_beta(self):
         cdef int d
@@ -150,7 +185,7 @@ cdef class EMCRecon():
             return
         retval = []
         for i in range(self.mdata.iter.num_det):
-            retval.append(<double[:self.mdata.iter.quat.num_rot_p]> self.mdata.u[i])
+            retval.append(np.asarray(<double[:self.mdata.iter.quat.num_rot_p]>self.mdata.u[i]))
         return retval
     @property
     def offset_prob(self): return np.asarray(<int[:self.num_threads*self.mdata.iter.tot_num_data]>self.mdata.offset_prob).reshape(self.num_threads, -1) if self.mdata.offset_prob != NULL else None
