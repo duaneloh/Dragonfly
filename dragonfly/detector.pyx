@@ -47,7 +47,7 @@ cdef class CDetector:
         if fname is not None:
             self.parse(fname, **kwargs)
 
-    def parse(self, fname):
+    def parse(self, fname, **kwargs):
         """ Parse Dragonfly detector from file
 
         File can either be in the HDF5 or ASCII format
@@ -55,15 +55,15 @@ cdef class CDetector:
         self.det.fname = <char*> malloc(len(fname)+1)
         strcpy(self.det.fname, bytes(fname, 'utf-8'))
         if h5py.is_hdf5(fname):
-            self._parse_h5det()
+            self._parse_h5det(**kwargs)
         elif os.path.splitext(fname)[1] == '.h5':
             fheader = np.fromfile(fname, '=c', count=8)
             if fheader == chr(137)+'HDF\r\n'+chr(26)+'\n':
-                self._parse_h5det()
+                self._parse_h5det(**kwargs)
             else:
-                self._parse_asciidet()
+                self._parse_asciidet(**kwargs)
         else:
-            self._parse_asciidet()
+            self._parse_asciidet(**kwargs)
 
     def free(self):
         if self.det == NULL:
@@ -104,7 +104,7 @@ cdef class CDetector:
         else:
             raise ValueError('Need 3 values on header line: num_pix, detd_pix, ewald_rad_vox')
 
-    def _parse_asciidet(self):
+    def _parse_asciidet(self, norm=True):
         print('Parsing ASCII detector file')
         self._check_header()
         dframe = pandas.read_csv(
@@ -115,6 +115,8 @@ cdef class CDetector:
         qx, qy, qz, np_corr = tuple([np.array(dframe[key]) # pylint: disable=C0103
                                        for key in ['qx', 'qy', 'qz', 'corr']])
         self.det.num_pix = qx.shape[0]
+        if norm:
+            np_corr /= np_corr.mean()
 
         cdef int t, d
         cdef double[:,:] qvals = np.copy(np.array([qx, qy, qz]).T)
@@ -130,7 +132,7 @@ cdef class CDetector:
             for d in range(3):
                 self.det.qvals[t*3 + d] = qvals[t, d]
 
-    def _parse_h5det(self):
+    def _parse_h5det(self, norm=True):
         print('Parsing HDF5 detector file')
 
         fptr = h5py.File(self.fname, 'r')
@@ -140,6 +142,10 @@ cdef class CDetector:
         self.det.detd = fptr['detd'][()]
         self.det.ewald_rad = fptr['ewald_rad'][()]
         fptr.close()
+
+        if norm:
+            np_corr = np.asarray(corr)
+            np_corr /= np_corr.mean()
 
         self.det.num_pix = qx.shape[0]
         cdef double[:,:] qvals = np.ascontiguousarray(np.array([qx, qy, qz]).T).reshape(-1,3)
