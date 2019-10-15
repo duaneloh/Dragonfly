@@ -52,6 +52,7 @@ extensions = cythonize(ext_modules, language_level=3,
                        compiler_directives={'embedsignature': True,
                                             'boundscheck': False,
                                             'wraparound': False,
+                                            'cdivision': True,
                                             'nonecheck': False})
 
 setup(name='dragonfly',
