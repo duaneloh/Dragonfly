@@ -31,6 +31,7 @@ cdef extern from "src/iterate.h" nogil:
     
         # Parameters for each detector
         int num_det # Number of unique detectors
+        int num_dfiles # Number of datasets in linked list
         int *det_mapping
         double *rescale
         double *mean_count

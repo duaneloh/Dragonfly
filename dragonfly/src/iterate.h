@@ -29,6 +29,7 @@ struct iterate {
 
 	// Parameters for each detector
 	int num_det ; // Number of unique detectors
+	int num_dfiles ; // Number of datasets in linked list
 	int *det_mapping ; // Mapping to unique list
 	double *rescale, *mean_count ;
 

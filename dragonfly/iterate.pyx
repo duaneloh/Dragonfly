@@ -39,10 +39,10 @@ cdef class Iterate:
         if det_fname is not None and det_flist is not None:
             raise ValueError("Both in_detector_file and in_detector_list specified. Pick one.")
         elif det_fname is not None:
-            dets = [CDetector(op.join(config_folder, det_fname))]
+            dets = [CDetector(op.join(config_folder, det_fname), norm=True)]
         elif det_flist is not None:
             fptr = open(det_flist, 'r')
-            dets = [CDetector(op.join(config_folder, line.strip())) for line in fptr.readlines()]
+            dets = [CDetector(op.join(config_folder, line.strip()), norm=True) for line in fptr.readlines()]
             fptr.close()
         else:
             raise ValueError("Need either in_detector_file or in_detector_list.")
@@ -74,7 +74,8 @@ cdef class Iterate:
         qmax = max([det.qmax() for det in dets])
         model = Model(self.calculate_size(qmax), self.iter.par.num_modes)
         mfile = config.get(section_name, 'start_model_file', fallback='')
-        model.allocate(op.join(config_folder, mfile))
+        model_mean = self.mean_count[0] / (self.dets[0].raw_mask==0).sum() * 2.
+        model.allocate(op.join(config_folder, mfile), model_mean)
         self.set_model(model)
 
         # Quaternions
@@ -275,6 +276,7 @@ cdef class Iterate:
         fnames = []
         while curr != NULL:
             fnames.append(curr.det.fname)
+            self.iter.num_dfiles += 1
             curr = curr.next
         _, indices, mapping = np.unique(fnames, return_index=True, return_inverse=True)
         self.iter.num_det = len(indices)
@@ -286,7 +288,7 @@ cdef class Iterate:
                 curr = curr.next
             memcpy(&self.iter.det[i], curr.det, sizeof(detector))
 
-        self.iter.det_mapping = <int*> malloc(len(mapping) * sizeof(int))
+        self.iter.det_mapping = <int*> malloc(self.iter.num_dfiles * sizeof(int))
         for i, d in enumerate(mapping):
             self.iter.det_mapping[i] = d
 
@@ -310,9 +312,17 @@ cdef class Iterate:
     def beta_start(self): return np.asarray(<double[:self.tot_num_data]>self.iter.beta_start) if self.iter.beta_start != NULL else None
     @property
     def blacklist(self): return np.asarray(<uint8_t[:self.tot_num_data]>self.iter.blacklist) if self.iter.blacklist != NULL else None
+    @property
+    def det_mapping(self): return np.asarray(<int[:self.num_dfiles]>self.iter.det_mapping) if self.iter.det_mapping != NULL else None
+    @property
+    def mean_count(self): return np.asarray(<double[:self.num_det]>self.iter.mean_count) if self.iter.mean_count != NULL else None
+    @property
+    def rescale(self): return np.asarray(<double[:self.num_det]>self.iter.rescale) if self.iter.rescale != NULL else None
 
     @property
     def num_det(self): return self.iter.num_det
+    @property
+    def num_dfiles(self): return self.iter.num_dfiles
     @property
     def dets(self):
         retval = [None for d in range(self.iter.num_det)]
