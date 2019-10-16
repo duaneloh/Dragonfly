@@ -329,12 +329,13 @@ void parse_input(char *fname, double mean, int rank, int recon_type, struct iter
 			fclose(fp) ;
 			hid_t file, dset, dspace ;
 			hsize_t *dims ;
-			int ndims = 4 ? recon_type == RECON3D : 3 ;
-			dims = malloc(ndims * sizeof(hsize_t)) ;
+			int ndims ;
 			
 			file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT) ;
 			dset = H5Dopen(file, "/intens", H5P_DEFAULT) ;
 			dspace = H5Dget_space(dset) ;
+			ndims = H5Sget_simple_extent_ndims(dspace) ;
+			dims = malloc(ndims * sizeof(hsize_t)) ;
 			H5Sget_simple_extent_dims(dspace, dims, NULL) ;
 			
 			if (dims[0] != iter->modes) {
@@ -368,6 +369,7 @@ void parse_input(char *fname, double mean, int rank, int recon_type, struct iter
 			}
 			H5Dread(dset, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, iter->model1) ;
 			
+			free(dims) ;
 			H5Sclose(dspace) ;
 			H5Dclose(dset) ;
 			H5Fclose(file) ;
