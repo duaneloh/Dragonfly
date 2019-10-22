@@ -261,7 +261,7 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 			if (param->refine) {
 				ind = -1 ;
 				for (t = 0 ; t < iter->num_rel_quat[d] ; ++t)
-				if (iter->quat_mapping[r*param->num_proc+param->rank] == iter->rel_quat[d][t]) {
+				if (iter->quat_mapping[rotind] == iter->rel_quat[d][t]) {
 					ind = t ;
 					break ;
 				}
@@ -706,7 +706,7 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 			if (param->refine) {
 				ind = -1 ;
 				for (t = 0 ; t < iter->num_rel_quat[d] ; ++t)
-				if (iter->quat_mapping[r*param->num_proc+param->rank] == iter->rel_quat[d][t]) {
+				if (iter->quat_mapping[rotind] == iter->rel_quat[d][t]) {
 					ind = t ;
 					break ;
 				}
@@ -772,7 +772,7 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 }
 
 void update_tomogram_nobg(int r, struct max_data *priv, struct max_data *common) {
-	int dset = 0, t, d, curr_d, pixel, detn, ind ;
+	int dset = 0, t, d, curr_d, pixel, detn, ind, rotind ;
 	double *view ;
 	struct dataset *curr = frames ;
 	double **prob = priv->prob ;
@@ -780,6 +780,7 @@ void update_tomogram_nobg(int r, struct max_data *priv, struct max_data *common)
 	
 	for (detn = 0 ; detn < det[0].num_det ; ++detn) 
 		memset(priv->all_views[detn], 0, det[detn].num_pix*sizeof(double)) ;
+	rotind = (r*param->num_proc + param->rank) / param->modes ;
 	
 	while (curr != NULL) {
 		// Calculate slice for current detector
@@ -798,7 +799,7 @@ void update_tomogram_nobg(int r, struct max_data *priv, struct max_data *common)
 			if (param->refine) {
 				ind = -1 ;
 				for (t = 0 ; t < iter->num_rel_quat[d] ; ++t)
-				if (iter->quat_mapping[r*param->num_proc+param->rank] == iter->rel_quat[d][t]) {
+				if (iter->quat_mapping[rotind] == iter->rel_quat[d][t]) {
 					ind = t ;
 					break ;
 				}
@@ -858,7 +859,7 @@ void update_tomogram_nobg(int r, struct max_data *priv, struct max_data *common)
 }
 
 void gradient_rt(int r, struct max_data *priv, double **views, double **gradients) {
-	int dset = 0, t, d, curr_d, pixel, detn, ind ;
+	int dset = 0, t, d, curr_d, pixel, detn, ind, rotind ;
 	double val, *grad, *view ;
 	struct dataset *curr = frames ;
 	int *num_prob = priv->num_prob, **place_prob = priv->place_prob ;
@@ -884,6 +885,7 @@ void gradient_rt(int r, struct max_data *priv, double **views, double **gradient
 			}
 		}
 	}
+	rotind = (r*param->num_proc + param->rank) / param->modes ;
 	
 	while (curr != NULL) {
 		detn = det[0].mapping[dset] ;
@@ -902,7 +904,7 @@ void gradient_rt(int r, struct max_data *priv, double **views, double **gradient
 			if (param->refine) {
 				ind = -1 ;
 				for (t = 0 ; t < iter->num_rel_quat[d] ; ++t)
-				if (iter->quat_mapping[r*param->num_proc+param->rank] == iter->rel_quat[d][t]) {
+				if (iter->quat_mapping[rotind] == iter->rel_quat[d][t]) {
 					ind = t ;
 					break ;
 				}
