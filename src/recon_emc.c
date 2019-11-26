@@ -9,7 +9,7 @@ static struct timeval tr1, tr2, tr3 ;
 
 static int parse_arguments(int, char**, int*, int*, char*) ;
 static void emc(void) ;
-static void update_model(double) ;
+static void update_model() ;
 static double update_beta(void) ;
 static void update_radius(struct detector*) ;
 static void print_recon_time(char*, struct timeval*, struct timeval*, int) ;
@@ -112,7 +112,7 @@ static void emc() {
 		print_recon_time("Completed maximize", &tr1, &tr2, param->rank) ;
 		
 		if (!param->rank)
-			update_model(likelihood) ;
+			update_model() ;
 		if (param->need_scaling && param->recon_type == RECON3D)
 			normalize_scale(frames, iter) ;
 		if (!param->rank) {
@@ -136,7 +136,7 @@ static void emc() {
 	free_detector(orig_det) ;
 }
 
-static void update_model(double likelihood) {
+static void update_model() {
 	long x ;
 	double diff, change = 0., norm = 1. ;
 	
