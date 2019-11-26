@@ -1,4 +1,6 @@
+import time
 import numpy as np
+import h5py
 from mpi4py import MPI
 
 cimport numpy as np
@@ -7,9 +9,11 @@ from libc.stdlib cimport malloc, calloc, free
 from libc.math cimport sqrt
 from .iterate cimport Iterate
 from . cimport recon as c_recon
+from . cimport iterate as c_iterate
 from . cimport model as c_model
 from . cimport params as c_params
 from . cimport quaternion as c_quat
+from . cimport emcfile as c_dataset
 
 cdef class EMCRecon():
     def __init__(self, num_threads=-1):
@@ -43,34 +47,36 @@ cdef class EMCRecon():
 
     def run_iteration(self):
         cdef double likelihood, beta_mean
+        cdef double stime = time.time()
+        cdef c_iterate.iterate *itr = self.mdata.iter
 
-        if self.mdata.iter == NULL:
+        if itr == NULL:
             print('Set iterate first')
             return
 
-        if self.mdata.iter.par.rtype == c_params.RECON3D:
+        if itr.par.rtype == c_params.RECON3D:
             c_recon.slice_gen = &c_model.slice_gen3d
             c_recon.slice_merge = &c_model.slice_merge3d
 
-        #if self.iter.par.iteration == 1:
-        #    self.write_log_file_header()
+        if itr.par.iteration == 1:
+            self.write_log_file_header()
 
-        cdef long vol = self.mdata.iter.mod.vol
-        MPI.COMM_WORLD.Bcast([<double[:vol]>self.mdata.iter.mod.model1, MPI.DOUBLE], 0)
+        cdef long vol = itr.mod.vol
+        MPI.COMM_WORLD.Bcast([<double[:vol]>itr.mod.model1, MPI.DOUBLE], 0)
         beta_mean = self.update_beta()
-        # self.update_radius()
+        # TODO: self.update_radius()
         likelihood = c_recon.maximize(self.mdata)
 
-        if self.mdata.iter.par.rank == 0:
+        if itr.par.rank == 0:
             self.update_model()
-        if self.mdata.iter.par.need_scaling == 1 and self.mdata.iter.mod.mtype == c_model.MODEL_3D:
+        if itr.par.need_scaling == 1 and itr.mod.mtype == c_model.MODEL_3D:
             self.iter.normalize_scale()
-        #if self.mdata.iter.par.rank == 0:
-        #    self.save_models()
-        #    self.update_log_file(likelihood)
+        if itr.par.rank == 0:
+            self.save_output()
+            self.update_log_file(likelihood, beta_mean, time.time()-stime)
 
-        if self.mdata.iter.par.rank == 0:
-            print('Finished iteration', self.mdata.iter.par.iteration, '(%e)' % self.mdata.iter.rms_change)
+        if itr.par.rank == 0:
+            print('Finished iteration', itr.par.iteration, '(%e)' % itr.rms_change)
 
     def update_model(self):
         cdef long x
@@ -108,19 +114,20 @@ cdef class EMCRecon():
     def update_beta(self):
         cdef int d
         cdef double factor, beta_mean = 0.
+        cdef c_iterate.iterate *itr = self.mdata.iter
 
-        if self.mdata.iter.par.beta_factor <= 0.:
-            factor = self.mdata.iter.par.beta_jump ** ((self.mdata.iter.par.iteration-1) // self.mdata.iter.par.beta_period)
+        if itr.par.beta_factor <= 0.:
+            factor = itr.par.beta_jump ** ((itr.par.iteration-1) // itr.par.beta_period)
         else:
-            factor = self.mdata.iter.par.beta_factor
+            factor = itr.par.beta_factor
 
-        for d in range(self.mdata.iter.tot_num_data):
-            if self.mdata.iter.blacklist[d] == 0:
-                self.mdata.iter.beta[d] = self.mdata.iter.beta_start[d] * factor
-                if self.mdata.iter.beta[d] > 1.:
-                    self.mdata.iter.beta[d] = 1.
-                beta_mean += self.mdata.iter.beta[d]
-        beta_mean /= (self.mdata.iter.tot_num_data - self.mdata.iter.num_blacklist)
+        for d in range(itr.tot_num_data):
+            if itr.blacklist[d] == 0:
+                itr.beta[d] = itr.beta_start[d] * factor
+                if itr.beta[d] > 1.:
+                    itr.beta[d] = 1.
+                beta_mean += itr.beta[d]
+        beta_mean /= (itr.tot_num_data - itr.num_blacklist)
 
         return beta_mean
 
@@ -128,6 +135,82 @@ cdef class EMCRecon():
         if self.mdata == NULL or self.mdata.iter == NULL:
             return
         c_recon.free_max_data(self.mdata)
+
+    def write_log_file_header(self):
+        cdef c_iterate.iterate *itr = self.mdata.iter
+        cdef c_model.model *mod = itr.mod
+        cdef c_params.params *param = itr.par
+        cdef c_quat.quaternion *quat = itr.quat
+        cdef c_dataset.dataset *frames = itr.dset
+
+        cdef double tot_mean_count = 0.
+        for i in range(itr.num_dfiles):
+            tot_mean_count = itr.mean_count[i] * frames.num_data
+            frames.next
+        tot_mean_count /= itr.tot_num_data
+        frames = itr.dset
+
+        with open((<bytes> param.log_fname).decode(), "w") as fp:
+            fp.write("Cryptotomography with the EMC algorithm using MPI+OpenMP\n\n")
+            fp.write("Data parameters:\n")
+            if itr.num_blacklist == 0:
+                fp.write("\tnum_data = %d\n\tmean_count = %f\n\n" % (itr.tot_num_data, tot_mean_count))
+            else:
+                fp.write("\tnum_data = %d/%d\n\tmean_count = %f\n\n" % (itr.tot_num_data-itr.num_blacklist, itr.tot_num_data, tot_mean_count))
+            fp.write("System size:\n")
+            fp.write("\tnum_rot = %d\n\tnum_pix = %d\n\t" % (quat.num_rot, itr.det.num_pix))
+            if param.rtype == c_params.RECON3D:
+                fp.write("system_volume = %d X %ld X %ld X %ld\n\n" % (mod.num_modes, mod.size, mod.size, mod.size))
+            elif param.rtype == c_params.RECON2D or param.rtype == c_params.RECONRZ:
+                fp.write("system_volume = %d X %ld X %ld\n\n" % (mod.num_modes, mod.size, mod.size))
+            fp.write("Reconstruction parameters:\n")
+            fp.write("\tnum_threads = %d\n\tnum_proc = %d\n\talpha = %.6f\n\tbeta = %.6f\n\tneed_scaling = %s" % (
+                    self.num_threads,
+                    param.num_proc,
+                    param.alpha,
+                    itr.beta_start[0],
+                    "yes" if param.need_scaling == 1 else "no"))
+            fp.write("\n\nIter\ttime\trms_change\tinfo_rate\tlog-likelihood\tnum_rot\tbeta\n")
+            fp.close()
+
+    def update_log_file(self, double likelihood, double beta, double iter_time):
+        cdef c_iterate.iterate *itr = self.mdata.iter
+        cdef c_params.params *param = itr.par
+
+        fp = open((<bytes>param.log_fname).decode(), "a")
+        fp.write("%d\t" % param.iteration)
+        fp.write("%4.2f\t" % iter_time)
+        fp.write("%1.4e\t%f\t%.6e\t%-7d\t%f\n" % (itr.rms_change, itr.mutual_info, likelihood, itr.quat.num_rot, beta))
+        fp.close()
+
+    def save_output(self):
+        itr = self.iter # Get cython class rather than struct
+        param = itr.params
+        out_fname = "%s/output_%.3d.h5" % (param.output_folder, param.iteration)
+
+        with h5py.File(out_fname, 'w') as f:
+            f['orientations'] = self.rmax
+            f['mutual_info'] = self.info
+            f['likelihood'] = self.likelihood
+            if self.mdata.iter.mod.num_modes > 1:
+                f['occupancies'] = self.quat_norm
+
+            f['intens'] = itr.model.model1
+            f['inter_weight'] = itr.model.inter_weight
+            if param.need_scaling != 0:
+                f['scale'] = itr.scale
+
+            if param.save_prob != 0:
+                f['probabilities/num_rot'] = [self.mdata.iter.quat.num_rot]
+                num_data = itr.tot_num_data
+
+                dtype = h5py.special_dtype(vlen='i4')
+                place_dset = f.create_dataset('probabilities/place', (num_data,), dtype=dtype)
+                place_dset[:] = self.place_prob
+
+                dtype = h5py.special_dtype(vlen='f8')
+                prob_dset = f.create_dataset('probabilities/prob', (num_data,), dtype=dtype)
+                prob_dset[:] = self.prob
 
     @property
     def num_threads(self): return self.num_threads
