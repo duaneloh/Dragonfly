@@ -318,6 +318,12 @@ cdef class Iterate:
     def mean_count(self): return np.asarray(<double[:self.num_det]>self.iter.mean_count) if self.iter.mean_count != NULL else None
     @property
     def rescale(self): return np.asarray(<double[:self.num_det]>self.iter.rescale) if self.iter.rescale != NULL else None
+    @property
+    def likelihood(self): return self.iter.likelihood
+    @property
+    def mutual_info(self): return self.iter.mutual_info
+    @property
+    def rms_change(self): return self.iter.rms_change
 
     @property
     def num_det(self): return self.iter.num_det
