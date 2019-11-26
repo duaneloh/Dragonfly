@@ -43,7 +43,7 @@ cdef class EMCRecon():
 
     def run_iteration(self):
         cdef double likelihood, beta_mean
-        
+
         if self.mdata.iter == NULL:
             print('Set iterate first')
             return
@@ -82,7 +82,7 @@ cdef class EMCRecon():
         for x in range(mod.num_modes * mod.vol):
             if mod.inter_weight[x] > 0.:
                 mod.model2[x] /= mod.inter_weight[x]
-                
+
         if param.rtype == c_params.RECONRZ or (param.rtype == c_params.RECON2D and param.friedel_sym):
             c_model.symmetrize_friedel2d(mod.model2, mod.num_modes, mod.size)
         elif param.rtype == c_params.RECON3D and quat.icosahedral_flag:
@@ -102,7 +102,7 @@ cdef class EMCRecon():
                 mod.model1[x] = param.alpha * mod.model1[x] + (1-param.alpha) * mod.model2[x]
             else:
                 mod.model1[x] = mod.model2[x]
-        
+
         self.mdata.iter.rms_change = sqrt(change / mod.num_modes / mod.vol)
 
     def update_beta(self):
@@ -132,7 +132,11 @@ cdef class EMCRecon():
     @property
     def num_threads(self): return self.num_threads
     @num_threads.setter
-    def num_threads(self, int val): self.num_threads = val
+    def num_threads(self, int val):
+        if val <= 0:
+            self.num_threads = openmp.omp_get_max_threads()
+        else:
+            self.num_threads = val
 
     @property
     def iter(self):
@@ -152,7 +156,6 @@ cdef class EMCRecon():
     def within_openmp(self): return self.mdata.within_openmp
     @within_openmp.setter
     def within_openmp(self, int val): self.mdata.within_openmp = val
-
 
     # Private to OpenMP thread only
     @property
@@ -175,6 +178,7 @@ cdef class EMCRecon():
     @property
     def psum_d(self): return np.asarray(<double[:self.mdata.iter.tot_num_data]>self.mdata.psum_d) if self.mdata.psum_d != NULL else None
 
+    # Common among all threads only
     @property
     def max_exp(self): return np.asarray(<double[:self.mdata.iter.tot_num_data]>self.mdata.max_exp) if self.mdata.max_exp != NULL else None
     @property
@@ -190,6 +194,7 @@ cdef class EMCRecon():
     @property
     def offset_prob(self): return np.asarray(<int[:self.num_threads*self.mdata.iter.tot_num_data]>self.mdata.offset_prob).reshape(self.num_threads, -1) if self.mdata.offset_prob != NULL else None
 
+    # In both private and common structs
     @property
     def max_exp_p(self): return np.asarray(<double[:self.mdata.iter.tot_num_data]>self.mdata.max_exp_p) if self.mdata.max_exp_p != NULL else None
     @property
