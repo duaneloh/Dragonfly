@@ -392,11 +392,6 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 	calc_psum_r(r, priv, common) ;
 	
 	for (detn = 0 ; detn < iter->num_det ; ++detn) 
-	for (t = 0 ; t < det[detn].num_pix ; ++t)
-	if (priv->psum_r[detn] > 0.)
-		priv->all_views[detn][t] /= priv->psum_r[detn] ;
-
-	for (detn = 0 ; detn < iter->num_det ; ++detn) 
 		memset(priv->all_views[detn], 0, det[detn].num_pix*sizeof(double)) ;
 	
 	while (curr != NULL) {
@@ -468,6 +463,12 @@ void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
 		curr = curr->next ;
 		dset++ ;
 	}
+
+	for (detn = 0 ; detn < iter->num_det ; ++detn) 
+	for (t = 0 ; t < det[detn].num_pix ; ++t)
+	if (priv->psum_r[detn] > 0.)
+		priv->all_views[detn][t] /= priv->psum_r[detn] ;
+
 }
 
 void merge_tomogram(int r, struct max_data *priv) {
