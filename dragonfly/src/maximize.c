@@ -74,13 +74,6 @@ double maximize(struct max_data *common_data) {
 	if (param->need_scaling && param->update_scale)
 		update_scale(common_data) ;
 	
-	//if (!param->rank) {
-	//	save_metrics(common_data) ;
-	//	if (param->save_prob)
-	//		save_prob(common_data) ;
-	//}
-	//print_max_time("save", "", param->rank == 0) ;
-    
 	return avg_likelihood ;
 }
 
