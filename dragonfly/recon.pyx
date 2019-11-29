@@ -295,3 +295,22 @@ cdef class EMCRecon():
     @property
     def place_prob(self): return [np.asarray(<int[:self.mdata.num_prob[d]]>self.mdata.place_prob[d]) for d in range(self.mdata.iter.tot_num_data)] if self.mdata.place_prob != NULL else None
 
+def main():
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Cryptotomography with the EMC algorithm using MPI+OpenMP')
+    parser.add_argument('niter', help='Number of iterations', type=int)
+    parser.add_argument('-c', '--config_file', help='Path to configuration file. Default: config.ini', default='config.ini')
+    parser.add_argument('-r', '--resume', help='Whether to resume from last iteration', action='store_true')
+    parser.add_argument('-t', '--threads', help='Number of OpenMP threads per MPI process', type=int, default=-1)
+    args = parser.parse_args()
+
+    recon = EMCRecon(args.threads)
+
+    itr = Iterate(args.config_file) #, args.resume) TODO
+    itr.params.num_iter = args.niter
+    recon.set_iterate(itr)
+
+    for itr.params.iteration in range(1, itr.params.num_iter+1):
+        recon.run_iteration()
+    print('Finished all iterations')

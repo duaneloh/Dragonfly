@@ -21,6 +21,7 @@ compile_args += '-Wno-cpp -Wno-unused-result -Wno-unused-function -Wno-format-ov
 compile_args += hdf5_cflags + gsl_cflags + ['-I'+np.get_include()]
 link_args = '-lm -fopenmp'.split() + hdf5_libs + gsl_libs
 
+# TODO: Fix undefined symbol problem requiring two rounds of compilation
 ext_modules = [
     Extension(name='dragonfly.detector', sources=['dragonfly/detector.pyx'],
         depends=['dragonfly/detector.h', 'dragonfly/detector.pxd'],
@@ -57,4 +58,9 @@ extensions = cythonize(ext_modules, language_level=3,
 
 setup(name='dragonfly',
       packages=py_packages,
-      ext_modules=extensions)
+      ext_modules=extensions,
+      entry_points = {'console_scripts': [
+          'pyemc = dragonfly.recon:main',
+          ]
+      },
+)
