@@ -307,10 +307,12 @@ def main():
 
     recon = EMCRecon(args.threads)
 
-    itr = Iterate(args.config_file) #, args.resume) TODO
+    itr = Iterate(args.config_file, resume=args.resume)
     itr.params.num_iter = args.niter
     recon.set_iterate(itr)
 
-    for itr.params.iteration in range(1, itr.params.num_iter+1):
+    st = itr.params.start_iter
+    en = itr.params.start_iter + itr.params.num_iter
+    for itr.params.iteration in range(st, en):
         recon.run_iteration()
     print('Finished all iterations')
