@@ -5,7 +5,7 @@ import pandas
 import h5py
 from configparser import ConfigParser
 
-from libc.stdlib cimport malloc, calloc, free
+from libc.stdlib cimport malloc, calloc, free, atoi
 from libc.string cimport memcpy
 cimport numpy as np
 from . cimport iterate as c_iterate
@@ -18,13 +18,13 @@ from .quaternion cimport Quaternion
 from .params cimport EMCParams
 
 cdef class Iterate:
-    def __init__(self, config_fname='', section_name='emc'):
+    def __init__(self, config_fname='', section_name='emc', resume=False):
         self.iter = <c_iterate.iterate*> calloc(1, sizeof(c_iterate.iterate))
         self.iter.par = <c_params.params*> calloc(1, sizeof(c_params.params))
         if config_fname != '':
-            self.from_config(config_fname, section_name)
+            self.from_config(config_fname, section_name, resume=resume)
 
-    def from_config(self, config_fname, section_name='emc'):
+    def from_config(self, config_fname, section_name='emc', resume=False):
         param = EMCParams()
         param.from_config(config_fname, section_name)
         self.set_params(param)
@@ -70,14 +70,6 @@ cdef class Iterate:
             raise ValueError("Need either in_photons_file or in_photons_list.")
         self.set_data(frames)
 
-        # Model
-        qmax = max([det.qmax() for det in dets])
-        model = Model(self.calculate_size(qmax), self.iter.par.num_modes)
-        mfile = config.get(section_name, 'start_model_file', fallback='')
-        model_mean = self.mean_count[0] / (self.dets[0].raw_mask==0).sum() * 2.
-        model.allocate(op.join(config_folder, mfile), model_mean)
-        self.set_model(model)
-
         # Quaternions
         if self.iter.par.fine_div > 0:
             quat = Quaternion(self.iter.par.fine_div)
@@ -85,10 +77,35 @@ cdef class Iterate:
             quat = Quaternion(config.getint(section_name, 'num_div'))
         self.set_quat(quat)
 
+        # Update file names if resuming reconstruction
+        model_file = op.join(config_folder, config.get(section_name, 'start_model_file', fallback=''))
+        scale_file = op.join(config_folder, config.get(section_name, 'scale_file', fallback=''))
+        bgscale_file = op.join(config_folder, config.get(section_name, 'bgscale_file', fallback=''))
+        if resume:
+            try:
+                fp = open(param.log_fname, 'r')
+                lines = fp.readlines()
+                last_iter = int(lines[len(lines)-1].split()[0])
+                fp.close()
+            except FileNotFoundError:
+                print('No log file found to resume reconstruction')
+                raise
+            self.params.start_iter = last_iter + 1
+            model_file = op.join(param.output_folder, 'output_%.3d.h5' % last_iter)
+            scale_file = op.join(param.output_folder, 'output_%.3d.h5' % last_iter)
+            print('Resuming from iteration', self.params.start_iter)
+
+        # Model
+        qmax = max([det.qmax() for det in dets])
+        model = Model(self.calculate_size(qmax), self.iter.par.num_modes)
+        model_mean = self.mean_count[0] / (self.dets[0].raw_mask==0).sum() * 2.
+        model.allocate(model_file, model_mean)
+        self.set_model(model)
+
         # Scale, blacklist etc.
         if self.iter.par.need_scaling == 1:
-            self.parse_scale(op.join(config_folder, config.get(section_name, 'scale_file', fallback='')))
-            self.parse_scale(op.join(config_folder, config.get(section_name, 'bgscale_file', fallback='')), bg=True)
+            self.parse_scale(scale_file)
+            self.parse_scale(bgscale_file, bg=True)
         sel_string = config.get(section_name, 'selection', fallback=None)
         self.parse_blacklist(op.join(config_folder, config.get(section_name, 'blacklist_file', fallback='')), sel_string)
         beta_str = config.get(section_name, 'beta', fallback='auto')
