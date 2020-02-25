@@ -7,6 +7,7 @@ import numpy as np
 
 class FrameClasses(object):
     '''Container class for frame classes
+    
     Attributes:
         num_frames: Number of frames
         unsaved: Flag on whether the current class list has been saved
@@ -53,8 +54,13 @@ class FrameClasses(object):
         self.key, self.key_pos, self.key_counts = np.unique(
             self.clist, return_inverse=True, return_counts=True)
         summary = ''
+        line = ''
         for i in range(len(self.key)):
-            summary += '%3s:%-7d' % (self.key[i], self.key_counts[i])
-            if i%5 == 4:
-                summary += '\n'
+            csumm = '%3s:%-7d' % (self.key[i], self.key_counts[i])
+            if len(line) + len(csumm) > 33:
+                summary += line + '\n'
+                line = csumm
+            else:
+                line += csumm
+        summary += line
         return summary

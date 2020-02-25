@@ -81,7 +81,7 @@ def _get_atom_coords(pdb_file, scatt):
                 # occupany > 50 % || one of either if occupany = 50 %
                 (occ, tag) = (float(line[56:60]), line[16])
                 if (occ > 0.5) | ((occ == 0.5) & (tag != "B")):
-                    atom_label = line[76:78].lstrip()
+                    atom_label = line[76:78].lstrip().upper()
                     if atom_label in scatt:
                         _append_atom(tmp_atoms, scatt[atom_label], line)
                     else:

@@ -7,7 +7,11 @@
 #include <libgen.h>
 #include <gsl/gsl_sf_gamma.h>
 #include <inttypes.h>
+#include "utils.h"
 #include "detector.h"
+#ifdef WITH_HDF5
+#include <hdf5.h>
+#endif // WITH_HDF5
 
 struct dataset {
 	// Data set type (0=sparse, 1=dense integer, 2=dense double)
@@ -36,13 +40,14 @@ struct dataset {
 	uint8_t *blacklist ;
 } ;
 
-int generate_data(char*, char*, char*, struct detector*, struct dataset*) ;
+int data_from_config(char*, char*, char*, struct detector*, struct dataset*) ;
 void calc_sum_fact(struct detector*, struct dataset*) ;
 int parse_dataset(char*, struct detector*, struct dataset*) ;
-int parse_data(char*, struct detector*, struct dataset*) ;
-void generate_blacklist(char*, struct dataset*) ;
+int parse_dataset_list(char*, struct detector*, struct dataset*) ;
+void blacklist_from_config(char*, char*, struct dataset*) ;
 void make_blacklist(char*, int, struct dataset*) ;
 int write_dataset(struct dataset*) ;
+void calc_powder(struct detector*, struct dataset*) ;
 void free_data(int, struct dataset*) ;
 
 #endif //DATASET_H

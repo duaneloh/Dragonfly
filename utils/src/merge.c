@@ -7,32 +7,19 @@
 #include <omp.h>
 #include <gsl/gsl_rng.h>
 
+#include "../../src/utils.h"
 #include "../../src/detector.h"
 #include "../../src/dataset.h"
 #include "../../src/interp.h"
 #include "../../src/iterate.h"
+#include "../../src/quat.h"
 
 struct detector *det ;
 struct dataset *frames ;
 struct iterate *iter ;
-double *quat ;
-char output_fname[1024] ;
+struct rotation *quat ;
 
-char *generate_token(char *line, char *section_name) {
-	char *token = strtok(line, " =") ;
-	if (token[0] == '#' || token[0] == '\n')
-		return NULL ;
-	
-	if (line[0] == '[') {
-		token = strtok(line, "[]") ;
-		strcpy(section_name, token) ;
-		return NULL ;
-	}
-	
-	return token ;
-}
-
-int generate_quat_list(char *config_fname) {
+int quat_list_from_config(char *config_fname) {
 	int r, t, invert_quat = 0 ;
 	char quat_fname[1024] = {'\0'} ;
 	char line[1024], section_name[1024], *token ;
@@ -51,33 +38,30 @@ int generate_quat_list(char *config_fname) {
 	}
 	fclose(config_fp) ;
 	
-	FILE *fp = fopen(quat_fname, "r") ;
-	if (fp == NULL) {
-		fprintf(stderr, "in_quat_file %s not found. Exiting.\n", quat_fname) ;
+	if (parse_quat(quat_fname, 0, quat) < 0)
+		return 1 ;
+	if (quat->num_rot < frames->tot_num_data) {
+		fprintf(stderr, "Number of quaternions and frames do not match\n") ;
 		return 1 ;
 	}
-	quat = malloc(frames->tot_num_data * 4 * sizeof(double)) ;
-	for (r = 0 ; r < frames->tot_num_data ; ++r) {
-		fscanf(fp, "%lf ", &quat[r*4]) ;
-		for (t = 1 ; t < 4 ; ++t) {
-			fscanf(fp, "%lf ", &quat[r*4 + t]) ;
-			if (invert_quat)
-				quat[r*4 + t] = -quat[r*4 + t] ;
-		}
+	if (invert_quat) {
+		for (r = 0 ; r < quat->num_rot ; ++r)
+		for (t = 1 ; t < 4 ; ++t)
+			quat->quat[r*4 + t] *= -1. ;
 	}
-	fclose(fp) ;
 	
-	fprintf(stderr, "First quat = (%.3f, %.3f, %.3f, %.3f)\n", quat[0], quat[1], quat[2], quat[3]) ;
-	fprintf(stderr, "Second quat = (%.3f, %.3f, %.3f, %.3f)\n", quat[4], quat[5], quat[6], quat[7]) ;
+	fprintf(stderr, "First quat->quat = (%.3f, %.3f, %.3f, %.3f)\n", quat->quat[0], quat->quat[1], quat->quat[2], quat->quat[3]) ;
+	fprintf(stderr, "Second quat->quat = (%.3f, %.3f, %.3f, %.3f)\n", quat->quat[5], quat->quat[6], quat->quat[7], quat->quat[8]) ;
 	
 	return 0 ;
 }
 
-int generate_globals(char *config_fname) {
+int globals_from_config(char *config_fname, char *output_fname, char *scale_fname) {
 	char line[1024], section_name[1024], *token ;
 	
-	frames = malloc(sizeof(struct dataset)) ;
-	iter = malloc(sizeof(struct iterate)) ;
+	frames = calloc(1, sizeof(struct dataset)) ;
+	iter = calloc(1, sizeof(struct iterate)) ;
+	quat = calloc(1, sizeof(struct rotation)) ;
 	
 	iter->size = -1 ;
 	iter->model2 = NULL ;
@@ -93,6 +77,8 @@ int generate_globals(char *config_fname) {
 				iter->size = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "out_merge_file") == 0)
 				strcpy(output_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "scale_file") == 0)
+				strcpy(scale_fname, strtok(NULL, " =\n")) ;
 		}
 	}
 	fclose(config_fp) ;
@@ -105,9 +91,52 @@ int generate_globals(char *config_fname) {
 	return 0 ;
 }
 
-int setup(char *fname) {
+int rel_quat_from_config(char *config_fname) {
+	char line[1024], section_name[1024], *token ;
+	char probs_fname[1024] ;
+	int num_div = -1 ;
+	
+	probs_fname[0] = '\0' ;
+	
+	FILE *config_fp = fopen(config_fname, "r") ;
+	while (fgets(line, 1024, config_fp) != NULL) {
+		if ((token = generate_token(line, section_name)) == NULL)
+			continue ;
+		
+		if (strcmp(section_name, "merge") == 0) {
+			if (strcmp(token, "in_probs_file") == 0)
+				strcpy(probs_fname, strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "num_div") == 0)
+				num_div = atoi(strtok(NULL, " =\n")) ;
+		}
+	}
+	fclose(config_fp) ;
+	
+	if (probs_fname[0] == '\0') {
+		fprintf(stderr, "in_probs_file not specified.\n") ;
+		return 1 ;
+	}
+	if (num_div == -1) {
+		fprintf(stderr, "Need num_div with in_probs_file\n") ;
+		return 1 ;
+	}
+	
+	if (quat_gen(num_div, quat) < 0) {
+		fprintf(stderr, "Problem generating quat[%d]\n", num_div) ;
+		return 1 ;
+	}
+	if (parse_rel_quat(probs_fname, quat->num_rot, 1, iter)) {
+		fprintf(stderr, "Problem parsing rel_quat and rel_prob\n") ;
+		return 1 ;
+	}
+	
+	return 0 ;
+}
+
+int setup(char *fname, char *output_fname) {
 	double qmax = -1 ;
 	FILE *fp ;
+	char scale_fname[1024] ;
 	
 	fp = fopen(fname, "r") ;
 	if (fp == NULL) {
@@ -115,15 +144,19 @@ int setup(char *fname) {
 		return 1 ;
 	}
 	fclose(fp) ;
-	if (generate_globals(fname))
+	if (globals_from_config(fname, output_fname, scale_fname))
 		return 1 ;
-	if ((qmax = generate_detectors(fname, "merge", &det, 1)) < 0.)
+	if ((qmax = detector_from_config(fname, "merge", &det, 1)) < 0.)
 		return 1 ;
 	calculate_size(qmax, iter) ;
-	if (generate_data(fname, "merge", "in", det, frames))
+	if (data_from_config(fname, "merge", "in", det, frames))
 		return 1 ;
-	if (generate_quat_list(fname))
+	iter->tot_num_data = frames->tot_num_data ;
+	iter->scale = malloc(iter->tot_num_data * sizeof(double)) ;
+	if (quat_list_from_config(fname) && rel_quat_from_config(fname))
 		return 1 ;
+	
+	parse_scale(scale_fname, iter->scale, iter) ;
 	
 	return 0 ;
 }
@@ -131,7 +164,7 @@ int setup(char *fname) {
 int main(int argc, char *argv[]) {
 	long i, vol ;
 	FILE *fp ;
-	char config_fname[1024] ;
+	char config_fname[1024], output_fname[1024] ;
 	int c ;
 	extern char *optarg ;
 	extern int optind ;
@@ -154,7 +187,7 @@ int main(int argc, char *argv[]) {
 	}
 	
 	fprintf(stderr, "Generating merge with parameters from %s\n", config_fname) ;
-	if (setup(config_fname))
+	if (setup(config_fname, output_fname))
 		return 1 ;
 	iter->center = iter->size / 2 ;
 	vol = (long)iter->size*iter->size*iter->size ;
@@ -164,11 +197,14 @@ int main(int argc, char *argv[]) {
 	#pragma omp parallel default(shared)
 	{
 		int omp_rank = omp_get_thread_num() ;
-		long detn, d, t, i, dset = 0, old_detn = -1 ;
+		long detn, curr_d, d, t, r, dset = 0, old_detn = -1 ;
+		double *pview = NULL ;
 		double *priv_model = calloc(vol, sizeof(double)) ;
 		double *priv_weight = calloc(vol, sizeof(double)) ;
 		double *view = malloc(det->num_pix * sizeof(double)) ;
 		struct dataset *curr = frames ;
+		if (iter->rel_quat != NULL)
+			pview = malloc(det->num_pix * sizeof(double)) ;
 		
 		while (curr != NULL) {
 			detn = det[0].mapping[dset] ;
@@ -179,14 +215,29 @@ int main(int argc, char *argv[]) {
 			}
 			
 			#pragma omp for schedule(static,1)
-			for (d = 0 ; d < curr->num_data ; ++d) {
-				memset(view, 0, det[detn].num_pix * sizeof(double)) ;
-				for (t = 0 ; t < curr->ones[d] ; ++t)
-					view[curr->place_ones[curr->ones_accum[d]+t]] += 1 ;
-				for (t = 0 ; t < curr->multi[d] ; ++t)
-					view[curr->place_multi[curr->multi_accum[d]+t]] += curr->count_multi[curr->multi_accum[d]+t] ;
+			for (curr_d = 0 ; curr_d < curr->num_data ; ++curr_d) {
+				d = curr->num_data_prev + curr_d ;
 				
-				slice_merge3d(&quat[4*d], view, priv_model, priv_weight, iter->size, &det[detn]) ;
+				memset(view, 0, det[detn].num_pix * sizeof(double)) ;
+				for (t = 0 ; t < curr->ones[curr_d] ; ++t)
+					view[curr->place_ones[curr->ones_accum[curr_d]+t]] += 1 ;
+				for (t = 0 ; t < curr->multi[curr_d] ; ++t)
+					view[curr->place_multi[curr->multi_accum[curr_d]+t]] += curr->count_multi[curr->multi_accum[curr_d]+t] ;
+				
+				for (t = 0 ; t < det[detn].num_pix ; ++t)
+					view[t] *= iter->scale[d] ;
+				
+				if (iter->rel_quat == NULL) {
+					slice_merge3d(&quat->quat[5*d], view, priv_model, priv_weight, iter->size, &det[detn]) ;
+				}
+				else {
+					for (r = 0 ; r < iter->num_rel_quat[d] ; ++r) {
+						for (t = 0 ; t < det[detn].num_pix ; ++t)
+							pview[t] = view[t] * iter->rel_prob[d][r] ;
+						slice_merge3d(&quat->quat[5*iter->rel_quat[d][r]], pview, priv_model, priv_weight, iter->size, &det[detn]) ;
+					}
+				}
+				
 				if (omp_rank == 0)
 					fprintf(stderr, "\rMerging %s : %ld/%d", curr->filename, d+1, curr->num_data) ;
 			}
@@ -200,9 +251,9 @@ int main(int argc, char *argv[]) {
 		
 		#pragma omp critical(model)
 		{
-			for (i = 0 ; i < vol ; ++i) {
-				iter->model1[i] += priv_model[i] ;
-				iter->inter_weight[i] += priv_weight[i] ;
+			for (t = 0 ; t < vol ; ++t) {
+				iter->model1[t] += priv_model[t] ;
+				iter->inter_weight[t] += priv_weight[t] ;
 			}
 		}
 		
@@ -227,8 +278,8 @@ int main(int argc, char *argv[]) {
 	fprintf(stderr, "Saved %ld-cubed model to %s\n", iter->size, output_fname) ;
 	
 	free_iterate(iter) ;
-	free(quat) ;
 	free_detector(det) ;
+	free_quat(quat) ;
 	free_data(0, frames) ;
 	
 	return 0 ;

@@ -15,6 +15,7 @@ from sklearn import neural_network
 
 class MLPPanel(QtWidgets.QWidget):
     '''Multi Layer Pereceptron panel for the classifier GUI
+    
     This class takes some classified data and trains an MLP network
     This network can then be used to make predictions on the rest of the unclassified frames
     '''
@@ -88,8 +89,9 @@ class MLPPanel(QtWidgets.QWidget):
         if len(self.train_data) == 0:
             sys.stderr.write('Need to classify some of the converted frames in order to train\n')
             return
+        print('Training with %d frames in the following classes:'%len(self.train_labels), self.classes.key[1:])
         self.mlp.fit(self.train_data, self.train_labels)
-        sys.stderr.write('Done training\n')
+        print('Done training')
         #print('Score on training set =', self.mlp.score(self.train_data, self.train_labels))
         if not self.trained:
             self._add_predict_frame()
@@ -102,8 +104,8 @@ class MLPPanel(QtWidgets.QWidget):
             self.conversion.converted = np.load(self.parent.output_folder+'/converted.npy')
             converted = self.conversion.converted
 
-        first = int(self.conversion.first_frame.text())
-        last = int(self.conversion.last_frame.text())
+        first = int(self.conversion.proc_params['first_frame'].text())
+        last = int(self.conversion.proc_params['last_frame'].text())
         key_pos = self.classes.key_pos[first:last]
         self.train_data = converted[key_pos > 0]
         self.train_labels = key_pos[key_pos > 0]
@@ -168,7 +170,7 @@ class MLPPanel(QtWidgets.QWidget):
                               self._get_and_convert(first).shape[0]))
             return
 
-        predictions = mp.Array(ctypes.c_char, self.emc_reader.num_frames)
+        predictions = mp.Array(ctypes.c_char, int(self.emc_reader.num_frames))
         jobs = []
         for i in range(num_proc):
             proc = mp.Process(target=self._predict_worker,
@@ -180,17 +182,21 @@ class MLPPanel(QtWidgets.QWidget):
         sys.stderr.write('\r%d/%d\n' % (last, last))
 
         self.predictions = np.frombuffer(predictions.get_obj(), dtype='S1')
+        self.predictions = np.array([key.decode('utf-8') for key in self.predictions])
         self._gen_predict_summary()
 
     def _get_and_convert(self, num):
         return self.conversion.polar.convert(self.emc_reader.get_frame(num, raw=True),
-                                             method=self.conversion.method.currentText()).flatten()
+                                             method=self.conversion.proc_params['method'].currentText()).flatten()
 
     def _predict_worker(self, rank, num_proc, indices, predictions):
         my_ind = indices[rank::num_proc]
         for i in my_ind:
             converted = np.expand_dims(self._get_and_convert(i), axis=0)
-            predictions[i] = self.classes.key[self.mlp.predict(converted)[0]]
+            try:
+                predictions[i] = bytes(self.classes.key[self.mlp.predict(converted)[0]], 'utf-8')
+            except TypeError:  # Python 2
+                predictions[i] = bytes(self.classes.key[self.mlp.predict(converted)[0]])
             if rank == 0:
                 sys.stderr.write('\r%d/%d'%(i, indices[-1]))
 

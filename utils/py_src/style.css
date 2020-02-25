@@ -1,45 +1,100 @@
 QMenuBar, QMenuBar *,
 #frame, #frame * {
   background: #2a2a2f;
-  color: white;
+  color: #ededee;
   padding: 4px;
   margin: 0;
 }
 
   #frame QPushButton {
-    border: 1px solid white;
+    border: 1px solid #e0e0e2;
     border-radius: 4px;
   }
 
-  #frame QPushButton:hover {
-    background: #444444;
+  #frame QPushButton:hover,
+  #frame QPushButton:checked {
+    background: #9f9fa4;
   }
 
   #frame QLineEdit {
     border: none;
     padding: 1px;
-    border-bottom: 1px solid white;
+    border-bottom: 1px solid #e0e0e2;
   }
 
   #frame QLineEdit:focus {
-    border-bottom: 2px solid white;
+    background: #3e3e48;
+    border-bottom: 2px solid #e0e0e2;
   }
 
-  #frame QTextEdit {
-    background: #444444;
-  }
-  
   #frame QLabel {
     padding-right: 0px;
   }
 
-#green, #green * {
-  background: #113322;
-  color white;
-  padding: 4px;
-  margin: 0;
+  /*
+  */
+  #frame QSlider::groove:horizontal {
+    background: #8bd3e2;
+    height: 4px;
+    border: 1px solid #0f1010;
+  }
+
+  #frame QSlider::handle:horizontal {
+    margin: -4px 0;
+    width: 12px;
+    background: #9f9fa4;
+    border: 1px solid #0f1010;
+    border-radius: 4px;
+  }
+
+  /*
+  #frame QCheckBox::indicator {
+    border: 1px solid #e0e0e2;
+  }
+
+  #frame QCheckBox::indicator:unchecked {
+    image: url(:/images/checkbox_unchecked.jpg);
+  }
+
+  #frame QCheckBox::indicator:unchecked:hover {
+    image: url(:/images/checkbox_unchecked_hover.jpg);
+  }
+
+  #frame QCheckBox::indicator:unchecked:pressed {
+    image: url(:/images/checkbox_unchecked_pressed.jpg);
+  }
+
+  #frame QCheckBox::indicator:checked {
+    image: url(:/images/checkbox_checked.jpg);
+  }
+
+  #frame QCheckBox::indicator:checked:hover {
+    image: url(:/images/checkbox_checked_hover.jpg);
+  }
+
+  #frame QCheckBox::indicator:checked:pressed {
+    image: url(:/images/checkbox_checked_pressed.jpg);
+  }
+  */
+
+  QMenu::item:selected,
+  QMenuBar::item:selected {
+    background: #3e3e48;
+  }
+
+QToolTip {
+  border-color: None;
+  border-radius: 4px;
+  opacity: 216;
 }
 
 #plots, #plots * {
-  background: #232629;
+  background: #3e3e48;
 }
+
+#logtext {
+  background: #3e3e48;
+  font-family: monospace;
+  font-size: 8pt;
+}
+  

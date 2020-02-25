@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <math.h>
+#include "../../src/utils.h"
 #include "../../src/dataset.h"
 #include "../../src/detector.h"
 
@@ -30,14 +31,6 @@ int parse_arguments(int argc, char *argv[], char *config_fname, char *powder_fna
 	return 0 ;
 }
 
-char* remove_ext(char *fullName) {
-	char *out = malloc(500 * sizeof(char)) ;
-	strcpy(out,fullName) ;
-	if (strrchr(out,'.') != NULL)
-		*strrchr(out,'.') = 0 ;
-	return out ;
-}
-
 int main(int argc, char *argv[]) {
 	struct detector *det ;
 	struct dataset *curr, *frames ;
@@ -51,9 +44,9 @@ int main(int argc, char *argv[]) {
 	if (parse_arguments(argc, argv, config_fname, powder_fname))
 		return 1 ;
 	
-	generate_detectors(config_fname, "emc", &det, 1) ;
+	detector_from_config(config_fname, "emc", &det, 1) ;
 	frames = malloc(sizeof(struct dataset)) ;
-	generate_data(config_fname, "in", "emc", det, frames) ;
+	data_from_config(config_fname, "in", "emc", det, frames) ;
 	
 	powder = malloc(det->num_pix * sizeof(double)) ;
 	fp = fopen(powder_fname, "rb") ;

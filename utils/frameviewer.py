@@ -23,11 +23,12 @@ class Frameviewer(QtWidgets.QMainWindow):
         compare: Compare against best tomogram
         mask: Apply mask to frames
     '''
-    def __init__(self, config_file, mask=False, do_powder=False, do_compare=False):
+    def __init__(self, config_file, mask=False, do_powder=False, do_compare=False, noscroll=False):
         super(Frameviewer, self).__init__()
         self.config_file = config_file
         self.do_powder = do_powder
         self.do_compare = do_compare
+        self.noscroll = noscroll
         self.cmap = None
 
         read_config.read_gui_config(self, 'emc')
@@ -58,13 +59,14 @@ class Frameviewer(QtWidgets.QMainWindow):
             cmapmenu.addAction(action)
 
         # Frame panel
-        self.hbox = QtWidgets.QHBoxLayout()
-        self.hbox.setContentsMargins(0, 0, 0, 0)
+        self.vbox = QtWidgets.QVBoxLayout()
+        self.vbox.setContentsMargins(0, 0, 0, 0)
         self.frame_panel = frame_panel.FramePanel(self, powder=self.do_powder,
-                                                  compare=self.do_compare)
-        self.hbox.addWidget(self.frame_panel)
+                                                  compare=self.do_compare,
+                                                  noscroll=self.noscroll)
+        self.vbox.addWidget(self.frame_panel)
 
-        self.window.setLayout(self.hbox)
+        self.window.setLayout(self.vbox)
         self.setCentralWidget(self.window)
         self.show()
 

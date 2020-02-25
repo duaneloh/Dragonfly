@@ -52,12 +52,13 @@ void slice_gen3d(double *quaternion, double rescale, double *slice, double *mode
 		// Correct for solid angle and polarization
 		slice[t] *= det->pixels[t*4 + 3] ;
 		
-		if (slice[t] <= 0.)
-			slice[t] = DBL_MIN ;
-		
 		// Use rescale as flag on whether to take log or not
-		else if (rescale != 0.) 
-			slice[t] = log(slice[t] * rescale) ;
+		if (rescale != 0.) {
+			if (slice[t] <= 0.)
+				slice[t] = DBL_MIN ;
+			else
+				slice[t] = log(slice[t] * rescale) ;
+		}
 	}
 }
 
@@ -256,6 +257,125 @@ void slice_merge2d(double *angle_ptr, double *slice, double *model, double *weig
 	}
 }
 
+/* RZ interpolation
+ * Generates slice[t] from model[x] by interpolation at angle phi and beta
+ * The locations of the pixels in slice[t] are given by detector[t]
+*/
+void slice_genrz(double *phibeta, double rescale, double *slice, double *model, long size, struct detector *det) {
+	int t, x, y ;
+	double tx, ty, fx, fy, cx, cy, fac ;
+	double q_beta[3], q_0[3], rot_phi[2][2] = {{0}}, rot_beta[2][2] = {{0}} ;
+	
+	make_rot_angle(phibeta[0], rot_phi) ;
+	make_rot_angle(phibeta[1], rot_beta) ;
+	
+	for (t = 0 ; t < det->num_pix ; ++t) {
+		fac = det->detd * det->detd ;
+		fac += pow(det->pixels[t*3+0], 2.) + pow(det->pixels[t*3+1], 2.) ;
+		q_0[0] = (det->pixels[t*3+0]*rot_phi[0][0] + det->pixels[t*3+1]*rot_phi[0][1]) / fac ;
+		q_0[1] = (det->pixels[t*3+0]*rot_phi[1][0] + det->pixels[t*3+1]*rot_phi[1][1]) / fac ;
+		q_0[2] = det->detd/fac - 1. ;
+		
+		q_beta[0] = q_0[0] ;
+		q_beta[1] = q_0[1]*rot_beta[0][0] + q_0[2]*rot_beta[0][1] ;
+		q_beta[2] = q_0[1]*rot_beta[1][0] + q_0[2]*rot_beta[1][1] ;
+		
+		tx = (size/2)*(sqrt(q_beta[0]*q_beta[0] + q_beta[2]*q_beta[2]) + 1.) ;
+		ty = (size/2)*(1. + q_beta[1]) ;
+		
+		x = tx ;
+		y = ty ;
+		
+		if (x < 0 || x > size-2 || y < 0 || y > size-2) {
+			slice[t] = DBL_MIN ;
+			continue ;
+		}
+		
+		fx = tx - x ;
+		fy = ty - y ;
+		cx = 1. - fx ;
+		cy = 1. - fy ;
+		
+		slice[t] = cx*cy*model[x*size+ y] +
+		           cx*fy*model[x*size+ ((y+1)%size)] +
+		           fx*cy*model[((x+1)%size)*size + y] +
+		           fx*fy*model[((x+1)%size)*size + ((y+1)%size)] ;
+		
+		// Correct for solid angle and polarization
+		slice[t] *= det->pixels[t*3 + 2] ;
+		
+		if (slice[t] <= 0.)
+			slice[t] = DBL_MIN ;
+		
+		// Use rescale as flag on whether to take log or not
+		else if (rescale != 0.) 
+			slice[t] = log(slice[t] * rescale) ;
+	}
+}
+
+/* RZ merging
+ * Merges slice[t] into model[x] at the given phi, beta angles
+ * Also adds to weight[x] containing the interpolation weights
+ * The locations of the pixels in slice[t] are given by detector[t]
+*/
+void slice_mergerz(double *phibeta, double *slice, double *model, double *weight, long size, struct detector *det) {
+	int t, x, y ;
+	double tx, ty, fx, fy, cx, cy, w, f, fac ;
+	double q_beta[3], q_0[3], rot_phi[2][2] = {{0}}, rot_beta[2][2] = {{0}} ;
+	
+	make_rot_angle(phibeta[0], rot_phi) ;
+	make_rot_angle(phibeta[1], rot_beta) ;
+	
+	for (t = 0 ; t < det->num_pix ; ++t) {
+		if (det->mask[t] > 1)
+			continue ;
+		
+		fac = det->detd * det->detd ;
+		fac += pow(det->pixels[t*3+0], 2.) + pow(det->pixels[t*3+1], 2.) ;
+		q_0[0] = (det->pixels[t*3+0]*rot_phi[0][0] + det->pixels[t*3+1]*rot_phi[0][1]) / fac ;
+		q_0[1] = (det->pixels[t*3+0]*rot_phi[1][0] + det->pixels[t*3+1]*rot_phi[1][1]) / fac ;
+		q_0[2] = det->detd/fac - 1. ;
+		
+		q_beta[0] = q_0[0] ;
+		q_beta[1] = q_0[1]*rot_beta[0][0] + q_0[2]*rot_beta[0][1] ;
+		q_beta[2] = q_0[1]*rot_beta[1][0] + q_0[2]*rot_beta[1][1] ;
+		
+		tx = (size/2)*(sqrt(q_beta[0]*q_beta[0] + q_beta[2]*q_beta[2]) + 1.) ;
+		ty = (size/2)*(1. + q_beta[1]) ;
+		
+		x = tx ;
+		y = ty ;
+		
+		if (x < 0 || x > size-2 || y < 0 || y > size-2)
+			continue ;
+		
+		fx = tx - x ;
+		fy = ty - y ;
+		cx = 1. - fx ;
+		cy = 1. - fy ;
+		
+		// Correct for solid angle and polarization
+		slice[t] /= det->pixels[t*3 + 2] ;
+		w = slice[t] ;
+		
+		f = cx*cy ;
+		weight[x*size + y] += f ;
+		model[x*size + y] += f * w ;
+		
+		f = cx*fy ;
+		weight[x*size + ((y+1)%size)] += f ;
+		model[x*size + ((y+1)%size)] += f * w ;
+		
+		f = fx*cy ;
+		weight[((x+1)%size)*size + y] += f ;
+		model[((x+1)%size)*size + y] += f * w ;
+		
+		f = fx*fy ;
+		weight[((x+1)%size)*size + ((y+1)%size)] += f ;
+		model[((x+1)%size)*size + ((y+1)%size)] += f * w ;
+	}
+}
+
 /* Rotates cubic model according to given rotation matrix
  * 	Adds to rotated model. Does not zero output model.
  * 	Note that this function uses OpenMP so it should not be put in a parallel block
@@ -265,14 +385,16 @@ void slice_merge2d(double *angle_ptr, double *slice, double *model, double *weig
  * 		s - Size of model. Center assumed to be at (s/2, s/2, s/2)
  * 		rotmodel - Pointer to rotated model
  */
-void rotate_model(double rot[3][3], double *m, int s, double *rotmodel) {
+void rotate_model(double rot[3][3], double *m, int s, int max_r, double *rotmodel) {
 	int x, y, z, i, c = s/2, vx, vy, vz ;
 	double fx, fy, fz, cx, cy, cz ;
 	double rot_vox[3] ;
+	if (max_r == 0)
+		max_r = c ;
 	
-	for (vx = -c ; vx < s-c ; ++vx)
-	for (vy = -c ; vy < s-c ; ++vy)
-	for (vz = -c ; vz < s-c ; ++vz) {
+	for (vx = -max_r ; vx < max_r ; ++vx)
+	for (vy = -max_r ; vy < max_r ; ++vy)
+	for (vz = -max_r ; vz < max_r ; ++vz) {
 		for (i = 0 ; i < 3 ; ++i) {
 			rot_vox[i] = 0. ;
 			rot_vox[i] += rot[i][0]*vx + rot[i][1]*vy + rot[i][2]*vz ;
@@ -367,6 +489,24 @@ void symmetrize_friedel(double *array, int size) {
 	}
 }
 
+/* In-place Friedel symmetrization for 2D stack:
+ * I(q) and I(-q) are replaced by their average for each 2D layer independently
+ */
+void symmetrize_friedel2d(double *array, int num_layers, int size) {
+	int x, y, z, min = 0, center = size/2 ;
+	double ave_intens ;
+	if (size % 2 == 0)
+		min = 1 ;
+	
+	for (x = 0; x < num_layers; ++x)
+	for (y = min ; y < size ; ++y)
+	for (z = min ; z <= center ; ++z) {
+		ave_intens = .5 * (array[x*size*size + y*size + z] + array[x*size*size + (2*center-y)*size + (2*center-z)]) ;
+		array[x*size*size + y*size + z] = ave_intens ;
+		array[x*size*size + (2*center-y)*size +  (2*center-z)] = ave_intens ;
+	}
+}
+
 static double icos_list[60][3][3] = {
 	{{1., 0., 0.}, {0., 1., 0.}, {0., 0., 1.}},
 	{{-1., 0., 0.}, {0., -1., 0.}, {0., 0., 1.}},
@@ -429,6 +569,80 @@ static double icos_list[60][3][3] = {
 	{{-0.309017, -0.5, 0.809017}, {-0.5, 0.809017, 0.309017}, {-0.809017, -0.309017, -0.5}},
 	{{-0.5, 0.809017, -0.309017}, {0.809017, 0.309017, -0.5}, {-0.309017, -0.5, -0.809017}}
 } ;
+
+static double cube_list[48][3][3] = {
+	{{ 1,  0,  0}, { 0,  1,  0}, { 0,  0,  1}},
+	{{ 1,  0,  0}, { 0,  1,  0}, { 0,  0, -1}},
+	{{ 1,  0,  0}, { 0, -1,  0}, { 0,  0,  1}},
+	{{ 1,  0,  0}, { 0, -1,  0}, { 0,  0, -1}},
+	{{-1,  0,  0}, { 0,  1,  0}, { 0,  0,  1}},
+	{{-1,  0,  0}, { 0,  1,  0}, { 0,  0, -1}},
+	{{-1,  0,  0}, { 0, -1,  0}, { 0,  0,  1}},
+	{{-1,  0,  0}, { 0, -1,  0}, { 0,  0, -1}},
+	{{ 0,  1,  0}, { 1,  0,  0}, { 0,  0,  1}},
+	{{ 0,  1,  0}, { 1,  0,  0}, { 0,  0, -1}},
+	{{ 0,  1,  0}, {-1,  0,  0}, { 0,  0,  1}},
+	{{ 0,  1,  0}, {-1,  0,  0}, { 0,  0, -1}},
+	{{ 0, -1,  0}, { 1,  0,  0}, { 0,  0,  1}},
+	{{ 0, -1,  0}, { 1,  0,  0}, { 0,  0, -1}},
+	{{ 0, -1,  0}, {-1,  0,  0}, { 0,  0,  1}},
+	{{ 0, -1,  0}, {-1,  0,  0}, { 0,  0, -1}},
+	{{ 0,  0,  1}, { 0,  1,  0}, { 1,  0,  0}},
+	{{ 0,  0,  1}, { 0,  1,  0}, {-1,  0,  0}},
+	{{ 0,  0,  1}, { 0, -1,  0}, { 1,  0,  0}},
+	{{ 0,  0,  1}, { 0, -1,  0}, {-1,  0,  0}},
+	{{ 0,  0, -1}, { 0,  1,  0}, { 1,  0,  0}},
+	{{ 0,  0, -1}, { 0,  1,  0}, {-1,  0,  0}},
+	{{ 0,  0, -1}, { 0, -1,  0}, { 1,  0,  0}},
+	{{ 0,  0, -1}, { 0, -1,  0}, {-1,  0,  0}},
+	{{ 1,  0,  0}, { 0,  0,  1}, { 0,  1,  0}},
+	{{ 1,  0,  0}, { 0,  0,  1}, { 0, -1,  0}},
+	{{ 1,  0,  0}, { 0,  0, -1}, { 0,  1,  0}},
+	{{ 1,  0,  0}, { 0,  0, -1}, { 0, -1,  0}},
+	{{-1,  0,  0}, { 0,  0,  1}, { 0,  1,  0}},
+	{{-1,  0,  0}, { 0,  0,  1}, { 0, -1,  0}},
+	{{-1,  0,  0}, { 0,  0, -1}, { 0,  1,  0}},
+	{{-1,  0,  0}, { 0,  0, -1}, { 0, -1,  0}},
+	{{ 0,  1,  0}, { 0,  0,  1}, { 1,  0,  0}},
+	{{ 0,  1,  0}, { 0,  0,  1}, {-1,  0,  0}},
+	{{ 0,  1,  0}, { 0,  0, -1}, { 1,  0,  0}},
+	{{ 0,  1,  0}, { 0,  0, -1}, {-1,  0,  0}},
+	{{ 0, -1,  0}, { 0,  0,  1}, { 1,  0,  0}},
+	{{ 0, -1,  0}, { 0,  0,  1}, {-1,  0,  0}},
+	{{ 0, -1,  0}, { 0,  0, -1}, { 1,  0,  0}},
+	{{ 0, -1,  0}, { 0,  0, -1}, {-1,  0,  0}},
+	{{ 0,  0,  1}, { 1,  0,  0}, { 0,  1,  0}},
+	{{ 0,  0,  1}, { 1,  0,  0}, { 0, -1,  0}},
+	{{ 0,  0,  1}, {-1,  0,  0}, { 0,  1,  0}},
+	{{ 0,  0,  1}, {-1,  0,  0}, { 0, -1,  0}},
+	{{ 0,  0, -1}, { 1,  0,  0}, { 0,  1,  0}},
+	{{ 0,  0, -1}, { 1,  0,  0}, { 0, -1,  0}},
+	{{ 0,  0, -1}, {-1,  0,  0}, { 0,  1,  0}},
+	{{ 0,  0, -1}, {-1,  0,  0}, { 0, -1,  0}},
+} ;
+
+/* Octahedral symmetrization
+ * 	Assumes vertices are at permutations of (+-1, +-1, +-1)
+ * 	Arguments:
+ * 		Pointer to model representing centered 3D volume
+ * 		Size of model
+ * 	No return value. Symmetrization performed in-place
+ */
+void symmetrize_octahedral(double *model, int size) {
+	double *temp = malloc(size*size*size*sizeof(double)) ;
+	int i ;
+	
+	memcpy(temp, model, size*size*size*sizeof(double)) ;
+	memset(model, 0, size*size*size*sizeof(double)) ;
+	
+	for (i = 0 ; i < 48 ; ++i)
+		rotate_model_openmp(cube_list[i], temp, size, model) ;
+	
+	for (i = 0 ; i < size*size*size ; ++i)
+		model[i] /= 48. ;
+	
+	free(temp) ;
+}
 
 /* Icosahedral symmetrization
  * 	Assumes vertices are at permutations of (0, +-1, +-tau)

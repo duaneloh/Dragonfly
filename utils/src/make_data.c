@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <ctype.h>
 #include <inttypes.h>
 #include <limits.h>
 #include <omp.h>
@@ -13,6 +14,7 @@
 #include <float.h>
 #include <stdint.h>
 #include <libgen.h>
+#include "../../src/utils.h"
 #include "../../src/detector.h"
 #include "../../src/interp.h"
 
@@ -20,7 +22,7 @@
 #define FLUENCE 0
 #define COUNTS 1
 
-int testing_mode = 0 ;
+int testing_mode = 0, answer_yes = 0, hdf5_output ;
 int size, num_rot, scale_method ;
 int **place_ones, **place_multi, *ones, *multi, **count_multi ;
 double *intens, *likelihood, *quat_list, *scale_factors ;
@@ -28,18 +30,18 @@ struct detector *det ;
 
 // Config file params
 int num_data, do_gamma ;
-double fluence, rescale, mean_count, background ;
+double fluence, rescale, mean_count ;
 char output_fname[1024], likelihood_fname[1024], scale_fname[1024] ;
 
 void rescale_intens() ;
-void allocate_data_memory() ;
-double calc_dataset() ;
+void allocate_data_memory(int*) ;
+double calc_dataset(int*) ;
 void write_dataset() ;
 int setup(char*) ;
 void free_mem() ;
 
 int main(int argc, char *argv[]) {
-	int c ;
+	int c, num_counts[2] = {0} ;
 	double actual_mean_count ;
 	struct timeval t1, t2 ;
 	gsl_rng_env_setup() ;
@@ -50,7 +52,7 @@ int main(int argc, char *argv[]) {
 	
 	omp_set_num_threads(omp_get_max_threads()) ;
 	strcpy(config_fname, "config.ini") ;
-	while ((c = getopt(argc, argv, "c:t:Th")) != -1) {
+	while ((c = getopt(argc, argv, "c:t:Tyh")) != -1) {
 		switch (c) {
 			case 't':
 				omp_set_num_threads(atoi(optarg)) ;
@@ -62,8 +64,11 @@ int main(int argc, char *argv[]) {
 				testing_mode = 1 ;
 				fprintf(stderr, "====== Testing mode (fixed seed) ======\n") ;
 				break ;
+			case 'y':
+				answer_yes = 1 ;
+				break ;
 			case 'h':
-				fprintf(stderr, "Format: %s [-c config_fname] [-t num_threads] [-h]\n", argv[0]) ;
+				fprintf(stderr, "Format: %s [-c config_fname] [-t num_threads] [-y] [-h]\n", argv[0]) ;
 				return 1 ;
 		}
 	}
@@ -75,8 +80,8 @@ int main(int argc, char *argv[]) {
 	gettimeofday(&t1, NULL) ;
 	
 	rescale_intens() ;
-	allocate_data_memory() ;
-	actual_mean_count = calc_dataset() ;
+	allocate_data_memory(num_counts) ;
+	actual_mean_count = calc_dataset(num_counts) ;
 	write_dataset() ;
 	
 	gettimeofday(&t2, NULL) ;
@@ -169,9 +174,9 @@ void rescale_intens() {
 		intens[x] *= rescale ;
 }
 
-void allocate_data_memory() {
-	int d ;
-	long num_ones, num_multi ;
+void allocate_data_memory(int *num_counts) {
+	int d, t ;
+	double bg_count = 0. ;
 	
 	ones = calloc(num_data, sizeof(int)) ;
 	multi = calloc(num_data, sizeof(int)) ;
@@ -180,21 +185,23 @@ void allocate_data_memory() {
 	count_multi = malloc(num_data * sizeof(int*)) ;
 	likelihood = calloc(num_data, sizeof(double)) ;
 	scale_factors = malloc(num_data * sizeof(double)) ;
+	for (t = 0 ; t < det->num_pix ; ++t)
+		bg_count += det->background[t] ;
 	
-	num_multi = (mean_count + background*det->num_pix) > det->num_pix ?
-	            det->num_pix :
-	            (mean_count + background*det->num_pix) ;
-	num_ones = 10*num_multi > det->num_pix ? det->num_pix : 10*num_multi ;
-	fprintf(stderr, "Assuming maximum of %ld and %ld ones and multi pixels respectively.\n", num_ones, num_multi) ;
+	num_counts[1] = (mean_count + bg_count) > det->num_pix ?
+	                det->num_pix :
+	                (mean_count + bg_count) ;
+	num_counts[0] = 10*num_counts[1] > det->num_pix ? det->num_pix : 10*num_counts[1];
+	fprintf(stderr, "Assuming maximum of %d and %d ones and multi pixels respectively.\n", num_counts[0], num_counts[1]) ;
 	
 	for (d = 0 ; d < num_data ; ++d) {
-		place_ones[d] = malloc((long) num_ones * sizeof(int)) ;
-		place_multi[d] = malloc((long) num_multi * sizeof(int)) ;
-		count_multi[d] = malloc((long) num_multi * sizeof(int)) ;
+		place_ones[d] = malloc((size_t) num_counts[0] * sizeof(int)) ;
+		place_multi[d] = malloc((size_t) num_counts[1] * sizeof(int)) ;
+		count_multi[d] = malloc((size_t) num_counts[1] * sizeof(int)) ;
 	}
 }
 
-double calc_dataset() {
+double calc_dataset(int *num_counts) {
 	int x ;
 	double actual_mean_count = 0. ;
 	const gsl_rng_type *T = gsl_rng_default ;
@@ -215,6 +222,7 @@ double calc_dataset() {
 	#pragma omp parallel default(shared)
 	{
 		int photons, d, t, rank = omp_get_thread_num() ;
+		int curr_counts[2] ;
 		double scale = 1., quat[4], val ;
 		double *view = malloc(det->num_pix * sizeof(double)) ;
 		gsl_rng *rng = gsl_rng_alloc(T) ;
@@ -229,6 +237,8 @@ double calc_dataset() {
 			else {
 				slice_gen3d(&quat_list[4*gsl_rng_uniform_int(rng, num_rot)], 0., view, intens, size, det) ;
 			}
+			curr_counts[0] = num_counts[0] ;
+			curr_counts[1] = num_counts[1] ;
 			
 			if (do_gamma)
 				scale = gsl_ran_gamma(rng, 2., 0.5) ;
@@ -238,7 +248,7 @@ double calc_dataset() {
 					if (det->mask[t] > 1)
 						continue ;
 					
-					val = view[t]*scale + background ;
+					val = view[t]*scale + det->background[t] ;
 					photons = gsl_ran_poisson(rng, val) ;
 					
 					if (photons == 1) {
@@ -258,6 +268,15 @@ double calc_dataset() {
 					}
 					if (scale_fname[0] != '\0')
 						scale_factors[d] = scale ;
+					if (ones[d] >= curr_counts[0]) {
+						curr_counts[0] *= 2 ;
+						place_ones[d] = realloc(place_ones[d], curr_counts[0]*sizeof(int)) ;
+					}
+					if (multi[d] >= curr_counts[1]) {
+						curr_counts[1] *= 2 ;
+						place_multi[d] = realloc(place_multi[d], curr_counts[1]*sizeof(int)) ;
+						count_multi[d] = realloc(count_multi[d], curr_counts[1]*sizeof(int)) ;
+					}
 				}
 			}
 			
@@ -278,50 +297,86 @@ double calc_dataset() {
 }
 
 void write_dataset() {
-	int d, header[256] = {0} ;
-	header[0] = num_data ;
-	header[1] = det->num_pix ;
-	
-	FILE *fp = fopen(output_fname, "wb") ;
-	fwrite(header, sizeof(int), 256, fp) ;
-	fwrite(ones, sizeof(int), num_data, fp) ;
-	fwrite(multi, sizeof(int), num_data, fp) ;
-	for (d = 0 ; d < num_data ; ++d)
-		fwrite(place_ones[d], sizeof(int), ones[d], fp) ;
-	for (d = 0 ; d < num_data ; ++d)
-		fwrite(place_multi[d], sizeof(int), multi[d], fp) ;
-	for (d = 0 ; d < num_data ; ++d)
-		fwrite(count_multi[d], sizeof(int), multi[d], fp) ;
-	fclose(fp) ;
-	
-	if (likelihood_fname[0] != '\0') {
-		fp = fopen(likelihood_fname, "wb") ;
-		fwrite(likelihood, sizeof(double), num_data, fp) ;
-		fclose(fp) ;
-	}
-	if (scale_fname[0] != '\0') {
-		fp = fopen(scale_fname, "w") ;
+	if (hdf5_output == 0) {
+		int d, header[256] = {0} ;
+		header[0] = num_data ;
+		header[1] = det->num_pix ;
+		
+		FILE *fp = fopen(output_fname, "wb") ;
+		fwrite(header, sizeof(int), 256, fp) ;
+		fwrite(ones, sizeof(int), num_data, fp) ;
+		fwrite(multi, sizeof(int), num_data, fp) ;
 		for (d = 0 ; d < num_data ; ++d)
-			fprintf(fp, "%13.10f\n", scale_factors[d]) ;
+			fwrite(place_ones[d], sizeof(int), ones[d], fp) ;
+		for (d = 0 ; d < num_data ; ++d)
+			fwrite(place_multi[d], sizeof(int), multi[d], fp) ;
+		for (d = 0 ; d < num_data ; ++d)
+			fwrite(count_multi[d], sizeof(int), multi[d], fp) ;
 		fclose(fp) ;
+		
+		if (likelihood_fname[0] != '\0') {
+			fp = fopen(likelihood_fname, "wb") ;
+			fwrite(likelihood, sizeof(double), num_data, fp) ;
+			fclose(fp) ;
+		}
+		if (scale_fname[0] != '\0') {
+			fp = fopen(scale_fname, "w") ;
+			for (d = 0 ; d < num_data ; ++d)
+				fprintf(fp, "%13.10f\n", scale_factors[d]) ;
+			fclose(fp) ;
+		}
 	}
+#ifdef WITH_HDF5
+	else {
+		int d ;
+		hid_t file, dset, dspace, dtype ;
+		hsize_t dsize[1] = {1} ;
+		hvl_t *po, *pm, *cm;
+		
+		file = H5Fcreate(output_fname, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT) ;
+		dspace = H5Screate_simple(1, dsize, NULL) ;
+		
+		dset = H5Dcreate(file, "num_pix", H5T_STD_I32LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
+		H5Dwrite(dset, H5T_STD_I32LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, &(det->num_pix)) ;
+		H5Dclose(dset) ;
+		
+		dsize[0] = num_data ;
+		dspace = H5Screate_simple(1, dsize, NULL) ;
+		dtype = H5Tvlen_create(H5T_STD_I32LE) ;
+		po = malloc(num_data * sizeof(hvl_t)) ;
+		pm = malloc(num_data * sizeof(hvl_t)) ;
+		cm = malloc(num_data * sizeof(hvl_t)) ;
+		for (d = 0 ; d < num_data ; ++d) {
+			po[d].len = ones[d] ;
+			po[d].p = place_ones[d] ;
+			pm[d].len = multi[d] ;
+			pm[d].p = place_multi[d] ;
+			cm[d].len = multi[d] ;
+			cm[d].p = count_multi[d] ;
+		}
+		dset = H5Dcreate(file, "place_ones", dtype, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
+		H5Dwrite(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, po) ;
+		H5Dclose(dset) ;
+		free(po) ;
+		
+		dset = H5Dcreate(file, "place_multi", dtype, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
+		H5Dwrite(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, pm) ;
+		H5Dclose(dset) ;
+		free(pm) ;
+		
+		dset = H5Dcreate(file, "count_multi", dtype, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
+		H5Dwrite(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, cm) ;
+		H5Dclose(dset) ;
+		free(cm) ;
+		
+		H5Sclose(dspace) ;
+		H5Tclose(dtype) ;
+		H5Fclose(file) ;
+	}
+#endif
 }
 
-char *generate_token(char *line, char *section_name) {
-	char *token = strtok(line, " =") ;
-	if (token[0] == '#' || token[0] == '\n')
-		return NULL ;
-	
-	if (line[0] == '[') {
-		token = strtok(line, "[]") ;
-		strcpy(section_name, token) ;
-		return NULL ;
-	}
-	
-	return token ;
-}
-
-int generate_size_params(char *config_fname) {
+int size_params_from_config(char *config_fname) {
 	double qmin, qmax, hx, hy ;
 	double detd = 0., pixsize = 0., ewald_rad = -1. ;
 	int detsize = 0, dets_x = 0, dets_y = 0 ;
@@ -378,7 +433,7 @@ int generate_size_params(char *config_fname) {
 	return 0 ;
 }
 
-int generate_intens(char *config_fname) {
+int intens_from_config(char *config_fname) {
 	FILE *fp ;
 	char intens_fname[1024], out_intens_fname[1024] ;
 	char line[1024], section_name[1024], *token ;
@@ -413,7 +468,7 @@ int generate_intens(char *config_fname) {
 	return 0 ;
 }
 
-int generate_quat_list(char *config_fname) {
+int quat_list_from_config(char *config_fname) {
 	int t ;
 	FILE *fp ;
 	char quat_fname[1024] = {'\0'} ;
@@ -448,7 +503,7 @@ int generate_quat_list(char *config_fname) {
 	return 0 ;
 }
 
-int generate_globals(char *config_fname) {
+int globals_from_config(char *config_fname) {
 	char line[1024], section_name[1024], *token ;
 	
 	size = 0 ;
@@ -456,7 +511,6 @@ int generate_globals(char *config_fname) {
 	fluence = -1. ;
 	mean_count = -1. ;
 	do_gamma = 0 ;
-	background = 0. ;
 	num_rot = 0 ;
 	output_fname[0] = '\0' ;
 	likelihood_fname[0] = '\0' ;
@@ -474,8 +528,6 @@ int generate_globals(char *config_fname) {
 				mean_count = atof(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "fluence") == 0)
 				fluence = atof(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "bg_count") == 0)
-				background = atof(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "gamma_fluence") == 0)
 				do_gamma = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "out_photons_file") == 0)
@@ -488,6 +540,24 @@ int generate_globals(char *config_fname) {
 	}
 	fclose(config_fp) ;
 
+	// Check for file overwrite
+	if (access(output_fname, F_OK) != -1 && answer_yes == 0) {
+		char answer = 'n' ;
+		printf("Output file %s exists. Overwrite? [y/N]: ", output_fname) ;
+		scanf("%c", &answer) ;
+		while (1) {
+			if (tolower(answer) == 'n' || answer == '\n')
+				return 1 ;
+			else if (tolower(answer) != 'y')
+				printf("Invalid character '%c': ", answer) ;
+			else
+				break ;
+			scanf(" %c", &answer) ;
+		}
+	}
+	if (access(output_fname, F_OK) != -1)
+		fprintf(stderr, "Overwriting %s\n", output_fname) ;
+	
 	// Check for required parameters
 	if (num_data == 0) {
 		fprintf(stderr, "Need num_data (number of frames to be generated)\n") ;
@@ -517,11 +587,26 @@ int generate_globals(char *config_fname) {
 			return 1 ;
 		}
 	}
+	
 	if (likelihood_fname[0] != '\0')
 		fprintf(stderr, "Saving frame-by-frame likelihoods to %s\n", likelihood_fname) ;
 	if (do_gamma)
 		fprintf(stderr, "Assuming Gamma-distributed variable incident fluence\n") ;
-	fprintf(stderr, "Parsed global parameters from config file\n") ;
+	
+	// Checking output file extension
+	char *extension = strrchr(output_fname, '.') ;
+	if (extension == NULL || strncmp(extension, ".h5", 2) != 0) {
+		hdf5_output = 0 ;
+	}
+	else {
+#ifdef WITH_HDF5
+		fprintf(stderr, "Writing sparse HDF5 file\n") ;
+		hdf5_output = 1 ;
+#else // WITH_HDF5
+		fprintf(stderr, "HDF5 support not compiled\n") ;
+		return 1 ;
+#endif // WITH_HDF5
+	}
 	
 	return 0 ;
 }
@@ -535,16 +620,15 @@ int setup(char *config_fname) {
 		return 1 ;
 	}
 	fclose(fp) ;
-	if (generate_globals(config_fname))
+	if (detector_from_config(config_fname, "make_data", &det, 0) < 0.)
 		return 1 ;
-	if (generate_detectors(config_fname, "make_data", &det, 0) < 0.)
+	if (globals_from_config(config_fname))
 		return 1 ;
-	background /= det[0].num_pix ;
-	if (generate_size_params(config_fname))
+	if (size_params_from_config(config_fname))
 		return 1 ;
-	if (generate_intens(config_fname))
+	if (intens_from_config(config_fname))
 		return 1 ;
-	if (generate_quat_list(config_fname))
+	if (quat_list_from_config(config_fname))
 		return 1 ;
 
 	return 0 ;

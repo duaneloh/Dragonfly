@@ -5,26 +5,12 @@
 #include <math.h>
 #include <float.h>
 #include <omp.h>
+#include "../../src/utils.h"
 #include "../../src/quat.h"
 #include "../../src/interp.h"
 
 long s, c, rmax, rmin, max_r = 0 ;
 double i2i2, max_corr ;
-
-char* extract_fname(char* fullName) {
-	return 
-		strrchr(fullName,'/') != NULL
-			? strrchr(fullName,'/') + 1
-			: fullName ;
-}
-
-char* remove_ext(char *fullName) {
-	char *out = malloc(500 * sizeof(char)) ;
-	strcpy(out,fullName) ;
-	if (strrchr(out,'.') != NULL)
-		*strrchr(out,'.') = 0 ;
-	return out ;
-}
 
 int parse_arguments(int argc, char *argv[], char *output_fname, char *intens_fname1, char *intens_fname2) {
 	extern char *optarg ;
@@ -105,7 +91,7 @@ void calc_corr(struct rotation *quat, double *m1, double *m2) {
 			// Rotate model
 			memset(rotmodel, 0, vol*sizeof(double)) ;
 			make_rot_quat(&(quat->quat[r*5]), rot) ;
-			rotate_model(rot, m1, s, rotmodel) ;
+			rotate_model(rot, m1, s, rmax, rotmodel) ;
 			
 			// Calculate i1i1 and i1i2
 			i1i1 = 0. ;
@@ -151,7 +137,7 @@ void calc_radial_corr(struct rotation *quat, double *m1, double *m2, char *fname
 	
 	// Calculate rotated model
 	make_rot_quat(&quat->quat[max_r*5], rot) ;
-	rotate_model(rot, m1, s, rotmodel) ;
+	rotate_model(rot, m1, s, rmax, rotmodel) ;
 	
 	// Calculate radial i1i1r, i1i2r and i2i2r
 	i1i1r = calloc(c, sizeof(double)) ;
@@ -202,7 +188,7 @@ void save_rotmodel(struct rotation *quat, double *m1, char *fname) {
 	
 	// Calculate rotated model
 	make_rot_quat(&quat->quat[max_r*5], rot) ;
-	rotate_model(rot, m1, s, rotmodel) ;
+	rotate_model(rot, m1, s, rmax, rotmodel) ;
 	
 	// Write rotmodel to file
 	char *base = remove_ext(extract_fname(fname)) ;
@@ -329,7 +315,7 @@ int main(int argc, char *argv[]) {
 		i2i2 += model2_rad[t] * model2_rad[t] ;
 	
 	// Generate quaternion and calculate max_corr
-	quat = malloc(sizeof(struct rotation)) ;
+	quat = calloc(1, sizeof(struct rotation)) ;
 	quat_gen(4, quat) ;
 	calc_corr(quat, model1_rad, model2_rad) ;
 	

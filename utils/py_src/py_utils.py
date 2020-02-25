@@ -9,7 +9,7 @@ import sys
 import logging
 from six.moves import configparser
 import numpy as np
-from . import readdet, reademc, readvol
+from . import detector, reademc, readvol
 
 class MyTimer(object):
     '''Class to report elapsed time for logging'''
@@ -145,14 +145,8 @@ def create_new_recon_dir(tag="recon", num=1, prefix="./"):
         recon_dir = os.path.join(prefix, os.path.join(_name_recon_dir(tag, num)))
     logging.info('New recon directory created with name: %s', recon_dir)
     os.mkdir(recon_dir)
-    sub_dir = {"data":["scale", "orientations", "mutualInfo",
-                       "weights", "output", "likelihood"],
-               "images":[]}
-    for key, val in sub_dir.items():
-        os.mkdir(os.path.join(recon_dir, key))
-        if val:
-            for valitem in val:
-                os.mkdir(os.path.join(recon_dir, key, valitem))
+    os.mkdir(os.path.join(recon_dir, 'data'))
+    os.mkdir(os.path.join(recon_dir, 'images'))
     if not os.path.exists(_name_recon_dir(tag, num)):
         os.symlink(recon_dir, _name_recon_dir(tag, num))
     return recon_dir
@@ -171,16 +165,16 @@ def increment_quat_file_sensibly(config_fname, incr):
         config.write(fptr)
 
 def gen_det_and_emc(gui, classifier=False, mask=False):
-    '''Creates EMCReader and DetReader instances for GUIs'''
+    '''Creates EMCReader and Detector instances for GUIs'''
     if len(set(gui.det_list)) == 1:
-        geom_list = [readdet.DetReader(gui.det_list[0], gui.detd, gui.ewald_rad, mask_flag=mask)]
+        geom_list = [detector.Detector(gui.det_list[0], gui.detd, gui.ewald_rad, mask_flag=mask)]
         geom_mapping = None
     else:
         if classifier:
             print('The Classifier GUI will likely have problems with multiple geometries')
             print('We recommend classifying patterns with a common geometry')
         uniq = sorted(set(gui.det_list))
-        geom_list = [readdet.DetReader(fname, gui.detd, gui.ewald_rad, mask_flag=mask)
+        geom_list = [detector.Detector(fname, gui.detd, gui.ewald_rad, mask_flag=mask)
                      for fname in uniq]
         geom_mapping = [uniq.index(fname) for fname in gui.det_list]
     gui.geom = geom_list[0]

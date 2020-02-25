@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
 '''
-Convert Cheetah geometry file to detector file
+Convert CrystFEL geometry file to detector file
 Can specify mask file separately.
 
 Needs:
-    <h5_fname> - Path to Cheetah geometry h5 file
+    <geom_fname> - Path to CrystFEL geometry h5 file
 
 Produces:
     Detector file in output_folder
@@ -22,13 +22,19 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 from py_src import py_utils # pylint: disable=wrong-import-position
 from py_src import read_config # pylint: disable=wrong-import-position
 from py_src import detector # pylint: disable=wrong-import-position
+try:
+    from cfelpyutils import crystfel_utils, geometry_utils
+except ImportError:
+    print('Need cfelpyutils package to safely parse geometry file.')
+    print('Install from pip if possible.')
+    raise
 
 def main():
     """Parse command line arguments and convert file"""
     logging.basicConfig(filename='recon.log', level=logging.INFO,
                         format='%(asctime)s - %(levelname)s - %(message)s')
     parser = py_utils.MyArgparser(description='cheetahtodet')
-    parser.add_argument('h5_name', help='HDF5 file to convert to detector format')
+    parser.add_argument('geom_fname', help='CrystFEL geometry file to convert to detector format')
     parser.add_argument('-M', '--mask',
                         help='Path to detector style mask (0:good, 1:no_orient, 2:bad) in h5 file')
     parser.add_argument('--mask_dset',
@@ -46,12 +52,14 @@ def main():
                                         pm['ewald_rad'], show=args.vb)
     output_folder = read_config.get_filename(args.config_file, 'emc', 'output_folder')
 
-    # Cheetah geometry files have coordinates in m
-    with h5py.File(args.h5_name, 'r') as fptr:
-        x = fptr['x'][:].flatten() * 1.e3
-        y = fptr['y'][:].flatten() * 1.e3
-        z = fptr['z'][:].flatten() * 1.e3 + pm['detd']
-
+    # CrystFEL geometry files have coordinates in pixel size units
+    geom = crystfel_utils.load_crystfel_geometry(args.geom_fname)
+    pixmap = geometry_utils.compute_pix_maps(geom)
+    x = pixmap.x
+    y = pixmap.y
+    z = pm['detd'] / pm['pixsize']
+    pm['pixsize'] = 1.
+    
     det = detector.Detector()
     norm = np.sqrt(x*x + y*y + z*z)
     qscaling = 1. / pm['wavelength'] / q_pm['q_sep']
@@ -73,7 +81,7 @@ def main():
 
     det.detd = pm['detd'] / pm['pixsize']
     det.ewald_rad = pm['ewald_rad']
-    det_file = output_folder + '/' + os.path.splitext(os.path.basename(args.h5_name))[0]
+    det_file = output_folder + '/' + os.path.splitext(os.path.basename(args.geom_fname))[0]
     try:
         import h5py
         det_file += '.h5'

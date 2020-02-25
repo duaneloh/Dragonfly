@@ -17,10 +17,11 @@ from . import gui_utils
 
 class EmbeddingPanel(QtWidgets.QWidget):
     '''Embedding panel in Classifier GUI
+    
     Used to perform manifold embedding on converted data frames
     The frames are embedded in 4 dimensions, allowing for region selection
     A 2D histogram of the various points are shown, allowing the user to select
-        a region of frames to either browse through or assign a class to.
+    a region of frames to either browse through or assign a class to.
 
     No public methods (all actions through GUI buttons)
     '''
@@ -124,6 +125,8 @@ class EmbeddingPanel(QtWidgets.QWidget):
         self.embedder.fit(converted)
         self.embed = self.embedder.embedding_
         self.embed_plot = self.embed
+        if method_ind == 5:
+            self.embed_plot = np.hstack((self.embed_plot, self.embed_plot[:,-1]))
 
         self._gen_hist()
         self._plot_embedding()
