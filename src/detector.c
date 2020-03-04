@@ -486,6 +486,7 @@ void free_detector(struct detector *det) {
 		free(det[detn].mask) ;
 		if (det[detn].powder != NULL)
 			free(det[detn].powder) ;
+		free(det[detn].background) ;
 	}
 	free(det) ;
 }

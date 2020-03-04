@@ -916,6 +916,7 @@ int quat_from_config(char *config_fname, char *config_section, struct rotation *
 	free(temp_fname) ;
 	quat_ptr->icosahedral_flag = 0 ;
 	quat_ptr->octahedral_flag = 0 ;
+	quat_ptr->sym_quat = NULL ;
 	
 	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {

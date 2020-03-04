@@ -219,6 +219,8 @@ void calculate_rescale(struct max_data *data) {
 	}
 	sprintf(res_string + strlen(res_string), ")") ;
 	print_max_time("rescale", res_string, param->rank == 0) ;
+	
+	free(total) ;
 }
 
 void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
@@ -621,6 +623,8 @@ void free_memory(struct max_data *data) {
 	
 	if (!data->within_openmp) {
 		free(data->max_exp) ;
+		for (detn = 0 ; detn < det[0].num_det ; ++detn)
+			free(data->u[detn]) ;
 		free(data->u) ;
 		free(data->p_norm) ;
 		free(data->offset_prob) ;
