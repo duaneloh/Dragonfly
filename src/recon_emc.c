@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
 		write_log_file_header(num_threads) ;
 	
 	emc() ;
-	//free_mem() ;
+	free_mem() ;
 	
 	MPI_Finalize() ;
 	
