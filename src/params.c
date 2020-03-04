@@ -19,8 +19,7 @@ void params_from_config(char *config_fname, char *config_section, struct params 
 	param->need_scaling = 0 ;
 	param->update_scale = 1 ;
 	param->alpha = 0. ;
-	//param->beta = 1. ;
-	//param->beta_start = 1. ;
+	param->beta = NULL ;
 	param->beta_start = malloc(1 * sizeof(double)) ;
 	param->beta_start[0] = -1. ;
 	param->sigmasq = 0. ;
@@ -146,3 +145,9 @@ void generate_output_dirs(struct params *param) {
 	}
 }
 
+void free_params(struct params *param) {
+	if (param->beta != NULL)
+		free(param->beta) ;
+	free(param->beta_start) ;
+	free(param) ;
+}

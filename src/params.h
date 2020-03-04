@@ -38,5 +38,6 @@ struct params {
 
 void params_from_config(char*, char*, struct params*) ;
 void generate_output_dirs(struct params*) ;
+void free_params(struct params*) ;
 
 #endif //PARAMS_H
