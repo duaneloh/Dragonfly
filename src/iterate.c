@@ -596,5 +596,7 @@ void free_iterate(struct iterate *iter) {
 		free(iter->rel_quat) ;
 		free(iter->num_rel_quat) ;
 	}
+	if (iter->mean_count != NULL)
+		free(iter->mean_count) ;
 	free(iter) ;
 }

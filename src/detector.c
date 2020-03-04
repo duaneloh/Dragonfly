@@ -162,6 +162,8 @@ static double parse_h5detector(char *fname, struct detector *det, int norm_flag)
 	dtype = H5Dget_type(dset) ;
 	H5Dread(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, &(det->ewald_rad)) ;
 	
+	H5Fclose(file) ;
+	
 	if (norm_flag < 0) { // 2D detector
 		for (i = 0 ; i < det->num_pix ; ++i) {
 			det->pixels[i*3+0] = det->pixels[i*4+0] ;
