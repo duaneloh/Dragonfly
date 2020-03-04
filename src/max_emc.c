@@ -135,6 +135,7 @@ void allocate_memory(struct max_data *data) {
 		data->weight = calloc(iter->modes*iter->vol, sizeof(double)) ;
 		
 		data->psum_r = calloc(det[0].num_det, sizeof(double)) ;
+		data->curr_ind = calloc(frames->tot_num_data, sizeof(int)) ;
 		
 		for (d = 0 ; d < frames->tot_num_data ; ++d) {
 			data->prob[d] = malloc(4 * sizeof(double)) ;
@@ -224,7 +225,7 @@ void calculate_rescale(struct max_data *data) {
 }
 
 void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
-	int dset = 0, t, d, curr_d, pixel, mode, rotind, detn, old_detn = -1, ind ;
+	int dset = 0, t, d, curr_d, pixel, mode, rotind, detn, old_detn = -1, ind, new_num_prob ;
 	struct dataset *curr = frames ;
 	double pval, *view ;
 	int *num_prob = priv->num_prob, **place_prob = priv->place_prob ;
@@ -332,9 +333,10 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 				num_prob[d]++ ;
 				
 				// If num_prob is a power of two, expand array
-				if (num_prob[d] >= 4 && (num_prob[d] & (num_prob[d] - 1)) == 0) {
-					prob[d] = realloc(prob[d], num_prob[d] * 2 * sizeof(double)) ;
-					place_prob[d] = realloc(place_prob[d], num_prob[d] * 2 * sizeof(int)) ;
+				if (num_prob[d] >= 4 && num_prob[d] < quat->num_rot_p && (num_prob[d] & (num_prob[d] - 1)) == 0) {
+					new_num_prob = num_prob[d] * 2 < quat->num_rot_p ? num_prob[d] * 2 : quat->num_rot_p ;
+					prob[d] = realloc(prob[d], new_num_prob * sizeof(double)) ;
+					place_prob[d] = realloc(place_prob[d], new_num_prob * sizeof(int)) ;
 				}
 			}
 			
@@ -636,6 +638,7 @@ void free_memory(struct max_data *data) {
 		free(data->model) ;
 		free(data->weight) ;
 		free(data->psum_r) ;
+		free(data->curr_ind) ;
 		if (det[0].with_bg && param->need_scaling) {
 			for (detn = 0 ; detn < det[0].num_det ; ++detn) {
 				free(data->mask[detn]) ;
@@ -681,7 +684,7 @@ int resparsify(double *vals, int *pos, int num_vals, double thresh) {
 }
 
 double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
-	int dset = 0, d, curr_d, detn, rotind, mode, t, ind ;
+	int dset = 0, d, curr_d, detn, rotind, mode, t, ind, true_r ;
 	double temp, scalemax ;
 	struct dataset *curr = frames ;
 	double **prob = priv->prob ;
@@ -719,14 +722,13 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 			}
 			
 			// check if current frame has significant probability
-			ind = -1 ;
-			for (t = 0 ; t < num_prob[d] ; ++t)
-			if (r*param->num_proc + param->rank == place_prob[d][t]) {
-				ind = t ;
-				break ;
-			}
-			if (ind == -1)
+			true_r = r*param->num_proc + param->rank ;
+			if (true_r == place_prob[d][priv->curr_ind[d]]) ;
+			else if (priv->curr_ind[d] < num_prob[d] - 1 && true_r == place_prob[d][priv->curr_ind[d] + 1])
+				priv->curr_ind[d]++ ;
+			else
 				continue ;
+			ind = priv->curr_ind[d] ;
 			
 			// Exponentiate log-likelihood and normalize to get probabilities
 			temp = prob[d][ind] ;
@@ -812,15 +814,9 @@ void update_tomogram_nobg(int r, struct max_data *priv, struct max_data *common)
 			}
 			
 			// check if current frame has significant probability
-			ind = -1 ;
-			for (t = 0 ; t < num_prob[d] ; ++t)
-			if (r*param->num_proc + param->rank == place_prob[d][t]) {
-				ind = t ;
-				break ;
-			}
-			if (ind == -1)
+			if (r*param->num_proc + param->rank != place_prob[d][priv->curr_ind[d]])
 				continue ;
-			
+			ind = priv->curr_ind[d] ;
 			
 			// Skip if probability is very low (saves time)
 			if (!(prob[d][ind] > PROB_MIN))
@@ -917,14 +913,9 @@ void gradient_rt(int r, struct max_data *priv, double **views, double **gradient
 			}
 			
 			// check if current frame has significant probability
-			ind = -1 ;
-			for (t = 0 ; t < num_prob[d] ; ++t)
-			if (r*param->num_proc + param->rank == place_prob[d][t]) {
-				ind = t ;
-				break ;
-			}
-			if (ind == -1)
+			if (r*param->num_proc + param->rank != place_prob[d][priv->curr_ind[d]])
 				continue ;
+			ind = priv->curr_ind[d] ;
 			
 			// Skip if probability is very low (saves time)
 			if (!(prob[d][ind] > PROB_MIN))

@@ -24,6 +24,7 @@ struct max_data {
 	double **all_views ; // View (W_rt) for each detector
 	double *psum_r ; // S_r = \sum_d P_dr \phi_d
 	double *psum_d ; // S_d = \sum_r P_dr u_r
+	int *curr_ind ; // curr_ind_d: Current index in sparse probability array for each frame
 	
 	// Common among all threads only
 	double *max_exp ; // max_exp[d] = max_r log(R_dr)
