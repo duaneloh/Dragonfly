@@ -106,7 +106,7 @@ void free_mem() {
 	quat = NULL ;
 	free_detector(det) ;
 	det = NULL ;
-	free(param) ;
+	free_params(param) ;
 	param = NULL ;
 }
 
