@@ -782,7 +782,7 @@ void update_tomogram_nobg(int r, struct max_data *priv, struct max_data *common)
 	double *view ;
 	struct dataset *curr = frames ;
 	double **prob = priv->prob ;
-	int **place_prob = priv->place_prob, *num_prob = priv->num_prob ;
+	int **place_prob = priv->place_prob ;
 	
 	for (detn = 0 ; detn < det[0].num_det ; ++detn) 
 		memset(priv->all_views[detn], 0, det[detn].num_pix*sizeof(double)) ;
@@ -862,7 +862,7 @@ void gradient_rt(int r, struct max_data *priv, double **views, double **gradient
 	int dset = 0, t, d, curr_d, pixel, detn, ind, rotind ;
 	double val, *grad, *view ;
 	struct dataset *curr = frames ;
-	int *num_prob = priv->num_prob, **place_prob = priv->place_prob ;
+	int **place_prob = priv->place_prob ;
 	double **prob = priv->prob ;
 	
 	// Initialization:
