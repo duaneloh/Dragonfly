@@ -92,6 +92,7 @@ static void emc() {
 	// Keep copy of original detector
 	struct detector *orig_det = calloc(1, sizeof(struct detector)) ;
 	copy_detector(det, orig_det) ;
+	orig_det->num_det = 1 ;
 	
 	// Initial radius estimate if not provided
 	if (param->radius == 0 && param->radius_jump > 0)
