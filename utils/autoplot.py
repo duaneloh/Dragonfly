@@ -421,6 +421,8 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self.config = config
         self.model_name = model
         self.max_iternum = 0
+        self.mode_select = False
+        self.num_good = 0
         plt.style.use('dark_background')
 
         self.beta_change = self.num_rot_change = []
@@ -461,32 +463,26 @@ class ProgressViewer(QtWidgets.QMainWindow):
 
         # File Menu
         filemenu = menubar.addMenu('&File')
-        action = QtWidgets.QAction('&Load Volume', self)
+        action = filemenu.addAction('&Load Volume')
         action.triggered.connect(self._load_volume)
         action.setToolTip('Load 3D volume (h5 or bin)')
-        filemenu.addAction(action)
-        action = QtWidgets.QAction('&Quit', self)
+        action = filemenu.addAction('&Quit')
         action.triggered.connect(self.close)
-        filemenu.addAction(action)
 
         # Image Menu
         imagemenu = menubar.addMenu('&Image')
-        action = QtWidgets.QAction('&Save Slices Image', self)
+        action = imagemenu.addAction('&Save Slices Image')
         action.triggered.connect(self._save_plot)
         action.setToolTip('Save current plot of slices as image')
-        imagemenu.addAction(action)
-        action = QtWidgets.QAction('Save Log &Plot', self)
+        action = imagemenu.addAction('Save Log &Plot')
         action.triggered.connect(self._save_log_plot)
         action.setToolTip('Save panel of metrics plots as image')
-        imagemenu.addAction(action)
-        action = QtWidgets.QAction('Save &Layer Movie', self)
+        action = imagemenu.addAction('Save &Layer Movie')
         action.triggered.connect(self._save_layer_movie)
         action.setToolTip('Save slices plot animation as a function of layer')
-        imagemenu.addAction(action)
-        action = QtWidgets.QAction('Save &Iteration Movie', self)
+        action = imagemenu.addAction('Save &Iteration Movie')
         action.triggered.connect(self._save_iter_movie)
         action.setToolTip('Save slices plot animation as a function of iteration')
-        imagemenu.addAction(action)
         
         # -- Color map picker
         cmapmenu = imagemenu.addMenu('&Color Map')
@@ -501,16 +497,23 @@ class ProgressViewer(QtWidgets.QMainWindow):
 
         # Analysis menu
         analysismenu = menubar.addMenu('&Analysis')
-        action = QtWidgets.QAction('Open &Frameviewer', self)
+        action = analysismenu.addAction('Open &Frameviewer')
         action.triggered.connect(self._open_frameviewer)
         action.setToolTip('View frames related to given mode')
         if self.recon_type == '3d':
             action.setEnabled(False)
-        analysismenu.addAction(action)
-        action = QtWidgets.QAction('Subtract radial minimum', self)
+        action = analysismenu.addAction('Subtract radial minimum')
         action.triggered.connect(self._subtract_radmin)
         action.setToolTip('Subtract radial minimum from intensities')
-        analysismenu.addAction(action)
+
+        modemenu = analysismenu.addMenu('Mode selection')
+        action = modemenu.addAction('Toggle mode selection')
+        action.setCheckable(True)
+        action.setToolTip('Select modes from 2D classification')
+        action.triggered.connect(self._toggle_mode_selection)
+        self.blacklist_action = modemenu.addAction('Save blacklist file\n(%d good frames)'%self.num_good)
+        self.blacklist_action.setToolTip('Save blacklist file with frames in selected modes')
+        self.blacklist_action.triggered.connect(self._save_blacklist)
 
     def _init_plotarea(self):
         plot_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
@@ -861,8 +864,10 @@ class ProgressViewer(QtWidgets.QMainWindow):
         for i, subp in enumerate(self.vol_plotter.subplot_list):
             if event.inaxes is subp:
                 curr_mode = i
+        if curr_mode < 0:
+            return
 
-        if curr_mode >= 0 and curr_mode != self.modenum.value():
+        if curr_mode != self.modenum.value():
             self.mode_slider.setValue(curr_mode)
             self.modenum.setValue(curr_mode)
             self._modenum_changed()
@@ -871,6 +876,17 @@ class ProgressViewer(QtWidgets.QMainWindow):
                 self.fviewer.mode = curr_mode
                 self.fviewer.label.setText('Class %d frames'%curr_mode)
                 self.fviewer.numlist = np.where(self.vol_plotter.modes == curr_mode)[0]
+
+        if self.mode_select:
+            ax = self.vol_plotter.subplot_list[curr_mode]
+            if len(ax.images) == 1:
+                ax.imshow(np.zeros(self.vol_plotter.vol[curr_mode].shape), cmap='gray', alpha=0.5)
+                self.num_good += (self.vol_plotter.modes == curr_mode).sum()
+            else:
+                ax.images[-1].remove()
+                self.num_good -= (self.vol_plotter.modes == curr_mode).sum()
+            self.blacklist_action.setText('Save blacklist file\n(%d good frames)'%self.num_good)
+            self.vol_plotter.canvas.draw()
 
     def _load_volume(self):
         fpath = QtWidgets.QFileDialog.getOpenFileName(self, 'Load 3D Volume',
@@ -971,6 +987,20 @@ class ProgressViewer(QtWidgets.QMainWindow):
     def _subtract_radmin(self):
         self.vol_plotter.subtract_radmin()
         self._plot_vol()
+
+    def _toggle_mode_selection(self, status):
+        self.mode_select = status
+
+    def _save_blacklist(self):
+        good_modes = np.where([len(ax.images)>1 for ax in self.vol_plotter.subplot_list])[0]
+        print('Good modes:', good_modes)
+        blist = np.ones(self.vol_plotter.modes.shape, dtype='u1')
+        for m in good_modes:
+            blist[self.vol_plotter.modes == m] = 0
+        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Blacklist File', 'blacklist_%d.dat'%self.num_good)
+        if fname != '':
+            print('Saving', (blist==0).sum(), 'good frames to', fname)
+            np.savetxt(fname, blist, fmt='%d')
 
     @QtCore.Slot()
     def _fviewer_closed(self):
