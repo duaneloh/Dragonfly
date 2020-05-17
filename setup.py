@@ -19,7 +19,7 @@ gsl_libs = subprocess.getoutput('gsl-config --libs').strip().split()
 compile_args = '-fopenmp -O3 -Wall'.split()
 compile_args += '-Wno-cpp -Wno-unused-result -Wno-unused-function -Wno-format-overflow'.split() 
 compile_args += hdf5_cflags + gsl_cflags + ['-I'+np.get_include()]
-link_args = '-lm -fopenmp'.split() + hdf5_libs + gsl_libs
+link_args = '-lm -fopenmp'.split() + hdf5_libs + gsl_libs + ['-Wl,-rpath='+gsl_libs[0][2:]]
 
 # TODO: Fix undefined symbol problem requiring two rounds of compilation
 ext_modules = [
