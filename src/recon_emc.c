@@ -170,10 +170,11 @@ static void update_model() {
 static double update_beta() {
 	int d ;
 	double factor, beta_mean = 0. ;
-	if (param->beta_factor <= 0.)
-		factor = pow(param->beta_jump, (param->iteration-1) / param->beta_period) ;
-	else
-		factor = param->beta_factor ;
+	
+	// Exponentially growing beta
+	factor = pow(param->beta_jump, (param->iteration-1) / param->beta_period) ;
+	// Shift of exponential
+	factor *= param->beta_factor ;
 	
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
 	if (!frames->blacklist[d]) {

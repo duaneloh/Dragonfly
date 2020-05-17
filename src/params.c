@@ -11,7 +11,7 @@ void params_from_config(char *config_fname, char *config_section, struct params 
 	param->start_iter = 1 ;
 	param->beta_period = 100 ;
 	param->beta_jump = 1. ;
-	param->beta_factor = -1. ;
+	param->beta_factor = 1. ;
 	param->radius = 0. ;
 	param->radius_period = 100 ;
 	param->radius_jump = 0. ;
@@ -114,9 +114,6 @@ void params_from_config(char *config_fname, char *config_section, struct params 
 		param->beta_start[0] = -1. ;
 	else if (beta_str[0] != '\0')
 		param->beta_start[0] = atof(beta_str) ;
-	
-	if (param->beta_jump != 1. && param->beta_factor >= 0.)
-		fprintf(stderr, "WARNING: Both beta_schedule and beta_factor specified. beta_schedule will be ignored.\n") ;
 	
 	if (!param->rank)
 		fprintf(stderr, "Parsed params from config file\n") ;
