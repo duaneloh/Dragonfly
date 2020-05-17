@@ -116,6 +116,7 @@ class EMCReader():
         '''
         # Convert to lists if singleton arguments
         if hasattr(photons_list, 'strip') or not hasattr(photons_list, '__getitem__'):
+            print('Converting to photons_list')
             photons_list = [photons_list]
         if not hasattr(det_list, '__getitem__'):
             det_list = [det_list]
@@ -139,12 +140,14 @@ class EMCReader():
                 print('Need mapping if multiple geometries are provided')
                 raise
 
-        if dset_list is not None:
-            if len(dset_list) != len(photons_list):
-                raise ValueError('dset_list must be same length as photons_list')
-            self._dset_list = dset_list
-        else:
-            self._dset_list = [None] * len(photons_list)
+        if len(dset_list) != len(photons_list):
+            raise ValueError('dset_list must be same length as photons_list')
+        self._dset_list = []
+        for dset in dset_list:
+            if dset is not None:
+                self._dset_list.append(dset)
+            else:
+                self._dset_list.append(None)
 
         self._parse_headers()
 
@@ -241,7 +244,7 @@ class EMCReader():
                     (pdict['fname'], pdict['num_pix'], len(pdict['det'].x)))
             if i > 0:
                 pdict['num_data'] += self.flist[i-1]['num_data']
-        self.num_frames = self.flist[-1]['num_data']
+        self.num_frames = self.flist[len(self.flist)-1]['num_data']
         self.blacklist = np.zeros(self.num_frames, dtype='u1')
         self.num_blacklist = 0
 
@@ -301,9 +304,9 @@ class EMCReader():
 
             fptr.seek(1024 + num_data*8 + offset[0]*4, 0)
             place_ones = np.fromfile(fptr, dtype='i4', count=size[0])
-            fptr.seek(1024 + num_data*8 + accum[0][-1]*4 + offset[1]*4, 0)
+            fptr.seek(1024 + num_data*8 + accum[0][num_data-1]*4 + offset[1]*4, 0)
             place_multi = np.fromfile(fptr, dtype='i4', count=size[1])
-            fptr.seek(1024 + num_data*8 + accum[0][-1]*4 + accum[1][-1]*4 + offset[1]*4, 0)
+            fptr.seek(1024 + num_data*8 + accum[0][num_data-1]*4 + accum[1][num_data-1]*4 + offset[1]*4, 0)
             count_multi = np.fromfile(fptr, dtype='i4', count=size[1])
             fptr.close()
 
@@ -514,11 +517,11 @@ class EMCWriter(object):
 
         if self.h5_output:
             self._h5f['place_ones'].resize((self.num_data,))
-            self._h5f['place_ones'][-1] = place_ones.astype(np.int32)
+            self._h5f['place_ones'][self.num_data-1] = place_ones.astype(np.int32)
             self._h5f['place_multi'].resize((self.num_data,))
-            self._h5f['place_multi'][-1] = place_multi.astype(np.int32)
+            self._h5f['place_multi'][self.num_data-1] = place_multi.astype(np.int32)
             self._h5f['count_multi'].resize((self.num_data,))
-            self._h5f['count_multi'][-1] = count_multi.astype(np.int32)
+            self._h5f['count_multi'][self.num_data-1] = count_multi.astype(np.int32)
         else:
             place_ones.astype(np.int32).tofile(self._fptrs[0])
             place_multi.astype(np.int32).tofile(self._fptrs[1])
