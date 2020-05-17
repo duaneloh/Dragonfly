@@ -7,6 +7,7 @@ import sys
 import os
 import argparse
 import numpy as np
+from scipy import ndimage
 import h5py
 try:
     from PyQt5 import QtCore, QtWidgets, QtGui # pylint: disable=import-error
@@ -55,7 +56,7 @@ class MyFrameviewer(frameviewer.Frameviewer):
         super(MyFrameviewer, self).__init__(config_file, mask=True, noscroll=True)
         self.mode = mode
         self.numlist = numlist
-        
+
         fp_layout = self.frame_panel.layout()
         fp_count = fp_layout.count()
         line = fp_layout.takeAt(fp_count-1)
@@ -115,6 +116,38 @@ class MyFrameviewer(frameviewer.Frameviewer):
         self.windowClosed.emit()
         event.accept()
 
+class NormVecUpdater(QtWidgets.QDialog):
+    def __init__(self, old_normvec, parent=None):
+        super(NormVecUpdater, self).__init__()
+        self.vec = old_normvec
+        layout = QtWidgets.QVBoxLayout(self)
+
+        label = QtWidgets.QLabel('Update normal vector (need not be unit vector):', self)
+        layout.addWidget(label)
+
+        line = QtWidgets.QHBoxLayout()
+        layout.addLayout(line)
+        self.v0 = QtWidgets.QLineEdit('%f'%old_normvec[0], self)
+        line.addWidget(self.v0)
+        self.v1 = QtWidgets.QLineEdit('%f'%old_normvec[1], self)
+        line.addWidget(self.v1)
+        self.v2 = QtWidgets.QLineEdit('%f'%old_normvec[2], self)
+        line.addWidget(self.v2)
+
+        line = QtWidgets.QHBoxLayout()
+        layout.addLayout(line)
+        button = QtWidgets.QPushButton('Update', self)
+        button.clicked.connect(self._update)
+        line.addWidget(button)
+        button = QtWidgets.QPushButton('Cancel', self)
+        button.clicked.connect(self.close)
+        line.addWidget(button)
+        self.exec_()
+
+    def _update(self):
+        self.vec = np.array([float(self.v0.text()), float(self.v1.text()), float(self.v2.text())])
+        self.close()
+
 class VolumePlotter(object):
     def __init__(self, fig, recon_type='3d', num_modes=1, num_nonrot=0, num_rot=None):
         self.fig = fig
@@ -130,7 +163,8 @@ class VolumePlotter(object):
         self.main_subp = None
         self.imshow_args = None
         self.intrad = None
-        
+        self.normvecs = np.identity(3)
+
         if self.num_nonrot > 0 and num_rot is None:
             raise ValueError('Need num_rot if nonrot modes are present')
         self.num_rot = num_rot
@@ -224,24 +258,15 @@ class VolumePlotter(object):
             self.imshow_args['norm'] = matplotlib.colors.PowerNorm(float(exponent))
 
         self.fig.clf()
+        self.subplot_list = []
         if self.recon_type == '3d':
-            subp = self.fig.add_subplot(131)
-            vslice = self.vol[num, :, :]
-            subp.imshow(vslice, **self.imshow_args)
-            subp.set_title("YZ plane", y=1.01)
-            subp.axis('off')
-
-            subp = self.fig.add_subplot(132)
-            vslice = self.vol[:, num, :]
-            subp.imshow(vslice, **self.imshow_args)
-            subp.set_title("XZ plane", y=1.01)
-            subp.axis('off')
-
-            subp = self.fig.add_subplot(133)
-            vslice = self.vol[:, :, num]
-            subp.imshow(vslice, **self.imshow_args)
-            subp.set_title("XY plane", y=1.01)
-            subp.axis('off')
+            for i in range(3):
+                subp = self.fig.add_subplot(1, 3, i+1)
+                vslice = self._get_normslice(self.normvecs[i], num)
+                subp.imshow(vslice, **self.imshow_args)
+                subp.set_title(np.round(self.normvecs[i], 3), y=1.01)
+                subp.axis('off')
+                self.subplot_list.append(subp)
         elif self.recon_type == '2d':
             tot_num_modes = self.num_modes + self.num_nonrot
             numx = int(np.ceil(2.*np.sqrt(tot_num_modes / 2.)))
@@ -250,7 +275,6 @@ class VolumePlotter(object):
 
             gspec = matplotlib.gridspec.GridSpec(numy, total_numx)
             gspec.update(wspace=0.02, hspace=0.02)
-            self.subplot_list = []
             for mode in range(tot_num_modes):
                 subp = self.fig.add_subplot(gspec[mode//numx, mode%numx])
                 subp.imshow(self.vol[mode], **self.imshow_args)
@@ -296,6 +320,28 @@ class VolumePlotter(object):
             self.y -= cen
             self.z -= cen
             self.intrad = np.sqrt(self.x**2 + self.y**2 + self.z**2).astype('i4')
+
+    def _get_normslice(self, vec, layernum):
+        vec /= np.linalg.norm(vec)
+
+        size = self.vol.shape[-1]
+        ind = np.arange(size) - size // 2
+        i, j = np.meshgrid(ind, ind, indexing='ij')
+
+        # If vector is not parallel to (1,0,0) use v2 as [vec x (1,0,0)]
+        # Else use v2 as [vec x (0,1,0)]
+        # v1 will then be [vec x v2]
+        if vec[0] < 0.95:
+            v2 = np.cross(vec, [1.,0.,0.])
+        else:
+            v2 = np.cross(vec, [0.,1.,0.])
+        v2 /= np.linalg.norm(v2)
+        v1 = np.cross(vec, v2)
+
+        coords = np.outer(v1, i) + np.outer(v2, j) + size // 2
+        coords = (coords.T + vec * (layernum-size//2)).T
+        coords = coords.reshape(3, size, size)
+        return ndimage.map_coordinates(self.vol, coords, order=1, prefilter=False)
 
     def subtract_radmin(self):
         if self.vol is None:
@@ -487,7 +533,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         action.triggered.connect(self._save_iter_movie)
         action.setToolTip('Save slices plot animation as a function of iteration')
         imagemenu.addAction(action)
-        
+
         # -- Color map picker
         cmapmenu = imagemenu.addMenu('&Color Map')
         self.color_map = QtWidgets.QActionGroup(self, exclusive=True)
@@ -537,7 +583,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self.plotcanvas.show()
         plot_splitter.addWidget(self.plotcanvas)
         self.log_plotter = LogPlotter(self.log_fig, self.folder)
-        
+
         return plot_splitter
 
     def _init_optionsarea(self):
@@ -789,8 +835,10 @@ class ProgressViewer(QtWidgets.QMainWindow):
                     num = int(self.modenum.text())
                 else:
                     num = 0
-        elif num is None:
-            num = int(self.layernum.text())
+        elif self.recon_type == '3d':
+            self.canvas.mpl_connect('button_press_event', self._show_menu)
+            if num is None:
+                num = int(self.layernum.text())
         argsdict = {'vrange': (float(self.rangemin.text()), float(self.rangestr.text())),
                     'exponent': self.expstr.text(),
                     'cmap': self.color_map.checkedAction().text()}
@@ -871,6 +919,30 @@ class ProgressViewer(QtWidgets.QMainWindow):
                 self.fviewer.mode = curr_mode
                 self.fviewer.label.setText('Class %d frames'%curr_mode)
                 self.fviewer.numlist = np.where(self.vol_plotter.modes == curr_mode)[0]
+
+    def _show_menu(self, event):
+        if event.button != 3:
+            return
+
+        slice_num = -1
+        for i, subp in enumerate(self.vol_plotter.subplot_list):
+            if event.inaxes is subp:
+                slice_num = i
+        if slice_num == -1:
+            return
+
+        context_menu = QtWidgets.QMenu()
+        context_menu.addAction('Update normal vector', lambda:self._update_normvec(slice_num))
+        cursor = QtGui.QCursor()
+        context_menu.exec_(cursor.pos())
+
+    def _update_normvec(self, slice_num):
+        updater = NormVecUpdater(self.vol_plotter.normvecs[slice_num])
+        if updater.vec is not None:
+            self.vol_plotter.normvecs[slice_num] = updater.vec
+            print('New normvec for slice', slice_num, '=', self.vol_plotter.normvecs[slice_num])
+            self.need_replot = True
+            self._parse_and_plot()
 
     def _load_volume(self):
         fpath = QtWidgets.QFileDialog.getOpenFileName(self, 'Load 3D Volume',
