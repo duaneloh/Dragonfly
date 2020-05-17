@@ -145,9 +145,13 @@ def main():
 
     if args.out_fname is None:
         fname = '%s/%s.emc' % (output_folder, os.path.splitext(os.path.basename(args.h5_name))[0])
-        emcwriter = writeemc.EMCWriter(fname, pm['dets_x']*pm['dets_y'])
+        emcwriter = writeemc.EMCWriter(fname, pm['dets_x']*pm['dets_y'], hdf5=False)
     else:
-        emcwriter = writeemc.EMCWriter(args.out_fname, pm['dets_x']*pm['dets_y'])
+        if os.path.splitext(args.out_fname)[1] == '.emc':
+            do_hdf5 = False
+        else:
+            do_hdf5 = True
+        emcwriter = writeemc.EMCWriter(args.out_fname, pm['dets_x']*pm['dets_y'], hdf5=do_hdf5)
 
     for fnum, fname in enumerate(flist):
         fptr = h5py.File(fname, 'r')
