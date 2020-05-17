@@ -220,15 +220,15 @@ class Detector(CDetector):
         if sym:
             self._init_sym()
             img = ma.masked_array(np.zeros(self._sym_shape, dtype='f8'), mask=1-self._sym_mask)
-            np.add.at(img, (self._sym_x, self._sym_y), data*self.unassembled_mask)
-            np.add.at(img, (self._sym_fx, self._sym_fy), data*self.unassembled_mask)
+            np.add.at(img, (self._sym_x, self._sym_y), data*self.mask)
+            np.add.at(img, (self._sym_fx, self._sym_fy), data*self.mask)
             img.data[self._sym_bothgood] /= 2.
             if zoomed:
                 b = self._sym_zoom_bounds
                 return img[b[0]:b[1], b[2]:b[3]]
         else:
-            img = ma.masked_array(np.zeros(self.frame_shape, dtype='f8'), mask=1-self.mask)
-            np.add.at(img, (self.x, self.y), data*self.unassembled_mask)
+            img = ma.masked_array(np.zeros(self.frame_shape, dtype='f8'), mask=1-self.assembled_mask)
+            np.add.at(img, (self.x, self.y), data*self.mask)
             if zoomed:
                 b = self.zoom_bounds
                 return img[b[0]:b[1], b[2]:b[3]]
@@ -352,12 +352,12 @@ class Detector(CDetector):
         self._sym_fy = self._sym_shape[1] - 1 - self._sym_y
 
         self._sym_mask = np.zeros(self._sym_shape, dtype='u1')
-        np.add.at(self._sym_mask, (self._sym_x, self._sym_y), self.unassembled_mask)
-        np.add.at(self._sym_mask, (self._sym_fx, self._sym_fy), self.unassembled_mask)
+        np.add.at(self._sym_mask, (self._sym_x, self._sym_y), self.mask)
+        np.add.at(self._sym_mask, (self._sym_fx, self._sym_fy), self.mask)
         self._sym_bothgood = (self._sym_mask == 2)
         self._sym_mask = np.sign(self._sym_mask)
 
-        mask = self.unassembled_mask
+        mask = self.mask
         xsel = np.concatenate((self._sym_x[mask.astype('bool')], self._sym_fx[mask.astype('bool')]))
         ysel = np.concatenate((self._sym_y[mask.astype('bool')], self._sym_fy[mask.astype('bool')]))
         self._sym_zoom_bounds = (xsel.min(), xsel.max()+1, ysel.min(), ysel.max()+1)
