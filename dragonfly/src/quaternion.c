@@ -841,3 +841,23 @@ int quat_gen(int num_div, struct quaternion *quat) {
 	return quat->num_rot ;
 }
 
+void voronoi_subset(struct quaternion *qcoarse, struct quaternion *qfine, int *nearest_coarse) {
+	#pragma omp parallel default(shared)
+	{
+		int i, j ;
+		double dist, dmin ;
+		
+		#pragma omp for schedule(static, 1)
+		for (i = 0 ; i < qfine->num_rot ; ++i) {
+			dmin = 2. ;
+			for (j = 0 ; j < qcoarse->num_rot ; ++j) {
+				dist = qdist(&qfine->quats[i*5], &qcoarse->quats[j*5]) ;
+				if (dist < dmin) {
+					dmin = dist ;
+					nearest_coarse[i] = j ;
+				}
+			}
+		}
+	}
+}
+

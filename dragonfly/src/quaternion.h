@@ -15,5 +15,6 @@ struct quaternion {
 } ;
 
 int quat_gen(int, struct quaternion*) ;
+void voronoi_subset(struct quaternion*, struct quaternion*, int*) ;
 
 #endif //QUAT_H

@@ -16,7 +16,7 @@ NUM_CELL = 600
 NNN = 12
 
 cimport numpy as np
-from libc.stdlib cimport malloc, free
+from libc.stdlib cimport malloc, calloc, free
 from . cimport quaternion as c_quat
 from .quaternion cimport Quaternion
 
@@ -140,6 +140,24 @@ cdef class Quaternion:
 
         self.reduced = True
         return self.num_rot
+
+    def voronoi_subset(self, int coarse_num_div):
+        if self.num_rot == 0:
+            print('Generate fine quaternions first')
+            return
+        cdef c_quat.quaternion* coarse
+        coarse = <c_quat.quaternion*> calloc(1, sizeof(c_quat.quaternion))
+        coarse.num_div = coarse_num_div
+        c_quat.quat_gen(coarse_num_div, coarse)
+
+        nearest = np.empty(self.num_rot, dtype='i4')
+        cdef int[:] nearest_view = nearest
+        c_quat.voronoi_subset(coarse, self.quat, &nearest_view[0])
+
+        free(coarse.quats)
+        free(coarse)
+
+        return nearest
 
     def free(self):
         if self.quat == NULL:

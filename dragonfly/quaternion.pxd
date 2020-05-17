@@ -5,6 +5,7 @@ cdef extern from 'src/quaternion.h' nogil:
         int reduced, icosahedral_flag, octahedral_flag
 
     int quat_gen(int, quaternion*)
+    void voronoi_subset(quaternion*, quaternion*, int*)
 
 cdef class Quaternion:
     cdef quaternion* quat
