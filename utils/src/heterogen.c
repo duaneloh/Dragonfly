@@ -560,7 +560,7 @@ void update_model(double likelihood) {
 		iter->model2[x] /= iter->inter_weight[x] ;
 	
 	for (x = 0 ; x < param->modes ; ++x)
-		symmetrize_friedel(&iter->model2[x*iter->vol], iter->size) ;
+		symmetrize_friedel(&iter->model2[x*iter->vol], &iter->inter_weight[x*iter->vol], iter->size) ;
 	
 	for (x = 0 ; x < iter->modes * iter->vol ; ++x) {
 		diff = iter->model2[x] - iter->model1[x] ;
