@@ -92,6 +92,7 @@ static void emc() {
 	// Keep copy of original detector
 	struct detector *orig_det = calloc(1, sizeof(struct detector)) ;
 	copy_detector(det, orig_det) ;
+	orig_det->num_det = 1 ;
 	
 	// Initial radius estimate if not provided
 	if (param->radius == 0 && param->radius_jump > 0)
@@ -145,16 +146,16 @@ static void update_model() {
 			iter->model2[x] *= norm / iter->inter_weight[x] ;
 	
 	if (param->recon_type == RECONRZ || (param->recon_type == RECON2D && param->friedel_sym))
-		symmetrize_friedel2d(iter->model2, param->modes, iter->size) ;
+		symmetrize_friedel2d(iter->model2, iter->inter_weight, param->modes, iter->size) ;
 	else if (param->recon_type == RECON3D && quat->icosahedral_flag)
 		for (x = 0 ; x < param->modes ; ++x)
-			symmetrize_icosahedral(&iter->model2[x*iter->vol], iter->size) ;
+			symmetrize_icosahedral(&iter->model2[x*iter->vol], &iter->inter_weight[x*iter->vol], iter->size) ;
 	else if (param->recon_type == RECON3D && quat->octahedral_flag)
 		for (x = 0 ; x < param->modes ; ++x)
-			symmetrize_octahedral(&iter->model2[x*iter->vol], iter->size) ;
+			symmetrize_octahedral(&iter->model2[x*iter->vol], &iter->inter_weight[x*iter->vol], iter->size) ;
 	else if (param->recon_type == RECON3D)
 		for (x = 0 ; x < param->modes ; ++x)
-			symmetrize_friedel(&iter->model2[x*iter->vol], iter->size) ;
+			symmetrize_friedel(&iter->model2[x*iter->vol], &iter->inter_weight[x*iter->vol], iter->size) ;
 	
 	for (x = 0 ; x < iter->modes * iter->vol ; ++x) {
 		diff = iter->model2[x] - iter->model1[x] ;
