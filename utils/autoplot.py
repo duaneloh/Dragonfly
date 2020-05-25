@@ -118,7 +118,7 @@ class MyFrameviewer(frameviewer.Frameviewer):
 
 class NormVecUpdater(QtWidgets.QDialog):
     def __init__(self, old_normvec, parent=None):
-        super(NormVecUpdater, self).__init__()
+        super(NormVecUpdater, self).__init__(parent)
         self.vec = old_normvec
         layout = QtWidgets.QVBoxLayout(self)
 
@@ -953,10 +953,9 @@ class ProgressViewer(QtWidgets.QMainWindow):
         context_menu.exec_(cursor.pos())
 
     def _update_normvec(self, slice_num):
-        updater = NormVecUpdater(self.vol_plotter.normvecs[slice_num])
+        updater = NormVecUpdater(self.vol_plotter.normvecs[slice_num], self)
         if updater.vec is not None:
             self.vol_plotter.normvecs[slice_num] = updater.vec
-            print('New normvec for slice', slice_num, '=', self.vol_plotter.normvecs[slice_num])
             self.need_replot = True
             self._parse_and_plot()
 
