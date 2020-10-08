@@ -383,35 +383,13 @@ class LogPlotter(object):
         if len(loglines) == 0:
             return
 
-        # Read orientation files for the first n iterations
-        orient = []
-        for i in range(len(loglines)):
-            if os.path.isfile(self.folder+'/output_%.3d.h5' % (i+1)):
-                with h5py.File(self.folder+'/output_%.3d.h5' % (i+1), 'r') as fptr:
-                    orient.append(fptr['orientations'][:])
-            else:
-                fname = self.folder+'/orientations/orientations_%.3d.bin' % (i+1)
-                with open(fname, 'r') as fptr:
-                    orient.append(np.fromfile(fptr, '=i4'))
-        olengths = np.array([len(ori) for ori in orient])
-        max_length = olengths.max()
-
         iternum = loglines[:, 0].astype('i4')
         num_rot = loglines[:, 5].astype('i4')
         beta = loglines[:, 6].astype('f8')
         self.num_rot_change = np.append(np.where(np.diff(num_rot) != 0)[0], num_rot.shape[0])
         self.beta_change = np.where(np.diff(beta) != 0.)[0]
 
-        # Sort o_array by the last iteration which has the same number of orientations
-        o_array = np.array([np.pad(o, ((max_length-len(o), 0)), 'constant', constant_values=-1)
-                            for o in orient]).astype('f8')
-        istart = 0
-        for i, istop in enumerate(self.num_rot_change):
-            sorter = o_array[istop-1].argsort()
-            for index in np.arange(istart, istop):
-                o_array[index] = o_array[index][sorter]
-            istart = istop
-        o_array = o_array.T
+        o_array = self._get_orient(loglines)
 
         self.fig.clf()
         grid = matplotlib.gridspec.GridSpec(2, 3, wspace=0.3, hspace=0.2)
@@ -426,7 +404,7 @@ class LogPlotter(object):
                           'Avg log-likelihood', yscale='symlog')
 
         # Plot most likely orientation convergence plot
-        if len(loglines) > 1:
+        if o_array is not None and len(loglines) > 1:
             subp = self.fig.add_subplot(grid[:, 2])
             o_array = o_array[o_array[:, -1] >= 0]
             shp = o_array.shape
@@ -440,6 +418,39 @@ class LogPlotter(object):
         grid.tight_layout(self.fig)
         self.canvas.draw()
         return ''.join(all_lines)
+
+    def _get_orient(self, loglines):
+        orient = []
+
+        # Read orientation files for the first n iterations
+        for i in range(len(loglines)):
+            h5_fname = self.folder+'/output_%.3d.h5' % (i+1)
+            bin_fname = self.folder+'/orientations/orientations_%.3d.bin' % (i+1)
+            if not os.path.isfile(h5_fname) and not os.path.isfile(bin_fname):
+                print('Missing intermediate iterations')
+                return None
+
+            if os.path.isfile(h5_fname):
+                with h5py.File(h5_fname, 'r') as fptr:
+                    orient.append(fptr['orientations'][:])
+            else:
+                with open(bin_fname, 'r') as fptr:
+                    orient.append(np.fromfile(fptr, '=i4'))
+        olengths = np.array([len(ori) for ori in orient])
+        max_length = olengths.max()
+
+        # Sort o_array by the last iteration which has the same number of orientations
+        o_array = np.array([np.pad(o, ((max_length-len(o), 0)), 'constant', constant_values=-1)
+                            for o in orient]).astype('f8')
+        istart = 0
+        for i, istop in enumerate(self.num_rot_change):
+            sorter = o_array[istop-1].argsort()
+            for index in np.arange(istart, istop):
+                o_array[index] = o_array[index][sorter]
+            istart = istop
+        o_array = o_array.T
+
+        return o_array
 
     def _add_logplot(self, gridpos, xval, yval, title='', yscale='log'):
         subp = self.fig.add_subplot(gridpos)
