@@ -747,7 +747,7 @@ int reduce_octahedral(struct rotation *quat) {
 	int r, t, i, j, k, keep_quat ;
 	int num_rot = 0 ;
 	double dist, dist0 ;
-	quat->sym_quat = malloc(24 * sizeof(*(quat->sym_quat))) ;
+	quat->sym_quat = calloc(24, sizeof(*(quat->sym_quat))) ;
 	
 	// Generating all cubic point group symmetry operations
 	for (r = 0 ; r < 4 ; ++r)
