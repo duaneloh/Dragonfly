@@ -71,10 +71,11 @@ cdef class Quaternion:
         if rank < (tot_num_rot % num_proc):
             self.quat.num_rot_p += 1
         if num_proc > 1:
-            print("%d: %s: num_rot_p = %d/%d" % (rank, gethostname(), self.num_rot_p, tot_num_rot))
+            sys.stderr.write("%d: %s: num_rot_p = %d/%d\n" % (rank, gethostname(), self.num_rot_p, tot_num_rot))
+            sys.stderr.flush()
         return self.quat.num_rot_p
 
-    def reduce_icosahedral(self):
+    def reduce_icosahedral(self, return_sym=False):
         if self.quat.quats == NULL:
             raise AttributeError('Generate quaternion first before reducing')
         if self.reduced:
@@ -97,9 +98,12 @@ cdef class Quaternion:
                 self.quat.quats[r*5 + t] = self.quat.quats[(sel[r-1]+60)*5 + t]
 
         self.reduced = True
-        return self.num_rot
+        if return_sym:
+            return quats[:60,:4]
+        else:
+            return self.num_rot
 
-    def reduce_octahedral(self):
+    def reduce_octahedral(self, return_sym=False):
         if self.quat.quats == NULL:
             raise AttributeError('Generate quaternion first before reducing')
         if self.reduced:
@@ -139,7 +143,10 @@ cdef class Quaternion:
                 self.quat.quats[r*5 + t] = self.quat.quats[sel[r]*5 + t]
 
         self.reduced = True
-        return self.num_rot
+        if return_sym:
+            return cube_quat
+        else:
+            return self.num_rot
 
     def voronoi_subset(self, int coarse_num_div):
         if self.num_rot == 0:
@@ -185,5 +192,16 @@ cdef class Quaternion:
     @property
     def octahedral_flag(self): return bool(self.quat.octahedral_flag)
     @property
-    def quats(self): return np.asarray(<double[:self.num_rot*5]> self.quat.quats).reshape(-1,5)
+    def quats(self): return np.asarray(<double[:self.num_rot*5]> self.quat.quats).reshape(-1,5) if self.quat.quats != NULL else None
+    @quats.setter
+    def quats(self, arr):
+        if len(arr.shape) != 2 or arr.shape[1] != 5:
+            raise ValueError('quats must be  2D array of shape (N, 5)')
+        if arr.dtype != 'f8':
+            raise TypeError('quats must be double precision floats (float64)')
+
+        self.quat.quats = <double*> malloc(arr.size * sizeof(double))
+        for i in range(arr.size):
+            self.quat.quats[i] = arr.ravel()[i]
+        self.quat.num_rot = arr.shape[0]
 
