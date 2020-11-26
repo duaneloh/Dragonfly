@@ -25,22 +25,15 @@ cdef class CDetector:
         mask_flag (bool) - Whether to read the mask column for each pixel
         keep_mask_1 (bool) - Whether to consider mask=1 pixels as good
 
-    Methods:
-        parse(fname, mask_flag=False, keep_mask_1=True)
-        write(fname)
-        assemble_frame(data, zoomed=False, sym=False)
-        calc_from_coords()
-        remask(qradius)
-
     On parsing, it produces the following numpy arrays (each of length num_pix)
 
     Attributes:
         self.qvals - Voxel space coordinates (origin at (0,0,0))
         self.cx, self.cy - Floating point 2D coordinates (origin at (0,0))
         self.x, self.y - Integer and shifted 2D coordinates (corner at (0,0))
-        self.mask - Assembled mask
         self.raw_mask - Unassembled mask as stored in detector file
-        self.unassembled_mask - Unassembled mask (1=good, 0=bad)
+        self.mask - Unassembled mask (1=good, 0=bad)
+        self.assembled_mask - Assembled mask (1-good, 0=bad)
     """
     def __init__(self, fname=None, **kwargs):
         self.det = <c_det.detector*> calloc(1, sizeof(c_det.detector))
@@ -167,17 +160,66 @@ cdef class CDetector:
     def num_pix(self): return self.det.num_pix
     @property
     def detd(self): return self.det.detd
+    @detd.setter
+    def detd(self, value): self.det.detd = float(value)
     @property
     def ewald_rad(self): return self.det.ewald_rad
+    @ewald_rad.setter
+    def ewald_rad(self, value): self.det.ewald_rad = float(value)
     @property
     def corr(self): return np.asarray(<double[:self.num_pix]>self.det.corr)
+    @corr.setter
+    def corr(self, arr):
+        if len(arr.shape) != 1 or arr.dtype != 'f8':
+            raise ValueError('corr must be  1D array of float64 dtype')
+        if self.det.num_pix > 0 and (arr.shape[0] != self.det.num_pix):
+            raise ValueError('num_pix mismatch with other data (%d vs %d)'%(arr.shape[0], self.det.num_pix))
+
+        self.det.corr = <double*> malloc(arr.size * sizeof(double))
+        for i in range(arr.size):
+            self.det.corr[i] = arr[i]
+        if self.det.num_pix == 0:
+            self.det.num_pix = arr.shape[0]
     @property
     def raw_mask(self): return np.asarray(<uint8_t[:self.num_pix]>self.det.raw_mask)
+    @raw_mask.setter
+    def raw_mask(self, arr):
+        if len(arr.shape) != 1 or arr.dtype != 'u1':
+            raise ValueError('raw_mask must be  1D array of uint8 dtype')
+        if self.det.num_pix > 0 and (arr.shape[0] != self.det.num_pix):
+            raise ValueError('num_pix mismatch with other data (%d vs %d)'%(arr.shape[0], self.det.num_pix))
+
+        self.det.raw_mask = <uint8_t*> malloc(arr.size * sizeof(uint8_t))
+        for i in range(arr.size):
+            self.det.raw_mask[i] = arr[i]
+        if self.det.num_pix == 0:
+            self.det.num_pix = arr.shape[0]
     @property
     def qvals(self): return np.asarray(<double[:3*self.num_pix]>self.det.qvals).reshape(-1, 3)
+    @qvals.setter
+    def qvals(self, arr):
+        if len(arr.shape) != 2 or arr.shape[1] != 3:
+            raise ValueError('qvals must be  2D array of shape (N, 3)')
+        if self.det.num_pix > 0 and (arr.shape[0] != self.det.num_pix):
+            raise ValueError('num_pix mismatch with other data (%d vs %d)'%(arr.shape[0], self.det.num_pix))
+        if arr.dtype != 'f8':
+            raise TypeError('qvals must be double precision floats (float64)')
+
+        self.det.qvals = <double*> malloc(arr.size * sizeof(double))
+        for i in range(arr.size):
+            self.det.qvals[i] = arr.ravel()[i]
+        if self.det.num_pix == 0:
+            self.det.num_pix = arr.shape[0]
 
 class Detector(CDetector):
     def __init__(self, fname=None, **kwargs):
+        '''
+        Additional methods of python Detector class:
+            assemble_frame(data, zoomed=False, sym=False)
+            calc_from_coords()
+            remask(qradius)
+            write(fname)
+        '''
         super(Detector, self).__init__(fname, **kwargs)
         self._sym_shape = None
 
@@ -251,12 +293,19 @@ class Detector(CDetector):
             print('ewald_rad should be in voxel units')
             return
 
+        self.cx = self.cx.ravel()
+        self.cy = self.cy.ravel()
+
         fac = np.sqrt(self.cx**2 + self.cy**2 + self.detd**2)
-        qvals = np.empty((3,) + self.cx.shape)
-        self.qvals[:,0] = self.cx * self.ewald_rad / fac
-        self.qvals[:,1] = self.cy * self.ewald_rad / fac
-        self.qvals[:,2] = self.ewald_rad * (self.detd/fac - 1.)
-        self.corr = self.detd / fac**3 * (1. - self.cx**2 / fac**2)
+        qvals = np.empty(self.cx.shape + (3,))
+        qvals[:,0] = self.cx * self.ewald_rad / fac
+        qvals[:,1] = self.cy * self.ewald_rad / fac
+        qvals[:,2] = self.ewald_rad * (self.detd/fac - 1.)
+        corr = self.detd / fac**3 * (1. - self.cx**2 / fac**2)
+
+        # This assignment forces a copy
+        self.qvals = qvals
+        self.corr = corr
 
     def remask(self, qradius):
         ''' Remask detector with given q-radius
