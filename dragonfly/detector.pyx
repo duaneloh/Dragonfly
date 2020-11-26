@@ -76,7 +76,15 @@ cdef class CDetector:
         free(self.det)
         self.det = NULL
 
-    def qmax(self):
+    def qmax(self, rtype='3d'):
+        if rtype == '3d':
+            return self._qmax_3d()
+        elif rtype == '2d':
+            return self._qmax_2d()
+        else:
+            raise ValueError('rtype must be 2d or 3d')
+
+    def _qmax_3d(self):
         cdef int t, d
         cdef double qsq, qmax = 0
         for t in range(self.det.num_pix):
@@ -87,6 +95,15 @@ cdef class CDetector:
             if qsq > qmax:
                 qmax = qsq
         return sqrt(qmax)
+
+    def _qmax_2d(self):
+        if self.qvals[:,2].mean() > 0:
+            cx = self.qvals[:,0] * self.detd / (self.ewald_rad - self.qvals[:,2]) # pylint: disable=C0103
+            cy = self.qvals[:,1] * self.detd / (self.ewald_rad - self.qvals[:,2]) # pylint: disable=C0103
+        else:
+            cx = self.qvals[:,0] * self.detd / (self.ewald_rad + self.qvals[:,2]) # pylint: disable=C0103
+            cy = self.qvals[:,1] * self.detd / (self.ewald_rad + self.qvals[:,2]) # pylint: disable=C0103
+        return sqrt((cx**2 + cy**2).max())
 
     def _check_header(self):
         with open(self.fname, 'r') as fptr:
