@@ -28,6 +28,11 @@ cdef class Iterate:
         param = EMCParams()
         param.from_config(config_fname, section_name)
         self.set_params(param)
+        rtypes = {str(c_params.RECON3D): '3d',
+                  str(c_params.RECON2D): '2d',
+                  str(c_params.RECONRZ): 'rz'}
+        rtype = rtypes[str(self.iter.par.rtype)]
+        print('Doing %s recon from %s' % (rtype.upper(), config_fname))
 
         config_folder = op.dirname(config_fname)
         config = ConfigParser()
@@ -39,10 +44,10 @@ cdef class Iterate:
         if det_fname is not None and det_flist is not None:
             raise ValueError("Both in_detector_file and in_detector_list specified. Pick one.")
         elif det_fname is not None:
-            dets = [CDetector(op.join(config_folder, det_fname), norm=True)]
+            dets = [CDetector(op.join(config_folder, det_fname), norm=True, rtype=rtype)]
         elif det_flist is not None:
             fptr = open(det_flist, 'r')
-            dets = [CDetector(op.join(config_folder, line.strip()), norm=True) for line in fptr.readlines()]
+            dets = [CDetector(op.join(config_folder, line.strip()), norm=True, rtype=rtype) for line in fptr.readlines()]
             fptr.close()
         else:
             raise ValueError("Need either in_detector_file or in_detector_list.")
@@ -71,7 +76,14 @@ cdef class Iterate:
         self.set_data(frames)
 
         # Quaternions
-        if self.iter.par.fine_div > 0:
+        if rtype == '2d':
+            quat = Quaternion()
+            num_rot = config.getint(section_name, 'num_rot')
+            q = np.zeros((num_rot, 5))
+            q[:,0] = np.arange(0, 2. * np.pi, 2. * np.pi / num_rot)
+            q[:,4] = 1. / num_rot
+            quat.quats = q
+        elif self.iter.par.fine_div > 0:
             quat = Quaternion(self.iter.par.fine_div)
         else:
             quat = Quaternion(config.getint(section_name, 'num_div'))
@@ -97,7 +109,7 @@ cdef class Iterate:
 
         # Model
         qmax = max([det.qmax() for det in dets])
-        model = Model(self.calculate_size(qmax), self.iter.par.num_modes)
+        model = Model(self.calculate_size(qmax), self.iter.par.num_modes, rtype)
         model_mean = self.mean_count[0] / (self.dets[0].raw_mask==0).sum() * 2.
         model.allocate(model_file, model_mean)
         self.set_model(model)
