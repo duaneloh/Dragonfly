@@ -40,7 +40,7 @@ cdef class EMCRecon():
             print('Set params for iterate first')
             return
 
-        itr.iter.quat.num_rot_p = itr.quat.divide(MPI.COMM_WORLD.rank, MPI.COMM_WORLD.size)
+        itr.iter.quat.num_rot_p = itr.quat.divide(MPI.COMM_WORLD.rank, MPI.COMM_WORLD.size, itr.iter.par.num_modes, itr.iter.par.nonrot_modes)
         itr.iter.par.rank = MPI.COMM_WORLD.rank
         itr.iter.par.num_proc = MPI.COMM_WORLD.size
         self.mdata.iter = itr.iter
@@ -57,6 +57,9 @@ cdef class EMCRecon():
         if itr.par.rtype == c_params.RECON3D:
             c_recon.slice_gen = &c_model.slice_gen3d
             c_recon.slice_merge = &c_model.slice_merge3d
+        elif itr.par.rtype == c_params.RECON2D:
+            c_recon.slice_gen = &c_model.slice_gen2d
+            c_recon.slice_merge = &c_model.slice_merge2d
 
         if itr.par.iteration == 1:
             self.write_log_file_header()
@@ -158,7 +161,7 @@ cdef class EMCRecon():
             else:
                 fp.write("\tnum_data = %d/%d\n\tmean_count = %f\n\n" % (itr.tot_num_data-itr.num_blacklist, itr.tot_num_data, tot_mean_count))
             fp.write("System size:\n")
-            fp.write("\tnum_rot = %d\n\tnum_pix = %d\n\t" % (quat.num_rot, itr.det.num_pix))
+            fp.write("\tnum_rot = %d\n\tnum_pix = %d/%d\n\t" % (quat.num_rot, (self.iter.dets[0].raw_mask==0).sum(), itr.det.num_pix))
             if param.rtype == c_params.RECON3D:
                 fp.write("system_volume = %d X %ld X %ld X %ld\n\n" % (mod.num_modes, mod.size, mod.size, mod.size))
             elif param.rtype == c_params.RECON2D or param.rtype == c_params.RECONRZ:
@@ -287,7 +290,7 @@ cdef class EMCRecon():
     @property
     def rmax(self): return np.asarray(<int[:self.mdata.iter.tot_num_data]>self.mdata.rmax) if self.mdata.rmax != NULL else None
     @property
-    def quat_norm(self): return np.asarray(<double[:self.mdata.iter.tot_num_data*self.mdata.iter.mod.num_modes]>self.mdata.quat_norm).reshape(-1, self.iter.mod.num_modes) if self.mdata.quat_norm != NULL else None
+    def quat_norm(self): return np.asarray(<double[:self.mdata.iter.tot_num_data*self.mdata.iter.mod.num_modes]>self.mdata.quat_norm).reshape(-1, self.mdata.iter.mod.num_modes) if self.mdata.quat_norm != NULL else None
     @property
     def num_prob(self): return np.asarray(<int[:self.mdata.iter.tot_num_data]>self.mdata.num_prob) if self.mdata.num_prob != NULL else None
     @property
