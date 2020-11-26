@@ -91,7 +91,7 @@ cdef class EMCParams:
         self.par.friedel_sym = config.getint(section_name, 'friedel_sym', fallback=0)
         self.par.save_prob = config.getint(section_name, 'save_prob', fallback=0)
         self.par.update_scale = config.getint(section_name, 'update_scale', fallback=1)
-        num_divs = config.get(section_name, 'num_div').split()
+        num_divs = config.get(section_name, 'num_div', fallback='0').split()
         if len(num_divs) > 1:
             self.par.refine = 1
             self.par.fine_div = int(num_divs[0])
