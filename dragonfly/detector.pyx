@@ -76,15 +76,7 @@ cdef class CDetector:
         free(self.det)
         self.det = NULL
 
-    def qmax(self, rtype='3d'):
-        if rtype == '3d':
-            return self._qmax_3d()
-        elif rtype == '2d':
-            return self._qmax_2d()
-        else:
-            raise ValueError('rtype must be 2d or 3d')
-
-    def _qmax_3d(self):
+    def qmax(self):
         cdef int t, d
         cdef double qsq, qmax = 0
         for t in range(self.det.num_pix):
@@ -96,15 +88,6 @@ cdef class CDetector:
                 qmax = qsq
         return sqrt(qmax)
 
-    def _qmax_2d(self):
-        if self.qvals[:,2].mean() > 0:
-            cx = self.qvals[:,0] * self.detd / (self.ewald_rad - self.qvals[:,2]) # pylint: disable=C0103
-            cy = self.qvals[:,1] * self.detd / (self.ewald_rad - self.qvals[:,2]) # pylint: disable=C0103
-        else:
-            cx = self.qvals[:,0] * self.detd / (self.ewald_rad + self.qvals[:,2]) # pylint: disable=C0103
-            cy = self.qvals[:,1] * self.detd / (self.ewald_rad + self.qvals[:,2]) # pylint: disable=C0103
-        return sqrt((cx**2 + cy**2).max())
-
     def _check_header(self):
         with open(self.fname, 'r') as fptr:
             line = fptr.readline().rstrip().split()
@@ -114,7 +97,7 @@ cdef class CDetector:
         else:
             raise ValueError('Need 3 values on header line: num_pix, detd_pix, ewald_rad_vox')
 
-    def _parse_asciidet(self, norm=True):
+    def _parse_asciidet(self, norm=True, rtype='3d'):
         print('Parsing ASCII detector file')
         self._check_header()
         dframe = pandas.read_csv(
@@ -127,6 +110,8 @@ cdef class CDetector:
         self.det.num_pix = qx.shape[0]
         if norm:
             np_corr /= np_corr.mean()
+        if rtype == '2d':
+            self._conv_2d(qx, qy, qz)
 
         cdef int t, d
         cdef double[:,:] qvals = np.copy(np.array([qx, qy, qz]).T)
@@ -142,7 +127,7 @@ cdef class CDetector:
             for d in range(3):
                 self.det.qvals[t*3 + d] = qvals[t, d]
 
-    def _parse_h5det(self, norm=True):
+    def _parse_h5det(self, norm=True, rtype='3d'):
         print('Parsing HDF5 detector file')
 
         fptr = h5py.File(self.fname, 'r')
@@ -156,6 +141,8 @@ cdef class CDetector:
         if norm:
             np_corr = np.asarray(corr)
             np_corr /= np_corr.mean()
+        if rtype == '2d':
+            self._conv_2d(qx, qy, qz)
 
         self.det.num_pix = qx.shape[0]
         cdef double[:,:] qvals = np.ascontiguousarray(np.array([qx, qy, qz]).T).reshape(-1,3)
@@ -170,6 +157,15 @@ cdef class CDetector:
             self.det.raw_mask[t] = raw_mask[t]
             for d in range(3):
                 self.det.qvals[t*3 + d] = qvals[t, d]
+
+    def _conv_2d(self, qx, qy, qz):
+        if qz.mean() > 0:
+            qx *= self.detd / (self.ewald_rad - qz) # pylint: disable=C0103
+            qy *= self.detd / (self.ewald_rad - qz) # pylint: disable=C0103
+        else:
+            qx *= self.detd / (self.ewald_rad + qz) # pylint: disable=C0103
+            qy *= self.detd / (self.ewald_rad + qz) # pylint: disable=C0103
+        qz[:] = 0
 
     @property
     def fname(self): return (<bytes> self.det.fname).decode()
