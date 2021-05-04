@@ -169,11 +169,9 @@ int main(int argc, char *argv[]) {
 	return 0 ;
 }
 
-
 double gaussian(double x, double width) {
 	return exp(- x*x / 2 / width/width) ;
 }
-
 
 void interpolate(double tx, double ty, double tz, double val) {
 	long x, y, z, lsize = size ;

@@ -11,63 +11,77 @@ Produces:
     Detector file in output_folder
 '''
 
+from __future__ import print_function
+import sys
 import os
+import logging
 import numpy as np
 import h5py
-import sys
-import logging
 #Add utils directory to pythonpath
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-from py_src import py_utils
-from py_src import writeemc
-from py_src import read_config
+from py_src import py_utils # pylint: disable=wrong-import-position
+from py_src import read_config # pylint: disable=wrong-import-position
+from py_src import detector # pylint: disable=wrong-import-position
 
-if __name__ == '__main__':
-    logging.basicConfig(filename='recon.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-    parser = py_utils.my_argparser(description='cheetahtodet')
+def main():
+    """Parse command line arguments and convert file"""
+    logging.basicConfig(filename='recon.log', level=logging.INFO,
+                        format='%(asctime)s - %(levelname)s - %(message)s')
+    parser = py_utils.MyArgparser(description='cheetahtodet')
     parser.add_argument('h5_name', help='HDF5 file to convert to detector format')
-    parser.add_argument('-M', '--mask', help='Path to detector style mask (0:good, 1:no_orient, 2:bad) in h5 file')
-    parser.add_argument('--mask_dset', help='Data set in mask file. Default: /data/data', default='data/data')
-    parser.add_argument('--dragonfly_mask', help='Whether mask has Dragonfly style values or not. (Default: false)', default=False, action='store_true')
+    parser.add_argument('-M', '--mask',
+                        help='Path to detector style mask (0:good, 1:no_orient, 2:bad) in h5 file')
+    parser.add_argument('--mask_dset',
+                        help='Data set in mask file. Default: /data/data', default='data/data')
+    parser.add_argument('--dragonfly_mask',
+                        help='Whether mask has Dragonfly style values or not. (Default: false)',
+                        default=False, action='store_true')
     args = parser.special_parse_args()
 
     logging.info('Starting cheetahtodet...')
     logging.info(' '.join(sys.argv))
-    pm = read_config.get_detector_config(args.config_file, show=args.vb)
-    q_pm = read_config.compute_q_params(pm['detd'], pm['dets_x'], pm['dets_y'], pm['pixsize'], pm['wavelength'], pm['ewald_rad'], show=args.vb)
+    pm = read_config.get_detector_config(args.config_file, show=args.vb) # pylint: disable=invalid-name
+    q_pm = read_config.compute_q_params(pm['detd'], pm['dets_x'], pm['dets_y'],
+                                        pm['pixsize'], pm['wavelength'],
+                                        pm['ewald_rad'], show=args.vb)
     output_folder = read_config.get_filename(args.config_file, 'emc', 'output_folder')
 
     # Cheetah geometry files have coordinates in m
-    with h5py.File(args.h5_name, 'r') as f:
-        x = f['x'][:].flatten() * 1.e3
-        y = f['y'][:].flatten() * 1.e3
-        z = f['z'][:].flatten() * 1.e3 + pm['detd']
-    
+    with h5py.File(args.h5_name, 'r') as fptr:
+        x = fptr['x'][:].flatten() * 1.e3
+        y = fptr['y'][:].flatten() * 1.e3
+        z = fptr['z'][:].flatten() * 1.e3 + pm['detd']
+
+    det = detector.Detector()
     norm = np.sqrt(x*x + y*y + z*z)
-    polar = read_config.compute_polarization(pm['polarization'], x, y, norm)
-    qscaling    = 1. / pm['wavelength'] / q_pm['q_sep']
-    qx = x * qscaling / norm
-    qy = y * qscaling / norm
-    qz = qscaling * (z / norm - 1.)
-    solid_angle = pm['detd']*(pm['pixsize']*pm['pixsize']) / np.power(norm, 3.0)
-    solid_angle = polar*solid_angle
-    radius = np.sqrt(x*x + y*y)
+    qscaling = 1. / pm['wavelength'] / q_pm['q_sep']
+    det.qx = x * qscaling / norm
+    det.qy = y * qscaling / norm
+    det.qz = qscaling * (z / norm - 1.)
+    det.corr = pm['detd']*(pm['pixsize']*pm['pixsize']) / np.power(norm, 3.0)
+    det.corr *= read_config.compute_polarization(pm['polarization'], x, y, norm)
     if args.mask is None:
+        radius = np.sqrt(x*x + y*y)
         rmax = min(np.abs(x.max()), np.abs(x.min()), np.abs(y.max()), np.abs(y.min()))
-        mask = np.zeros(solid_angle.shape, dtype='u1')
-        mask[radius>rmax] = 1
+        det.raw_mask = np.zeros(det.corr.shape, dtype='u1')
+        det.raw_mask[radius > rmax] = 1
     else:
-        with h5py.File(args.mask, 'r') as f:
-            mask = f[args.mask_dset][:].astype('u1').flatten()
-            if not args.dragonfly_mask:
-                mask = 2 - 2*mask
-    
-    det_file = output_folder + '/' + os.path.splitext(os.path.basename(args.h5_name))[0] + '.dat'
-    logging.info('Writing detector file to %s'%det_file)
+        with h5py.File(args.mask, 'r') as fptr:
+            det.raw_mask = fptr[args.mask_dset][:].astype('u1').flatten()
+        if not args.dragonfly_mask:
+            det.raw_mask = 2 - 2*det.raw_mask
+
+    det.detd = pm['detd'] / pm['pixsize']
+    det.ewald_rad = pm['ewald_rad']
+    det_file = output_folder + '/' + os.path.splitext(os.path.basename(args.h5_name))[0]
+    try:
+        import h5py
+        det_file += '.h5'
+    except ImportError:
+        det_file += '.dat'
+    logging.info('Writing detector file to %s', det_file)
     sys.stderr.write('Writing detector file to %s\n'%det_file)
-    
-    with open(det_file, "w") as fp:
-        fp.write('%d %f %f\n' % (qx.shape[0], pm['detd']/pm['pixsize'], qscaling))
-        for t0,t1,t2,t3,t4 in zip(qx,qy,qz,solid_angle,mask):
-            txt = "%21.15e %21.15e %21.15e %21.15e %d\n"%(t0, t1, t2, t3, t4)
-            fp.write(txt)
+    det.write(det_file)
+
+if __name__ == '__main__':
+    main()

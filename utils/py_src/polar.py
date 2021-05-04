@@ -15,10 +15,9 @@ class PolarConverter(object):
         compute_ang_corr(polar_arr)
         convert(input_frame)
 
-    __init__ arguments
+    __init__ arguments:
         x, y (array) - x and y coordinates of every pixel
-        mask (array, int) - Representing whether the pixel
-                            should be included (1) or not (0)
+        mask (array, int) - Representing whether the pixel should be included (1) or not (0)
         r_min, rmax (float, optional) - Min and Max radii for angular averaging
         delta_r (float, optional) - Radial bin size
         delta_ang (float, optional) - Angular bin size in degrees
@@ -37,8 +36,7 @@ class PolarConverter(object):
         self.polar_indices = self.polar_count = None
 
     def compute_indices(self):
-        """Compute the angular and radial bins using the first encountered frame.
-        """
+        """Compute the angular and radial bins using the first encountered frame."""
         ang = np.mod(np.arctan2(self.x, self.y), np.pi) / (np.pi*self.delta_ang/180.)
         self.angs = (ang - ang.min()).astype('i4')
 
@@ -62,7 +60,7 @@ class PolarConverter(object):
         Possible methods:
             'raw' - Detector pixels in radius range as a 1D array
             'polar' - Polar representation from compute_polar()
-            'ang_corr' - Row-wise FFT magnitudes of polar representation from
+            'ang_corr' - Row-wise FFT magnitudes of polar representation from\
                          compute_ang_corr()
 
         Returns:
@@ -142,7 +140,7 @@ class PolarConverter(object):
                 if norm > 0.:
                     temp.append(np.absolute(np.fft.fft(corr/norm))[1:ang_max])
                 else:
-                    temp.append(np.zeros(ang_max-1))
+                    temp.append(np.zeros(ang_max-2))
             else:
                 temp.append(np.absolute(np.fft.fft(corr))[1:ang_max])
         return np.array(temp)

@@ -1,6 +1,7 @@
 # Executable
 emc
 bin/
+build/
 
 # Data files
 *.dat
@@ -50,3 +51,8 @@ config.ini
 
 # PDB files in the aux folder
 /aux/*.pdb
+
+# Cython and pip compiled files
+/dragonfly/*.so
+/dragonfly/*.c
+*egg-info/
