@@ -3,6 +3,7 @@
 #include <math.h>
 #include <mpi.h>
 #include <sys/time.h>
+#define EXTERN
 #include "emc.h"
 
 static struct timeval tr1, tr2, tr3 ;
