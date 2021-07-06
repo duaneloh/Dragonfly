@@ -29,7 +29,6 @@ class CCCalculator():
 
         self.intx = np.round(self.x_vals + self.size // 2).astype('i4')
         self.inty = np.round(self.y_vals + self.size // 2).astype('i4')
-        print(self.intx.shape)
 
     def compare(self, intens1, intens2):
         if self.interp_order > 0:
@@ -41,33 +40,26 @@ class CCCalculator():
             z_vals1 = fp1(self.x_vals, self.y_vals, grid=False)
             z_vals2 = fp2(self.x_vals, self.y_vals, grid=False)
         elif self.interp_order == 0:
-            print('Doing 0-order interpolation')
             z_vals1 = intens1[self.intx, self.inty]
             z_vals2 = intens2[self.intx, self.inty]
 
-        print('Calculating corrcoef', z_vals1.shape, z_vals2.shape)
         cc = np.corrcoef(z_vals1, z_vals2)
-        print('Calculated full CC')
         return cc[:self.x_vals.shape[0], self.x_vals.shape[0]:]
 
     def _mp_worker(self, intens, indices, cc_shared):
-        print('Starting processing', indices[0], '...')
         n_models = intens.shape[0]
         irange = indices[:, 0]
         jrange = indices[:, 1]
         num = 0
 
         for i, j in zip(irange, jrange):
-            print(i, j, len(irange), intens[i].shape, intens[j].shape)
             ccs = self.compare(intens[i], intens[j])
-            print(ccs.max())
-            sys.stdout.flush()
             cc_shared[j*n_models + i] = ccs.max()
             num += 1
             if irange[0] == 0 and jrange[0] == 1:
                 sys.stderr.write('\rC[%d,%d] = %f (%d/%d)   ' % (i, j, ccs.max(), num, len(irange)))
-            print(i, j, ccs.max())
-        sys.stderr.write('\n')
+        if irange[0] == 0 and jrange[0] == 1:
+            sys.stderr.write('\n')
 
     def run(self, fname_output=None, nproc=16):
         n_models = self.intens.shape[0]
@@ -83,7 +75,6 @@ class CCCalculator():
         ind = np.array(ind)
 
         jobs = [mp.Process(target=self._mp_worker, args=(norm_intens, ind[i::nproc], cc_shared)) for i in range(nproc)]
-        print('Starting MP jobs')
         _ = [j.start() for j in jobs]
         _ = [j.join() for j in jobs]
 
