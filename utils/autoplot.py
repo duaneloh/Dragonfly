@@ -31,6 +31,7 @@ except ImportError:
 from py_src import read_config
 import frameviewer
 from py_src import gui_utils
+from py_src import clpca
 
 class MySpinBox(QtWidgets.QSpinBox):
     '''Overriding QSpinBox to update need_replot'''
@@ -491,10 +492,12 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self._parse_and_plot(rots=False)
         self.old_fname = self.fname.text()
         self.fviewer = None
+        self.clpca = None
 
     def _init_ui(self):
         with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'py_src/style.css'), 'r') as f:
-            self.setStyleSheet(f.read())
+            self.css = f.read()
+            self.setStyleSheet(self.css)
         self.setWindowTitle('Dragonfly Progress Viewer')
         self.setGeometry(100, 100, 1600, 800)
         overall = QtWidgets.QWidget()
@@ -571,6 +574,10 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self.blacklist_action = modemenu.addAction('Save blacklist file\n(%d good frames)'%self.num_good)
         self.blacklist_action.setToolTip('Save blacklist file with frames in selected modes')
         self.blacklist_action.triggered.connect(self._save_blacklist)
+
+        action = analysismenu.addAction('Open &CLPCA')
+        action.triggered.connect(self._open_clpca)
+        action.setToolTip('Open CLPCA analysis window')
 
     def _init_plotarea(self):
         plot_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
@@ -1066,6 +1073,16 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.fviewer = MyFrameviewer(self.config, -1, [])
         self.fviewer.windowClosed.connect(self._fviewer_closed)
 
+    def _open_clpca(self):
+        if self.clpca is not None:
+            return
+        if self.vol_plotter.vol is None:
+            print('Parse intensities first')
+            return
+        self.clpca = clpca.CLPCA(self.fname.text(), self.vol_plotter.vol)
+        self.clpca.setStyleSheet(self.css)
+        self.clpca.windowClosed.connect(self._clpca_closed)
+
     def _subtract_radmin(self):
         self.vol_plotter.subtract_radmin()
         self._plot_vol()
@@ -1087,6 +1104,10 @@ class ProgressViewer(QtWidgets.QMainWindow):
     @QtCore.Slot()
     def _fviewer_closed(self):
         self.fviewer = None
+
+    @QtCore.Slot()
+    def _clpca_closed(self):
+        self.clpca = None
 
     def closeEvent(self, event): # pylint: disable=C0103
         if self.fviewer is not None:
