@@ -1079,8 +1079,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         if self.vol_plotter.vol is None:
             print('Parse intensities first')
             return
-        self.clpca = clpca.CLPCA(self.fname.text(), self.vol_plotter.vol)
-        self.clpca.setStyleSheet(self.css)
+        self.clpca = clpca.CLPCA(self.fname.text(), self.vol_plotter.vol, css=self.css)
         self.clpca.windowClosed.connect(self._clpca_closed)
 
     def _subtract_radmin(self):
