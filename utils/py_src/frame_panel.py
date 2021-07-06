@@ -18,14 +18,6 @@ from matplotlib import colors
 from . import slices
 from . import gui_utils
 
-class MyNavigationToolbar(NavigationToolbar2QT):
-    def _icon(self, name):
-        fname = os.path.abspath(os.path.dirname(__file__) + '/../../aux/icons/'+name) 
-        pm = QtGui.QPixmap(fname)
-        if hasattr(pm, 'setDevicePixelRatio'):
-            pm.setDevicePixelRatio(self.canvas._dpi_ratio)
-        return QtGui.QIcon(pm)
-
 class FramePanel(QtWidgets.QWidget):
     '''GUI panel containing frame display widget
     
@@ -80,7 +72,7 @@ class FramePanel(QtWidgets.QWidget):
         self.fig = Figure(figsize=(6, 6))
         self.fig.subplots_adjust(left=0.05, right=0.99, top=0.9, bottom=0.05)
         self.canvas = FigureCanvas(self.fig)
-        self.navbar = MyNavigationToolbar(self.canvas, self)
+        self.navbar = gui_utils.MyNavigationToolbar(self.canvas, self)
         self.canvas.mpl_connect('button_press_event', self._frame_focus)
         vbox.addWidget(self.navbar)
         vbox.addWidget(self.canvas)
