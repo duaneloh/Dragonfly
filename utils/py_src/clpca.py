@@ -123,7 +123,9 @@ class CLPCA(QtWidgets.QMainWindow):
     def _get_nearest_class(self, event=None):
         if self.embedding is None:
             return
-        if self.navbar._zoom_info is not None:
+        if hasattr(self.navbar, '_zoom_info') and self.navbar._zoom_info is not None:
+            return
+        if hasattr(self.navbar, '_zoom_mode') and self.navbar._zoom_mode is not None:
             return
         x = event.xdata
         y = event.ydata
