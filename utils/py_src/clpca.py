@@ -121,11 +121,12 @@ class CLPCA(QtWidgets.QMainWindow):
         self.canvas.draw()
 
     def _get_nearest_class(self, event=None):
-        if self.embedding is None:
-            return
-        if hasattr(self.navbar, '_zoom_info') and self.navbar._zoom_info is not None:
-            return
-        if hasattr(self.navbar, '_zoom_mode') and self.navbar._zoom_mode is not None:
+        if (self.embedding is None or
+            # For newer matplotlib
+            (hasattr(self.navbar, '_zoom_info') and self.navbar._zoom_info is not None) or
+            # For matplotlib < 3.2
+            (hasattr(self.navbar, '_zoom_mode') and self.navbar._zoom_mode is not None)):
+            event.accept()
             return
         x = event.xdata
         y = event.ydata
