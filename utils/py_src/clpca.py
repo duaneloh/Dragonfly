@@ -22,20 +22,22 @@ from . import gui_utils
 class CLPCA(QtWidgets.QMainWindow):
     windowClosed = QtCore.pyqtSignal()
 
-    def __init__(self, output_fname, intens, css=None):
-        super().__init__()
-        self.output_fname = output_fname
-        self.intens = intens
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent = parent
+        self.output_fname = parent.fname.text()
+        self.intens = parent.vol_plotter.vol
+
         self.cc_matrix = None
         self.embedding = None
         self._nearest_point = None
 
-        self._init_ui(css)
+        self._init_ui()
         self._check_output()
 
-    def _init_ui(self, css_str):
-        if css_str is not None:
-            self.setStyleSheet(css_str)
+    def _init_ui(self):
+        if self.parent.css is not None:
+            self.setStyleSheet(self.parent.css)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setWindowTitle('Common-line PCA')
         self.window = QtWidgets.QWidget()
@@ -47,7 +49,7 @@ class CLPCA(QtWidgets.QMainWindow):
         self.fig = Figure(figsize=(6, 6))
         self.fig.subplots_adjust(left=0.05, right=0.99, top=0.9, bottom=0.05)
         self.canvas = FigureCanvas(self.fig)
-        self.canvas.mpl_connect('button_press_event', self._get_nearest_class)
+        self.canvas.mpl_connect('button_release_event', self._get_nearest_class)
         self.navbar = gui_utils.MyNavigationToolbar(self.canvas, self)
         vbox.addWidget(self.navbar)
         vbox.addWidget(self.canvas)
@@ -59,6 +61,8 @@ class CLPCA(QtWidgets.QMainWindow):
         label = QtWidgets.QLabel('(%d 2D averages)'%self.intens.shape[0], self)
         line.addWidget(label)
         line.addStretch(1)
+        self.nearest_label = QtWidgets.QLabel('', self)
+        line.addWidget(self.nearest_label)
 
         line = QtWidgets.QHBoxLayout()
         vbox.addLayout(line)
@@ -119,14 +123,31 @@ class CLPCA(QtWidgets.QMainWindow):
     def _get_nearest_class(self, event=None):
         if self.embedding is None:
             return
+        if self.navbar._zoom_info is not None:
+            return
         x = event.xdata
         y = event.ydata
+        ax = event.inaxes
+
         nearest = np.linalg.norm(self.embedding[:,:2] - np.array([x,y]), axis=1).argmin()
+        self.nearest_label.setText('Class %d' % nearest)
         cx, cy = self.embedding[nearest, :2]
+
+        # Have to set bbox manually after plotting marker
+        ylim = ax.get_ylim()
+        xlim = ax.get_xlim()
         if self._nearest_point is not None:
             self._nearest_point.remove()
-        self._nearest_point = self.fig.get_axes()[0].plot([cx], [cy], marker='x', color='lime')[0]
+        self._nearest_point = ax.plot(cx, cy,
+                                      marker='x',
+                                      color='lime',
+                                      markersize=8)[0]
+        ax.set_ylim(ylim)
+        ax.set_xlim(xlim)
         self.canvas.draw()
+
+        self.parent.modenum.setValue(nearest)
+        self.parent._modenum_changed()
 
     def closeEvent(self, event):
         self.windowClosed.emit()
