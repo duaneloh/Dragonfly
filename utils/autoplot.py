@@ -254,9 +254,7 @@ class VolumePlotter(object):
         if exponent == 'log':
             self.imshow_args['norm'] = matplotlib.colors.SymLogNorm(linthresh=rangemax*1.e-2, vmin=rangemin, vmax=rangemax)
         else:
-            self.imshow_args['vmin'] = rangemin
-            self.imshow_args['vmax'] = rangemax
-            self.imshow_args['norm'] = matplotlib.colors.PowerNorm(float(exponent))
+            self.imshow_args['norm'] = matplotlib.colors.PowerNorm(float(exponent), vmin=rangemin, vmax=rangemax)
 
         self.fig.clf()
         self.subplot_list = []
