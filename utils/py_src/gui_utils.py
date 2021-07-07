@@ -41,7 +41,7 @@ class MyNavigationToolbar(NavigationToolbar2QT):
     def _icon(self, name):
         fname = os.path.abspath(os.path.dirname(__file__) + '/../../aux/icons/'+name) 
         pm = QtGui.QPixmap(fname)
-        if hasattr(pm, 'setDevicePixelRatio'):
-            pm.setDevicePixelRatio(self.canvas._dpi_ratio)
+        #if hasattr(pm, 'setDevicePixelRatio'):
+        #    pm.setDevicePixelRatio(self.canvas._dpi_ratio)
         return QtGui.QIcon(pm)
 
