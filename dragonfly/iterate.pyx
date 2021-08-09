@@ -249,7 +249,7 @@ cdef class Iterate:
                 self.iter.mod.model1[x] *= mean_scale
 
         if blist is None:
-            for x in range(self.iter.tot_num_data):
+            for d in range(self.iter.tot_num_data):
                 self.iter.scale[d] /= mean_scale
         else:
             for d in range(self.iter.tot_num_data):
