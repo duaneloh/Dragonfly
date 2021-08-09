@@ -475,7 +475,8 @@ class EMCWriter(object):
             sel_multi = (np.random.random(count_multi.sum())*int(partition)).astype('i4')
             sum_count_multi = count_multi.cumsum()
             for i in range(int(partition)):
-                sp_count_multi = np.array([a.sum() for a in np.split(sel_multi == i, sum_count_multi)])[:-1]
+                sp_count_multi = np.array([a.sum() for a in np.split(sel_multi == i, sum_count_multi)])
+                sp_count_multi = sp_count_multi[:len(sp_count_multi)-1]
                 sp_place_multi = place_multi[sp_count_multi > 0]
                 sp_count_multi = sp_count_multi[sp_count_multi > 0]
                 self._update_file(place_ones[sel_ones == i], sp_place_multi, sp_count_multi)
@@ -483,7 +484,8 @@ class EMCWriter(object):
             sel = (np.random.random(len(place_ones)) < fraction)
             place_ones = place_ones[sel]
             sel = (np.random.random(count_multi.sum()) < fraction)
-            count_multi = np.array([a.sum() for a in np.split(sel, count_multi.cumsum())])[:-1]
+            count_multi = np.array([a.sum() for a in np.split(sel, count_multi.cumsum())])
+            count_multi = count_multi[:len(count_multi)-1]
             place_multi = place_multi[count_multi > 0]
             count_multi = count_multi[count_multi > 0]
             self._update_file(place_ones, place_multi, count_multi)
