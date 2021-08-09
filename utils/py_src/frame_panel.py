@@ -147,13 +147,13 @@ class FramePanel(QtWidgets.QWidget):
             pass
         elif self.do_powder:
             det0 = self.emc_reader.flist[0]['geom']
-            frame = det0.assemble_frame(self.powder_sum, zoomed=True, sym=self.sym_flag.isChecked())
+            frame = det0.assemble_frame(self.powder_sum, zoomed=True, sym=self.sym_flag.isChecked(), avg=True)
             num = None
         else:
             num = self.get_num()
             if num is None:
                 return
-            frame = self.emc_reader.get_frame(num, zoomed=True, sym=self.sym_flag.isChecked())
+            frame = self.emc_reader.get_frame(num, zoomed=True, sym=self.sym_flag.isChecked(), avg=True)
 
         try:
             for point in self.parent.embedding_panel.roi_list:
