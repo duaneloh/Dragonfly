@@ -98,7 +98,7 @@ cdef class CDetector:
             raise ValueError('Need 3 values on header line: num_pix, detd_pix, ewald_rad_vox')
 
     def _parse_asciidet(self, norm=True, rtype='3d'):
-        print('Parsing ASCII detector file')
+        #print('Parsing ASCII detector file')
         self._check_header()
         dframe = pandas.read_csv(
             self.fname,
@@ -128,7 +128,7 @@ cdef class CDetector:
                 self.det.qvals[t*3 + d] = qvals[t, d]
 
     def _parse_h5det(self, norm=True, rtype='3d'):
-        print('Parsing HDF5 detector file')
+        #print('Parsing HDF5 detector file')
 
         fptr = h5py.File(self.fname, 'r')
         qx, qy, qz = fptr['qx'][:], fptr['qy'][:], fptr['qz'][:]
@@ -223,6 +223,20 @@ cdef class CDetector:
             self.det.qvals[i] = arr.ravel()[i]
         if self.det.num_pix == 0:
             self.det.num_pix = arr.shape[0]
+    @property
+    def background(self): return np.asarray(<double[:self.num_pix]>self.det.background) if self.det.background != NULL else None
+    @background.setter
+    def background(self, arr):
+        if len(arr.shape) != 1 or arr.dtype != 'f8':
+            raise ValueError('corr must be  1D array of float64 dtype')
+        if self.det.num_pix > 0 and (arr.shape[0] != self.det.num_pix):
+            raise ValueError('num_pix mismatch with other data (%d vs %d)'%(arr.shape[0], self.det.num_pix))
+
+        self.det.background = <double*> malloc(arr.size * sizeof(double))
+        for i in range(arr.size):
+            self.det.background[i] = arr[i]
+        if self.det.num_pix == 0:
+            self.det.num_pix = arr.shape[0]
 
 class Detector(CDetector):
     def __init__(self, fname=None, **kwargs):
@@ -258,7 +272,6 @@ class Detector(CDetector):
         if os.path.splitext(fname)[1] == '.h5':
             self._write_h5det(fname)
         else:
-            print('Writing ASCII detector file')
             self._write_asciidet(fname)
 
     def assemble_frame(self, data, zoomed=False, sym=False):
