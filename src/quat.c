@@ -909,6 +909,7 @@ void free_quat(struct rotation *quat) {
 int quat_from_config(char *config_fname, char *config_section, struct rotation *quat_ptr) {
 	int r, b, num, num_div = -1, recon_type = 3, num_rot = 0, num_beta ;
 	double beta_min = 0., beta_max = 0., beta_incr = 0. ;
+	int friedel_sym = 0 ;
 	char quat_fname[1024] = {'\0'}, point_group[1024] = {'\0'} ;
 	char line[1024], temp[8], section_name[1024], config_folder[1024], *token ;
 	char *temp_fname = strndup(config_fname, 1024) ;
@@ -941,6 +942,8 @@ int quat_from_config(char *config_fname, char *config_section, struct rotation *
 				absolute_strcpy(config_folder, quat_fname, strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "point_group") == 0)
 				strncpy(point_group, strtok(NULL, " =\n"), 1023) ;
+			else if (strcmp(token, "friedel_sym") == 0)
+				friedel_sym = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "beta_range_deg") == 0) {
 				beta_min = atof(strtok(NULL, " =\n")) * M_PI / 180. ;
 				beta_max = atof(strtok(NULL, " =\n")) * M_PI / 180. ;
@@ -959,7 +962,10 @@ int quat_from_config(char *config_fname, char *config_section, struct rotation *
 		quat_ptr->num_rot = num_rot ;
 		quat_ptr->quat = calloc(quat_ptr->num_rot * 5, sizeof(double)) ;
 		for (r = 0 ; r < quat_ptr->num_rot ; ++r) {
-			quat_ptr->quat[r*5+0] = 2. * M_PI * r / num_rot ;
+			if (friedel_sym == 0)
+				quat_ptr->quat[r*5+0] = 2. * M_PI * r / num_rot ;
+			else
+				quat_ptr->quat[r*5+0] = M_PI * r / num_rot ;
 			quat_ptr->quat[r*5+4] = 1. / num_rot ;
 		}
 		
