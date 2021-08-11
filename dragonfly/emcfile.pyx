@@ -120,9 +120,6 @@ class EMCReader():
             photons_list = [photons_list]
         if not hasattr(det_list, '__getitem__'):
             det_list = [det_list]
-        if hasattr(dset_list, 'strip') or not hasattr(dset_list, '__getitem__'):
-            dset_list = [dset_list]
-
         # Create dictionaries of photons file information
         self.flist = [{'fname': fname} for fname in photons_list]
         num_files = len(photons_list)
@@ -140,14 +137,20 @@ class EMCReader():
                 print('Need mapping if multiple geometries are provided')
                 raise
 
-        if len(dset_list) != len(photons_list):
-            raise ValueError('dset_list must be same length as photons_list')
-        self._dset_list = []
-        for dset in dset_list:
-            if dset is not None:
-                self._dset_list.append(dset)
-            else:
-                self._dset_list.append(None)
+        if dset_list is not None:
+            if hasattr(dset_list, 'strip') or not hasattr(dset_list, '__getitem__'):
+                dset_list = [dset_list]
+
+            if len(dset_list) != len(photons_list):
+                raise ValueError('dset_list must be same length as photons_list')
+            self._dset_list = []
+            for dset in dset_list:
+                if dset is not None:
+                    self._dset_list.append(dset)
+                else:
+                    self._dset_list.append(None)
+        else:
+            self._dset_list = [None for _ in range(len(photons_list))]
 
         self._parse_headers()
 
