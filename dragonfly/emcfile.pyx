@@ -116,7 +116,6 @@ class EMCReader():
         '''
         # Convert to lists if singleton arguments
         if hasattr(photons_list, 'strip') or not hasattr(photons_list, '__getitem__'):
-            print('Converting to photons_list')
             photons_list = [photons_list]
         if not hasattr(det_list, '__getitem__'):
             det_list = [det_list]
@@ -379,7 +378,10 @@ class EMCWriter(object):
         self.h5_output = hdf5
 
         self.out_fname = out_fname
-        print('Writing emc file to', out_fname)
+        if self.h5_output:
+            print('Writing HDF5 emc file to', out_fname)
+        else:
+            print('Writing binary emc file to', out_fname)
         self.num_data = 0
         self.num_pix = num_pix
         self.mean_count = 0.
