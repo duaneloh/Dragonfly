@@ -98,7 +98,6 @@ cdef class CDetector:
             raise ValueError('Need 3 values on header line: num_pix, detd_pix, ewald_rad_vox')
 
     def _parse_asciidet(self, norm=True, rtype='3d'):
-        #print('Parsing ASCII detector file')
         self._check_header()
         dframe = pandas.read_csv(
             self.fname,
@@ -128,14 +127,17 @@ cdef class CDetector:
                 self.det.qvals[t*3 + d] = qvals[t, d]
 
     def _parse_h5det(self, norm=True, rtype='3d'):
-        #print('Parsing HDF5 detector file')
-
         fptr = h5py.File(self.fname, 'r')
         qx, qy, qz = fptr['qx'][:], fptr['qy'][:], fptr['qz'][:]
         cdef double[:] corr = fptr['corr'][:].ravel()
         cdef uint8_t[:] raw_mask = fptr['mask'][:].astype('u1')
         self.det.detd = fptr['detd'][()]
         self.det.ewald_rad = fptr['ewald_rad'][()]
+        if 'background' in fptr:
+            bg_present = True
+            background = fptr['background'][:].ravel()
+        else:
+            bg_present = False
         fptr.close()
 
         if norm:
@@ -150,11 +152,16 @@ cdef class CDetector:
         self.det.qvals = <double*> malloc(self.num_pix * 3 * sizeof(double))
         self.det.corr = <double*> malloc(self.num_pix * sizeof(double))
         self.det.raw_mask = <uint8_t*> malloc(self.num_pix * sizeof(uint8_t))
+        if bg_present:
+            self.det.background = <double*> malloc(self.num_pix * sizeof(double))
 
         cdef int t, d
         for t in range(self.num_pix):
             self.det.corr[t] = corr[t]
             self.det.raw_mask[t] = raw_mask[t]
+            if bg_present:
+                self.det.background[t] = background[t]
+
             for d in range(3):
                 self.det.qvals[t*3 + d] = qvals[t, d]
 
@@ -180,7 +187,7 @@ cdef class CDetector:
     @ewald_rad.setter
     def ewald_rad(self, value): self.det.ewald_rad = float(value)
     @property
-    def corr(self): return np.asarray(<double[:self.num_pix]>self.det.corr)
+    def corr(self): return np.asarray(<double[:self.num_pix]>self.det.corr) if self.det.corr != NULL else None
     @corr.setter
     def corr(self, arr):
         if len(arr.shape) != 1 or arr.dtype != 'f8':
@@ -194,7 +201,7 @@ cdef class CDetector:
         if self.det.num_pix == 0:
             self.det.num_pix = arr.shape[0]
     @property
-    def raw_mask(self): return np.asarray(<uint8_t[:self.num_pix]>self.det.raw_mask)
+    def raw_mask(self): return np.asarray(<uint8_t[:self.num_pix]>self.det.raw_mask) if self.det.raw_mask != NULL else None
     @raw_mask.setter
     def raw_mask(self, arr):
         if len(arr.shape) != 1 or arr.dtype != 'u1':
@@ -208,7 +215,7 @@ cdef class CDetector:
         if self.det.num_pix == 0:
             self.det.num_pix = arr.shape[0]
     @property
-    def qvals(self): return np.asarray(<double[:3*self.num_pix]>self.det.qvals).reshape(-1, 3)
+    def qvals(self): return np.asarray(<double[:3*self.num_pix]>self.det.qvals).reshape(-1, 3) if self.det.qvals != NULL else None
     @qvals.setter
     def qvals(self, arr):
         if len(arr.shape) != 2 or arr.shape[1] != 3:
@@ -274,13 +281,14 @@ class Detector(CDetector):
         else:
             self._write_asciidet(fname)
 
-    def assemble_frame(self, data, zoomed=False, sym=False):
+    def assemble_frame(self, data, zoomed=False, sym=False, avg=False):
         ''' Assemble given raw image
 
         Arguments:
             data - array of num_pix values
             zoomed (bool) - Restrict assembled image to non-masked pixels
             sym (bool) - Centro-symmetrize image
+            avg (bool) - Average assembled image
 
         Returns:
             Numpy masked array representing assembled image
@@ -290,13 +298,25 @@ class Detector(CDetector):
             img = ma.masked_array(np.zeros(self._sym_shape, dtype='f8'), mask=1-self._sym_mask)
             np.add.at(img, (self._sym_x, self._sym_y), data*self.mask)
             np.add.at(img, (self._sym_fx, self._sym_fy), data*self.mask)
-            img.data[self._sym_bothgood] /= 2.
+
+            if avg:
+                countimg = np.zeros(self._sym_shape, dtype='f8')
+                np.add.at(countimg, (self._sym_x, self._sym_y), self.mask)
+                np.add.at(countimg, (self._sym_fx, self._sym_fy), self.mask)
+                img.data[countimg>0] /= countimg[countimg>0]
+            else:
+                img.data[self._sym_bothgood] /= 2.
+
             if zoomed:
                 b = self._sym_zoom_bounds
                 return img[b[0]:b[1], b[2]:b[3]]
         else:
             img = ma.masked_array(np.zeros(self.frame_shape, dtype='f8'), mask=1-self.assembled_mask)
             np.add.at(img, (self.x, self.y), data*self.mask)
+            if avg:
+                countimg = np.zeros(self.frame_shape, dtype='f8')
+                np.add.at(countimg, (self.x, self.y), self.mask)
+                img.data[countimg>0] /= countimg[countimg>0]
             if zoomed:
                 b = self.zoom_bounds
                 return img[b[0]:b[1], b[2]:b[3]]
@@ -312,7 +332,8 @@ class Detector(CDetector):
         '''
         try:
             val = self.cx + self.cy
-            val = self.detd + self.ewald_rad
+            if self.detd == 0. or self.ewald_rad == 0.:
+                raise AttributeError
         except AttributeError:
             print('Need cx, cy, detd and ewald_rad to be defined')
             print('detd must have same units as cx and cy')
@@ -390,6 +411,8 @@ class Detector(CDetector):
 
     def _write_asciidet(self, fname):
         print('Writing ASCII detector file')
+        if self.background is not None:
+            print('WARNING! ASCII detector files cannot save background')
         qx = self.qvals[:,0].ravel()
         qy = self.qvals[:,1].ravel()
         qz = self.qvals[:,2].ravel()
