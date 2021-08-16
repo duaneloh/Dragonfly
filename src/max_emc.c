@@ -1191,8 +1191,8 @@ void gradient_d(struct max_data *common, uint8_t *mask, double *scale, double *g
 					// For each pixel with one photon
 					for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
 						pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
-						//if (det[detn].mask[pixel] < 1) { // Use only relevant pixels
-						if (det[detn].mask[pixel] < 2) { // Exclude bad pixels
+						if (det[detn].mask[pixel] < 1) { // Use only relevant pixels
+						//if (det[detn].mask[pixel] < 2) { // Exclude bad pixels
 							val = view[pixel] * scale[d] + iter->bgscale[d] * det[detn].background[pixel] ;
 							priv_grad[d] += common->prob[d][ind] * view[pixel] / val ;
 						}
@@ -1201,8 +1201,8 @@ void gradient_d(struct max_data *common, uint8_t *mask, double *scale, double *g
 					// For each pixel with count_multi photons
 					for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
 						pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
-						//if (det[detn].mask[pixel] < 1) { // Use only relevant pixels
-						if (det[detn].mask[pixel] < 2) { // Exclude bad pixels
+						if (det[detn].mask[pixel] < 1) { // Use only relevant pixels
+						//if (det[detn].mask[pixel] < 2) { // Exclude bad pixels
 							val = view[pixel] * scale[d] + iter->bgscale[d] * det[detn].background[pixel] ;
 							priv_grad[d] += common->prob[d][ind] * curr->count_multi[curr->multi_accum[curr_d] + t] * view[pixel] / val ;
 						}
@@ -1289,11 +1289,11 @@ void update_scale_bg(struct max_data *common) {
 			}
 		}
 		
-		if (num_mask == frames->tot_num_data)
+		if (num_mask > ((double) 0.99*frames->tot_num_data))
 			break ;
 	}
 	if (i == 5)
-		fprintf(stderr, "WARNING: Could not find search bounds (%d/%d)\n", num_mask, frames->tot_num_data) ;
+		fprintf(stderr, "WARNING: Could not find search bounds for %d/%d frames\n", frames->tot_num_data - num_mask, frames->tot_num_data) ;
 	
 	// Bounded root finding using bisection/regula falsi/Ridder's
 	for (i = 0 ; i < 50 ; ++i) {
@@ -1368,7 +1368,7 @@ void update_scale_bg(struct max_data *common) {
 			break ;
 	}
 	if (i == 50)
-		fprintf(stderr, "WARNING: scale optimization did not converge (%d/%d)\n", num_mask, frames->tot_num_data) ;
+		fprintf(stderr, "WARNING: scale optimization did not converge for %d/%d frames\n", frames->tot_num_data-num_mask, frames->tot_num_data) ;
 	
 	MPI_Bcast(iter->scale, frames->tot_num_data, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
 	
