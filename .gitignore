@@ -21,6 +21,7 @@ data
 /utils/*
 !/utils/src
 !/utils/*.py
+!/utils/py_src
 !/utils/convert
 !/utils/cython
 
