@@ -9,7 +9,7 @@
 #include "../../src/quat.h"
 #include "../../src/interp.h"
 
-long s, c, rmax, rmin, max_r = 0 ;
+long s, c, rmax, rmin, num_div, max_r = 0 ;
 double i2i2, max_corr ;
 
 int parse_arguments(int argc, char *argv[], char *output_fname, char *intens_fname1, char *intens_fname2) {
@@ -23,10 +23,11 @@ int parse_arguments(int argc, char *argv[], char *output_fname, char *intens_fna
 	rmax = -1 ;
 	rmin = 2 ;
 	i2i2 = 0. ;
-	sprintf(usage_string, "Usage:\n%s [-s size] [-t num_threads] [-o output_name]\n\t[-R rmax] [-r rmin] [-h]\n\t<intens_fname1> <intens_fname2>\n", argv[0]) ;
+	num_div = 4 ;
+	sprintf(usage_string, "Usage:\n%s [-s size] [-t num_threads] [-o output_name]\n\t[-R rmax] [-r rmin] [-h] [-n num_div]\n\t<intens_fname1> <intens_fname2>\n", argv[0]) ;
 	
 	while (optind < argc) {
-		if ((chararg = getopt(argc, argv, "r:R:s:t:o:h")) != -1) {
+		if ((chararg = getopt(argc, argv, "r:R:s:t:n:o:h")) != -1) {
 			switch (chararg) {
 				case 't':
 					omp_set_num_threads(atoi(optarg)) ;
@@ -43,6 +44,9 @@ int parse_arguments(int argc, char *argv[], char *output_fname, char *intens_fna
 					break ;
 				case 'r':
 					rmin = atoi(optarg) ;
+					break ;
+				case 'n':
+					num_div = atoi(optarg) ;
 					break ;
 				case 'h':
 					fprintf(stderr, "Utility to align and compare two 3D intensity models.\n") ;
@@ -183,7 +187,7 @@ void save_rotmodel(struct rotation *quat, double *m1, char *fname) {
 	long vol = s*s*s ;
 	double rot[3][3] ;
 	double *rotmodel = calloc(vol, sizeof(double)) ;
-	char rotfname[500] ;
+	char rotfname[2048] ;
 	FILE *fp ;
 	
 	// Calculate rotated model
@@ -316,7 +320,7 @@ int main(int argc, char *argv[]) {
 	
 	// Generate quaternion and calculate max_corr
 	quat = calloc(1, sizeof(struct rotation)) ;
-	quat_gen(4, quat) ;
+	quat_gen(num_div, quat) ;
 	calc_corr(quat, model1_rad, model2_rad) ;
 	
 	// Generate subset and recalculate max_corr
@@ -326,7 +330,7 @@ int main(int argc, char *argv[]) {
 	calc_corr(quat, model1_rad, model2_rad) ;
 	
 	// Calculate radial_corr for best orientation and save rotated model
-	char fname[500] ;
+	char fname[2048] ;
 	if (output_fname == '\0') {
 		char *base = remove_ext(extract_fname(intens_fname1)) ;
 		sprintf(fname, "data/%s.dat", base) ;
