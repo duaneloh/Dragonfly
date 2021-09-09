@@ -216,7 +216,7 @@ class VolumePlotter(object):
                     self.vol = self.vol[modenum*size**3:(modenum+1)*size**3].reshape(size, size, size)
                 else:
                     self.vol = self.vol.reshape(size, size, size)
-            center = size/2
+            center = size // 2
             return_val = (fname, size, center)
         else:
             if not h5_output:
@@ -263,7 +263,7 @@ class VolumePlotter(object):
                 subp = self.fig.add_subplot(1, 3, i+1)
                 vslice = self._get_normslice(self.normvecs[i], num)
                 subp.imshow(vslice, **self.imshow_args)
-                subp.set_title(np.round(self.normvecs[i], 3), y=1.01)
+                subp.set_title(str(np.round(self.normvecs[i], 3)), y=1.01)
                 subp.axis('off')
                 self.subplot_list.append(subp)
         elif self.recon_type == '2d':
@@ -774,7 +774,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self._parse_and_plot()
 
     def _layerslider_moved(self, value):
-        self.layernum.setValue(value)
+        self.layernum.setValue(int(value))
 
     def _iternum_changed(self, value=None):
         if value is None:
