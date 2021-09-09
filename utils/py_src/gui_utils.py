@@ -38,7 +38,7 @@ def add_class_hbox(gui, vbox):
     hbox.addStretch(1)
 
 class MyNavigationToolbar(NavigationToolbar2QT):
-    def _icon(self, name):
+    def _icon(self, name, color=None):
         fname = os.path.abspath(os.path.dirname(__file__) + '/../../aux/icons/'+name) 
         pm = QtGui.QPixmap(fname)
         #if hasattr(pm, 'setDevicePixelRatio'):
