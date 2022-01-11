@@ -507,11 +507,11 @@ class ProgressViewer(QtWidgets.QMainWindow):
         plot_splitter = self._init_plotarea()
         options_widget = self._init_optionsarea()
 
-        main_splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
-        main_splitter.setObjectName('frame')
-        layout.addWidget(main_splitter)
-        main_splitter.addWidget(plot_splitter)
-        main_splitter.addWidget(options_widget)
+        self.main_splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
+        self.main_splitter.setObjectName('frame')
+        layout.addWidget(self.main_splitter)
+        self.main_splitter.addWidget(plot_splitter)
+        self.main_splitter.addWidget(options_widget)
 
         self.show()
 
@@ -521,9 +521,12 @@ class ProgressViewer(QtWidgets.QMainWindow):
 
         # File Menu
         filemenu = menubar.addMenu('&File')
-        action = filemenu.addAction('&Load Volume')
+        action = filemenu.addAction('Load &Volume')
         action.triggered.connect(self._load_volume)
         action.setToolTip('Load 3D volume (h5 or bin)')
+        action = filemenu.addAction('Load &Config')
+        action.triggered.connect(self._refresh_gui)
+        action.setToolTip('Refresh GUI with new config file')
         action = filemenu.addAction('&Quit')
         action.triggered.connect(self.close)
 
@@ -541,7 +544,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         action = imagemenu.addAction('Save &Iteration Movie')
         action.triggered.connect(self._save_iter_movie)
         action.setToolTip('Save slices plot animation as a function of iteration')
-        
+
         # -- Color map picker
         cmapmenu = imagemenu.addMenu('&Color Map')
         self.color_map = QtWidgets.QActionGroup(self, exclusive=True)
@@ -638,7 +641,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         label = QtWidgets.QLabel('File name:', self)
         hbox.addWidget(label)
         if self.model_name is None:
-            self.fname = QtWidgets.QLineEdit(self.folder+'/output/intens_001.bin', self)
+            self.fname = QtWidgets.QLineEdit(self.folder+'/output_001.h5', self)
         else:
             self.fname = QtWidgets.QLineEdit(self.model_name, self)
         self.fname.setMinimumWidth(160)
@@ -764,6 +767,23 @@ class ProgressViewer(QtWidgets.QMainWindow):
         log_area.setWidget(self.emclog_text)
 
         return options_widget
+
+    def _refresh_gui(self):
+        fpath = QtWidgets.QFileDialog.getOpenFileName(self, 'Load 3D Volume',
+                                                      '.', 'Config file (*.ini)')
+        if os.environ['QT_API'] == 'pyqt5':
+            fname = fpath[0]
+        else:
+            fname = fpath
+        if not fname:
+            return
+        self._read_config(fname)
+
+        plot_splitter = self._init_plotarea()
+        options_widget = self._init_optionsarea()
+
+        self.main_splitter.replaceWidget(0, plot_splitter)
+        self.main_splitter.replaceWidget(1, options_widget)
 
     def _layernum_changed(self, value=None):
         if value is None:
