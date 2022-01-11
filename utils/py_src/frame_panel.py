@@ -278,6 +278,10 @@ class FramePanel(QtWidgets.QWidget):
         key = event.key()
         mod = int(event.modifiers())
 
+        if self.noscroll:
+            event.ignore()
+            return
+
         if QtGui.QKeySequence(mod+key) == QtGui.QKeySequence('Ctrl+N'):
             self._next_frame()
         elif QtGui.QKeySequence(mod+key) == QtGui.QKeySequence('Ctrl+P'):
