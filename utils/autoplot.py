@@ -476,7 +476,6 @@ class ProgressViewer(QtWidgets.QMainWindow):
         super(ProgressViewer, self).__init__()
         self.config = config
         self.model_name = model
-        self.max_iternum = 0
         self.mode_select = False
         self.num_good = 0
         plt.style.use('dark_background')
@@ -504,16 +503,27 @@ class ProgressViewer(QtWidgets.QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
 
         self._init_menubar()
-        plot_splitter = self._init_plotarea()
-        options_widget = self._init_optionsarea()
 
         self.main_splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
         self.main_splitter.setObjectName('frame')
         layout.addWidget(self.main_splitter)
+        self._init_main()
+
+        self.show()
+
+    def _init_main(self):
+        plot_splitter = self._init_plotarea()
+        options_widget = self._init_optionsarea()
+
+        for i in range(self.main_splitter.count()):
+            widget = self.main_splitter.widget(i)
+            widget.hide()
+            del widget
         self.main_splitter.addWidget(plot_splitter)
         self.main_splitter.addWidget(options_widget)
 
-        self.show()
+        self.max_iternum = 0
+        self._check_for_new()
 
     def _init_menubar(self):
         menubar = self.menuBar()
@@ -769,7 +779,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         return options_widget
 
     def _refresh_gui(self):
-        fpath = QtWidgets.QFileDialog.getOpenFileName(self, 'Load 3D Volume',
+        fpath = QtWidgets.QFileDialog.getOpenFileName(self, 'Load config file',
                                                       '.', 'Config file (*.ini)')
         if os.environ['QT_API'] == 'pyqt5':
             fname = fpath[0]
@@ -778,12 +788,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         if not fname:
             return
         self._read_config(fname)
-
-        plot_splitter = self._init_plotarea()
-        options_widget = self._init_optionsarea()
-
-        self.main_splitter.replaceWidget(0, plot_splitter)
-        self.main_splitter.replaceWidget(1, options_widget)
+        self._init_main()
 
     def _layernum_changed(self, value=None):
         if value is None:
