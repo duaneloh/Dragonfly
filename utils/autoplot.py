@@ -512,15 +512,16 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self.show()
 
     def _init_main(self):
-        plot_splitter = self._init_plotarea()
-        options_widget = self._init_optionsarea()
-
         for i in range(self.main_splitter.count()):
             widget = self.main_splitter.widget(i)
             widget.hide()
             del widget
-        self.main_splitter.addWidget(plot_splitter)
-        self.main_splitter.addWidget(options_widget)
+
+        self.plot_splitter = self._init_plotarea()
+        self.options_widget = self._init_optionsarea()
+
+        self.main_splitter.addWidget(self.plot_splitter)
+        self.main_splitter.addWidget(self.options_widget)
 
         self.max_iternum = 0
         self._check_for_new()
