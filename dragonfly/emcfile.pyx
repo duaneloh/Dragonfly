@@ -409,8 +409,15 @@ class EMCWriter(object):
                                      chunks=(1,), dtype=vlentype)
             self._fptrs = []
         else:
-            temp_fnames = [os.path.join(out_folder, fname) + str(os.getpid())
-                           for fname in ['.po.', '.pm.', '.cm.']]
+            counter = 0
+            while True:
+                temp_fnames = [os.path.join(out_folder, fname) + str(os.getpid()+counter)
+                               for fname in ['.po.', '.pm.', '.cm.']]
+                if os.path.exists(temp_fnames[0]):
+                    counter += 1
+                else:
+                    break
+
             self._fptrs = [open(fname, 'wb') for fname in temp_fnames]
 
     def finish_write(self):
