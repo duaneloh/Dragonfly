@@ -322,7 +322,7 @@ class Detector(CDetector):
                 return img[b[0]:b[1], b[2]:b[3]]
         return img
 
-    def calc_from_coords(self):
+    def calc_from_coords(self, pol='x'):
         ''' Calculate essential detector attributes from pixel coordinates
 
         Needs:
@@ -348,7 +348,12 @@ class Detector(CDetector):
         qvals[:,0] = self.cx * self.ewald_rad / fac
         qvals[:,1] = self.cy * self.ewald_rad / fac
         qvals[:,2] = self.ewald_rad * (self.detd/fac - 1.)
-        corr = self.detd / fac**3 * (1. - self.cx**2 / fac**2)
+        if pol.lower() == 'x':
+            corr = self.detd / fac**3 * (1. - self.cx**2 / fac**2)
+        elif pol.lower() == 'y':
+            corr = self.detd / fac**3 * (1. - self.cy**2 / fac**2)
+        else:
+            corr = self.detd / fac**3
 
         # This assignment forces a copy
         self.qvals = qvals
