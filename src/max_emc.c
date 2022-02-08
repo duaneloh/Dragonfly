@@ -661,27 +661,19 @@ void free_memory(struct max_data *data) {
 	free(data) ;
 }
 
+
 // Other functions
 int resparsify(double *vals, int *pos, int num_vals, double thresh) {
-	int i, j ;
-	
-	for (i = 0 ; i < num_vals ; ++i) {
-		if (vals[i] <= thresh) {
-			num_vals-- ;
-			for (j = i ; j < num_vals ; ++j) {
-				vals[j] = vals[j+1] ;
-				pos[j] = pos[j+1] ;
-				pos[j+1] = -1 ;
-			}
-			i-- ;
+	int nv = 0;
+	for (int i = 0 ; i < num_vals ; ++i) {
+		if (vals[i] > thresh) {
+			vals[nv] = vals[i];
+			pos[nv] = pos[i];
 		}
 	}
-	
-	//vals = realloc(vals, num_vals*sizeof(double)) ;
-	//pos = realloc(pos, num_vals*sizeof(int)) ;
-	
-	return num_vals ;
+	return nv + 1;
 }
+
 
 double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 	int dset = 0, d, curr_d, detn, rotind, mode, t, ind, true_r ;
