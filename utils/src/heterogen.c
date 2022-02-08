@@ -153,7 +153,7 @@ void save_initial_iterate() {
 	if (param->need_scaling) {
 		sprintf(fname, "%s/scale/scale_000.dat", param->output_folder) ;
 		fp = fopen(fname, "w") ;
-		for (d = 0 ; d < iter->tot_num_data ; ++d)
+		for (int d = 0 ; d < iter->tot_num_data ; ++d)
 			fprintf(fp, "%.6e\n", iter->scale[d]) ;
 		fclose(fp) ;
 		fprintf(stderr, "Written initial scale factors to %s\n", fname) ;
@@ -326,7 +326,7 @@ void save_models() {
 		char fname[2048] ;
 		sprintf(fname, "%s/scale/scale_%.3d.dat", param->output_folder, param->iteration) ;
 		FILE *fp_scale = fopen(fname, "w") ;
-		for (d = 0 ; d < frames->tot_num_data ; ++d)
+		for (int d = 0 ; d < frames->tot_num_data ; ++d)
 			fprintf(fp_scale, "%.15e\n", iter->scale[d]) ;
 		fclose(fp_scale) ;
 	}
