@@ -1,6 +1,10 @@
 #ifndef EMC_H
 #define EMC_H
 
+#ifndef  EXTERN
+#define  EXTERN  extern
+#endif
+
 #include "detector.h"
 #include "dataset.h"
 #include "quat.h"
@@ -8,11 +12,11 @@
 #include "iterate.h"
 #include "interp.h"
 
-struct detector *det ;
-struct rotation *quat ;
-struct dataset *frames ;
-struct iterate *iter ;
-struct params *param ;
+EXTERN struct detector *det ;
+EXTERN struct rotation *quat ;
+EXTERN struct dataset *frames ;
+EXTERN struct iterate *iter ;
+EXTERN struct params *param ;
 
 struct max_data {
 	// Flags
@@ -64,7 +68,7 @@ void save_metrics(struct max_data*) ;
 void save_prob(struct max_data*) ;
 
 // interp function pointers
-void (*slice_gen)(double*, double, double*, double*, long, struct detector*) ;
-void (*slice_merge)(double*, double*, double*, double*, long, struct detector*) ;
+EXTERN void (*slice_gen)(double*, double, double*, double*, long, struct detector*) ;
+EXTERN void (*slice_merge)(double*, double*, double*, double*, long, struct detector*) ;
 
 #endif
