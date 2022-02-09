@@ -669,9 +669,10 @@ int resparsify(double *vals, int *pos, int num_vals, double thresh) {
 		if (vals[i] > thresh) {
 			vals[nv] = vals[i];
 			pos[nv] = pos[i];
+ 			nv++;
 		}
 	}
-	return nv + 1;
+	return nv;
 }
 
 
