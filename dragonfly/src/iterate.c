@@ -7,11 +7,15 @@ void calc_frame_counts(struct iterate *self) {
 	int *num_data = calloc(self->tot_num_data, sizeof(int)) ;
 	
 	if (self->fcounts == NULL)
-		self->fcounts = calloc(self->tot_num_data, sizeof(int)) ;
+		self->fcounts = malloc(self->tot_num_data*sizeof(int)) ;
 	if (self->mean_count == NULL)
-		self->mean_count = calloc(self->num_det, sizeof(double)) ;
+		self->mean_count = malloc(self->num_det*sizeof(double)) ;
 	if (self->rescale == NULL)
-		self->rescale = calloc(self->num_det, sizeof(double)) ;
+		self->rescale = malloc(self->num_det*sizeof(double)) ;
+
+	memset(self->fcounts, 0, self->tot_num_data*sizeof(int)) ;
+	memset(self->mean_count, 0, self->num_det*sizeof(double)) ;
+	memset(self->rescale, 0, self->num_det*sizeof(double)) ;
 	
 	while (curr != NULL) {
 		cdet = curr->det ;
@@ -83,7 +87,9 @@ void calc_sum_fact(struct iterate *self) {
 	struct dataset *curr = self->dset ;
 	struct detector *det ;
 	
-	self->sum_fact = calloc(self->tot_num_data, sizeof(double)) ;
+	if (self->sum_fact == NULL)
+		self->sum_fact = malloc(self->tot_num_data*sizeof(double)) ;
+	memset(self->sum_fact, 0, self->tot_num_data*sizeof(double)) ;
 	
 	while (curr != NULL) {
 		det = curr->det ;
