@@ -138,12 +138,7 @@ cdef class Iterate:
             curr.num_offset = total
             total += curr.num_data
             curr = curr.next
-
-        # Check whether it matches any existing value
-        if self.iter.tot_num_data == 0:
-            self.iter.tot_num_data = total
-        elif self.iter.tot_num_data != total:
-            raise ValueError('Mismatched total number of frames')
+        self.iter.tot_num_data = total
 
         self.iter.dset = in_dset.dset
 
@@ -333,6 +328,17 @@ cdef class Iterate:
     def fcounts(self): return np.asarray(<int[:self.tot_num_data]>self.iter.fcounts) if self.iter.fcounts != NULL else None
     @property
     def scale(self): return np.asarray(<double[:self.tot_num_data]>self.iter.scale) if self.iter.scale != NULL else None
+    @scale.setter
+    def scale(self, arr):
+        if len(arr.shape) != 1 or arr.dtype != 'f8':
+            raise ValueError('scale must be  1D array of float64 dtype')
+        if arr.shape[0] != self.iter.tot_num_data:
+            raise ValueError('tot_num_data mismatch. One scale factor per frame (%d vs %d)'%(arr.shape[0], self.det.num_pix))
+
+        if self.iter.scale == NULL:
+            self.iter.scale = <double*> malloc(arr.size * sizeof(double))
+        for i in range(arr.size):
+            self.iter.scale[i] = arr[i]
     @property
     def bgscale(self): return np.asarray(<double[:self.tot_num_data]>self.iter.bgscale) if self.iter.bgscale != NULL else None
     @property
