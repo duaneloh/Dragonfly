@@ -420,7 +420,7 @@ class EMCWriter(object):
 
             self._fptrs = [open(fname, 'wb') for fname in temp_fnames]
 
-    def finish_write(self):
+    def finish_write(self, header_nums=None):
         """Cleanup and close emc file
 
         This function writes the header and appends the temporary files.
@@ -449,6 +449,11 @@ class EMCWriter(object):
             header = np.zeros((256), dtype='i4')
             header[0] = self.num_data
             header[1] = self.num_pix
+            if header_nums is not None:
+                if len(header_nums) <= 254:
+                    header[2:len(header_nums)+2] = np.array(header_nums).astype('i4')
+                else:
+                    header[2:] = np.array(header_nums).astype('i4')[:254]
             header.tofile(fptr)
             ones_arr.astype('i4').tofile(fptr)
             multi_arr.astype('i4').tofile(fptr)
