@@ -9,6 +9,7 @@ struct params {
 	char *output_folder, *log_fname ;
 	enum recon_type rtype ;
 	int save_prob ;
+	int verbosity ;
 	
 	// Algorithm parameters
 	int beta_period, need_scaling, known_scale, update_scale ;
