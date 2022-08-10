@@ -1,10 +1,10 @@
 #include "iterate.h"
 
 void calc_frame_counts(struct iterate *self) {
-	long t, d, detn, dset = 0 ;
+	long t, d, detn, dset_num = 0 ;
 	struct dataset *curr = self->dset ;
 	struct detector *cdet ;
-	int *num_data = calloc(self->tot_num_data, sizeof(int)) ;
+	int *num_data = calloc(self->num_det, sizeof(int)) ;
 	
 	if (self->fcounts == NULL)
 		self->fcounts = malloc(self->tot_num_data*sizeof(int)) ;
@@ -19,7 +19,7 @@ void calc_frame_counts(struct iterate *self) {
 	
 	while (curr != NULL) {
 		cdet = curr->det ;
-		detn = self->det_mapping[dset] ;
+		detn = self->det_mapping[dset_num] ;
 		
 		if (curr->ftype == SPARSE) {
 			for (d = 0 ; d < curr->num_data ; ++d) {
@@ -54,7 +54,7 @@ void calc_frame_counts(struct iterate *self) {
 			}
 		}
 		
-		dset++ ;
+		dset_num++ ;
 		curr = curr->next ;
 	}
 	
@@ -83,7 +83,7 @@ void calc_beta(double start, struct iterate *self) {
 }
 
 void calc_sum_fact(struct iterate *self) {
-	int dset = 0, d, t ;
+	int dset_num = 0, d, t ;
 	struct dataset *curr = self->dset ;
 	struct detector *det ;
 	
@@ -111,7 +111,7 @@ void calc_sum_fact(struct iterate *self) {
 				self->sum_fact[curr->num_offset+d] = 0. ;
 		}
 		
-		dset++ ;
+		dset_num++ ;
 		curr = curr->next ;
 	}
 }
