@@ -45,7 +45,7 @@ cdef class EMCRecon():
         itr.iter.par.num_proc = MPI.COMM_WORLD.size
         self.mdata.iter = itr.iter
 
-    def run_iteration(self):
+    def run_iteration(self, dynamic=False):
         cdef double likelihood, beta_mean
         cdef double stime = time.time()
         cdef c_iterate.iterate *itr = self.mdata.iter
@@ -75,10 +75,10 @@ cdef class EMCRecon():
         if itr.par.need_scaling == 1 and itr.mod.mtype == c_model.MODEL_3D:
             self.iter.normalize_scale()
         if itr.par.rank == 0:
-            self.save_output()
+            self.save_output(dynamic)
             self.update_log_file(likelihood, beta_mean, time.time()-stime)
 
-        if itr.par.rank == 0:
+        if itr.par.verbosity > 0 and itr.par.rank == 0:
             print('Finished iteration', itr.par.iteration, '(%e)' % itr.rms_change)
 
     def update_model(self):
@@ -146,20 +146,13 @@ cdef class EMCRecon():
         cdef c_quat.quaternion *quat = itr.quat
         cdef c_dataset.dataset *frames = itr.dset
 
-        cdef double tot_mean_count = 0.
-        for i in range(itr.num_dfiles):
-            tot_mean_count = itr.mean_count[i] * frames.num_data
-            frames.next
-        tot_mean_count /= itr.tot_num_data
-        frames = itr.dset
-
         with open((<bytes> param.log_fname).decode(), "w") as fp:
             fp.write("Cryptotomography with the EMC algorithm using MPI+OpenMP\n\n")
             fp.write("Data parameters:\n")
             if itr.num_blacklist == 0:
-                fp.write("\tnum_data = %d\n\tmean_count = %f\n\n" % (itr.tot_num_data, tot_mean_count))
+                fp.write("\tnum_data = %d\n\tmean_count = %f\n\n" % (itr.tot_num_data, itr.mean_count[0]))
             else:
-                fp.write("\tnum_data = %d/%d\n\tmean_count = %f\n\n" % (itr.tot_num_data-itr.num_blacklist, itr.tot_num_data, tot_mean_count))
+                fp.write("\tnum_data = %d/%d\n\tmean_count = %f\n\n" % (itr.tot_num_data-itr.num_blacklist, itr.tot_num_data, itr.mean_count[0]))
             fp.write("System size:\n")
             fp.write("\tnum_rot = %d\n\tnum_pix = %d/%d\n\t" % (quat.num_rot, (self.iter.dets[0].raw_mask==0).sum(), itr.det.num_pix))
             if param.rtype == c_params.RECON3D:
@@ -186,10 +179,13 @@ cdef class EMCRecon():
         fp.write("%1.4e\t%f\t%.6e\t%-7d\t%f\n" % (itr.rms_change, itr.mutual_info, likelihood, itr.quat.num_rot, beta))
         fp.close()
 
-    def save_output(self):
+    def save_output(self, dynamic=False):
         itr = self.iter # Get cython class rather than struct
         param = itr.params
-        out_fname = "%s/output_%.3d.h5" % (param.output_folder, param.iteration)
+        if dynamic:
+            out_fname = '%s/output_dynamic.h5' % param.output_folder
+        else:
+            out_fname = "%s/output_%.3d.h5" % (param.output_folder, param.iteration)
 
         with h5py.File(out_fname, 'w') as f:
             f['orientations'] = self.rmax
@@ -318,4 +314,5 @@ def main():
     en = itr.params.start_iter + itr.params.num_iter
     for itr.params.iteration in range(st, en):
         recon.run_iteration()
-    print('Finished all iterations')
+    if itr.params.verbosity > 0:
+        print('Finished all iterations')
