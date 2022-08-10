@@ -115,7 +115,7 @@ void allocate_memory(struct max_data *data) {
 		
 		memset(mod->model2, 0, mod->num_modes*mod->vol*sizeof(double)) ;
 		memset(mod->inter_weight, 0, mod->num_modes*mod->vol*sizeof(double)) ;
-		print_max_time("alloc", "", param->rank == 0) ;
+		print_max_time("alloc", "", param->verbosity > 1 && param->rank == 0) ;
 	}
 	else { // priv_data
 		data->all_views = malloc(iter->num_det * sizeof(double*)) ;
@@ -194,7 +194,7 @@ void calculate_rescale(struct max_data *data) {
 		sprintf(res_string + strlen(res_string), " %.6e", iter->rescale[detn]) ;
 	}
 	sprintf(res_string + strlen(res_string), ")") ;
-	print_max_time("rescale", res_string, param->rank == 0) ;
+	print_max_time("rescale", res_string, param->verbosity > 1 && param->rank == 0) ;
 }
 
 void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
@@ -314,9 +314,9 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 		dset++ ;
 	}
 	
-	if ((r*param->num_proc + param->rank)%(quat->num_rot * param->num_modes / 10) == 0)
+	if ((param->verbosity > 2) && ((r*param->num_proc + param->rank)%(quat->num_rot * param->num_modes / 10) == 0))
 		fprintf(stderr, "\t\tFinished r = %d/%d\n", r*param->num_proc + param->rank, quat->num_rot * param->num_modes + param->nonrot_modes) ;
-	print_max_time("prob", "", (r == quat->num_rot_p-1) && (param->rank == 0)) ;
+	print_max_time("prob", "", param->verbosity > 1 && (r == quat->num_rot_p-1) && (param->rank == 0)) ;
 }
 
 void normalize_prob(struct max_data *priv, struct max_data *common) {
@@ -368,7 +368,7 @@ void normalize_prob(struct max_data *priv, struct max_data *common) {
 	#pragma omp barrier
 	
 	free(priv_norm) ;
-	print_max_time("norm", "", param->rank == 0 && omp_rank == 0) ;
+	print_max_time("norm", "", param->verbosity > 1 && param->rank == 0 && omp_rank == 0) ;
 }
 
 void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
@@ -484,7 +484,7 @@ void merge_tomogram(int r, struct max_data *priv) {
 	if (priv->psum_r[detn] > 0.)
 		(*slice_merge)(&quat->quats[rotind*5], mode, priv->all_views[detn], &det[detn], mod) ;
 	
-	if ((r*param->num_proc + param->rank)%(quat->num_rot * param->num_modes / 10) == 0)
+	if ((param->verbosity > 2) && ((r*param->num_proc + param->rank)%(quat->num_rot * param->num_modes / 10) == 0))
 		fprintf(stderr, "\t\tFinished r = %d/%d\n", r*param->num_proc + param->rank, quat->num_rot * param->num_modes + param->nonrot_modes) ;
 }
 
@@ -496,7 +496,7 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 	struct params *param = iter->par ;
 	long x ;
 	
-	print_max_time("update", "", param->rank == 0 && omp_rank == 0) ;
+	print_max_time("update", "", param->verbosity > 1 && param->rank == 0 && omp_rank == 0) ;
 	 
 	#pragma omp critical(model)
 	{
@@ -644,7 +644,7 @@ double combine_information_mpi(struct max_data *common) {
 	if (mod->num_modes > 1)
 		MPI_Allreduce(MPI_IN_PLACE, common->quat_norm, iter->tot_num_data*mod->num_modes, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
 	
-	print_max_time("sync", "", param->rank == 0) ;
+	print_max_time("sync", "", param->verbosity > 1 && param->rank == 0) ;
 	return avg_likelihood ;
 }
 
@@ -657,7 +657,7 @@ void update_scale(struct max_data *common) {
 	if (!iter->blacklist[d])
 		iter->scale[d] = iter->fcounts[d] / common->psum_d[d] ;
 
-	print_max_time("scale", "", param->rank == 0) ;
+	print_max_time("scale", "", param->verbosity > 1 && param->rank == 0) ;
 }
 
 void free_max_data(struct max_data *data) {
