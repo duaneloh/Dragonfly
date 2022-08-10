@@ -71,6 +71,7 @@ cdef class EMCParams:
         else:
             raise ValueError('Unknown recon_type %s'%rtype)
         
+        self.par.verbosity = config.getint(section_name, 'verbosity', fallback=9)
         self.par.need_scaling = config.getint(section_name, 'need_scaling', fallback=0)
         self.par.alpha = config.getfloat(section_name, 'alpha', fallback=0.)
         self.par.beta_factor = config.getfloat(section_name, 'beta_factor', fallback=-1.)
