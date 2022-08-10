@@ -460,6 +460,22 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 		}
 	}
 	
+	if (param->need_scaling && param->update_scale) {
+		#pragma omp critical(scale)
+		{
+			for (d = 0 ; d < frames->tot_num_data ; ++d)
+			if (!frames->blacklist[d])
+				common->psum_d[d] += priv->psum_d[d] ;
+		}
+	}
+	
+	if (iter->modes > 1) {
+		#pragma omp critical(quat_norm)
+		for (d = 0 ; d < frames->tot_num_data * iter->modes ; ++d)
+			common->quat_norm[d] += priv->quat_norm[d] ;
+	}
+	print_max_time("osync", "", param->rank == 0 && omp_rank == 0) ;
+	
 	// Only calculate common probabilities if needed for update_scale or to save
 	if ((param->need_scaling && param->update_scale && det[0].with_bg) || (param->save_prob)) {
 		// Calculate offsets to combine sparse probabilities for each OpenMP rank
@@ -493,21 +509,7 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 		for (d = 0 ; d < frames->tot_num_data ; ++d)
 			common->num_prob[d] = resparsify(common->prob[d], common->place_prob[d], common->num_prob[d], PROB_MIN) ;
 	}
-	
-	if (param->need_scaling && param->update_scale) {
-		#pragma omp critical(scale)
-		{
-			for (d = 0 ; d < frames->tot_num_data ; ++d)
-			if (!frames->blacklist[d])
-				common->psum_d[d] += priv->psum_d[d] ;
-		}
-	}
-	
-	if (iter->modes > 1) {
-		#pragma omp critical(quat_norm)
-		for (d = 0 ; d < frames->tot_num_data * iter->modes ; ++d)
-			common->quat_norm[d] += priv->quat_norm[d] ;
-	}
+	print_max_time("ocprob", "", param->rank == 0 && omp_rank == 0) ;
 }
 
 double combine_information_mpi(struct max_data *common) {
@@ -537,6 +539,14 @@ double combine_information_mpi(struct max_data *common) {
 	
 	iter->mutual_info /= (frames->tot_num_data - frames->num_blacklist) ;
 	avg_likelihood /= (frames->tot_num_data - frames->num_blacklist) ;
+	
+	// Combine scale factor information from all MPI ranks
+	if (param->need_scaling && param->update_scale)
+		MPI_Allreduce(MPI_IN_PLACE, common->psum_d, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
+	
+	if (iter->modes > 1)
+		MPI_Allreduce(MPI_IN_PLACE, common->quat_norm, frames->tot_num_data*iter->modes, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
+	print_max_time("isync", "", param->rank == 0) ;
 	
 	// Only calculate common probabilities if needed for update_scale or to save
 	if ((param->need_scaling && param->update_scale && det[0].with_bg) || (param->save_prob)) {
@@ -580,14 +590,7 @@ double combine_information_mpi(struct max_data *common) {
 		}
 	}
 	
-	// Combine scale factor information from all MPI ranks
-	if (param->need_scaling && param->update_scale)
-		MPI_Allreduce(MPI_IN_PLACE, common->psum_d, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
-	
-	if (iter->modes > 1)
-		MPI_Allreduce(MPI_IN_PLACE, common->quat_norm, frames->tot_num_data*iter->modes, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
-	
-	print_max_time("sync", "", param->rank == 0) ;
+	print_max_time("icprob", "", param->rank == 0) ;
 	return avg_likelihood ;
 }
 
