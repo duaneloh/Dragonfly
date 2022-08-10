@@ -129,9 +129,64 @@ cdef class Iterate:
     def set_model(self, Model model):
         self.iter.mod = model.mod
 
+    def update_data(self, CDataset in_dset):
+        cdef int total = 0
+        cdef dataset *curr = in_dset.dset
+
+        # Calculate total number of frames
+        self.iter.num_dfiles = 0
+        while curr != NULL:
+            curr.num_offset = total
+            total += curr.num_data
+            self.iter.num_dfiles += 1
+            curr = curr.next
+        self.iter.tot_num_data = total
+        print('New tot_num_data =', self.iter.tot_num_data)
+
+        self.iter.dset = in_dset.dset
+
+        # Generate list of unique detectors
+        free(self.iter.det_mapping)
+        self.iter.det_mapping = NULL
+        self.iter.det_mapping = <int*> calloc(self.iter.num_dfiles, sizeof(int))
+        #free(self.iter.det)
+        #self.iter.det = NULL
+        #print('Freed det')
+        #self._gen_detlist()
+
+        free(self.iter.fcounts)
+        self.iter.fcounts = NULL
+        c_iterate.calc_frame_counts(self.iter)
+
+        free(self.iter.sum_fact)
+        self.iter.sum_fact = NULL
+        c_iterate.calc_sum_fact(self.iter)
+
+        free(self.iter.blacklist)
+        self.iter.blacklist = <uint8_t*> calloc(self.iter.tot_num_data, sizeof(uint8_t))
+        #self.parse_blacklist('', sel_string=None)
+        #print('Reparsed blacklist')
+        #sys.stdout.flush()
+
+        if self.iter.par.need_scaling == 1:
+            free(self.iter.scale)
+            self.iter.scale = NULL
+            self.parse_scale('')
+
+            free(self.iter.bgscale)
+            self.parse_scale('', bg=True)
+
+        # Assume auto beta setting
+        free(self.iter.beta)
+        free(self.iter.beta_start)
+        self.calc_beta()
+
     def set_data(self, CDataset in_dset):
         cdef int total = 0
         cdef dataset *curr = in_dset.dset
+
+        if self.iter.tot_num_data != 0:
+            raise ValueError('Please use update_data() to change dataset')
 
         # Calculate total number of frames
         while curr != NULL:
@@ -298,12 +353,14 @@ cdef class Iterate:
         cdef dataset *curr = self.iter.dset
 
         fnames = []
+        self.iter.num_dfiles = 0
         while curr != NULL:
             fnames.append(curr.det.fname)
             self.iter.num_dfiles += 1
             curr = curr.next
         _, indices, mapping = np.unique(fnames, return_index=True, return_inverse=True)
         self.iter.num_det = len(indices)
+        print(self.iter.num_det, 'unique detectors')
 
         self.iter.det = <detector*> calloc(len(indices), sizeof(detector))
         for i, ind in enumerate(indices):
@@ -331,7 +388,7 @@ cdef class Iterate:
     @scale.setter
     def scale(self, arr):
         if len(arr.shape) != 1 or arr.dtype != 'f8':
-            raise ValueError('scale must be  1D array of float64 dtype')
+            raise ValueError('scale must be 1D array of float64 dtype')
         if arr.shape[0] != self.iter.tot_num_data:
             raise ValueError('tot_num_data mismatch. One scale factor per frame (%d vs %d)'%(arr.shape[0], self.det.num_pix))
 
