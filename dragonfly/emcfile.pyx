@@ -45,6 +45,12 @@ cdef class CDataset:
         if self.dset.ones_accum != NULL: free(self.dset.ones_accum)
         if self.dset.multi_accum != NULL: free(self.dset.multi_accum)
 
+    def __iter__(self):
+        curr = self
+        while curr is not None:
+            yield curr
+            curr = curr.next
+
     @property
     def fname(self): return (<bytes> self.dset.fname).decode()
     @property
