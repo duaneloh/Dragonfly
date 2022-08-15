@@ -192,6 +192,8 @@ cdef class EMCRecon():
             for attr in dir(itr.params):
                 if not (attr[0] == '_' or callable(getattr(itr.params, attr))):
                     f['params/' + attr] = getattr(itr.params, attr)
+            f['params/det_fnames'] = [det.fname for det in itr.dets]
+            f['params/emc_fnames'] = [emc.fname for emc in itr.data]
 
             f['orientations'] = self.rmax
             f['mutual_info'] = self.info
