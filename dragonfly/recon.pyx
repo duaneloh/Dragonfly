@@ -104,6 +104,7 @@ cdef class EMCRecon():
             for x in range(mod.num_modes):
                 c_model.symmetrize_friedel(&mod.model2[x*mod.vol], mod.size)
 
+        change = 0
         for x in range(mod.num_modes * mod.vol):
             diff = mod.model2[x] - mod.model1[x]
             change += diff**2
@@ -188,6 +189,10 @@ cdef class EMCRecon():
             out_fname = "%s/output_%.3d.h5" % (param.output_folder, param.iteration)
 
         with h5py.File(out_fname, 'w') as f:
+            for attr in dir(itr.params):
+                if not (attr[0] == '_' or callable(getattr(itr.params, attr))):
+                    f['params/' + attr] = getattr(itr.params, attr)
+
             f['orientations'] = self.rmax
             f['mutual_info'] = self.info
             f['likelihood'] = self.likelihood
