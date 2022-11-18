@@ -194,6 +194,10 @@ cdef class EMCRecon():
                     f['params/' + attr] = getattr(itr.params, attr)
             f['params/det_fnames'] = [det.fname for det in itr.dets]
             f['params/emc_fnames'] = [emc.fname for emc in itr.data]
+            f['params/mtype'] = itr.model.mtype
+            f['params/num_rot'] = itr.quat.num_rot
+            if itr.params.rtype == 'RECON3D':
+                f['params/num_div'] = itr.quat.num_div
 
             f['orientations'] = self.rmax
             f['mutual_info'] = self.info
