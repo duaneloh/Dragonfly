@@ -558,7 +558,8 @@ class ProgressViewer(QtWidgets.QMainWindow):
 
         # -- Color map picker
         cmapmenu = imagemenu.addMenu('&Color Map')
-        self.color_map = QtWidgets.QActionGroup(self, exclusive=True)
+        self.color_map = QtWidgets.QActionGroup(self)
+        self.color_map.setExclusive(True)
         for i, cmap in enumerate(['coolwarm', 'cubehelix', 'CMRmap', 'gray', 'gray_r', 'jet']):
             action = self.color_map.addAction(QtWidgets.QAction(cmap, self, checkable=True))
             if i == 0:

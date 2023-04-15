@@ -58,7 +58,8 @@ class Frameviewer(QtWidgets.QMainWindow):
         menubar.setNativeMenuBar(False)
         cmaplist = ['coolwarm', 'cubehelix', 'CMRmap', 'gray', 'gray_r', 'jet']
         cmapmenu = menubar.addMenu('&Color Map')
-        self.color_map = QtWidgets.QActionGroup(self, exclusive=True)
+        self.color_map = QtWidgets.QActionGroup(self)
+        self.color_map.setExclusive(True)
         self.cmap = cmaplist[0]
         for i, cmap in enumerate(cmaplist):
             action = self.color_map.addAction(QtWidgets.QAction(cmap, self, checkable=True))
