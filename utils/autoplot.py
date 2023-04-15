@@ -1164,7 +1164,7 @@ def main():
     args, unknown = parser.parse_known_args()
 
     app = QtWidgets.QApplication(unknown)
-    ProgressViewer(config=args.config_file, model=args.volume_file)
+    pv = ProgressViewer(config=args.config_file, model=args.volume_file)
     sys.exit(app.exec_())
 
 if __name__ == '__main__':
