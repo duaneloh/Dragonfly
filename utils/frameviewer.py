@@ -130,7 +130,7 @@ def main():
         args.config_file = None
 
     app = QtWidgets.QApplication(sys.argv)
-    Frameviewer(args.config_file, mask=args.mask, 
+    fv = Frameviewer(args.config_file, mask=args.mask, 
                 do_powder=args.powder, do_compare=args.compare,
                 emc_fname=args.emc_fname, det_fname=args.det_fname)
     sys.exit(app.exec_())
