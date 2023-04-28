@@ -259,7 +259,7 @@ class Detector(CDetector):
 
     def parse(self, fname, mask_flag=True, keep_mask_1=True):
         super(Detector, self).parse(fname)
-        self._process_det(mask_flag=True, keep_mask_1=True)
+        self._process_det(mask_flag=mask_flag, keep_mask_1=keep_mask_1)
 
     def write(self, fname):
         """ Write Dragonfly detector to file
