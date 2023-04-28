@@ -147,6 +147,7 @@ def create_new_recon_dir(tag="recon", num=1, prefix="./"):
     os.mkdir(recon_dir)
     os.mkdir(os.path.join(recon_dir, 'data'))
     os.mkdir(os.path.join(recon_dir, 'images'))
+    os.mkdir(os.path.join(recon_dir, 'logs'))
     if not os.path.exists(_name_recon_dir(tag, num)):
         os.symlink(recon_dir, _name_recon_dir(tag, num))
     return recon_dir
