@@ -56,7 +56,11 @@ extensions = cythonize(ext_modules, language_level=3,
                                             'cdivision': True,
                                             'nonecheck': False})
 
+with open('dragonfly/_version.py', 'r') as f:
+    exec(f.read())
+
 setup(name='dragonfly',
+      version=__version__,
       packages=py_packages,
       ext_modules=extensions,
       entry_points = {'console_scripts': [
