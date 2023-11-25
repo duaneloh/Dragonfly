@@ -479,6 +479,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self.mode_select = False
         self.num_good = 0
         plt.style.use('dark_background')
+        self.settings = QtCore.QSettings('DragonflyProgressViewer')
 
         self.beta_change = self.num_rot_change = []
         self.checker = QtCore.QTimer(self)
@@ -560,9 +561,10 @@ class ProgressViewer(QtWidgets.QMainWindow):
         cmapmenu = imagemenu.addMenu('&Color Map')
         self.color_map = QtWidgets.QActionGroup(self)
         self.color_map.setExclusive(True)
+        starting_cmap = self.settings.value('cmap', defaultValue='coolwarm')
         for i, cmap in enumerate(['coolwarm', 'cubehelix', 'CMRmap', 'gray', 'gray_r', 'jet']):
             action = self.color_map.addAction(QtWidgets.QAction(cmap, self, checkable=True))
-            if i == 0:
+            if cmap == starting_cmap:
                 action.setChecked(True)
             action.triggered.connect(self._cmap_changed)
             action.setToolTip('Set color map')
@@ -606,6 +608,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self.canvas.show()
         plot_splitter.addWidget(self.canvas)
         self.vol_plotter = VolumePlotter(self.fig, self.recon_type, self.num_modes, self.num_nonrot, self.num_rot)
+        self.vol_plotter.normvecs = self.settings.value('normvecs', defaultValue=np.identity(3))
         self.need_replot = self.vol_plotter.need_replot
 
         # Progress plots figure
@@ -636,12 +639,13 @@ class ProgressViewer(QtWidgets.QMainWindow):
         hbox.addWidget(self.logfname)
         label = QtWidgets.QLabel('VRange:', self)
         hbox.addWidget(label)
-        self.rangemin = QtWidgets.QLineEdit('0', self)
+        vmin, vmax = self.settings.value('vrange', defaultValue=['0', '1'])
+        self.rangemin = QtWidgets.QLineEdit(vmin, self)
         self.rangemin.setFixedWidth(48)
         self.rangemin.returnPressed.connect(self._range_changed)
         self.rangemin.setToolTip('Minimum value of color scale')
         hbox.addWidget(self.rangemin)
-        self.rangestr = QtWidgets.QLineEdit('1', self)
+        self.rangestr = QtWidgets.QLineEdit(vmax, self)
         self.rangestr.setFixedWidth(48)
         self.rangestr.returnPressed.connect(self._range_changed)
         self.rangestr.setToolTip('Maximum value of color scale')
@@ -659,9 +663,10 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self.fname.setMinimumWidth(160)
         self.fname.setToolTip('Path to volume to be plotted')
         hbox.addWidget(self.fname)
+        exponent = self.settings.value('exponent', defaultValue=1.0)
         label = QtWidgets.QLabel('Exp:', self)
         hbox.addWidget(label)
-        self.expstr = QtWidgets.QLineEdit('1', self)
+        self.expstr = QtWidgets.QLineEdit(str(exponent), self)
         self.expstr.setFixedWidth(48)
         self.expstr.returnPressed.connect(self._range_changed)
         self.expstr.setToolTip('Exponent, or gamma, for color scale. Enter the string "log" for the symlog normalization')
@@ -837,6 +842,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
             return self.folder+'/output/intens_%.3d.bin' % num
 
     def _read_config(self, config):
+        self.settings.beginGroup(os.path.abspath(config).replace('/', '_'))
         try:
             self.folder = read_config.get_filename(config, 'emc', 'output_folder')
         except read_config.configparser.NoOptionError:
@@ -1125,6 +1131,12 @@ class ProgressViewer(QtWidgets.QMainWindow):
             print('Saving', (blist==0).sum(), 'good frames to', fname)
             np.savetxt(fname, blist, fmt='%d')
 
+    def _save_settings(self):
+        self.settings.setValue('vrange', [self.rangemin.text(), self.rangestr.text()])
+        self.settings.setValue('exponent', float(self.expstr.text()))
+        self.settings.setValue('cmap', self.color_map.checkedAction().text())
+        self.settings.setValue('normvecs', self.vol_plotter.normvecs)
+
     @QtCore.Slot()
     def _fviewer_closed(self):
         self.fviewer = None
@@ -1136,6 +1148,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
     def closeEvent(self, event): # pylint: disable=C0103
         if self.fviewer is not None:
             self.fviewer.close()
+        self._save_settings()
         event.accept()
 
     def keyPressEvent(self, event): # pylint: disable=C0103
