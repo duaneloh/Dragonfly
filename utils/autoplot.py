@@ -164,6 +164,7 @@ class VolumePlotter(object):
         self.main_subp = None
         self.imshow_args = None
         self.intrad = None
+        self._init_yval = 0
         self.normvecs = np.identity(3)
 
         if self.num_nonrot > 0 and num_rot is None:
@@ -889,6 +890,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
                     num = 0
         elif self.recon_type == '3d':
             self.canvas.mpl_connect('button_press_event', self._show_menu)
+            self.canvas.mpl_connect('motion_notify_event', self._drag_normvec)
             if num is None:
                 num = int(self.layernum.text())
         argsdict = {'vrange': (float(self.rangemin.text()), float(self.rangestr.text())),
@@ -986,9 +988,6 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.vol_plotter.canvas.draw()
 
     def _show_menu(self, event):
-        if event.button != 3:
-            return
-
         slice_num = -1
         for i, subp in enumerate(self.vol_plotter.subplot_list):
             if event.inaxes is subp:
@@ -996,10 +995,13 @@ class ProgressViewer(QtWidgets.QMainWindow):
         if slice_num == -1:
             return
 
-        context_menu = QtWidgets.QMenu()
-        context_menu.addAction('Update normal vector', lambda:self._update_normvec(slice_num))
-        cursor = QtGui.QCursor()
-        context_menu.exec_(cursor.pos())
+        if event.button == 1 and 'ctrl' in event.modifiers:
+            self.vol_plotter._init_yval = event.y
+        elif event.button == 3:
+            context_menu = QtWidgets.QMenu()
+            context_menu.addAction('Update normal vector', lambda:self._update_normvec(slice_num))
+            cursor = QtGui.QCursor()
+            context_menu.exec_(cursor.pos())
 
     def _update_normvec(self, slice_num):
         updater = NormVecUpdater(self.vol_plotter.normvecs[slice_num], self)
@@ -1007,6 +1009,25 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.vol_plotter.normvecs[slice_num] = updater.vec
             self.need_replot = True
             self._parse_and_plot()
+
+    def _drag_normvec(self, event):
+        if not(event.button == 1 and 'ctrl' in event.modifiers):
+            return
+        slice_num = -1
+        for i, subp in enumerate(self.vol_plotter.subplot_list):
+            if event.inaxes is subp:
+                slice_num = i
+        if slice_num == -1:
+            return
+
+        angle = np.sign(event.y-self.vol_plotter._init_yval) * np.pi / 36
+        c = np.cos(angle)
+        s = np.sin(angle)
+        orig_vec = self.vol_plotter.normvecs[slice_num]
+        mat = np.roll([[1,0,0],[0,c,-s],[0,s,c]], (slice_num+1)%3, axis=(0,1))
+        self.vol_plotter.normvecs[slice_num] = np.dot(mat, orig_vec)
+        self.need_replot = True
+        self._parse_and_plot()
 
     def _load_volume(self):
         fpath = QtWidgets.QFileDialog.getOpenFileName(self, 'Load 3D Volume',
