@@ -164,6 +164,7 @@ class VolumePlotter(object):
         self.main_subp = None
         self.imshow_args = None
         self.intrad = None
+        self._init_xval = 0
         self._init_yval = 0
         self.normvecs = np.identity(3)
 
@@ -997,6 +998,8 @@ class ProgressViewer(QtWidgets.QMainWindow):
 
         if event.button == 1 and 'ctrl' in event.modifiers:
             self.vol_plotter._init_yval = event.y
+        if event.button == 1 and 'alt' in event.modifiers:
+            self.vol_plotter._init_xval = event.x
         elif event.button == 3:
             context_menu = QtWidgets.QMenu()
             context_menu.addAction('Update normal vector', lambda:self._update_normvec(slice_num))
@@ -1011,7 +1014,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self._parse_and_plot()
 
     def _drag_normvec(self, event):
-        if not(event.button == 1 and 'ctrl' in event.modifiers):
+        if event.button != 1:
             return
         slice_num = -1
         for i, subp in enumerate(self.vol_plotter.subplot_list):
@@ -1020,11 +1023,18 @@ class ProgressViewer(QtWidgets.QMainWindow):
         if slice_num == -1:
             return
 
-        angle = np.sign(event.y-self.vol_plotter._init_yval) * np.pi / 36
+        if 'ctrl' in event.modifiers:
+            angle = np.sign(event.y-self.vol_plotter._init_yval) * np.pi / 36
+            rotaxis = (slice_num+1)%3
+        elif 'alt' in event.modifiers:
+            angle = np.sign(event.x-self.vol_plotter._init_xval) * np.pi / 36
+            rotaxis = (slice_num+2)%3
+        else:
+            return
         c = np.cos(angle)
         s = np.sin(angle)
         orig_vec = self.vol_plotter.normvecs[slice_num]
-        mat = np.roll([[1,0,0],[0,c,-s],[0,s,c]], (slice_num+1)%3, axis=(0,1))
+        mat = np.roll([[1,0,0],[0,c,-s],[0,s,c]], rotaxis, axis=(0,1))
         self.vol_plotter.normvecs[slice_num] = np.dot(mat, orig_vec)
         self.need_replot = True
         self._parse_and_plot()
