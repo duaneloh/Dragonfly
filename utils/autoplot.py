@@ -463,9 +463,9 @@ class LogPlotter(object):
         subp.set_ylim(ylim)
         subp.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
         for i in self.beta_change:
-            subp.plot([i+1-0.1, i+1-0.1], ylim, 'w--', lw=1)
+            subp.plot([i+1-0.1, i+1-0.1], ylim, '--', color='w', lw=1)
         for i in self.num_rot_change[:-1]:
-            subp.plot([i+1+0.1, i+1+0.1], ylim, 'r--', color='tab:orange', lw=1)
+            subp.plot([i+1+0.1, i+1+0.1], ylim, '--', color='tab:orange', lw=1)
 
 class ProgressViewer(QtWidgets.QMainWindow):
     '''GUI to track progress of EMC reconstruction
@@ -868,6 +868,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.num_rot = int(read_config.get_param(config, 'emc', 'num_rot'))
         except read_config.configparser.NoOptionError:
             pass
+        self.config = config
 
     def _init_sliders(self, slider_type, numvals, init):
         if slider_type == 'layer':
