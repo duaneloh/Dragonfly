@@ -274,8 +274,8 @@ class Detector(object):
         self.mask[self.x, self.y] = mask
         self.mask = np.sign(self.mask)
 
-        xsel = self.x[mask.astype(np.bool)]
-        ysel = self.y[mask.astype(np.bool)]
+        xsel = self.x[mask.astype('bool')]
+        ysel = self.y[mask.astype('bool')]
         self.zoom_bounds = (xsel.min(), xsel.max()+1, ysel.min(), ysel.max()+1)
 
     def _init_sym(self, force=False):
