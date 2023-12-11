@@ -196,7 +196,7 @@ static int parse_background(char *fname, struct detector *det) {
 	
 	if (strncmp(line, hdfheader, 8) == 0) {
 #ifdef WITH_HDF5
-		fprintf(stderr, "Parsing HDF5 background file\n") ;
+		fprintf(stderr, "Parsing HDF5 background file from %s\n", fname) ;
 		hid_t file, dset ;
 		file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT) ;
 		dset = H5Dopen(file, "/background", H5P_DEFAULT) ;
@@ -233,7 +233,7 @@ static int parse_background_list(char *flist, struct detector **det_list) {
 	while (fscanf(fp, "%1023s\n", rel_fname) == 1) {
 		absolute_strcpy(flist_folder, abs_fname, rel_fname) ;
 		if (i < ndet) {
-			if (parse_background(abs_fname, det_list[i])) {
+			if (parse_background(abs_fname, &((*det_list)[i]))) {
 				fclose(fp) ;
 				return 1 ;
 			}
