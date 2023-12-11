@@ -1151,6 +1151,11 @@ class ProgressViewer(QtWidgets.QMainWindow):
 
     def _toggle_mode_selection(self, status):
         self.mode_select = status
+        if not status:
+            self.num_good = 0
+            self.blacklist_action.setText('Save blacklist file\n(%d good frames)'%self.num_good)
+            self.need_replot = True
+            self._parse_and_plot()
 
     def _save_blacklist(self):
         good_modes = np.where([len(ax.images)>1 for ax in self.vol_plotter.subplot_list])[0]
@@ -1165,7 +1170,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
 
     def _save_settings(self):
         self.settings.setValue('vrange', [self.rangemin.text(), self.rangestr.text()])
-        self.settings.setValue('exponent', float(self.expstr.text()))
+        self.settings.setValue('exponent', self.expstr.text())
         self.settings.setValue('cmap', self.color_map.checkedAction().text())
         self.settings.setValue('normvecs', self.vol_plotter.normvecs)
 
