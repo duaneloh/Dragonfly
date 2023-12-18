@@ -389,7 +389,7 @@ void rotate_model(double rot[3][3], double *m, int s, int max_r, double *rotmode
 	int x, y, z, i, c = s/2, vx, vy, vz ;
 	double fx, fy, fz, cx, cy, cz ;
 	double rot_vox[3] ;
-	if (max_r == 0)
+	if (max_r == 0 || max_r > c)
 		max_r = c ;
 	
 	for (vx = -max_r ; vx < max_r ; ++vx)
