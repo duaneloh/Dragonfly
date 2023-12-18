@@ -796,6 +796,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
             fname = fpath
         if not fname:
             return
+        self._save_settings()
         self._read_config(fname)
         self._init_main()
 
