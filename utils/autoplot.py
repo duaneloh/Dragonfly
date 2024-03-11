@@ -32,6 +32,7 @@ from py_src import read_config
 import frameviewer
 from py_src import gui_utils
 from py_src import clpca
+from py_src import phaser_gui
 
 class MySpinBox(QtWidgets.QSpinBox):
     '''Overriding QSpinBox to update need_replot'''
@@ -493,6 +494,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self.old_fname = self.fname.text()
         self.fviewer = None
         self.clpca = None
+        self.phaser2d = None
 
     def _init_ui(self):
         with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'py_src/style.css'), 'r') as f:
@@ -595,6 +597,12 @@ class ProgressViewer(QtWidgets.QMainWindow):
         action = analysismenu.addAction('Open &CLPCA')
         action.triggered.connect(self._open_clpca)
         action.setToolTip('Open CLPCA analysis window')
+
+        action = analysismenu.addAction('2D Class &Phaser')
+        action.triggered.connect(self._open_phaser2d)
+        action.setToolTip('2D phasing of class averages')
+        if self.recon_type == '3d':
+            action.setEnabled(False)
 
     def _init_plotarea(self):
         plot_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
@@ -797,6 +805,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         if not fname:
             return
         self._save_settings()
+        self.settings.endGroup()
         self._read_config(fname)
         self._init_main()
 
@@ -1146,6 +1155,15 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self.clpca = clpca.CLPCA(self)
         self.clpca.windowClosed.connect(self._clpca_closed)
 
+    def _open_phaser2d(self):
+        if self.phaser2d is not None:
+            return
+        if self.vol_plotter.vol is None:
+            print('Parse intensities first')
+            return
+        self.phaser2d = phaser_gui.Phaser2D(self)
+        self.phaser2d.windowClosed.connect(self._phaser2d_closed)
+
     def _subtract_radmin(self):
         self.vol_plotter.subtract_radmin()
         self._plot_vol()
@@ -1182,6 +1200,10 @@ class ProgressViewer(QtWidgets.QMainWindow):
     @QtCore.Slot()
     def _clpca_closed(self):
         self.clpca = None
+
+    @QtCore.Slot()
+    def _phaser2d_closed(self):
+        self.phaser2d = None
 
     def closeEvent(self, event): # pylint: disable=C0103
         if self.fviewer is not None:
