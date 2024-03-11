@@ -52,7 +52,7 @@ class CLPCA(QtWidgets.QMainWindow):
         self.canvas.mpl_connect('button_release_event', self._get_nearest_class)
         self.navbar = gui_utils.MyNavigationToolbar(self.canvas, self)
         vbox.addWidget(self.navbar)
-        vbox.addWidget(self.canvas)
+        vbox.addWidget(self.canvas, stretch=1)
 
         line = QtWidgets.QHBoxLayout()
         vbox.addLayout(line)
