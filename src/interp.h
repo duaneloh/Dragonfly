@@ -22,6 +22,7 @@ void rotate_model(double[3][3], double*, int, int, double*) ;
 void symmetrize_icosahedral(double*, double*, int) ;
 void symmetrize_octahedral(double*, double*, int) ;
 void symmetrize_friedel(double*, double*, int) ;
+void symmetrize_axial(double*, double*, int, int) ;
 void symmetrize_friedel2d(double*, double*, int, int) ;
 
 #endif //INTERP_H

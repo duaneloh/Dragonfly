@@ -28,6 +28,7 @@ void params_from_config(char *config_fname, char *config_section, struct params 
 	param->rot_per_mode = 0 ;
 	param->recon_type = RECON3D ;
 	param->friedel_sym = 0 ;
+	param->axial_sym = 1 ;
 	param->save_prob = 0 ;
 	param->refine = 0 ;
 	param->coarse_div = 0 ;
@@ -90,6 +91,8 @@ void params_from_config(char *config_fname, char *config_section, struct params 
 			}
 			else if (strcmp(token, "friedel_sym") == 0)
 				param->friedel_sym = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "axial_sym") == 0)
+				param->axial_sym = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "save_prob") == 0)
 				param->save_prob = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "update_scale") == 0)

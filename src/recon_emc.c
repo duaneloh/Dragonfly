@@ -157,6 +157,9 @@ static void update_model() {
 	else if (param->recon_type == RECON3D)
 		for (x = 0 ; x < param->modes ; ++x)
 			symmetrize_friedel(&iter->model2[x*iter->vol], &iter->inter_weight[x*iter->vol], iter->size) ;
+	if (param->axial_sym > 1)
+		for (x = 0 ; x < param->modes ; ++x)
+			symmetrize_axial(&iter->model2[x*iter->vol], &iter->inter_weight[x*iter->vol], iter->size, param->axial_sym) ;
 	
 	for (x = 0 ; x < iter->modes * iter->vol ; ++x) {
 		diff = iter->model2[x] - iter->model1[x] ;

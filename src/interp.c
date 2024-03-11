@@ -521,6 +521,58 @@ void symmetrize_friedel2d(double *array, double *weights, int num_layers, int si
 	}
 }
 
+/* Axial symmetrization
+ * 	N-fold axial symmetrization about Z-axis
+ * 	Arguments:
+ * 		Pointer to model representing centered 3D volume
+ * 		Size of model
+ * 		Symmetry order
+ * 	In main EMC code, Friedel symmetry is independently applied
+ * 	No return value. Symmetrization performed in-place
+ */
+void symmetrize_axial(double *model, double *weights, int size, int order) {
+	long i, vol = size*size*size ;
+	double *temp = malloc(vol*sizeof(double)) ;
+	double angle, c, s, rot[3][3] = {{1,0,0},{0,1,0},{0,0,1}} ;
+	
+	// Calculate numerator: model <- SYM(model * weights)
+	memcpy(temp, model, vol*sizeof(double)) ;
+	for (i = 0 ; i < vol ; ++i)
+		temp[i] *= weights[i] ;
+	memset(model, 0, vol*sizeof(double)) ;
+	for (i = 0 ; i < order; ++i) {
+		angle = i * 2. * M_PI / order ;
+		c = cos(angle) ;
+		s = sin(angle) ;
+		rot[0][0] = c ;
+		rot[0][1] = -s ;
+		rot[1][1] = c ;
+		rot[1][0] = s ;
+		rotate_model_openmp(rot, temp, size, model) ;
+	}
+
+	// Calculate denominator: weights <- SYM(weights)
+	memcpy(temp, weights, vol*sizeof(double)) ;
+	memset(weights, 0, vol*sizeof(double)) ;
+	for (i = 0 ; i < order ; ++i) {
+		angle = i * 2. * M_PI / order ;
+		c = cos(angle) ;
+		s = sin(angle) ;
+		rot[0][0] = c ;
+		rot[0][1] = -s ;
+		rot[1][1] = c ;
+		rot[1][0] = s ;
+		rotate_model_openmp(rot, temp, size, weights) ;
+	}
+	
+	// Divide numerator by denominator
+	for (i = 0 ; i < vol ; ++i)
+	if (weights[i] > 0.)
+		model[i] /= weights[i] ;
+	
+	free(temp) ;
+}
+
 static double icos_list[60][3][3] = {
 	{{1., 0., 0.}, {0., 1., 0.}, {0., 0., 1.}},
 	{{-1., 0., 0.}, {0., -1., 0.}, {0., 0., 1.}},
