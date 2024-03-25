@@ -1,5 +1,6 @@
 import sys
 import os.path as op
+import re
 import numpy as np
 import pandas
 import h5py
@@ -44,8 +45,14 @@ cdef class Iterate:
         if det_fname is not None and det_flist is not None:
             raise ValueError("Both in_detector_file and in_detector_list specified. Pick one.")
         elif det_fname is not None:
+            if ':::' in det_fname:
+                sname, oname = re.split(':::', det_fname)
+                det_fname = config.get(sname, oname)
             dets = [CDetector(op.join(config_folder, det_fname), norm=True, rtype=rtype)]
         elif det_flist is not None:
+            if ':::' in det_flist:
+                sname, oname = re.split(':::', det_flist)
+                det_flist = config.get(sname, oname)
             fptr = open(det_flist, 'r')
             dets = [CDetector(op.join(config_folder, line.strip()), norm=True, rtype=rtype) for line in fptr.readlines()]
             fptr.close()
@@ -60,8 +67,15 @@ cdef class Iterate:
         elif ph_fname is not None:
             if len(dets) > 1:
                 print('WARNING: Multiple detectors but only one photons file. Using first detector')
+            if ':::' in ph_fname:
+                sname, oname = re.split(':::', ph_fname)
+                ph_fname = config.get(sname, oname)
             frames = CDataset(op.join(config_folder, ph_fname), dets[0])
         elif ph_flist is not None:
+            if ':::' in ph_flist:
+                sname, oname = re.split(':::', ph_flist)
+                ph_flist = config.get(sname, oname)
+
             fptr = open(ph_flist, 'r')
             fnames = [op.join(config_folder, line.strip()) for line in fptr.readlines()]
             fptr.close()
@@ -260,8 +274,6 @@ cdef class Iterate:
         elif refresh:
             free(self.iter.blacklist)
             self.iter.blacklist = <uint8_t*> calloc(self.iter.tot_num_data, sizeof(uint8_t))
-        else:
-            print('Applying changes to current blacklist')
 
         if op.isfile(fname):
             arr = pandas.read_csv(fname, header=None, squeeze=True, dtype='u1').to_numpy()
@@ -272,6 +284,7 @@ cdef class Iterate:
         if sel_string is None:
             return
 
+        # Applying odd-even selection if sel_string is not None
         if sel_string == 'odd_only':
             curr = 0
         elif sel_string == 'even_only':
