@@ -24,7 +24,7 @@ link_args = '-lm -fopenmp'.split() + hdf5_libs + gsl_libs + ['-Wl,-rpath='+gsl_l
 # TODO: Fix undefined symbol problem requiring two rounds of compilation
 ext_modules = [
     Extension(name='dragonfly.detector', sources=['dragonfly/detector.pyx'],
-        depends=['dragonfly/detector.h', 'dragonfly/detector.pxd'],
+        depends=['dragonfly/src/detector.h', 'dragonfly/detector.pxd'],
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
     Extension(name='dragonfly.emcfile', sources=['dragonfly/emcfile.pyx', 'dragonfly/src/emcfile.c'],
         depends=['dragonfly/src/emcfile.h', 'dragonfly/emcfile.pxd'],
