@@ -98,7 +98,7 @@ class Detector(object):
             print('Writing ASCII detector file')
             self._write_asciidet(fname)
 
-    def assemble_frame(self, data, zoomed=False, sym=False):
+    def assemble_frame(self, data, zoomed=False, sym=False, avg=False):
         ''' Assemble given raw image
 
         Arguments:
@@ -114,13 +114,25 @@ class Detector(object):
             img = ma.masked_array(np.zeros(self._sym_shape, dtype='f8'), mask=1-self._sym_mask)
             np.add.at(img, (self._sym_x, self._sym_y), data*self.unassembled_mask)
             np.add.at(img, (self._sym_fx, self._sym_fy), data*self.unassembled_mask)
-            img.data[self._sym_bothgood] /= 2.
+
+            if avg:
+                countimg = np.zeros(self._sym_shape, dtype='f8')
+                np.add.at(countimg, (self._sym_x, self._sym_y), self.unassembled_mask)
+                np.add.at(countimg, (self._sym_fx, self._sym_fy), self.unassembled_mask)
+                img.data[countimg>0] /= countimg[countimg>0]
+            else:
+                img.data[self._sym_bothgood] /= 2.
+
             if zoomed:
                 b = self._sym_zoom_bounds
                 return img[b[0]:b[1], b[2]:b[3]]
         else:
             img = ma.masked_array(np.zeros(self.frame_shape, dtype='f8'), mask=1-self.mask)
             np.add.at(img, (self.x, self.y), data*self.unassembled_mask)
+            if avg:
+                countimg = np.zeros(self.frame_shape, dtype='f8')
+                np.add.at(countimg, (self.x, self.y), self.unassembled_mask)
+                img.data[countimg>0] /= countimg[countimg>0]
             if zoomed:
                 b = self.zoom_bounds
                 return img[b[0]:b[1], b[2]:b[3]]
@@ -262,8 +274,8 @@ class Detector(object):
         self.mask[self.x, self.y] = mask
         self.mask = np.sign(self.mask)
 
-        xsel = self.x[mask.astype(np.bool)]
-        ysel = self.y[mask.astype(np.bool)]
+        xsel = self.x[mask.astype('bool')]
+        ysel = self.y[mask.astype('bool')]
         self.zoom_bounds = (xsel.min(), xsel.max()+1, ysel.min(), ysel.max()+1)
 
     def _init_sym(self, force=False):

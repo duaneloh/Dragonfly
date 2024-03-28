@@ -5,11 +5,12 @@
 #include <math.h>
 #include <float.h>
 #include <omp.h>
+#include <hdf5.h>
 #include "../../src/utils.h"
 #include "../../src/quat.h"
 #include "../../src/interp.h"
 
-long s, c, rmax, rmin, max_r = 0 ;
+long s, c, rmax, rmin, num_div, max_r = 0 ;
 double i2i2, max_corr ;
 
 int parse_arguments(int argc, char *argv[], char *output_fname, char *intens_fname1, char *intens_fname2) {
@@ -23,10 +24,11 @@ int parse_arguments(int argc, char *argv[], char *output_fname, char *intens_fna
 	rmax = -1 ;
 	rmin = 2 ;
 	i2i2 = 0. ;
-	sprintf(usage_string, "Usage:\n%s [-s size] [-t num_threads] [-o output_name]\n\t[-R rmax] [-r rmin] [-h]\n\t<intens_fname1> <intens_fname2>\n", argv[0]) ;
+	num_div = 4 ;
+	sprintf(usage_string, "Usage:\n%s [-s size] [-t num_threads] [-o output_name]\n\t[-R rmax] [-r rmin] [-h] [-n num_div]\n\t<intens_fname1> <intens_fname2>\n", argv[0]) ;
 	
 	while (optind < argc) {
-		if ((chararg = getopt(argc, argv, "r:R:s:t:o:h")) != -1) {
+		if ((chararg = getopt(argc, argv, "r:R:s:t:n:o:h")) != -1) {
 			switch (chararg) {
 				case 't':
 					omp_set_num_threads(atoi(optarg)) ;
@@ -43,6 +45,9 @@ int parse_arguments(int argc, char *argv[], char *output_fname, char *intens_fna
 					break ;
 				case 'r':
 					rmin = atoi(optarg) ;
+					break ;
+				case 'n':
+					num_div = atoi(optarg) ;
 					break ;
 				case 'h':
 					fprintf(stderr, "Utility to align and compare two 3D intensity models.\n") ;
@@ -180,23 +185,37 @@ void calc_radial_corr(struct rotation *quat, double *m1, double *m2, char *fname
 }
 
 void save_rotmodel(struct rotation *quat, double *m1, char *fname) {
-	long vol = s*s*s ;
 	double rot[3][3] ;
-	double *rotmodel = calloc(vol, sizeof(double)) ;
-	char rotfname[500] ;
-	FILE *fp ;
+	double *rotmodel = calloc(s*s*s, sizeof(double)) ;
+	char rotfname[2048] ;
 	
 	// Calculate rotated model
 	make_rot_quat(&quat->quat[max_r*5], rot) ;
 	rotate_model(rot, m1, s, rmax, rotmodel) ;
 	
 	// Write rotmodel to file
-	char *base = remove_ext(extract_fname(fname)) ;
-	sprintf(rotfname, "data/%s-rot.bin", base) ;
+	char *base = remove_ext(fname) ;
+#ifdef WITH_HDF5
+	sprintf(rotfname, "%s-rot.h5", base) ;
 	free(base) ;
-	fp = fopen(rotfname, "wb") ;
-	fwrite(rotmodel, sizeof(double), vol, fp) ;
+	hid_t file, dset, dspace ;
+	hsize_t out_size[4] = {1, s, s, s} ;
+	
+	file = H5Fcreate(rotfname, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT) ;
+	dspace = H5Screate_simple(4, out_size, NULL) ;
+	dset = H5Dcreate(file, "/intens", H5T_IEEE_F64LE, dspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT) ;
+	H5Dwrite(dset, H5T_IEEE_F64LE, H5S_ALL, dspace, H5P_DEFAULT, rotmodel) ;
+
+	H5Dclose(dset) ;
+	H5Sclose(dspace) ;
+	H5Fclose(file) ;
+#else // WITH_HDF5
+	sprintf(rotfname, "%s-rot.bin", base) ;
+	free(base) ;
+	FILE *fp = fopen(rotfname, "wb") ;
+	fwrite(rotmodel, sizeof(double), s*s*s, fp) ;
 	fclose(fp) ;
+#endif // WITH_HDF5
 	
 	free(rotmodel) ;
 }
@@ -271,11 +290,65 @@ void gen_subset(struct rotation *quat, int num_div, double dmax) {
 	}
 }
 
+int parse_model(char *fname, long size, double **model) {
+	long vol = size*size*size ;
+	char line[8], hdfheader[8] = {137, 'H', 'D', 'F', '\r', '\n', 26, '\n'} ;
+	
+	*model = malloc(vol * sizeof(double)) ;
+	
+	FILE *fp = fopen(fname, "r") ;
+	if (fp == NULL) {
+		fprintf(stderr, "Unable to open file: %s\n", fname) ;
+		return 1 ;
+	}
+	
+	fread(line, sizeof(char), 8, fp) ;
+	if (strncmp(line, hdfheader, 8) == 0) {
+		fclose(fp) ;
+#ifdef WITH_HDF5
+		hid_t file, dset, dspace ;
+		hsize_t *dims ;
+		int ndims ;
+		
+		file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT) ;
+		dset = H5Dopen(file, "/intens", H5P_DEFAULT) ;
+		dspace = H5Dget_space(dset) ;
+		ndims = H5Sget_simple_extent_ndims(dspace) ;
+		dims = malloc(ndims * sizeof(hsize_t)) ;
+		H5Sget_simple_extent_dims(dspace, dims, NULL) ;
+		
+		if (dims[0] != 1) {
+			fprintf(stderr, "Number of modes is greater than 1 (%llu), comparing with first intensity\n", dims[0]) ;
+			dims[0] = 1 ;
+			H5Sclose(dspace) ;
+			dspace = H5Screate_simple(ndims, dims, NULL) ;
+			H5Dread(dset, H5T_IEEE_F64LE, dspace, dspace, H5P_DEFAULT, *model) ;
+		}
+		else {
+			H5Dread(dset, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, *model) ;
+		}
+		
+		free(dims) ;
+		H5Sclose(dspace) ;
+		H5Dclose(dset) ;
+		H5Fclose(file) ;
+#else // WITH_HDF5
+		fprintf(stderr, "No HDF5 support. Cannot read intensity from %s\n", fname) ;
+		return 1 ;
+#endif // WITH_HDF5
+	}
+	else {
+		fread(*model, sizeof(double), vol, fp) ;
+		fclose(fp) ;
+	}
+	
+	return 0 ;
+}
+
 int main(int argc, char *argv[]) {
 	long vol, t ;
 	double *model1, *model2, *model1_rad, *model2_rad ;
 	struct rotation *quat ;
-	FILE *fp ;
 	char intens_fname1[1024] = {'\0'}, intens_fname2[1024] = {'\0'} ;
 	char output_fname[1024] = {'\0'} ;
 	
@@ -284,24 +357,10 @@ int main(int argc, char *argv[]) {
 	vol = s*s*s ;
 	
 	// Parse models
-	fp = fopen(intens_fname1, "rb") ;
-	if (fp == NULL) {
-		fprintf(stderr, "Unable to open first file: %s\n", intens_fname1) ;
+	if (parse_model(intens_fname1, s, &model1) != 0)
 		return 1 ;
-	}
-	model1 = malloc(vol * sizeof(double)) ;
-	fread(model1, sizeof(double), vol, fp) ;
-	fclose(fp) ;
-	
-	fp = fopen(intens_fname2, "rb") ;
-	if (fp == NULL) {
-		fprintf(stderr, "Unable to open second file: %s\n", intens_fname2) ;
-		free(model1) ;
+	if (parse_model(intens_fname2, s, &model2) != 0)
 		return 1 ;
-	}
-	model2 = malloc(vol * sizeof(double)) ;
-	fread(model2, sizeof(double), vol, fp) ;
-	fclose(fp) ;
 	fprintf(stderr, "Parsed models from %s and %s\n", intens_fname1, intens_fname2) ;
 	
 	// Radial average subtraction
@@ -316,7 +375,7 @@ int main(int argc, char *argv[]) {
 	
 	// Generate quaternion and calculate max_corr
 	quat = calloc(1, sizeof(struct rotation)) ;
-	quat_gen(4, quat) ;
+	quat_gen(num_div, quat) ;
 	calc_corr(quat, model1_rad, model2_rad) ;
 	
 	// Generate subset and recalculate max_corr
@@ -326,14 +385,14 @@ int main(int argc, char *argv[]) {
 	calc_corr(quat, model1_rad, model2_rad) ;
 	
 	// Calculate radial_corr for best orientation and save rotated model
-	char fname[500] ;
+	char fname[2048] ;
 	if (output_fname == '\0') {
-		char *base = remove_ext(extract_fname(intens_fname1)) ;
-		sprintf(fname, "data/%s.dat", base) ;
+		char *base = remove_ext(intens_fname1) ;
+		sprintf(fname, "%s.dat", base) ;
 		free(base) ;
 	}
 	else {
-		sprintf(fname, "data/%s.dat", output_fname) ;
+		sprintf(fname, "%s.dat", output_fname) ;
 	}
 	fprintf(stderr, "Saving FSC to %s\n", fname) ;
 	

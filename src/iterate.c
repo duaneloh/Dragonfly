@@ -566,10 +566,6 @@ void calc_beta(struct dataset *frames, struct params *param) {
 		for (d = 0 ; d < frames->tot_num_data ; ++d)
 			param->beta_start[d] = exp(-6.5 * pow(frames->count[d] * 1.e-5, 0.15)) ; // Empirical
 	}
-	
-	FILE *fp = fopen("data/beta.bin", "wb") ;
-	fwrite(param->beta_start, sizeof(double), frames->tot_num_data, fp) ;
-	fclose(fp) ;
 }
 
 void free_iterate(struct iterate *iter) {
@@ -596,5 +592,7 @@ void free_iterate(struct iterate *iter) {
 		free(iter->rel_quat) ;
 		free(iter->num_rel_quat) ;
 	}
+	if (iter->mean_count != NULL)
+		free(iter->mean_count) ;
 	free(iter) ;
 }

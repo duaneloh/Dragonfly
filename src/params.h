@@ -23,6 +23,7 @@ struct params {
 	double alpha, beta_jump, beta_factor ;
 	double *beta, *beta_start ;
 	int friedel_sym ; // Symmetrization for 2D recon
+	int axial_sym ; // N-fold symmetrization about Z-axis
 	int refine, coarse_div, fine_div ; // If doing refinement
 
 	// Radius refinement
@@ -38,5 +39,6 @@ struct params {
 
 void params_from_config(char*, char*, struct params*) ;
 void generate_output_dirs(struct params*) ;
+void free_params(struct params*) ;
 
 #endif //PARAMS_H

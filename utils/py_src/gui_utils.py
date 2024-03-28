@@ -1,11 +1,15 @@
 '''Common utilities for various GUI classes'''
 
+import os
 try:
-    from PyQt5 import QtWidgets # pylint: disable=import-error
+    from PyQt5 import QtGui, QtWidgets # pylint: disable=import-error
+    from matplotlib.backends.backend_qt5agg import FigureCanvas, NavigationToolbar2QT #pylint: disable=no-name-in-module
 except ImportError:
     import sip
     sip.setapi('QString', 2)
+    from PyQt4 import QtGui
     from PyQt4 import QtGui as QtWidgets # pylint: disable=import-error
+    from matplotlib.backends.backend_qt4agg import FigureCanvas, NavigationToolbar2QT #pylint: disable=no-name-in-module
 
 def add_scroll_hbox(gui, hbox):
     '''Adds buttons to hbox for scrolling through frames
@@ -32,4 +36,12 @@ def add_class_hbox(gui, vbox):
     button.clicked.connect(gui.classes.save)
     hbox.addWidget(button)
     hbox.addStretch(1)
+
+class MyNavigationToolbar(NavigationToolbar2QT):
+    def _icon(self, name, color=None):
+        fname = os.path.abspath(os.path.dirname(__file__) + '/../../aux/icons/'+name) 
+        pm = QtGui.QPixmap(fname)
+        #if hasattr(pm, 'setDevicePixelRatio'):
+        #    pm.setDevicePixelRatio(self.canvas._dpi_ratio)
+        return QtGui.QIcon(pm)
 

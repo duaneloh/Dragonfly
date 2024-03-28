@@ -135,6 +135,7 @@ void allocate_memory(struct max_data *data) {
 		data->weight = calloc(iter->modes*iter->vol, sizeof(double)) ;
 		
 		data->psum_r = calloc(det[0].num_det, sizeof(double)) ;
+		data->curr_ind = calloc(frames->tot_num_data, sizeof(int)) ;
 		
 		for (d = 0 ; d < frames->tot_num_data ; ++d) {
 			data->prob[d] = malloc(4 * sizeof(double)) ;
@@ -219,10 +220,12 @@ void calculate_rescale(struct max_data *data) {
 	}
 	sprintf(res_string + strlen(res_string), ")") ;
 	print_max_time("rescale", res_string, param->rank == 0) ;
+	
+	free(total) ;
 }
 
 void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
-	int dset = 0, t, d, curr_d, pixel, mode, rotind, detn, old_detn = -1, ind ;
+	int dset = 0, t, d, curr_d, pixel, mode, rotind, detn, old_detn = -1, ind, new_num_prob ;
 	struct dataset *curr = frames ;
 	double pval, *view ;
 	int *num_prob = priv->num_prob, **place_prob = priv->place_prob ;
@@ -330,9 +333,10 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 				num_prob[d]++ ;
 				
 				// If num_prob is a power of two, expand array
-				if (num_prob[d] >= 4 && (num_prob[d] & (num_prob[d] - 1)) == 0) {
-					prob[d] = realloc(prob[d], num_prob[d] * 2 * sizeof(double)) ;
-					place_prob[d] = realloc(place_prob[d], num_prob[d] * 2 * sizeof(int)) ;
+				if (num_prob[d] >= 4 && num_prob[d] < quat->num_rot_p && (num_prob[d] & (num_prob[d] - 1)) == 0) {
+					new_num_prob = num_prob[d] * 2 < quat->num_rot_p ? num_prob[d] * 2 : quat->num_rot_p ;
+					prob[d] = realloc(prob[d], new_num_prob * sizeof(double)) ;
+					place_prob[d] = realloc(place_prob[d], new_num_prob * sizeof(int)) ;
 				}
 			}
 			
@@ -456,6 +460,22 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 		}
 	}
 	
+	if (param->need_scaling && param->update_scale) {
+		#pragma omp critical(scale)
+		{
+			for (d = 0 ; d < frames->tot_num_data ; ++d)
+			if (!frames->blacklist[d])
+				common->psum_d[d] += priv->psum_d[d] ;
+		}
+	}
+	
+	if (iter->modes > 1) {
+		#pragma omp critical(quat_norm)
+		for (d = 0 ; d < frames->tot_num_data * iter->modes ; ++d)
+			common->quat_norm[d] += priv->quat_norm[d] ;
+	}
+	print_max_time("osync", "", param->rank == 0 && omp_rank == 0) ;
+	
 	// Only calculate common probabilities if needed for update_scale or to save
 	if ((param->need_scaling && param->update_scale && det[0].with_bg) || (param->save_prob)) {
 		// Calculate offsets to combine sparse probabilities for each OpenMP rank
@@ -489,21 +509,7 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 		for (d = 0 ; d < frames->tot_num_data ; ++d)
 			common->num_prob[d] = resparsify(common->prob[d], common->place_prob[d], common->num_prob[d], PROB_MIN) ;
 	}
-	
-	if (param->need_scaling && param->update_scale) {
-		#pragma omp critical(scale)
-		{
-			for (d = 0 ; d < frames->tot_num_data ; ++d)
-			if (!frames->blacklist[d])
-				common->psum_d[d] += priv->psum_d[d] ;
-		}
-	}
-	
-	if (iter->modes > 1) {
-		#pragma omp critical(quat_norm)
-		for (d = 0 ; d < frames->tot_num_data * iter->modes ; ++d)
-			common->quat_norm[d] += priv->quat_norm[d] ;
-	}
+	print_max_time("ocprob", "", param->rank == 0 && omp_rank == 0) ;
 }
 
 double combine_information_mpi(struct max_data *common) {
@@ -533,6 +539,14 @@ double combine_information_mpi(struct max_data *common) {
 	
 	iter->mutual_info /= (frames->tot_num_data - frames->num_blacklist) ;
 	avg_likelihood /= (frames->tot_num_data - frames->num_blacklist) ;
+	
+	// Combine scale factor information from all MPI ranks
+	if (param->need_scaling && param->update_scale)
+		MPI_Allreduce(MPI_IN_PLACE, common->psum_d, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
+	
+	if (iter->modes > 1)
+		MPI_Allreduce(MPI_IN_PLACE, common->quat_norm, frames->tot_num_data*iter->modes, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
+	print_max_time("isync", "", param->rank == 0) ;
 	
 	// Only calculate common probabilities if needed for update_scale or to save
 	if ((param->need_scaling && param->update_scale && det[0].with_bg) || (param->save_prob)) {
@@ -576,14 +590,7 @@ double combine_information_mpi(struct max_data *common) {
 		}
 	}
 	
-	// Combine scale factor information from all MPI ranks
-	if (param->need_scaling && param->update_scale)
-		MPI_Allreduce(MPI_IN_PLACE, common->psum_d, frames->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
-	
-	if (iter->modes > 1)
-		MPI_Allreduce(MPI_IN_PLACE, common->quat_norm, frames->tot_num_data*iter->modes, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
-	
-	print_max_time("sync", "", param->rank == 0) ;
+	print_max_time("icprob", "", param->rank == 0) ;
 	return avg_likelihood ;
 }
 
@@ -621,6 +628,8 @@ void free_memory(struct max_data *data) {
 	
 	if (!data->within_openmp) {
 		free(data->max_exp) ;
+		for (detn = 0 ; detn < det[0].num_det ; ++detn)
+			free(data->u[detn]) ;
 		free(data->u) ;
 		free(data->p_norm) ;
 		free(data->offset_prob) ;
@@ -632,6 +641,7 @@ void free_memory(struct max_data *data) {
 		free(data->model) ;
 		free(data->weight) ;
 		free(data->psum_r) ;
+		free(data->curr_ind) ;
 		if (det[0].with_bg && param->need_scaling) {
 			for (detn = 0 ; detn < det[0].num_det ; ++detn) {
 				free(data->mask[detn]) ;
@@ -654,30 +664,23 @@ void free_memory(struct max_data *data) {
 	free(data) ;
 }
 
+
 // Other functions
 int resparsify(double *vals, int *pos, int num_vals, double thresh) {
-	int i, j ;
-	
-	for (i = 0 ; i < num_vals ; ++i) {
-		if (vals[i] <= thresh) {
-			num_vals-- ;
-			for (j = i ; j < num_vals ; ++j) {
-				vals[j] = vals[j+1] ;
-				pos[j] = pos[j+1] ;
-				pos[j+1] = -1 ;
-			}
-			i-- ;
+	int nv = 0;
+	for (int i = 0 ; i < num_vals ; ++i) {
+		if (vals[i] > thresh) {
+			vals[nv] = vals[i];
+			pos[nv] = pos[i];
+ 			nv++;
 		}
 	}
-	
-	//vals = realloc(vals, num_vals*sizeof(double)) ;
-	//pos = realloc(pos, num_vals*sizeof(int)) ;
-	
-	return num_vals ;
+	return nv;
 }
 
+
 double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
-	int dset = 0, d, curr_d, detn, rotind, mode, t, ind ;
+	int dset = 0, d, curr_d, detn, rotind, mode, t, ind, true_r ;
 	double temp, scalemax ;
 	struct dataset *curr = frames ;
 	double **prob = priv->prob ;
@@ -715,14 +718,13 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 			}
 			
 			// check if current frame has significant probability
-			ind = -1 ;
-			for (t = 0 ; t < num_prob[d] ; ++t)
-			if (r*param->num_proc + param->rank == place_prob[d][t]) {
-				ind = t ;
-				break ;
-			}
-			if (ind == -1)
+			true_r = r*param->num_proc + param->rank ;
+			if (true_r == place_prob[d][priv->curr_ind[d]]) ;
+			else if (priv->curr_ind[d] < num_prob[d] - 1 && true_r == place_prob[d][priv->curr_ind[d] + 1])
+				priv->curr_ind[d]++ ;
+			else
 				continue ;
+			ind = priv->curr_ind[d] ;
 			
 			// Exponentiate log-likelihood and normalize to get probabilities
 			temp = prob[d][ind] ;
@@ -776,7 +778,7 @@ void update_tomogram_nobg(int r, struct max_data *priv, struct max_data *common)
 	double *view ;
 	struct dataset *curr = frames ;
 	double **prob = priv->prob ;
-	int **place_prob = priv->place_prob, *num_prob = priv->num_prob ;
+	int **place_prob = priv->place_prob ;
 	
 	for (detn = 0 ; detn < det[0].num_det ; ++detn) 
 		memset(priv->all_views[detn], 0, det[detn].num_pix*sizeof(double)) ;
@@ -808,15 +810,9 @@ void update_tomogram_nobg(int r, struct max_data *priv, struct max_data *common)
 			}
 			
 			// check if current frame has significant probability
-			ind = -1 ;
-			for (t = 0 ; t < num_prob[d] ; ++t)
-			if (r*param->num_proc + param->rank == place_prob[d][t]) {
-				ind = t ;
-				break ;
-			}
-			if (ind == -1)
+			if (r*param->num_proc + param->rank != place_prob[d][priv->curr_ind[d]])
 				continue ;
-			
+			ind = priv->curr_ind[d] ;
 			
 			// Skip if probability is very low (saves time)
 			if (!(prob[d][ind] > PROB_MIN))
@@ -862,7 +858,7 @@ void gradient_rt(int r, struct max_data *priv, double **views, double **gradient
 	int dset = 0, t, d, curr_d, pixel, detn, ind, rotind ;
 	double val, *grad, *view ;
 	struct dataset *curr = frames ;
-	int *num_prob = priv->num_prob, **place_prob = priv->place_prob ;
+	int **place_prob = priv->place_prob ;
 	double **prob = priv->prob ;
 	
 	// Initialization:
@@ -913,14 +909,9 @@ void gradient_rt(int r, struct max_data *priv, double **views, double **gradient
 			}
 			
 			// check if current frame has significant probability
-			ind = -1 ;
-			for (t = 0 ; t < num_prob[d] ; ++t)
-			if (r*param->num_proc + param->rank == place_prob[d][t]) {
-				ind = t ;
-				break ;
-			}
-			if (ind == -1)
+			if (r*param->num_proc + param->rank != place_prob[d][priv->curr_ind[d]])
 				continue ;
+			ind = priv->curr_ind[d] ;
 			
 			// Skip if probability is very low (saves time)
 			if (!(prob[d][ind] > PROB_MIN))
@@ -1196,8 +1187,8 @@ void gradient_d(struct max_data *common, uint8_t *mask, double *scale, double *g
 					// For each pixel with one photon
 					for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
 						pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
-						//if (det[detn].mask[pixel] < 1) { // Use only relevant pixels
-						if (det[detn].mask[pixel] < 2) { // Exclude bad pixels
+						if (det[detn].mask[pixel] < 1) { // Use only relevant pixels
+						//if (det[detn].mask[pixel] < 2) { // Exclude bad pixels
 							val = view[pixel] * scale[d] + iter->bgscale[d] * det[detn].background[pixel] ;
 							priv_grad[d] += common->prob[d][ind] * view[pixel] / val ;
 						}
@@ -1206,8 +1197,8 @@ void gradient_d(struct max_data *common, uint8_t *mask, double *scale, double *g
 					// For each pixel with count_multi photons
 					for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
 						pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
-						//if (det[detn].mask[pixel] < 1) { // Use only relevant pixels
-						if (det[detn].mask[pixel] < 2) { // Exclude bad pixels
+						if (det[detn].mask[pixel] < 1) { // Use only relevant pixels
+						//if (det[detn].mask[pixel] < 2) { // Exclude bad pixels
 							val = view[pixel] * scale[d] + iter->bgscale[d] * det[detn].background[pixel] ;
 							priv_grad[d] += common->prob[d][ind] * curr->count_multi[curr->multi_accum[curr_d] + t] * view[pixel] / val ;
 						}
@@ -1294,11 +1285,11 @@ void update_scale_bg(struct max_data *common) {
 			}
 		}
 		
-		if (num_mask == frames->tot_num_data)
+		if (num_mask > ((double) 0.99*frames->tot_num_data))
 			break ;
 	}
 	if (i == 5)
-		fprintf(stderr, "WARNING: Could not find search bounds (%d/%d)\n", num_mask, frames->tot_num_data) ;
+		fprintf(stderr, "WARNING: Could not find search bounds for %d/%d frames\n", frames->tot_num_data - num_mask, frames->tot_num_data) ;
 	
 	// Bounded root finding using bisection/regula falsi/Ridder's
 	for (i = 0 ; i < 50 ; ++i) {
@@ -1373,7 +1364,7 @@ void update_scale_bg(struct max_data *common) {
 			break ;
 	}
 	if (i == 50)
-		fprintf(stderr, "WARNING: scale optimization did not converge (%d/%d)\n", num_mask, frames->tot_num_data) ;
+		fprintf(stderr, "WARNING: scale optimization did not converge for %d/%d frames\n", frames->tot_num_data-num_mask, frames->tot_num_data) ;
 	
 	MPI_Bcast(iter->scale, frames->tot_num_data, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
 	

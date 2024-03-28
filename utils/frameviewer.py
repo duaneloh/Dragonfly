@@ -23,15 +23,24 @@ class Frameviewer(QtWidgets.QMainWindow):
         compare: Compare against best tomogram
         mask: Apply mask to frames
     '''
-    def __init__(self, config_file, mask=False, do_powder=False, do_compare=False, noscroll=False):
+    def __init__(self, config_file, mask=False,
+                 do_powder=False, do_compare=False, noscroll=False,
+                 emc_fname=None, det_fname=None):
         super(Frameviewer, self).__init__()
         self.config_file = config_file
         self.do_powder = do_powder
         self.do_compare = do_compare
-        self.noscroll = noscroll
+        self.noscroll = noscroll or self.do_powder
         self.cmap = None
 
-        read_config.read_gui_config(self, 'emc')
+        if self.config_file is None:
+            self.photons_list = [emc_fname]
+            self.det_list = [det_fname]
+            self.ewald_rad = None
+            self.detd = None
+            self.blacklist = None
+        else:
+            read_config.read_gui_config(self, 'emc')
         py_utils.gen_det_and_emc(self, classifier=False, mask=mask)
         self._init_ui()
 
@@ -49,7 +58,8 @@ class Frameviewer(QtWidgets.QMainWindow):
         menubar.setNativeMenuBar(False)
         cmaplist = ['coolwarm', 'cubehelix', 'CMRmap', 'gray', 'gray_r', 'jet']
         cmapmenu = menubar.addMenu('&Color Map')
-        self.color_map = QtWidgets.QActionGroup(self, exclusive=True)
+        self.color_map = QtWidgets.QActionGroup(self)
+        self.color_map.setExclusive(True)
         self.cmap = cmaplist[0]
         for i, cmap in enumerate(cmaplist):
             action = self.color_map.addAction(QtWidgets.QAction(cmap, self, checkable=True))
@@ -104,10 +114,25 @@ def main():
     parser.add_argument('-C', '--compare',
                         help='Compare with predicted intensities (needs data/quat.dat)',
                         action='store_true', default=False)
+    parser.add_argument('-e', '--emc_fname',
+                        help='Path to emc file (need detector file)')
+    parser.add_argument('-d', '--det_fname',
+                        help='Path to detector file with emc file')
     args = parser.special_parse_args()
 
+    if args.emc_fname is not None:
+        if args.det_fname is None:
+            print('Need detector file to view single emc file')
+            sys.exit(1)
+        if args.compare:
+            print('Cannot do comparison mode with just emc and det file')
+            sys.exit(1)
+        args.config_file = None
+
     app = QtWidgets.QApplication(sys.argv)
-    Frameviewer(args.config_file, mask=args.mask, do_powder=args.powder, do_compare=args.compare)
+    fv = Frameviewer(args.config_file, mask=args.mask, 
+                do_powder=args.powder, do_compare=args.compare,
+                emc_fname=args.emc_fname, det_fname=args.det_fname)
     sys.exit(app.exec_())
 
 if __name__ == '__main__':

@@ -3,6 +3,7 @@
 #include <math.h>
 #include <mpi.h>
 #include <sys/time.h>
+#define EXTERN
 #include "emc.h"
 
 static struct timeval tr1, tr2, tr3 ;
@@ -37,7 +38,7 @@ int main(int argc, char *argv[]) {
 		write_log_file_header(num_threads) ;
 	
 	emc() ;
-	//free_mem() ;
+	free_mem() ;
 	
 	MPI_Finalize() ;
 	
@@ -146,16 +147,19 @@ static void update_model() {
 			iter->model2[x] *= norm / iter->inter_weight[x] ;
 	
 	if (param->recon_type == RECONRZ || (param->recon_type == RECON2D && param->friedel_sym))
-		symmetrize_friedel2d(iter->model2, param->modes, iter->size) ;
+		symmetrize_friedel2d(iter->model2, iter->inter_weight, param->modes, iter->size) ;
 	else if (param->recon_type == RECON3D && quat->icosahedral_flag)
 		for (x = 0 ; x < param->modes ; ++x)
-			symmetrize_icosahedral(&iter->model2[x*iter->vol], iter->size) ;
+			symmetrize_icosahedral(&iter->model2[x*iter->vol], &iter->inter_weight[x*iter->vol], iter->size) ;
 	else if (param->recon_type == RECON3D && quat->octahedral_flag)
 		for (x = 0 ; x < param->modes ; ++x)
-			symmetrize_octahedral(&iter->model2[x*iter->vol], iter->size) ;
+			symmetrize_octahedral(&iter->model2[x*iter->vol], &iter->inter_weight[x*iter->vol], iter->size) ;
 	else if (param->recon_type == RECON3D)
 		for (x = 0 ; x < param->modes ; ++x)
-			symmetrize_friedel(&iter->model2[x*iter->vol], iter->size) ;
+			symmetrize_friedel(&iter->model2[x*iter->vol], &iter->inter_weight[x*iter->vol], iter->size) ;
+	if (param->axial_sym > 1)
+		for (x = 0 ; x < param->modes ; ++x)
+			symmetrize_axial(&iter->model2[x*iter->vol], &iter->inter_weight[x*iter->vol], iter->size, param->axial_sym) ;
 	
 	for (x = 0 ; x < iter->modes * iter->vol ; ++x) {
 		diff = iter->model2[x] - iter->model1[x] ;
@@ -171,10 +175,11 @@ static void update_model() {
 static double update_beta() {
 	int d ;
 	double factor, beta_mean = 0. ;
-	if (param->beta_factor <= 0.)
-		factor = pow(param->beta_jump, (param->iteration-1) / param->beta_period) ;
-	else
-		factor = param->beta_factor ;
+	
+	// Exponentially growing beta
+	factor = pow(param->beta_jump, (param->iteration-1) / param->beta_period) ;
+	// Shift of exponential
+	factor *= param->beta_factor ;
 	
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
 	if (!frames->blacklist[d]) {

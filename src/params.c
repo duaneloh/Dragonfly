@@ -11,7 +11,7 @@ void params_from_config(char *config_fname, char *config_section, struct params 
 	param->start_iter = 1 ;
 	param->beta_period = 100 ;
 	param->beta_jump = 1. ;
-	param->beta_factor = -1. ;
+	param->beta_factor = 1. ;
 	param->radius = 0. ;
 	param->radius_period = 100 ;
 	param->radius_jump = 0. ;
@@ -19,8 +19,7 @@ void params_from_config(char *config_fname, char *config_section, struct params 
 	param->need_scaling = 0 ;
 	param->update_scale = 1 ;
 	param->alpha = 0. ;
-	//param->beta = 1. ;
-	//param->beta_start = 1. ;
+	param->beta = NULL ;
 	param->beta_start = malloc(1 * sizeof(double)) ;
 	param->beta_start[0] = -1. ;
 	param->sigmasq = 0. ;
@@ -29,6 +28,7 @@ void params_from_config(char *config_fname, char *config_section, struct params 
 	param->rot_per_mode = 0 ;
 	param->recon_type = RECON3D ;
 	param->friedel_sym = 0 ;
+	param->axial_sym = 1 ;
 	param->save_prob = 0 ;
 	param->refine = 0 ;
 	param->coarse_div = 0 ;
@@ -91,6 +91,8 @@ void params_from_config(char *config_fname, char *config_section, struct params 
 			}
 			else if (strcmp(token, "friedel_sym") == 0)
 				param->friedel_sym = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "axial_sym") == 0)
+				param->axial_sym = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "save_prob") == 0)
 				param->save_prob = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "update_scale") == 0)
@@ -115,9 +117,6 @@ void params_from_config(char *config_fname, char *config_section, struct params 
 		param->beta_start[0] = -1. ;
 	else if (beta_str[0] != '\0')
 		param->beta_start[0] = atof(beta_str) ;
-	
-	if (param->beta_jump != 1. && param->beta_factor >= 0.)
-		fprintf(stderr, "WARNING: Both beta_schedule and beta_factor specified. beta_schedule will be ignored.\n") ;
 	
 	if (!param->rank)
 		fprintf(stderr, "Parsed params from config file\n") ;
@@ -146,3 +145,9 @@ void generate_output_dirs(struct params *param) {
 	}
 }
 
+void free_params(struct params *param) {
+	if (param->beta != NULL)
+		free(param->beta) ;
+	free(param->beta_start) ;
+	free(param) ;
+}

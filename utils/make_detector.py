@@ -56,7 +56,7 @@ def main():
             det.raw_mask[rad < pm['stoprad']] = 2
         else:
             det.raw_mask = np.fromfile(pm['mask_fname'], '=u1')
-            det.raw_mask[(rad > min(pm['detc_x'], pm['detc_y'])) & (mask == 0)] = 1
+            det.raw_mask[(rad > min(pm['detc_x'], pm['detc_y'])) & (det.raw_mask == 0)] = 1
         timer.reset_and_report("Creating detector") if args.vb else timer.reset()
 
         det.detd = pm['detd'] / pm['pixsize']

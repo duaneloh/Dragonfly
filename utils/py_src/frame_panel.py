@@ -18,14 +18,6 @@ from matplotlib import colors
 from . import slices
 from . import gui_utils
 
-class MyNavigationToolbar(NavigationToolbar2QT):
-    def _icon(self, name):
-        fname = os.path.abspath(os.path.dirname(__file__) + '/../../aux/icons/'+name) 
-        pm = QtGui.QPixmap(fname)
-        if hasattr(pm, 'setDevicePixelRatio'):
-            pm.setDevicePixelRatio(self.canvas._dpi_ratio)
-        return QtGui.QIcon(pm)
-
 class FramePanel(QtWidgets.QWidget):
     '''GUI panel containing frame display widget
     
@@ -80,7 +72,7 @@ class FramePanel(QtWidgets.QWidget):
         self.fig = Figure(figsize=(6, 6))
         self.fig.subplots_adjust(left=0.05, right=0.99, top=0.9, bottom=0.05)
         self.canvas = FigureCanvas(self.fig)
-        self.navbar = MyNavigationToolbar(self.canvas, self)
+        self.navbar = gui_utils.MyNavigationToolbar(self.canvas, self)
         self.canvas.mpl_connect('button_press_event', self._frame_focus)
         vbox.addWidget(self.navbar)
         vbox.addWidget(self.canvas)
@@ -155,13 +147,13 @@ class FramePanel(QtWidgets.QWidget):
             pass
         elif self.do_powder:
             det0 = self.emc_reader.flist[0]['geom']
-            frame = det0.assemble_frame(self.powder_sum, zoomed=True, sym=self.sym_flag.isChecked())
+            frame = det0.assemble_frame(self.powder_sum, zoomed=True, sym=self.sym_flag.isChecked(), avg=True)
             num = None
         else:
             num = self.get_num()
             if num is None:
                 return
-            frame = self.emc_reader.get_frame(num, zoomed=True, sym=self.sym_flag.isChecked())
+            frame = self.emc_reader.get_frame(num, zoomed=True, sym=self.sym_flag.isChecked(), avg=True)
 
         try:
             for point in self.parent.embedding_panel.roi_list:
@@ -285,6 +277,10 @@ class FramePanel(QtWidgets.QWidget):
         '''Override of default keyPress event handler'''
         key = event.key()
         mod = int(event.modifiers())
+
+        if self.noscroll:
+            event.ignore()
+            return
 
         if QtGui.QKeySequence(mod+key) == QtGui.QKeySequence('Ctrl+N'):
             self._next_frame()

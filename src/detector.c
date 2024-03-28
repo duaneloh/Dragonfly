@@ -162,6 +162,8 @@ static double parse_h5detector(char *fname, struct detector *det, int norm_flag)
 	dtype = H5Dget_type(dset) ;
 	H5Dread(dset, dtype, H5S_ALL, H5S_ALL, H5P_DEFAULT, &(det->ewald_rad)) ;
 	
+	H5Fclose(file) ;
+	
 	if (norm_flag < 0) { // 2D detector
 		for (i = 0 ; i < det->num_pix ; ++i) {
 			det->pixels[i*3+0] = det->pixels[i*4+0] ;
@@ -194,7 +196,7 @@ static int parse_background(char *fname, struct detector *det) {
 	
 	if (strncmp(line, hdfheader, 8) == 0) {
 #ifdef WITH_HDF5
-		fprintf(stderr, "Parsing HDF5 background file\n") ;
+		fprintf(stderr, "Parsing HDF5 background file from %s\n", fname) ;
 		hid_t file, dset ;
 		file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT) ;
 		dset = H5Dopen(file, "/background", H5P_DEFAULT) ;
@@ -231,7 +233,7 @@ static int parse_background_list(char *flist, struct detector **det_list) {
 	while (fscanf(fp, "%1023s\n", rel_fname) == 1) {
 		absolute_strcpy(flist_folder, abs_fname, rel_fname) ;
 		if (i < ndet) {
-			if (parse_background(abs_fname, det_list[i])) {
+			if (parse_background(abs_fname, &((*det_list)[i]))) {
 				fclose(fp) ;
 				return 1 ;
 			}
@@ -486,6 +488,7 @@ void free_detector(struct detector *det) {
 		free(det[detn].mask) ;
 		if (det[detn].powder != NULL)
 			free(det[detn].powder) ;
+		free(det[detn].background) ;
 	}
 	free(det) ;
 }

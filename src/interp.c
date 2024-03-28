@@ -389,7 +389,7 @@ void rotate_model(double rot[3][3], double *m, int s, int max_r, double *rotmode
 	int x, y, z, i, c = s/2, vx, vy, vz ;
 	double fx, fy, fz, cx, cy, cz ;
 	double rot_vox[3] ;
-	if (max_r == 0)
+	if (max_r == 0 || max_r > c)
 		max_r = c ;
 	
 	for (vx = -max_r ; vx < max_r ; ++vx)
@@ -474,37 +474,103 @@ void rotate_model_openmp(double rot[3][3], double *m, int s, double *rotmodel) {
 /* In-place Friedel symmetrization:
  * I(q) and I(-q) are replaced by their average
  */
-void symmetrize_friedel(double *array, int size) {
-	int x, y, z, min = 0, center = size/2 ;
-	double ave_intens ;
+void symmetrize_friedel(double *array, double *weights, int size) {
+	int x, y, z, vox1, vox2, min = 0, center = size/2 ;
+	double avg_intens, avg_weights ;
 	if (size % 2 == 0)
 		min = 1 ;
 	
 	for (x = min ; x < size ; ++x)
 	for (y = min ; y < size ; ++y)
 	for (z = min ; z <= center ; ++z) {
-		ave_intens = .5 * (array[x*size*size + y*size + z] + array[(2*center-x)*size*size + (2*center-y)*size + (2*center-z)]) ;
-		array[x*size*size + y*size + z] = ave_intens ;
-		array[(2*center-x)*size*size + (2*center-y)*size +  (2*center-z)] = ave_intens ;
+		vox1 = x*size*size + y*size + z ;
+		vox2 = (2*center-x)*size*size + (2*center-y)*size + (2*center-z) ;
+		avg_intens = 0.5 * (array[vox1]*weights[vox1] + array[vox2]*weights[vox2]) ;
+		avg_weights = 0.5 * (weights[vox1] + weights[vox2]) ;
+		if (avg_weights > 0)
+			avg_intens /= avg_weights ;
+		else
+			avg_intens = 0. ;
+		array[vox1] = avg_intens ;
+		array[vox2] = avg_intens ;
 	}
 }
 
 /* In-place Friedel symmetrization for 2D stack:
  * I(q) and I(-q) are replaced by their average for each 2D layer independently
  */
-void symmetrize_friedel2d(double *array, int num_layers, int size) {
-	int x, y, z, min = 0, center = size/2 ;
-	double ave_intens ;
+void symmetrize_friedel2d(double *array, double *weights, int num_layers, int size) {
+	int x, y, z, vox1, vox2, min = 0, center = size/2 ;
+	double avg_intens, avg_weights ;
 	if (size % 2 == 0)
 		min = 1 ;
 	
 	for (x = 0; x < num_layers; ++x)
 	for (y = min ; y < size ; ++y)
 	for (z = min ; z <= center ; ++z) {
-		ave_intens = .5 * (array[x*size*size + y*size + z] + array[x*size*size + (2*center-y)*size + (2*center-z)]) ;
-		array[x*size*size + y*size + z] = ave_intens ;
-		array[x*size*size + (2*center-y)*size +  (2*center-z)] = ave_intens ;
+		vox1 = x*size*size + y*size + z ;
+		vox2 = x*size*size + (2*center-y)*size + (2*center-z) ;
+		avg_intens = 0.5 * (array[vox1]*weights[vox1] + array[vox2]*weights[vox2]) ;
+		avg_weights = 0.5 * (weights[vox1] + weights[vox2]) ;
+		if (avg_weights > 0)
+			avg_intens /= avg_weights ;
+		else
+			avg_intens = 0. ;
+		array[vox1] = avg_intens ;
+		array[vox2] = avg_intens ;
 	}
+}
+
+/* Axial symmetrization
+ * 	N-fold axial symmetrization about Z-axis
+ * 	Arguments:
+ * 		Pointer to model representing centered 3D volume
+ * 		Size of model
+ * 		Symmetry order
+ * 	In main EMC code, Friedel symmetry is independently applied
+ * 	No return value. Symmetrization performed in-place
+ */
+void symmetrize_axial(double *model, double *weights, int size, int order) {
+	long i, vol = size*size*size ;
+	double *temp = malloc(vol*sizeof(double)) ;
+	double angle, c, s, rot[3][3] = {{1,0,0},{0,1,0},{0,0,1}} ;
+	
+	// Calculate numerator: model <- SYM(model * weights)
+	memcpy(temp, model, vol*sizeof(double)) ;
+	for (i = 0 ; i < vol ; ++i)
+		temp[i] *= weights[i] ;
+	memset(model, 0, vol*sizeof(double)) ;
+	for (i = 0 ; i < order; ++i) {
+		angle = i * 2. * M_PI / order ;
+		c = cos(angle) ;
+		s = sin(angle) ;
+		rot[0][0] = c ;
+		rot[0][1] = -s ;
+		rot[1][1] = c ;
+		rot[1][0] = s ;
+		rotate_model_openmp(rot, temp, size, model) ;
+	}
+
+	// Calculate denominator: weights <- SYM(weights)
+	memcpy(temp, weights, vol*sizeof(double)) ;
+	memset(weights, 0, vol*sizeof(double)) ;
+	for (i = 0 ; i < order ; ++i) {
+		angle = i * 2. * M_PI / order ;
+		c = cos(angle) ;
+		s = sin(angle) ;
+		rot[0][0] = c ;
+		rot[0][1] = -s ;
+		rot[1][1] = c ;
+		rot[1][0] = s ;
+		rotate_model_openmp(rot, temp, size, weights) ;
+	}
+	
+	// Divide numerator by denominator
+	for (i = 0 ; i < vol ; ++i)
+	if (weights[i] > 0.)
+		model[i] /= weights[i] ;
+	
+	free(temp) ;
 }
 
 static double icos_list[60][3][3] = {
@@ -628,18 +694,28 @@ static double cube_list[48][3][3] = {
  * 		Size of model
  * 	No return value. Symmetrization performed in-place
  */
-void symmetrize_octahedral(double *model, int size) {
-	double *temp = malloc(size*size*size*sizeof(double)) ;
-	int i ;
+void symmetrize_octahedral(double *model, double *weights, int size) {
+	long i, vol = size*size*size ;
+	double *temp = malloc(vol*sizeof(double)) ;
 	
-	memcpy(temp, model, size*size*size*sizeof(double)) ;
-	memset(model, 0, size*size*size*sizeof(double)) ;
-	
+	// Calculate numerator: model <- SYM(model * weights)
+	memcpy(temp, model, vol*sizeof(double)) ;
+	for (i = 0 ; i < vol ; ++i)
+		temp[i] *= weights[i] ;
+	memset(model, 0, vol*sizeof(double)) ;
 	for (i = 0 ; i < 48 ; ++i)
 		rotate_model_openmp(cube_list[i], temp, size, model) ;
+
+	// Calculate denominator: weights <- SYM(weights)
+	memcpy(temp, weights, vol*sizeof(double)) ;
+	memset(weights, 0, vol*sizeof(double)) ;
+	for (i = 0 ; i < 48 ; ++i)
+		rotate_model_openmp(cube_list[i], temp, size, weights) ;
 	
-	for (i = 0 ; i < size*size*size ; ++i)
-		model[i] /= 48. ;
+	// Divide numerator by denominator
+	for (i = 0 ; i < vol ; ++i)
+	if (weights[i] > 0.)
+		model[i] /= weights[i] ;
 	
 	free(temp) ;
 }
@@ -651,18 +727,28 @@ void symmetrize_octahedral(double *model, int size) {
  * 		Size of model
  * 	No return value. Symmetrization performed in-place
  */
-void symmetrize_icosahedral(double *model, int size) {
-	double *temp = malloc(size*size*size*sizeof(double)) ;
-	int i ;
+void symmetrize_icosahedral(double *model, double *weights, int size) {
+	long i, vol = size*size*size ;
+	double *temp = malloc(vol*sizeof(double)) ;
 	
-	memcpy(temp, model, size*size*size*sizeof(double)) ;
-	memset(model, 0, size*size*size*sizeof(double)) ;
-	
-	for (i = 0 ; i < 60 ; ++i)
+	// Calculate numerator: model <- SYM(model * weights)
+	memcpy(temp, model, vol*sizeof(double)) ;
+	for (i = 0 ; i < vol ; ++i)
+		temp[i] *= weights[i] ;
+	memset(model, 0, vol*sizeof(double)) ;
+	for (i = 0 ; i < 48 ; ++i)
 		rotate_model_openmp(icos_list[i], temp, size, model) ;
+
+	// Calculate denominator: weights <- SYM(weights)
+	memcpy(temp, weights, vol*sizeof(double)) ;
+	memset(weights, 0, vol*sizeof(double)) ;
+	for (i = 0 ; i < 48 ; ++i)
+		rotate_model_openmp(icos_list[i], temp, size, weights) ;
 	
-	for (i = 0 ; i < size*size*size ; ++i)
-		model[i] /= 60. ;
+	// Divide numerator by denominator
+	for (i = 0 ; i < vol ; ++i)
+	if (weights[i] > 0.)
+		model[i] /= weights[i] ;
 	
 	free(temp) ;
 }

@@ -1,24 +1,16 @@
-#ifndef EMC_H
-#define EMC_H
+#ifndef MAXIMIZE_H
+#define MAXIMIZE_H
 
-#ifndef  EXTERN
-#define  EXTERN  extern
-#endif
-
-#include "detector.h"
-#include "dataset.h"
-#include "quat.h"
-#include "params.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/time.h>
+#include <mpi.h>
 #include "iterate.h"
-#include "interp.h"
-
-EXTERN struct detector *det ;
-EXTERN struct rotation *quat ;
-EXTERN struct dataset *frames ;
-EXTERN struct iterate *iter ;
-EXTERN struct params *param ;
 
 struct max_data {
+	// Iterate
+	struct iterate *iter ;
+	
 	// Flags
 	int refinement ; // Whether refinement data or global search
 	int within_openmp ; // Whether this struct is local to a thread or not
@@ -28,7 +20,6 @@ struct max_data {
 	double **all_views ; // View (W_rt) for each detector
 	double *psum_r ; // S_r = \sum_d P_dr \phi_d
 	double *psum_d ; // S_d = \sum_r P_dr u_r
-	int *curr_ind ; // curr_ind_d: Current index in sparse probability array for each frame
 	
 	// Common among all threads only
 	double *max_exp ; // max_exp[d] = max_r log(R_dr)
@@ -44,31 +35,18 @@ struct max_data {
 	double **prob ; // prob[d][r] = P_dr
 	int *num_prob ; // num_prob[d] = Number of non-zero prob[d][r] entries for each d
 	int **place_prob ; // place_prob[d][r] = Position of non-zero prob[d][r]
-	
-	// Background-scaling update (private only)
-	uint8_t **mask ; // Flag mask (M_t) used to optimize update
-	double **G_old, **G_new, **G_latest ; // Gradients
-	double **W_old, **W_new, **W_latest ; // Tomograms
-	double *scale_old, *scale_new, *scale_latest ; // Scale factors
 } ;
 
-// setup_emc.c
-int setup(char*, int) ;
-void free_mem(void) ;
+double maximize(struct max_data*) ;
+void free_max_data(struct max_data*) ;
 
-// max_emc.c
-double maximize(void) ;
+// Model function pointers
+extern void (*slice_gen)(double*, int, double*, struct detector*, struct model*) ;
+extern void (*slice_merge)(double*, int, double*, struct detector*, struct model*) ;
+extern void slice_gen3d(double*, int, double*, struct detector*, struct model*) ;
+extern void slice_merge3d(double*, int, double*, struct detector*, struct model*) ;
+extern void slice_gen2d(double*, int, double*, struct detector*, struct model*) ;
+extern void slice_merge2d(double*, int, double*, struct detector*, struct model*) ;
 
-// output_emc.c
-void write_log_file_header(int) ;
-void update_log_file(double, double, double) ;
-void save_initial_iterate(void) ;
-void save_models(void) ;
-void save_metrics(struct max_data*) ;
-void save_prob(struct max_data*) ;
 
-// interp function pointers
-EXTERN void (*slice_gen)(double*, double, double*, double*, long, struct detector*) ;
-EXTERN void (*slice_merge)(double*, double*, double*, double*, long, struct detector*) ;
-
-#endif
+#endif // MAXIMIZE_H

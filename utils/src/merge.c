@@ -265,7 +265,7 @@ int main(int argc, char *argv[]) {
 	for (i = 0 ; i < vol ; ++i)
 	if (iter->inter_weight[i] > 0.)
 		iter->model1[i] /= iter->inter_weight[i] ;
-	symmetrize_friedel(iter->model1, iter->size) ;
+	symmetrize_friedel(iter->model1, iter->inter_weight, iter->size) ;
 	
 	fp = fopen(output_fname, "wb") ;
 	fwrite(iter->model1, sizeof(double), vol, fp) ;

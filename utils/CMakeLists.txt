@@ -22,7 +22,7 @@ target_sources(compare PUBLIC $<TARGET_OBJECTS:utils.o> $<TARGET_OBJECTS:quat.o>
 target_sources(make_quaternion PUBLIC $<TARGET_OBJECTS:quat.o>)
 target_sources(hkli PUBLIC $<TARGET_OBJECTS:utils.o>)
 if(HDF5_FOUND)
-	set(h5_utils merge cosmic make_data fiberize expected heterogen)
+	set(h5_utils merge cosmic make_data fiberize expected heterogen compare)
 	foreach(util ${h5_utils})
 		target_link_libraries(${util} ${HDF5_C_LIBRARIES})
 		if(HDF5_IS_PARALLEL)

@@ -162,7 +162,7 @@ void rescale_intens() {
 	gsl_rng_free(rng) ;
 	intens_ave /= NUM_AVE ;
 	
-    if (scale_method == FLUENCE) {
+	if (scale_method == FLUENCE) {
 		rescale = fluence*pow(2.81794e-9, 2) ;
 		mean_count = rescale*intens_ave ;
 		fprintf(stderr, "Target mean_count = %f for fluence = %.3e photons/um^2\n", mean_count, fluence) ;
@@ -376,67 +376,11 @@ void write_dataset() {
 #endif
 }
 
-int size_params_from_config(char *config_fname) {
-	double qmin, qmax, hx, hy ;
-	double detd = 0., pixsize = 0., ewald_rad = -1. ;
-	int detsize = 0, dets_x = 0, dets_y = 0 ;
-	char line[1024], section_name[1024], *token ;
-	
-	FILE *config_fp = fopen(config_fname, "r") ;
-	while (fgets(line, 1024, config_fp) != NULL) {
-		if ((token = generate_token(line, section_name)) == NULL)
-			continue ;
-		
-		if (strcmp(section_name, "parameters") == 0) {
-			if (strcmp(token, "detd") == 0)
-				detd = atof(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "detsize") == 0) {
-				dets_x = atoi(strtok(NULL, " =\n")) ;
-				dets_y = dets_x ;
-				token = strtok(NULL, " =\n") ;
-				if (token == NULL)
-					detsize = dets_x ;
-				else {
-					dets_y = atoi(token) ;
-					detsize = dets_x > dets_y ? dets_x : dets_y ;
-				}
-			}
-			else if (strcmp(token, "pixsize") == 0)
-				pixsize = atof(strtok(NULL, " =\n")) ;
-			else if (strcmp(token, "ewald_rad") == 0)
-				ewald_rad = atof(strtok(NULL, " =\n")) ;
-		}
-	}
-	fclose(config_fp) ;
-	
-	if (detsize == 0 || pixsize == 0. || detd == 0.) {
-		fprintf(stderr, "Need detector parameters: detd, detsize, pixsize\n") ;
-		return 1 ;
-	}
-	
-	if (det->detd > 0.)
-		detd = det->detd ;
-	else
-		detd /= pixsize ;
-	if (det->ewald_rad > 0.)
-		ewald_rad = det->ewald_rad ;
-	hx = (dets_x - 1) / 2 ;
-	hy = (dets_y - 1) / 2 ;
-	qmax = 2. * sin(0.5 * atan(sqrt(hx*hx + hy*hy)/detd)) ;
-	qmin = 2. * sin(0.5 * atan(1./detd)) ;
-	if (ewald_rad == -1.)
-		size = 2 * ceil(qmax / qmin) + 3 ;
-	else
-		size = 2 * ceil(qmax / qmin * ewald_rad / detd) + 3 ;
-	fprintf(stderr, "Calculated size of %d voxels from config parameters\n", size) ;
-	
-	return 0 ;
-}
-
 int intens_from_config(char *config_fname) {
 	FILE *fp ;
 	char intens_fname[1024], out_intens_fname[1024] ;
 	char line[1024], section_name[1024], *token ;
+	long vol ;
 	
 	FILE *config_fp = fopen(config_fname, "r") ;
 	while (fgets(line, 1024, config_fp) != NULL) {
@@ -461,6 +405,13 @@ int intens_from_config(char *config_fname) {
 		fprintf(stderr, "in_intensity_file: %s not found.\n", intens_fname) ;
 		return 1 ;
 	}
+	fseek(fp, 0, SEEK_END) ;
+	vol = ftell(fp) ;
+	fseek(fp, 0, SEEK_SET) ;
+
+	size = round(pow(vol / 8., 1./3.)) ;
+	fprintf(stderr, "Calculated volume size of %d voxels from file size\n", size) ;
+
 	intens = malloc(size * size * size * sizeof(double)) ;
 	fread(intens, sizeof(double), size*size*size, fp) ;
 	fclose(fp) ;
@@ -506,7 +457,6 @@ int quat_list_from_config(char *config_fname) {
 int globals_from_config(char *config_fname) {
 	char line[1024], section_name[1024], *token ;
 	
-	size = 0 ;
 	num_data = 0 ;
 	fluence = -1. ;
 	mean_count = -1. ;
@@ -620,11 +570,10 @@ int setup(char *config_fname) {
 		return 1 ;
 	}
 	fclose(fp) ;
+
 	if (detector_from_config(config_fname, "make_data", &det, 0) < 0.)
 		return 1 ;
 	if (globals_from_config(config_fname))
-		return 1 ;
-	if (size_params_from_config(config_fname))
 		return 1 ;
 	if (intens_from_config(config_fname))
 		return 1 ;
