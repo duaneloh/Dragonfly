@@ -3,6 +3,7 @@
 from __future__ import print_function
 import sys
 import os
+import os.path as op
 import time
 import numpy as np
 import pandas
@@ -183,7 +184,7 @@ class EMCReader():
 
         return self._read_frame(file_num, frame_num, **kwargs)
 
-    def get_powder(self, raw=False, **kwargs):
+    def get_powder(self, raw=False, verbose=False, **kwargs):
         """Get virtual powder sum of all frames in file list
 
         Keyword arguments:
@@ -231,6 +232,8 @@ class EMCReader():
                         elif pdict['frame_type'] == 2:
                             for _ in range(num_data):
                                 powder += np.fromfile(fptr, dtype='f8', count=pdict['num_pix'])
+            if verbose:
+                print(pdict['fname'], pdict['num_data'])
 
         if not raw:
             powder = self.flist[0]['det'].assemble_frame(powder, **kwargs)
@@ -380,7 +383,6 @@ class EMCWriter(object):
     """
 
     def __init__(self, out_fname, num_pix, hdf5=True):
-        out_folder = os.path.dirname(out_fname)
         self.h5_output = hdf5
 
         self.out_fname = out_fname
@@ -393,7 +395,7 @@ class EMCWriter(object):
         self.mean_count = 0.
         self.ones = []
         self.multi = []
-        self._init_file(out_folder)
+        self._init_file()
 
     def __enter__(self):
         return self
@@ -401,7 +403,7 @@ class EMCWriter(object):
     def __exit__(self, etype, val, traceback):
         self.finish_write()
 
-    def _init_file(self, out_folder):
+    def _init_file(self):
         if self.h5_output:
             self._h5f = h5py.File(self.out_fname, 'w')
             self._h5f['num_pix'] = [self.num_pix]
@@ -417,9 +419,11 @@ class EMCWriter(object):
         else:
             counter = 0
             while True:
-                temp_fnames = [os.path.join(out_folder, fname) + str(os.getpid()+counter)
+                folder = op.dirname(self.out_fname)
+                basename = '.' + op.splitext(op.basename(self.out_fname))[0]
+                temp_fnames = [op.join(folder, basename+fname) + str(os.getpid()+counter)
                                for fname in ['.po.', '.pm.', '.cm.']]
-                if os.path.exists(temp_fnames[0]):
+                if op.exists(temp_fnames[0]):
                     counter += 1
                 else:
                     break
