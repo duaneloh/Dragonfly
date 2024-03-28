@@ -141,7 +141,8 @@ class Phaser2D(QtWidgets.QMainWindow):
         else:
             norm = colors.PowerNorm(float(exponent), vmin=rangemin, vmax=rangemax)
         cmap = self.parent.color_map.checkedAction().text()
-        cen = self.curr_intens.shape[-1] // 2
+        size = self.curr_intens.shape[-1]
+        cen = size // 2
         plot_intens = self.curr_intens.copy()
         plot_intens[plot_intens<0] = np.nan
 
@@ -151,8 +152,9 @@ class Phaser2D(QtWidgets.QMainWindow):
         ax.set_facecolor('dimgray')
 
         if self.phaser is not None:
-            dens = self.phaser.current[cen-32:cen+32,cen-32:cen+32]
-            supp = self.phaser.support[cen-32:cen+32,cen-32:cen+32]
+            s, e = size//3, 2*size//3
+            dens = self.phaser.current[s:e, s:e]
+            supp = self.phaser.support[s:e, s:e]
 
             ax = self.fig.add_axes([0.7, 0.7, 0.29, 0.29])
             if self.show_supp.isChecked():
