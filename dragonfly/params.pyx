@@ -74,7 +74,7 @@ cdef class EMCParams:
         self.par.verbosity = config.getint(section_name, 'verbosity', fallback=9)
         self.par.need_scaling = config.getint(section_name, 'need_scaling', fallback=0)
         self.par.alpha = config.getfloat(section_name, 'alpha', fallback=0.)
-        self.par.beta_factor = config.getfloat(section_name, 'beta_factor', fallback=-1.)
+        self.par.beta_factor = config.getfloat(section_name, 'beta_factor', fallback=1.)
         self.par.radius = config.getfloat(section_name, 'radius', fallback=0.)
         self.par.num_modes = config.getint(section_name, 'num_modes', fallback=1)
         self.par.nonrot_modes = config.getint(section_name, 'num_nonrot_modes', fallback=0)
@@ -139,6 +139,10 @@ cdef class EMCParams:
     def save_prob(self): return self.par.save_prob
     @save_prob.setter
     def save_prob(self, int val): self.par.save_prob = val
+    @property
+    def verbosity(self): return self.par.verbosity
+    @verbosity.setter
+    def verbosity(self, int val): self.par.verbosity = val
     @property
     def friedel_sym(self): return self.par.friedel_sym
     @friedel_sym.setter
