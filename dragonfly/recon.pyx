@@ -120,10 +120,8 @@ cdef class EMCRecon():
         cdef double factor, beta_mean = 0.
         cdef c_iterate.iterate *itr = self.mdata.iter
 
-        if itr.par.beta_factor <= 0.:
-            factor = itr.par.beta_jump ** ((itr.par.iteration-1) // itr.par.beta_period)
-        else:
-            factor = itr.par.beta_factor
+        factor = itr.par.beta_jump ** ((itr.par.iteration-1) // itr.par.beta_period)
+        factor *= itr.par.beta_factor
 
         for d in range(itr.tot_num_data):
             if itr.blacklist[d] == 0:
