@@ -16,6 +16,7 @@ build/
 *.byt
 *.pyc
 data
+.nfs*
 
 # Utilities
 /utils/*
