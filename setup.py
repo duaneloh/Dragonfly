@@ -3,7 +3,6 @@ from setuptools.extension import Extension
 from Cython.Distutils import build_ext
 from Cython.Build import cythonize
 
-import glob
 import subprocess
 import numpy as np
 import h5py
@@ -21,7 +20,6 @@ compile_args += '-Wno-cpp -Wno-unused-result -Wno-unused-function -Wno-format-ov
 compile_args += hdf5_cflags + gsl_cflags + ['-I'+np.get_include()]
 link_args = '-lm -fopenmp'.split() + hdf5_libs + gsl_libs + ['-Wl,-rpath='+gsl_libs[0][2:]]
 
-# TODO: Fix undefined symbol problem requiring two rounds of compilation
 ext_modules = [
     Extension(name='dragonfly.detector', sources=['dragonfly/detector.pyx'],
         depends=['dragonfly/src/detector.h', 'dragonfly/detector.pxd'],
@@ -41,9 +39,8 @@ ext_modules = [
     Extension(name='dragonfly.params', sources=['dragonfly/params.pyx'],
         depends=['dragonfly/src/params.h', 'dragonfly/params.pxd'],
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
-    Extension(name='dragonfly.recon', sources=['dragonfly/recon.pyx', 'dragonfly/src/maximize.c'],
+    Extension(name='dragonfly.recon', sources=['dragonfly/recon.pyx', 'dragonfly/src/maximize.c', 'dragonfly/src/model.c'],
         depends=['dragonfly/src/maximize.h', 'dragonfly/recon.pxd'],
-        extra_objects=glob.glob('build/temp*/dragonfly/src/model.o'),
         language='c', extra_compile_args=compile_args+mpi_cflags, extra_link_args=link_args+mpi_libs),
 ]
 py_packages = [
