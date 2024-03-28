@@ -41,10 +41,8 @@ double maximize(struct max_data*) ;
 void free_max_data(struct max_data*) ;
 
 // Model function pointers
-//extern void (*slice_gen)(double*, int, double*, struct detector*, struct model*) ;
-//extern void (*slice_merge)(double*, int, double*, struct detector*, struct model*) ;
-void (*slice_gen)(double*, int, double*, struct detector*, struct model*) ;
-void (*slice_merge)(double*, int, double*, struct detector*, struct model*) ;
+extern void (*slice_gen)(double*, int, double*, struct detector*, struct model*) ;
+extern void (*slice_merge)(double*, int, double*, struct detector*, struct model*) ;
 extern void slice_gen3d(double*, int, double*, struct detector*, struct model*) ;
 extern void slice_merge3d(double*, int, double*, struct detector*, struct model*) ;
 extern void slice_gen2d(double*, int, double*, struct detector*, struct model*) ;

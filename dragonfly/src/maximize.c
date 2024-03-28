@@ -27,6 +27,9 @@ static int resparsify(double*, int*, int, double) ;
 static double calc_psum_r(int, struct max_data*, struct max_data*) ;
 static void print_max_time(char*, char*, int) ;
 
+void (*slice_gen)(double*, int, double*, struct detector*, struct model*) ;
+void (*slice_merge)(double*, int, double*, struct detector*, struct model*) ;
+
 double maximize(struct max_data *common_data) {
 	double avg_likelihood ;
 	struct iterate *iter = common_data->iter ;
