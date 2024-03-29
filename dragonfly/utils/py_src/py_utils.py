@@ -160,9 +160,6 @@ def gen_det_and_emc(gui, classifier=False, mask=False):
     gui.geom = geom_list[0]
     gui.emc_reader = dragonfly.EMCReader(gui.photons_list, geom_list, geom_mapping)
 
-class DummyGeom(object):
-    pass
-
 def increment_beta_sensibly(config_fname, incr):
     config = ConfigParser.ConfigParser()
     config.read(config_fname)
