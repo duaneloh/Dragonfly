@@ -16,7 +16,7 @@ gsl_cflags = subprocess.getoutput('gsl-config --cflags').strip().split()
 gsl_libs = subprocess.getoutput('gsl-config --libs').strip().split()
 
 compile_args = '-fopenmp -O3 -Wall'.split()
-compile_args += '-Wno-cpp -Wno-unused-result -Wno-unused-function -Wno-format-overflow'.split() 
+compile_args += '-Wno-cpp -Wno-unused-result -Wno-unused-function -Wno-format-overflow'.split()
 compile_args += hdf5_cflags + gsl_cflags + ['-I'+np.get_include()]
 link_args = '-lm -fopenmp'.split() + hdf5_libs + gsl_libs + ['-Wl,-rpath='+gsl_libs[0][2:]]
 
@@ -45,6 +45,9 @@ ext_modules = [
 ]
 py_packages = [
     'dragonfly',
+    'dragonfly.scripts',
+    'dragonfly.utils',
+    'dragonfly.utils.py_src',
 ]
 extensions = cythonize(ext_modules, language_level=3,
                        compiler_directives={'embedsignature': True,
@@ -61,7 +64,17 @@ setup(name='dragonfly',
       packages=py_packages,
       ext_modules=extensions,
       entry_points = {'console_scripts': [
-          'pyemc = dragonfly.recon:main',
+          'dragonfly.init = dragonfly.scripts.init_new_recon:main',
+          'dragonfly.emc = dragonfly.recon:main',
+          'dragonfly.autoplot = dragonfly.utils.autoplot:main',
+          'dragonfly.frameviewer = dragonfly.utils.frameviewer:main',
           ]
       },
+      install_package_data=True,
+      package_data={'':['config.ini',
+                        'aux/*',
+                        'aux/henke_table/*',
+                        'aux/icons/*',
+                        'utils/py_src/style.css',
+                       ]},
 )
