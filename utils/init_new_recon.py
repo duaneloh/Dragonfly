@@ -8,11 +8,32 @@
 
 from __future__ import print_function
 import os
+import os.path as op
 import sys
 import shutil
 import argparse
-sys.path.append(os.path.dirname(__file__))
-from py_src import py_utils # pylint: disable=import-error
+import logging
+
+def _name_recon_dir(tag, num):
+    return "%s_%04d"%(tag, num)
+
+def create_new_recon_dir(tag="recon", num=1, prefix="./"):
+    '''Create reconstruction directory
+    For given tag, creates directory with first number which does not already exist
+    'prefix' option can be set if parent folder is not the current directory
+    '''
+    recon_dir = op.join(prefix, _name_recon_dir(tag, num))
+    while op.exists(recon_dir):
+        num += 1
+        recon_dir = op.join(prefix, op.join(_name_recon_dir(tag, num)))
+    logging.info('New recon directory created with name: %s', recon_dir)
+    os.mkdir(recon_dir)
+    os.mkdir(op.join(recon_dir, 'data'))
+    os.mkdir(op.join(recon_dir, 'images'))
+    os.mkdir(op.join(recon_dir, 'logs'))
+    if not op.exists(_name_recon_dir(tag, num)):
+        os.symlink(recon_dir, _name_recon_dir(tag, num))
+    return recon_dir
 
 def main():
     '''Parses command line arguments and creates new reconstruction directory'''
@@ -25,12 +46,12 @@ def main():
     parser.add_argument("-p", "--recon_prefix", dest="recon_prefix", default="./",
                         help="path to the folder containing the reconstruction folder")
     args = parser.parse_args()
-    args.recon_prefix = os.path.realpath(args.recon_prefix)
+    args.recon_prefix = op.realpath(args.recon_prefix)
 
     curr_dir = os.getcwd()
-    parent_dir = os.path.realpath(os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), os.pardir))
-    new_recon_dir = py_utils.create_new_recon_dir(tag=args.recon_tag, num=args.run_tag,
-                                                  prefix=args.recon_prefix)
+    parent_dir = op.realpath(op.join(op.dirname(op.realpath(sys.argv[0])), os.pardir))
+    new_recon_dir = create_new_recon_dir(tag=args.recon_tag, num=args.run_tag,
+                                         prefix=args.recon_prefix)
     print(80*"=")
     print("Initializing new directory and creating soft links to useful utilities.")
     print("Type 'dragonfly_init -h' for options")
@@ -42,13 +63,13 @@ def main():
 
     os.chdir(new_recon_dir)
 
-    src = os.path.join(parent_dir, 'aux')
+    src = op.join(parent_dir, 'aux')
     os.symlink(src, 'aux')
-    src = os.path.join(parent_dir, 'utils')
+    src = op.join(parent_dir, 'utils')
     os.symlink(src, 'utils')
-    src = os.path.join(parent_dir, 'bin/emc')
+    src = op.join(parent_dir, 'bin/emc')
     os.symlink(src, 'emc')
-    src = os.path.join(parent_dir, 'config.ini')
+    src = op.join(parent_dir, 'config.ini')
     shutil.copy(src, 'config.ini')
 
     os.chdir(curr_dir)
