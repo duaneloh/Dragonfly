@@ -2,7 +2,6 @@
 
 '''Module containing Dragonfly Progress Viewer'''
 
-from __future__ import print_function
 import sys
 import os
 import argparse
@@ -853,32 +852,19 @@ class ProgressViewer(QtWidgets.QMainWindow):
         else:
             return self.folder+'/output/intens_%.3d.bin' % num
 
-    def _read_config(self, config):
-        self.settings.beginGroup(os.path.abspath(config).replace('/', '_'))
-        try:
-            self.folder = read_config.get_filename(config, 'emc', 'output_folder')
-        except read_config.configparser.NoOptionError:
-            self.folder = 'data/'
+    def _read_config(self, config_fname):
+        self.settings.beginGroup(os.path.abspath(config_fname).replace('/', '_'))
+        config = read_config.MyConfigParser()
+        config.read(config_fname)
 
-        try:
-            self.logfname = read_config.get_filename(config, 'emc', 'log_file')
-        except read_config.configparser.NoOptionError:
-            self.logfname = 'EMC.log'
+        self.folder = config.get_filename('emc', 'output_folder', fallback='data/')
+        self.logfname = config.get_filename('emc', 'log_file', fallback='logs/EMC.log')
+        self.recon_type = config.get('emc', 'recon_type', fallback='3d').lower()
 
-        try:
-            self.recon_type = read_config.get_param(config, 'emc', 'recon_type').lower()
-        except read_config.configparser.NoOptionError:
-            self.recon_type = '3d'
-        self.num_modes = 1
-        self.num_nonrot = 0
-        self.num_rot = None
-        try:
-            self.num_modes = int(read_config.get_param(config, 'emc', 'num_modes'))
-            self.num_nonrot = int(read_config.get_param(config, 'emc', 'num_nonrot_modes'))
-            self.num_rot = int(read_config.get_param(config, 'emc', 'num_rot'))
-        except read_config.configparser.NoOptionError:
-            pass
-        self.config = config
+        self.num_modes = config.getint('emc', 'num_modes', fallback=1)
+        self.num_nonrot = config.getint('emc', 'num_nonrot', fallback=0)
+        self.num_rot = config.getint('emc', 'num_rot', fallback=-1)
+        self.config = config_fname
 
     def _init_sliders(self, slider_type, numvals, init):
         if slider_type == 'layer':
