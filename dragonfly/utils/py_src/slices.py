@@ -1,13 +1,8 @@
 '''Module containing class to generate tomographic slices'''
 
-from __future__ import print_function
 import os
 import numpy as np
-try:
-    import h5py
-    HDF5_MODE = True
-except ImportError:
-    HDF5_MODE = False
+import h5py
 
 class SliceGenerator(object):
     '''Class to generate slices from 3D intensity distribution for given orientation
@@ -56,9 +51,6 @@ class SliceGenerator(object):
             self.stats['info'] = np.loadtxt('%s/mutualInfo/info_%.3d.dat' % (self.folder, iteration))
         elif os.path.isfile(h5model_fname):
             print('Parsing comparison output:', h5model_fname)
-            if not HDF5_MODE:
-                print('Cannot parse HDF5 file without h5py')
-                raise(IOError)
             with h5py.File(h5model_fname, 'r') as fptr:
                 self.model = fptr['intens'][0]
                 self.stats['rmax'] = fptr['orientations'][:]
