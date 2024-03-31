@@ -3,6 +3,7 @@
 '''Module containing Frameviewer class to view emc data frames'''
 import sys
 import os
+import argparse
 try:
     from PyQt5 import QtCore, QtWidgets, QtGui # pylint: disable=import-error
     os.environ['QT_API'] = 'pyqt5'
@@ -104,7 +105,9 @@ class Frameviewer(QtWidgets.QMainWindow):
 
 def main():
     '''Launch Frameviewer after parsing command line arguments'''
-    parser = py_utils.MyArgparser(description='Utility for viewing frames of an emc file (list)')
+    parser = argparse.ArgumentParser(description='Utility for viewing frames of an emc file (list)')
+    parser.add_argument('-c', '--config_file', default='config.ini',
+                        help='Path to configuration file')
     parser.add_argument('-M', '--mask',
                         help='Whether to zero out masked pixels (default False)',
                         action='store_true', default=False)
@@ -118,7 +121,7 @@ def main():
                         help='Path to emc file (need detector file)')
     parser.add_argument('-d', '--det_fname',
                         help='Path to detector file with emc file')
-    args = parser.special_parse_args()
+    args = parser.parse_args()
 
     if args.emc_fname is not None:
         if args.det_fname is None:
