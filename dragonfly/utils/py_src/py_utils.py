@@ -1,13 +1,11 @@
 '''Miscellaneous utility functions called by one or more python modules'''
 
-from __future__ import print_function
-from builtins import input
 import time
 import argparse
 import os
 import sys
 import logging
-from six.moves import configparser
+import configparser
 import numpy as np
 import dragonfly
 
@@ -17,51 +15,21 @@ class MyTimer(object):
         self._time0 = time.time()
         self._time_start = self._time0
 
-    def reset(self):
-        '''Update time'''
+    def reset(self, msg=None, report=False):
+        '''Update time and log difference since last reset if requesterd'''
+        if report:
+            time1 = time.time()
+            logging.info("%-30s:%5.5f seconds", msg, time1-self._time0)
         self._time0 = time.time()
 
     def reset_global(self):
         '''Update global start time'''
         self._time_start = time.time()
 
-    def reset_and_report(self, msg):
-        '''Update time and log difference since last reset'''
-        time1 = time.time()
-        logging.info("%-30s:%5.5f seconds", msg, time1-self._time0)
-        self._time0 = time1
-
     def report_time_since_beginning(self):
         '''Log time difference since start'''
         logging.info("="*20)
         logging.info("%-30s:%5.5f seconds", "Since beginning", time.time() - self._time_start)
-
-class MyArgparser(argparse.ArgumentParser):
-    '''Modified ArgumentParser to add default arguments common across all utilities'''
-    def __init__(self, description=""):
-        argparse.ArgumentParser.__init__(self, description=description,
-                                         formatter_class=argparse.RawTextHelpFormatter)
-        self.add_argument("-c", "--config_file", dest="config_file",
-                          help="config file (default config.ini)")
-        self.add_argument("-v", "--verbose", dest="vb", action="store_true", default=False)
-        self.add_argument("-m", "--main_dir", dest="main_dir",
-                          help="relative path to main repository directory\n"
-                               "(where data aux utils are stored)")
-        self.add_argument("-y", "--yes", help="say yes to all question prompts",
-                          action="store_true")
-
-    def special_parse_args(self):
-        '''Parse command line arguments
-        Log if config file and main directory used are defaults
-        '''
-        args = self.parse_args()
-        if not args.config_file:
-            args.config_file = "config.ini"
-            logging.info("Config file not specified. Using %s", args.config_file)
-        if not args.main_dir:
-            args.main_dir = os.path.split(os.path.abspath(args.config_file))[0]
-            logging.info("Main directory not specified. Using %s", args.main_dir)
-        return args
 
 def write_density(in_den_file, in_den, binary=True):
     '''Write density volume to file (binary or text format)'''
