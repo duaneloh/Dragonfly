@@ -353,7 +353,7 @@ class Detector(CDetector):
         elif pol.lower() == 'y':
             corr = self.detd / fac**3 * (1. - self.cy**2 / fac**2)
         else:
-            corr = self.detd / fac**3
+            corr = self.detd / fac**3 * (1. - (self.cx**2+self.cy**2) / 2 / fac**2)
 
         # This assignment forces a copy
         self.qvals = qvals
