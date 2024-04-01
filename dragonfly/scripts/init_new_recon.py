@@ -66,8 +66,6 @@ def main():
 
     src = op.join(parent_dir, 'aux')
     os.symlink(src, 'aux')
-    src = op.join(parent_dir, 'utils')
-    os.symlink(src, 'utils')
     src = op.join(parent_dir, 'config.ini')
     shutil.copy(src, 'config.ini')
 
