@@ -9,6 +9,7 @@ cimport cython
 cimport numpy as np
 from libc.stdlib cimport malloc, calloc, free
 from libc.stdio cimport FILE, fopen, fread, fclose
+from libc.stdio cimport fseek, ftell, SEEK_END, SEEK_SET
 from libc.string cimport memcpy, strcpy
 
 from .detector cimport CDetector
@@ -54,7 +55,7 @@ cdef class Model:
                     if fshape == mshape:
                         dset.read(h5py.h5s.ALL, h5py.h5s.ALL, self.model1)
                     elif fshape[1:] != mshape[1:]:
-                        raise ValueError('Input model has wrong grid size')
+                        raise ValueError('Input model has wrong size (%d)' % fshape[-1], fshape[-1])
                     elif fshape[0] > mshape[0]:
                         print('More modes in file than expected, only reading in first', self.num_modes)
                         dspace = h5py.h5s.create_simple(mshape)
@@ -69,6 +70,13 @@ cdef class Model:
                 c_fname = <char*> malloc(len(fname)+1)
                 strcpy(c_fname, bytes(fname, 'utf-8'))
                 fp = fopen(c_fname, 'rb')
+                # Test size
+                fseek(fp, 0, SEEK_END)
+                fsize = int(np.rint((ftell(fp)/8.)**(1/3.)))
+                if fsize != self.size:
+                    raise ValueError('Wrong volume size in binary file (%d)' % fsize, fsize)
+                fseek(fp, 0, SEEK_SET)
+                # Parse file
                 fread(self.mod.model1, sizeof(double), tot_vol, fp)
                 fclose(fp)
         else:
