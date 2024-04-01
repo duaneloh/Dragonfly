@@ -43,6 +43,7 @@ data
 /*[0-9][0-9][0-9][0-9]
 
 # Cython and pip compiled files
-/dragonfly/*.so
+*.so
 /dragonfly/*.c
+/dragonfly/utils/*.c
 *egg-info/
