@@ -45,7 +45,6 @@ ext_modules = [
 ]
 py_packages = [
     'dragonfly',
-    'dragonfly.scripts',
     'dragonfly.utils',
     'dragonfly.utils.py_src',
 ]
@@ -70,7 +69,7 @@ setup(name='dragonfly',
       packages=py_packages,
       ext_modules=extensions,
       entry_points = {'console_scripts': [
-          'dragonfly.init = dragonfly.scripts.init_new_recon:main',
+          'dragonfly.init = dragonfly.utils.init_new_recon:main',
           'dragonfly.emc = dragonfly.recon:main',
           'dragonfly.autoplot = dragonfly.utils.autoplot:main',
           'dragonfly.frameviewer = dragonfly.utils.frameviewer:main',
