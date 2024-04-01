@@ -26,27 +26,29 @@ def make_dens(config_fname, yes=False, verbose=False):
     aux_dir = config.get_filename('make_densities', 'scatt_dir')
     dens_fname = config.get_filename('make_densities', 'out_density_file')
 
-    if yes or py_utils.check_to_overwrite(dens_fname):
-        timer = py_utils.MyTimer()
-        pm = config.get_detector_config(show=verbose)
-        q_pm = read_config.compute_q_params(pm['detd'], pm['dets_x'],
-                                            pm['dets_y'], pm['pixsize'],
-                                            pm['wavelength'], pm['ewald_rad'], show=verbose)
-        timer.reset('Reading experiment parameters', report=verbose)
+    if not (yes or py_utils.check_to_overwrite(dens_fname)):
+        return
 
-        if pdb_code is not None:
-            process_pdb.fetch_pdb(pdb_code)
-        all_atoms = process_pdb.process(pdb_file, aux_dir, pm['wavelength'])
-        timer.reset('Reading PDB', report=verbose)
+    timer = py_utils.MyTimer()
+    pm = config.get_detector_config(show=verbose)
+    q_pm = read_config.compute_q_params(pm['detd'], pm['dets_x'],
+                                        pm['dets_y'], pm['pixsize'],
+                                        pm['wavelength'], pm['ewald_rad'], show=verbose)
+    timer.reset('Reading experiment parameters', report=verbose)
 
-        den = process_pdb.atoms_to_density_map(all_atoms, q_pm['half_p_res'])
-        lp_den = process_pdb.low_pass_filter_density_map(den, threads=num_threads)
-        timer.reset('Creating density map', report=verbose)
+    if pdb_code is not None:
+        process_pdb.fetch_pdb(pdb_code)
+    all_atoms = process_pdb.process(pdb_file, aux_dir, pm['wavelength'])
+    timer.reset('Reading PDB', report=verbose)
 
-        py_utils.write_density(dens_fname, lp_den, binary=True)
-        timer.reset('Writing densities to file', report=verbose)
+    den = process_pdb.atoms_to_density_map(all_atoms, q_pm['half_p_res'])
+    lp_den = process_pdb.low_pass_filter_density_map(den, threads=num_threads)
+    timer.reset('Creating density map', report=verbose)
 
-        timer.report_time_since_beginning()
+    py_utils.write_density(dens_fname, lp_den, binary=True)
+    timer.reset('Writing densities to file', report=verbose)
+
+    timer.report_time_since_beginning()
 
 def main():
     '''Parse command line arguments and generate electron density volume with config file'''
