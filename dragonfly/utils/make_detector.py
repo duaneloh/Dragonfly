@@ -9,8 +9,8 @@ import argparse
 import numpy as np
 import dragonfly
 
-from py_src import read_config
-from py_src import py_utils
+from .py_src import read_config
+from .py_src import py_utils
 
 def make_detector(config_fname, yes=False, verbose=False):
     '''Generate detector file from parameters in config file'''

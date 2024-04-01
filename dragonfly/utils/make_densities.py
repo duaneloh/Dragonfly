@@ -6,9 +6,9 @@ import sys
 import argparse
 import logging
 
-from py_src import read_config
-from py_src import process_pdb
-from py_src import py_utils
+from .py_src import read_config
+from .py_src import process_pdb
+from .py_src import py_utils
 
 def make_dens(config_fname, yes=False, verbose=False):
     '''Generate density map from parameters in config file'''

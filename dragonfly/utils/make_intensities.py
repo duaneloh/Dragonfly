@@ -8,8 +8,8 @@ import argparse
 
 import numpy as np
 
-from py_src import read_config
-from py_src import py_utils
+from .py_src import read_config
+from .py_src import py_utils
 try:
     import pyfftw
     WITH_PYFFTW = True

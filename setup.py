@@ -55,6 +55,12 @@ extensions = cythonize(ext_modules, language_level=3,
                                             'wraparound': False,
                                             'cdivision': True,
                                             'nonecheck': False})
+utils_scripts = [
+    'dragonfly.utils.make_densities = dragonfly.utils.make_densities:main',
+    'dragonfly.utils.make_intensities = dragonfly.utils.make_intensities:main',
+    'dragonfly.utils.make_detector = dragonfly.utils.make_detector:main',
+    'dragonfly.utils.sim_setup = dragonfly.utils.sim_setup:main',
+]
 
 with open('dragonfly/_version.py', 'r') as f:
     exec(f.read())
@@ -68,7 +74,7 @@ setup(name='dragonfly',
           'dragonfly.emc = dragonfly.recon:main',
           'dragonfly.autoplot = dragonfly.utils.autoplot:main',
           'dragonfly.frameviewer = dragonfly.utils.frameviewer:main',
-          ]
+          ] + utils_scripts
       },
       install_package_data=True,
       package_data={'':['config.ini',
