@@ -6,6 +6,7 @@ import os
 from collections import OrderedDict
 from urllib.request import urlopen
 import numpy as np
+import h5py
 from scipy.interpolate import interp1d
 try:
     import pyfftw
@@ -35,12 +36,10 @@ def _find_atom_types(pdb_file):
     return atoms
 
 def _interp_scattering(aux_dir, elem):
-    with open(os.path.join(aux_dir, elem.lower()+".nff")) as fptr:
-        lines = [l.strip().split() for l in fptr.readlines()]
-        arr = np.asarray(lines[1:]).astype('float')
-        energy, scatt_f0, scatt_f1 = arr.T
-        i_f0 = interp1d(energy, scatt_f0, kind='linear')
-        i_f1 = interp1d(energy, scatt_f1, kind='linear')
+    with h5py.File(os.path.join(aux_dir, 'henke_data.h5'), 'r') as fptr:
+        data = fptr[elem.lower()][:]
+        i_f0 = interp1d(data['E'], data['f0'], kind='linear')
+        i_f1 = interp1d(data['E'], data['f1'], kind='linear')
     return i_f0, i_f1
 
 def _find_mass(aux_dir, elem):
