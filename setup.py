@@ -42,6 +42,8 @@ ext_modules = [
     Extension(name='dragonfly.recon', sources=['dragonfly/recon.pyx', 'dragonfly/src/maximize.c', 'dragonfly/src/model.c'],
         depends=['dragonfly/src/maximize.h', 'dragonfly/recon.pxd'],
         language='c', extra_compile_args=compile_args+mpi_cflags, extra_link_args=link_args+mpi_libs),
+    Extension(name='dragonfly.utils.make_data', sources=['dragonfly/utils/make_data.pyx'],
+        language='c', extra_compile_args=compile_args, extra_link_args=link_args),
 ]
 py_packages = [
     'dragonfly',
@@ -59,6 +61,7 @@ utils_scripts = [
     'dragonfly.utils.make_intensities = dragonfly.utils.make_intensities:main',
     'dragonfly.utils.make_detector = dragonfly.utils.make_detector:main',
     'dragonfly.utils.sim_setup = dragonfly.utils.sim_setup:main',
+    'dragonfly.utils.make_data = dragonfly.utils.make_data:main',
 ]
 
 with open('dragonfly/_version.py', 'r') as f:
