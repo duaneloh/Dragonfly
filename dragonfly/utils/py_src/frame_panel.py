@@ -146,7 +146,7 @@ class FramePanel(QtWidgets.QWidget):
             num = None
             pass
         elif self.do_powder:
-            det0 = self.emc_reader.flist[0]['geom']
+            det0 = self.emc_reader.flist[0]['det']
             frame = det0.assemble_frame(self.powder_sum, zoomed=True, sym=self.sym_flag.isChecked(), avg=True)
             num = None
         else:
@@ -266,7 +266,7 @@ class FramePanel(QtWidgets.QWidget):
                          ((self.powder_sum.shape,), fname))
         self.powder_sum.tofile(fname)
 
-        det0 = self.emc_reader.flist[0]['geom']
+        det0 = self.emc_reader.flist[0]['det']
         fr = det0.assemble_frame(self.powder_sum)
         fname = '%s/assem_powder.bin' % self.parent.output_folder
         sys.stderr.write('Saving assembled powder sum with shape %s to %s\n' %
