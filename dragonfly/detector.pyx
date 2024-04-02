@@ -134,10 +134,10 @@ cdef class CDetector:
         self.det.detd = fptr['detd'][()]
         self.det.ewald_rad = fptr['ewald_rad'][()]
         if 'background' in fptr:
-            bg_present = True
+            self.det.with_bg = 1
             background = fptr['background'][:].ravel()
         else:
-            bg_present = False
+            self.det.with_bg = 0
         fptr.close()
 
         if norm:
@@ -152,14 +152,14 @@ cdef class CDetector:
         self.det.qvals = <double*> malloc(self.num_pix * 3 * sizeof(double))
         self.det.corr = <double*> malloc(self.num_pix * sizeof(double))
         self.det.raw_mask = <uint8_t*> malloc(self.num_pix * sizeof(uint8_t))
-        if bg_present:
+        if self.det.with_bg == 1:
             self.det.background = <double*> malloc(self.num_pix * sizeof(double))
 
         cdef int t, d
         for t in range(self.num_pix):
             self.det.corr[t] = corr[t]
             self.det.raw_mask[t] = raw_mask[t]
-            if bg_present:
+            if self.det.with_bg == 1:
                 self.det.background[t] = background[t]
 
             for d in range(3):

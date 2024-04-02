@@ -8,6 +8,7 @@ struct detector {
 	int num_pix ;
 	double *qvals, *corr ;
 	uint8_t *raw_mask ;
+	uint8_t with_bg ;
 	double *background ;
 
 	double detd, ewald_rad ;
