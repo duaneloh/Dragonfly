@@ -19,7 +19,7 @@ def main():
         make_detector
         make_data
     '''
-    logging.basicConfig(filename="recon.log", level=logging.INFO,
+    logging.basicConfig(filename="simdata.log", level=logging.INFO,
                         format='%(asctime)s - %(levelname)s - %(message)s')
     parser = argparse.ArgumentParser(description='Generates simulated data using standard pipeline')
     parser.add_argument("-c", "--config_file",
