@@ -11,11 +11,11 @@ class MyConfigParser(configparser.ConfigParser):
         self.config_folder = op.dirname(filename)
         super().read(filename)
 
-    def get_filename(self, section, option, *, fallback=''):
+    def get_filename(self, section, option, *, fallback='NULL'):
         fname = self.get(section, option, fallback=fallback)
-        if fname == '':
+        if fname == 'NULL':
             raise configparser.NoOptionError(section, option)
-        if fname is None:
+        if fname is None or fname == '':
             return fname
 
         if ":::" in fname:
