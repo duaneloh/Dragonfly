@@ -126,7 +126,7 @@ def atoms_to_density_map(atoms, voxel_size):
     (z_min, z_max) = (z.min(), z.max())
 
     grid_len = max([x_max - x_min, y_max - y_min, z_max - z_min])
-    r_val = np.int(np.ceil(grid_len / voxel_size))
+    r_val = int(np.ceil(grid_len / voxel_size))
     if r_val % 2 == 0:
         r_val += 1
     logging.info("Length of particle (voxels), %d", r_val)

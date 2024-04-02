@@ -50,8 +50,7 @@ def main():
 
     curr_dir = os.getcwd()
     parent_dir = op.realpath(op.join(op.dirname(op.realpath(sys.argv[0])), os.pardir))
-    new_recon_dir = create_new_recon_dir(tag=args.recon_tag, num=args.run_tag,
-                                         prefix=args.recon_prefix)
+    new_recon_dir = create_new_recon_dir(tag=args.recon_tag, num=args.run_tag, prefix=args.recon_prefix)
     print(80*"=")
     print("Initializing new directory and creating soft links to useful utilities.")
     print("Type 'dragonfly_init -h' for options")
