@@ -3,7 +3,6 @@ import sys
 import os
 import numpy as np
 import h5py
-import pandas
 
 cimport cython
 cimport numpy as np
@@ -55,7 +54,7 @@ cdef class Model:
                     if fshape == mshape:
                         dset.read(h5py.h5s.ALL, h5py.h5s.ALL, self.model1)
                     elif fshape[1:] != mshape[1:]:
-                        raise ValueError('Input model has wrong size (%d)' % fshape[-1], fshape[-1])
+                        raise ValueError('Input model has wrong size (%d)' % fshape[1], fshape[1])
                     elif fshape[0] > mshape[0]:
                         print('More modes in file than expected, only reading in first', self.num_modes)
                         dspace = h5py.h5s.create_simple(mshape)
