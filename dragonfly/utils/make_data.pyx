@@ -10,6 +10,9 @@ from cython.parallel import parallel, prange
 cimport openmp
 
 from .py_src import read_config, py_utils
+from . cimport make_data as c_make_data
+from dragonfly.model cimport Model
+from dragonfly.detector cimport CDetector
 
 def rand_quat():
     while True:
@@ -19,56 +22,53 @@ def rand_quat():
             break
     return qvals / qnorm
 
-def make_data(config_fname, yes=False, verbose=False):
+cdef make_data(config_fname, yes=False, verbose=False):
     config = read_config.MyConfigParser()
     config.read(config_fname)
 
     num_data = config.getint('make_data', 'num_data')
-    fluence = config.getfloat('make_data', 'fluence')
+    fluence = config.getfloat('make_data', 'fluence', fallback=-1.)
+    mean_count = config.getfloat('make_data', 'mean_count', fallback=-1.)
+    do_gamma = config.getboolean('make_data', 'do_gamma', fallback=False)
     intens_fname = config.get_filename('make_data', 'in_intensity_file')
     det_fname = config.get_filename('make_data', 'in_detector_file')
-    out_fname = config.get_filename('make_data', 'out_photons_file')
+    out_fname = config.get_filename('make_data', 'out_photons_file').encode('UTF-8')
+    likelihood_fname = config.get_filename('make_data', 'out_likelihood_file', fallback='').encode('UTF-8')
+    scale_fname = config.get_filename('make_data', 'out_scale_file', fallback='').encode('UTF-8')
 
     if not (yes or py_utils.check_to_overwrite(out_fname)):
         return
 
     timer = py_utils.MyTimer()
-    model = dragonfly.Model(1)
+    model = Model(1)
     try:
         model.allocate(intens_fname)
     except ValueError as err:
         size = err.args[1]
         model.free()
-        model = dragonfly.Model(size)
+        model = Model(size)
         model.allocate(intens_fname)
 
-    det = dragonfly.CDetector(det_fname, norm=False)
-
-    rescale = fluence * 2.81794e-9**2
-    model.model1[0] *= rescale
+    det = CDetector(det_fname, norm=False)
 
     hdf5_output = True
     if op.splitext(out_fname)[1] == '.emc':
         hdf5_output = False
     timer.reset('Ready to generate data', report=verbose)
 
-    stime = time.time()
-    wemc = dragonfly.EMCWriter(out_fname, det.num_pix, hdf5=hdf5_output)
-    view = np.zeros(det.num_pix, dtype='f8')
-    #print(openmp.omp_get_max_threads())
+    mean_count = c_make_data.rescale_intens(fluence, mean_count, model.mod, det.det)
+    if mean_count < 0:
+        return
+    timer.reset('Rescaled model', report=verbose)
 
-    for i in range(num_data):
-        phot = np.random.poisson(model.slice_gen(rand_quat(), det, view=view))
-        phot[det.raw_mask == 2] = 0
-        wemc.write_frame(phot.ravel())
-        sys.stderr.write('\r%d/%d'%(i+1, num_data))
-    sys.stderr.write('\n')
-    timer.reset('Generated frames', report=verbose)
-
-    wemc.finish_write()
-    print('Time taken: %.3f s' % (time.time()-timer._time_start))
-    timer.reset('Writing to file', report=verbose)
-
+    cdef char* c_out_fname = out_fname
+    cdef char* c_likelihood_fname = likelihood_fname
+    cdef char* c_scale_fname = scale_fname
+    mean_count = c_make_data.gen_and_save_dataset(num_data, mean_count, int(do_gamma),
+                                                  c_out_fname, int(hdf5_output),
+                                                  c_likelihood_fname, c_scale_fname,
+                                                  model.mod, det.det)
+    timer.reset('Generated and saved data', report=verbose)
     timer.report_time_since_beginning()
 
 def main():
