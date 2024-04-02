@@ -6,7 +6,6 @@ import os
 import os.path as op
 import time
 import numpy as np
-import pandas
 import h5py
 
 from . cimport emcfile as c_dset
