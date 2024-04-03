@@ -99,19 +99,6 @@ def confirm_oversampling(ratio):
             proceed = False
     return proceed
 
-def increment_quat_file_sensibly(config_fname, incr):
-    '''Increments num_div in config file by incr'''
-    config = configparser.ConfigParser()
-    config.read(config_fname)
-
-    quat_num_div = int(config.get("emc", "num_div"))
-    logging.info("Setting quaternion from %s to %s", str(quat_num_div), str(quat_num_div+incr))
-    quat_num_div += incr
-    config.set("emc", "num_div", quat_num_div)
-
-    with open(config_fname, "w") as fptr:
-        config.write(fptr)
-
 def gen_det_and_emc(gui, classifier=False, mask=False):
     '''Creates EMCReader and Detector instances for GUIs'''
     if len(set(gui.det_list)) == 1:
@@ -127,16 +114,3 @@ def gen_det_and_emc(gui, classifier=False, mask=False):
         geom_mapping = [uniq.index(fname) for fname in gui.det_list]
     gui.geom = geom_list[0]
     gui.emc_reader = dragonfly.EMCReader(gui.photons_list, geom_list, geom_mapping)
-
-def increment_beta_sensibly(config_fname, incr):
-    config = ConfigParser.ConfigParser()
-    config.read(config_fname)
-
-    beta = float(config.get("emc", "beta"))
-    msg = ["Setting beta from", str(beta), "to", str(beta*incr)]
-    logging.info(' '.join(msg))
-    beta *= incr
-    config.set("emc", "beta", beta)
-    
-    with open("config.ini", "w") as fptr:
-        config.write(fptr)
