@@ -21,7 +21,7 @@ from . cimport quaternion as c_quat
 from .quaternion cimport Quaternion
 
 cdef class Quaternion:
-    def __init__(self, int num_div=0, point_group=''):
+    def __init__(self, int num_div=0, int num_rot=0, point_group=''):
         self.quat = <c_quat.quaternion*> malloc(sizeof(c_quat.quaternion))
         self.quat.num_div = num_div
         self.quat.num_rot = 0
@@ -31,12 +31,33 @@ cdef class Quaternion:
         self.quat.quats = NULL
         self.reduced = False
 
-        if num_div > 0:
-            self.generate(num_div)
+        if num_div > 0 and num_rot > 0:
+            raise ValueError('Cannot specify both num_div and num_rot')
+        elif num_div > 0:
+            self.generate_3d(num_div)
+        elif num_rot > 0:
+            self.generate_2d(num_rot, point_group)
 
-    def generate(self, int num_div):
+    def generate_3d(self, int num_div):
+        '''Generate quaternions for SO(3) with num_div sampling'''
         self.reduced = False
-        return c_quat.quat_gen(num_div, self.quat)
+        c_quat.quat_gen(num_div, self.quat)
+
+    def generate_2d(self, int num_rot, point_group):
+        '''Generate fake quaternions for in-plane rotations
+
+        num_rot - Number of rotational samples (int)
+        point_group - String or integer version of N-fold rotational symmetry
+        Default point_group is '1'. For Friedel symmetry, point_group=2
+        '''
+        if point_group == '':
+            point_group = '1'
+        max_angle = 2 * np.pi / int(point_group)
+
+        q = np.zeros((num_rot, 5))
+        q[:,0] = np.arange(0, max_angle, max_angle / num_rot)
+        q[:,4] = 1. / num_rot
+        self.quats = q
 
     def save(self, fname):
         if self.quat.quats == NULL:
