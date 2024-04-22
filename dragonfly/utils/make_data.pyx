@@ -22,7 +22,7 @@ def rand_quat():
             break
     return qvals / qnorm
 
-cdef make_data(config_fname, yes=False, verbose=False):
+cdef make_data_cdef(config_fname, yes=False, verbose=False):
     config = read_config.MyConfigParser()
     config.read(config_fname)
 
@@ -74,6 +74,9 @@ cdef make_data(config_fname, yes=False, verbose=False):
     print('Generated %d frames with %f photons/frame' % (num_data, mean_count))
     print('Time taken = %f s' % (time.time() - timer._time_start))
 
+def make_data(config_fname, yes=False, verbose=False):
+    make_data_cdef(config_fname, yes=yes, verbose=verbose)
+
 def main():
     '''Parse command line arguments and generate electron density volume with config file'''
     parser = argparse.ArgumentParser(description='Make data file from 3D intensities')
@@ -89,7 +92,7 @@ def main():
     logging.info('\n\nStarting.... make_data')
     logging.info(' '.join(sys.argv))
 
-    make_data(args.config_fname, yes=args.yes, verbose=args.verbose)
+    make_data_cdef(args.config_fname, yes=args.yes, verbose=args.verbose)
 
 if __name__ == '__main__':
     main()
