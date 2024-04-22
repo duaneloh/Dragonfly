@@ -1,3 +1,4 @@
+import os
 import time
 import numpy as np
 import h5py
@@ -181,6 +182,8 @@ cdef class EMCRecon():
     def save_output(self, dynamic=False):
         itr = self.iter # Get cython class rather than struct
         param = itr.params
+        if not os.path.exists(param.output_folder):
+            os.makedirs(param.output_folder)
         if dynamic:
             out_fname = '%s/output_dynamic.h5' % param.output_folder
         else:
