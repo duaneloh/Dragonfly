@@ -2,9 +2,10 @@
 
 from __future__ import print_function
 import sys
-import os
+import os.path as op
 from socket import gethostname
 import itertools
+from configparser import ConfigParser
 import numpy as np
 import pandas
 from scipy.spatial import distance
@@ -37,6 +38,34 @@ cdef class Quaternion:
             self.generate_3d(num_div)
         elif num_rot > 0:
             self.generate_2d(num_rot, point_group)
+
+    def from_config(self, config_fname, section_name='emc'):
+        config_folder = op.dirname(config_fname)
+        config = ConfigParser()
+        config.read(config_fname)
+
+        rtype = config.get(section_name, 'recon_type', fallback='3d').lower()
+
+        if rtype == '2d':
+            num_rot = config.getint(section_name, 'num_rot')
+            friedel_sym = config.getboolean(section_name, 'friedel_sym', fallback=False)
+            point_group = '2' if friedel_sym else '1'
+            self.generate_2d(num_rot, point_group)
+        elif rtype =='3d':
+            num_div = config.get(section_name, 'num_div', fallback='0').split()
+            self.generate_3d(int(num_div[0]))
+            if len(num_div) == 2:
+                self.voronoi_subset(int(num_div[1]))
+
+            point_group = config.get(section_name, 'point_group', fallback='1')
+            if point_group == 'A5':
+                print('Reducing to A5 sub-group')
+                self.reduce_icosahedral()
+            elif point_group == 'S4':
+                print('Reducing to S4 sub-group')
+                self.reduce_octahedral()
+            elif point_group != '1':
+                raise ValueError('Unknown point group: ' + point_group)
 
     def generate_3d(self, int num_div):
         '''Generate quaternions for SO(3) with num_div sampling'''
