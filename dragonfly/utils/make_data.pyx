@@ -36,7 +36,7 @@ cdef make_data(config_fname, yes=False, verbose=False):
     likelihood_fname = config.get_filename('make_data', 'out_likelihood_file', fallback='').encode('UTF-8')
     scale_fname = config.get_filename('make_data', 'out_scale_file', fallback='').encode('UTF-8')
 
-    if not (yes or py_utils.check_to_overwrite(out_fname)):
+    if not (yes or py_utils.check_to_overwrite(out_fname.decode())):
         return
 
     timer = py_utils.MyTimer()
@@ -70,6 +70,9 @@ cdef make_data(config_fname, yes=False, verbose=False):
                                                   model.mod, det.det)
     timer.reset('Generated and saved data', report=verbose)
     timer.report_time_since_beginning()
+
+    print('Generated %d frames with %f photons/frame' % (num_data, mean_count))
+    print('Time taken = %f s' % (time.time() - timer._time_start))
 
 def main():
     '''Parse command line arguments and generate electron density volume with config file'''
