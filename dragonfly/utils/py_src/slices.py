@@ -23,15 +23,9 @@ class SliceGenerator(object):
         config.read(config_fname)
 
         self.det = dragonfly.Detector(config.get_filename('emc', 'in_detector_file'))
+        self.quat = dragonfly.Quaternion()
+        self.quat.from_config(config_fname, 'emc')
         self.recon_type = config.get('emc', 'recon_type', fallback='3d').lower()
-        if self.recon_type == '2d':
-            num_rot = config.getint('emc', 'num_rot')
-            friedel_sym = config.getboolean('emc', 'friedel_sym', fallback=False)
-            point_group = '2' if friedel_sym else '1'
-            self.quat = dragonfly.Quaternion(num_rot=num_rot, point_group=point_group)
-        elif self.recon_type == '3d':
-            num_div = config.getint('emc', 'num_div')
-            self.quat = dragonfly.Quaternion(num_div)
         self.folder = config.get_filename('emc', 'output_folder', fallback='data/')
         self.need_scaling = config.getboolean('emc', 'need_scaling', fallback=False)
 
