@@ -91,12 +91,11 @@ cdef class Iterate:
 
         # Quaternions
         if rtype == '2d':
-            quat = Quaternion()
             num_rot = config.getint(section_name, 'num_rot')
-            q = np.zeros((num_rot, 5))
-            q[:,0] = np.arange(0, 2. * np.pi, 2. * np.pi / num_rot)
-            q[:,4] = 1. / num_rot
-            quat.quats = q
+            friedel_sym = config.getboolean(section_name, 'friedel_sym', fallback=False)
+            point_group = '2' if friedel_sym else '1'
+
+            quat = Quaternion(num_rot=num_rot, point_group=point_group)
         elif self.iter.par.fine_div > 0:
             quat = Quaternion(self.iter.par.fine_div)
         else:
