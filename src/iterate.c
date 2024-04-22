@@ -75,19 +75,11 @@ int iterate_from_config(char *config_fname, char *config_section, int continue_f
 			sscanf(line, "%d", &param->start_iter) ;
 			fclose(fp) ;
 			
-#ifdef WITH_HDF5
 			sprintf(input_fname, "%s/output_%.3d.h5", param->output_folder, param->start_iter) ;
 			if (param->need_scaling)
 				sprintf(scale_fname, "%s/output_%.3d.h5", param->output_folder, param->start_iter) ;
 			if (param->refine && probs_fname[0] == '\0')
 				sprintf(probs_fname, "%s/output_%.3d.h5", param->output_folder, param->start_iter) ;
-#else // WITH_HDF5
-			sprintf(input_fname, "%s/output/intens_%.3d.bin", param->output_folder, param->start_iter) ;
-			if (param->need_scaling)
-				sprintf(scale_fname, "%s/scale/scale_%.3d.dat", param->output_folder, param->start_iter) ;
-			if (param->refine && probs_fname[0] == '\0')
-				sprintf(probs_fname, "%s/probabilities/probabilities_%.3d.emc", param->output_folder, param->start_iter) ;
-#endif // WITH_HDF5
 			param->start_iter += 1 ;
 			fprintf(stderr, "Continuing from previous run starting from iteration %d.\n", param->start_iter) ;
 		}
@@ -174,7 +166,6 @@ int parse_scale(char *fname, double *scales, struct iterate *iter) {
 		fread(line, sizeof(char), 8, fp) ;
 		if (strncmp(line, hdfheader, 8) == 0) {
 			fclose(fp) ;
-#ifdef WITH_HDF5
 			hid_t file, dset, dspace ;
 			hsize_t npoints ;
 			file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT) ;
@@ -198,11 +189,6 @@ int parse_scale(char *fname, double *scales, struct iterate *iter) {
 			H5Dread(dset, H5T_IEEE_F64LE, dspace, dspace, H5P_DEFAULT, scales) ;
 			H5Dclose(dset) ;
 			H5Fclose(file) ;
-#else // WITH_HDF5
-			fprintf(stderr, "H5 output support not compiled. Cannot parse scale factors\n") ;
-			fprintf(stderr, "Defaulting to uniform scale factors\n") ;
-			return 0 ;
-#endif // WITH_HDF5
 		}
 		else {
 			fseek(fp, 0, SEEK_SET) ;
@@ -325,7 +311,6 @@ void parse_input(char *fname, double mean, int rank, int recon_type, struct iter
 		else {
 			fprintf(stderr, "Starting from %s\n", fname) ;
 			
-#ifdef WITH_HDF5
 			fclose(fp) ;
 			hid_t file, dset, dspace ;
 			hsize_t *dims ;
@@ -373,10 +358,6 @@ void parse_input(char *fname, double mean, int rank, int recon_type, struct iter
 			H5Sclose(dspace) ;
 			H5Dclose(dset) ;
 			H5Fclose(file) ;
-#else // WITH_HDF5
-			fread(iter->model1, sizeof(double), tot_vol, fp) ;
-			fclose(fp) ;
-#endif // WITH_HDF5
 		}
 	}
 }
@@ -394,7 +375,6 @@ int parse_rel_quat(char *fname, int num_rot_coarse, int parse_prob, struct itera
 	fclose(fp) ;
 	
 	if (strncmp(line, hdfheader, 8) == 0) {
-#ifdef WITH_HDF5
 		fprintf(stderr, "Parsing rel_quat from H5 output file\n") ;
 		hid_t file, dset, dspace, dtype ;
 		hsize_t d, num_data ;
@@ -502,10 +482,6 @@ int parse_rel_quat(char *fname, int num_rot_coarse, int parse_prob, struct itera
 		}
 		
 		H5Fclose(file) ;
-#else // WITH_HDF5
-		fprintf(stderr, "H5 output file support not compiled. Cannot parse rel_quat.\n") ;
-		return 1 ;
-#endif // WITH_HDF5
 	}
 	else {
 		fprintf(stderr, "Parsing rel_quat from emc file\n") ;

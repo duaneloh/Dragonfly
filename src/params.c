@@ -122,29 +122,6 @@ void params_from_config(char *config_fname, char *config_section, struct params 
 		fprintf(stderr, "Parsed params from config file\n") ;
 }
 
-void generate_output_dirs(struct params *param) {
-	char line[2048] ;
-	
-	sprintf(line, "%s/output", param->output_folder) ;
-	mkdir(line, 0750) ;
-	sprintf(line, "%s/weights", param->output_folder) ;
-	mkdir(line, 0750) ;
-	sprintf(line, "%s/mutualInfo", param->output_folder) ;
-	mkdir(line, 0750) ;
-	sprintf(line, "%s/scale", param->output_folder) ;
-	mkdir(line, 0750) ;
-	sprintf(line, "%s/orientations", param->output_folder) ;
-	mkdir(line, 0750) ;
-	sprintf(line, "%s/likelihood", param->output_folder) ;
-	mkdir(line, 0750) ;
-	sprintf(line, "%s/probabilities", param->output_folder) ;
-	mkdir(line, 0750) ;
-	if (param->modes > 1) {
-		sprintf(line, "%s/modes", param->output_folder) ;
-		mkdir(line, 0750) ;
-	}
-}
-
 void free_params(struct params *param) {
 	if (param->beta != NULL)
 		free(param->beta) ;

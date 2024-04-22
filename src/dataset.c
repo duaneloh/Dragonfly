@@ -56,7 +56,6 @@ static int parse_binarydataset(char *fname, struct detector *det, struct dataset
 	return 0 ;
 }
 
-#ifdef WITH_HDF5
 static int parse_h5dataset(char *fname, struct detector *det, struct dataset *current) {
 	int d ;
 	hid_t file, dset, dspace, dtype ;
@@ -136,7 +135,6 @@ static int parse_h5dataset(char *fname, struct detector *det, struct dataset *cu
 	
 	return 0 ;
 }
-#endif // WITH_HDF5
 
 static int get_val(void* buffer, int pixel, int valtype) {
 	if (valtype == 0)
@@ -157,7 +155,6 @@ static int get_val(void* buffer, int pixel, int valtype) {
 		return (int) ((int64_t*) buffer)[pixel] ;
 }
 
-#ifdef WITH_HDF5
 static int parse_dense_dataset(char *fname, char *dset_name, struct detector *det, struct dataset *current) {
 	int d, t, ndims, val, valtype = -1 ;
 	hid_t file, dset, dspace, mspace, dtype ;
@@ -292,7 +289,6 @@ static int parse_dense_dataset(char *fname, char *dset_name, struct detector *de
 	
 	return 0 ;
 }
-#endif // WITH_HDF5
 
 static int num_words(char *line) {
 	int retval = 0 ;
@@ -421,14 +417,9 @@ int parse_dataset(char *fname, struct detector *det, struct dataset *current) {
 	fclose(fp) ;
 	
 	if (strncmp(line, hdfheader, 8) == 0) {
-#ifdef WITH_HDF5
 		fprintf(stderr, "Parsing HDF5 dataset %s\n", fname) ;
 		current->type = 0 ;
 		err = parse_h5dataset(fname, det, current) ;
-#else
-		fprintf(stderr, "H5 dataset support not compiled\n") ;
-		return 1 ;
-#endif // WITH_HDF5
 	}
 	else {
 		err = parse_binarydataset(fname, det, current) ;
@@ -489,10 +480,6 @@ int parse_dataset_list(char *flist, struct detector *det, struct dataset *frames
 		rel_fname = strtok(line, " \t\n") ;
 		absolute_strcpy(flist_folder, data_fname, rel_fname) ;
 		if (retval > 1) {
-#ifndef WITH_HDF5
-			fprintf(stderr, "Dense dataset (%s : %s) needs HDF5 support\n", data_fname, dset_name) ;
-			return -1 ;
-#endif // WITH_HDF5
 			dset_name = strtok(NULL, " \t\n") ;
 			if (parse_dense_dataset(data_fname, dset_name, det, frames)) {
 				fclose(fp) ;
@@ -530,10 +517,6 @@ int parse_dataset_list(char *flist, struct detector *det, struct dataset *frames
 		curr->next = NULL ;
 		
 		if (retval > 1) {
-#ifndef WITH_HDF5
-			fprintf(stderr, "Dense dataset (%s : %s) needs HDF5 support\n", data_fname, dset_name) ;
-			return -1 ;
-#endif // WITH_HDF5
 			dset_name = strtok(NULL, " \t\n") ;
 			if (parse_dense_dataset(data_fname, dset_name, &(det[det[0].mapping[num_sparse+num_dense]]), curr)) {
 				fclose(fp) ;

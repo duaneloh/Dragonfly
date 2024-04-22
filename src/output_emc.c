@@ -34,28 +34,6 @@ void update_log_file(double iter_time, double likelihood, double beta) {
 }
 
 void save_initial_iterate() {
-#ifndef WITH_HDF5
-	FILE *fp ;
-	char fname[2048] ;
-	long tot_vol = iter->modes * iter->vol ;
-	int d ;
-	
-	sprintf(fname, "%s/output/intens_000.bin", param->output_folder) ;
-	fp = fopen(fname, "w") ;
-	fwrite(iter->model1, sizeof(double), tot_vol, fp) ;
-	fclose(fp) ;
-	
-	if (param->need_scaling) {
-		sprintf(fname, "%s/scale/scale_000.dat", param->output_folder) ;
-		fp = fopen(fname, "w") ;
-		for (d = 0 ; d < iter->tot_num_data ; ++d)
-			fprintf(fp, "%.6e\n", iter->scale[d]) ;
-		fclose(fp) ;
-		fprintf(stderr, "Written initial scale factors to %s\n", fname) ;
-	}
-	
-#else // WITH_HDF5
-	
 	hid_t file, dset, dspace ;
 	char name[2048] ;
 	hsize_t out_size3d[4], out_size2d[3], len[1] ;
@@ -90,37 +68,9 @@ void save_initial_iterate() {
 	
 	fprintf(stderr, "Written initial iterate to %s\n", name) ;
 	H5Fclose(file) ;
-#endif // WITH_HDF5
 }
 
 void save_models() {
-#ifndef WITH_HDF5
-	FILE *fp ;
-	char fname[2048] ;
-	int d ;
-	
-	sprintf(fname, "%s/output/intens_%.3d.bin", param->output_folder, param->iteration) ;
-	fp = fopen(fname, "w") ;
-	fwrite(iter->model1, sizeof(double), iter->modes * iter->vol, fp) ;
-	fclose(fp) ;
-	
-	sprintf(fname, "%s/weights/weights_%.3d.bin", param->output_folder, param->iteration) ;
-	fp = fopen(fname, "w") ;
-	fwrite(iter->inter_weight, sizeof(double), iter->modes * iter->vol, fp) ;
-	fclose(fp) ;
-
-	// Write scale factors to file even when not updating them
-	if (param->need_scaling) {	
-		char fname[2048] ;
-		sprintf(fname, "%s/scale/scale_%.3d.dat", param->output_folder, param->iteration) ;
-		FILE *fp_scale = fopen(fname, "w") ;
-		for (d = 0 ; d < frames->tot_num_data ; ++d)
-			fprintf(fp_scale, "%.15e\n", iter->scale[d]) ;
-		fclose(fp_scale) ;
-	}
-	
-#else // WITH_HDF5
-
 	hid_t file, dset, dspace ;
 	char name[2048] ;
 	hsize_t out_size3d[4], out_size2d[3] ;
@@ -159,42 +109,9 @@ void save_models() {
 	}
 	
 	H5Fclose(file) ;
-#endif //WITH_HDF5
 }
 
 void save_metrics(struct max_data *data) {
-#ifndef WITH_HDF5
-	int d ;
-	
-	// Print frame-by-frame mutual information, likelihood, and most likely orientations to file
-	char fname[2048] ;
-	sprintf(fname, "%s/mutualInfo/info_%.3d.dat", param->output_folder, param->iteration) ;
-	FILE *fp_info = fopen(fname, "w") ;
-	sprintf(fname, "%s/likelihood/likelihood_%.3d.dat", param->output_folder, param->iteration) ;
-	FILE *fp_likelihood = fopen(fname, "w") ;
-	sprintf(fname, "%s/orientations/orientations_%.3d.bin", param->output_folder, param->iteration) ;
-	FILE *fp_rmax = fopen(fname, "w") ;
-	
-	fwrite(data->rmax, sizeof(int), frames->tot_num_data, fp_rmax) ;
-	for (d = 0 ; d < frames->tot_num_data ; ++d) {
-		fprintf(fp_info, "%.6e\n", data->info[d]) ;
-		fprintf(fp_likelihood, "%.6e\n", data->likelihood[d]) ;
-	}
-	
-	fclose(fp_rmax) ;
-	fclose(fp_info) ;
-	fclose(fp_likelihood) ;
-	
-	// Write frame-by-frame mode occupancies to file
-	if (iter->modes > 1) {
-		sprintf(fname, "%s/modes/occupancies_%.3d.bin", param->output_folder, param->iteration) ;
-		FILE *fp_modes = fopen(fname, "w") ;
-		fwrite(data->quat_norm, sizeof(double), frames->tot_num_data*iter->modes, fp_modes) ;
-		fclose(fp_modes) ;
-	}
-
-#else // WITH_HDF5
-
 	char name[2048] ;
 	hid_t file, dset, dspace ;
 	hsize_t len[1] ;
@@ -229,36 +146,10 @@ void save_metrics(struct max_data *data) {
 	
 	H5Sclose(dspace) ;
 	H5Fclose(file) ;
-#endif //WITH_HDF5
 }
 
 void save_prob(struct max_data *data) {
 	int d, num_data = frames->tot_num_data ;
-#ifndef WITH_HDF5
-	char fname[2048] ;
-	FILE *fp ;
-	int buffer[256] = {0} ;
-	
-	sprintf(fname, "%s/probabilities/probabilities_%.3d.emc", param->output_folder, param->iteration) ;
-	fp = fopen(fname, "wb") ;
-	
-	// Header
-	buffer[0] = num_data ;
-	buffer[1] = quat->num_rot ;
-	buffer[2] = -1 ;
-	fwrite(buffer, sizeof(int), 256, fp) ;
-	
-	// Serialized Data
-	fwrite(data->num_prob, sizeof(int), num_data, fp) ;
-	for (d = 0 ; d < num_data ; ++d)
-		fwrite(data->place_prob[d], sizeof(int), data->num_prob[d], fp) ;
-	for (d = 0 ; d < num_data ; ++d)
-		fwrite(data->prob[d], sizeof(double), data->num_prob[d], fp) ;
-	
-	fclose(fp) ;
-
-#else // WITH_HDF5
-
 	char name[2048] ;
 	hid_t file, group, dset, dspace, dtype ;
 	hsize_t dsize[1] = {1} ;
@@ -302,5 +193,4 @@ void save_prob(struct max_data *data) {
 	H5Tclose(dtype) ;
 	H5Gclose(group) ;
 	H5Fclose(file) ;
-#endif //WITH_HDF5
 }

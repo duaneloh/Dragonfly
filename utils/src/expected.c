@@ -54,7 +54,6 @@ int calculate_num_data(char *fname) {
 	}
 	fread(line, sizeof(char), 8, fp) ;
 	if (strncmp(line, hdfheader, 8) == 0) {
-#ifdef WITH_HDF5
 		fclose(fp) ;
 		
 		hid_t file, dset, dspace ;
@@ -65,10 +64,6 @@ int calculate_num_data(char *fname) {
 		H5Sclose(dspace) ;
 		H5Dclose(dset) ;
 		H5Fclose(file) ;
-#else // WITH_HDF5
-		fprintf(stderr, "H5 output support not compiled. Cannot get tot_num_data\n") ;
-		return -1 ;
-#endif // WITH_HDF5
 	}
 	else {
 		fseek(fp, 0, SEEK_SET) ;

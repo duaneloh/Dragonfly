@@ -195,7 +195,6 @@ void save_rotmodel(struct rotation *quat, double *m1, char *fname) {
 	
 	// Write rotmodel to file
 	char *base = remove_ext(fname) ;
-#ifdef WITH_HDF5
 	sprintf(rotfname, "%s-rot.h5", base) ;
 	free(base) ;
 	hid_t file, dset, dspace ;
@@ -209,13 +208,6 @@ void save_rotmodel(struct rotation *quat, double *m1, char *fname) {
 	H5Dclose(dset) ;
 	H5Sclose(dspace) ;
 	H5Fclose(file) ;
-#else // WITH_HDF5
-	sprintf(rotfname, "%s-rot.bin", base) ;
-	free(base) ;
-	FILE *fp = fopen(rotfname, "wb") ;
-	fwrite(rotmodel, sizeof(double), s*s*s, fp) ;
-	fclose(fp) ;
-#endif // WITH_HDF5
 	
 	free(rotmodel) ;
 }
@@ -305,7 +297,6 @@ int parse_model(char *fname, long size, double **model) {
 	fread(line, sizeof(char), 8, fp) ;
 	if (strncmp(line, hdfheader, 8) == 0) {
 		fclose(fp) ;
-#ifdef WITH_HDF5
 		hid_t file, dset, dspace ;
 		hsize_t *dims ;
 		int ndims ;
@@ -332,10 +323,6 @@ int parse_model(char *fname, long size, double **model) {
 		H5Sclose(dspace) ;
 		H5Dclose(dset) ;
 		H5Fclose(file) ;
-#else // WITH_HDF5
-		fprintf(stderr, "No HDF5 support. Cannot read intensity from %s\n", fname) ;
-		return 1 ;
-#endif // WITH_HDF5
 	}
 	else {
 		fread(*model, sizeof(double), vol, fp) ;

@@ -74,14 +74,9 @@ int parse_rots(char *fname) {
 		fprintf(stderr, "Unable to open rots_file %s\n", fname) ;
 		return 1 ;
 	}
+	fclose(fp) ;
 	
 	rots = malloc(frames->tot_num_data * sizeof(int)) ;
-	
-#ifndef WITH_HDF5
-	fread(rots, sizeof(int), frames->tot_num_data, fp) ;
-	fclose(fp) ;
-#else // WITH_HDF5
-	fclose(fp) ;
 	
 	hid_t file, dset, dspace ;
 	hsize_t npoints ;
@@ -107,7 +102,6 @@ int parse_rots(char *fname) {
 	H5Dread(dset, H5T_STD_I32LE, dspace, dspace, H5P_DEFAULT, rots) ;
 	H5Dclose(dset) ;
 	H5Fclose(file) ;
-#endif
 	
 	// Sort indices by orientation within each file
 	int d ;
@@ -140,27 +134,6 @@ void generate_models() {
 }
 
 void save_initial_iterate() {
-#ifndef WITH_HDF5
-	FILE *fp ;
-	char fname[2048] ;
-	long tot_vol = iter->modes * iter->vol ;
-	
-	sprintf(fname, "%s/output/intens_000.bin", param->output_folder) ;
-	fp = fopen(fname, "w") ;
-	fwrite(iter->model1, sizeof(double), tot_vol, fp) ;
-	fclose(fp) ;
-	
-	if (param->need_scaling) {
-		sprintf(fname, "%s/scale/scale_000.dat", param->output_folder) ;
-		fp = fopen(fname, "w") ;
-		for (int d = 0 ; d < iter->tot_num_data ; ++d)
-			fprintf(fp, "%.6e\n", iter->scale[d]) ;
-		fclose(fp) ;
-		fprintf(stderr, "Written initial scale factors to %s\n", fname) ;
-	}
-	
-#else // WITH_HDF5
-	
 	hid_t file, dset, dspace ;
 	char name[2048] ;
 	hsize_t out_size3d[4], out_size2d[3], len[1] ;
@@ -195,7 +168,6 @@ void save_initial_iterate() {
 	
 	fprintf(stderr, "Written initial iterate to %s\n", name) ;
 	H5Fclose(file) ;
-#endif // WITH_HDF5
 }
 
 int setup(char *config_fname) {
@@ -307,32 +279,6 @@ void update_log_file(double iter_time, double likelihood, double beta) {
 }
 
 void save_models() {
-#ifndef WITH_HDF5
-	FILE *fp ;
-	char fname[2048] ;
-	
-	sprintf(fname, "%s/output/intens_%.3d.bin", param->output_folder, param->iteration) ;
-	fp = fopen(fname, "w") ;
-	fwrite(iter->model1, sizeof(double), iter->modes * iter->vol, fp) ;
-	fclose(fp) ;
-	
-	sprintf(fname, "%s/weights/weights_%.3d.bin", param->output_folder, param->iteration) ;
-	fp = fopen(fname, "w") ;
-	fwrite(iter->inter_weight, sizeof(double), iter->modes * iter->vol, fp) ;
-	fclose(fp) ;
-
-	// Write scale factors to file even when not updating them
-	if (param->need_scaling) {	
-		char fname[2048] ;
-		sprintf(fname, "%s/scale/scale_%.3d.dat", param->output_folder, param->iteration) ;
-		FILE *fp_scale = fopen(fname, "w") ;
-		for (int d = 0 ; d < frames->tot_num_data ; ++d)
-			fprintf(fp_scale, "%.15e\n", iter->scale[d]) ;
-		fclose(fp_scale) ;
-	}
-	
-#else // WITH_HDF5
-
 	hid_t file, dset, dspace ;
 	char name[2048] ;
 	hsize_t out_size3d[4], out_size2d[3] ;
@@ -372,7 +318,6 @@ void save_models() {
 	}
 	
 	H5Fclose(file) ;
-#endif //WITH_HDF5
 }
 
 double maximize() {
