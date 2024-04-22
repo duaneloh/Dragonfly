@@ -84,7 +84,7 @@ class SliceGenerator(object):
         rot_matrix = self._gen_rot_matrix(self.stats['rmax'][num])
 
         size = self.model.shape[0]
-        coords = np.array([self.geom.qx, self.geom.qy, self.geom.qz])
+        coords = self.geom.qvals.T
         rot_coords = np.dot(rot_matrix, coords)
         rot_coords = np.round((rot_coords + size/2)).astype('i4')
         rot_coords[(rot_coords < 0) | (rot_coords > size-1)] = 0
