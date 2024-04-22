@@ -90,16 +90,8 @@ cdef class Iterate:
         self.set_data(frames)
 
         # Quaternions
-        if rtype == '2d':
-            num_rot = config.getint(section_name, 'num_rot')
-            friedel_sym = config.getboolean(section_name, 'friedel_sym', fallback=False)
-            point_group = '2' if friedel_sym else '1'
-
-            quat = Quaternion(num_rot=num_rot, point_group=point_group)
-        elif self.iter.par.fine_div > 0:
-            quat = Quaternion(self.iter.par.fine_div)
-        else:
-            quat = Quaternion(config.getint(section_name, 'num_div'))
+        quat = Quaternion()
+        quat.from_config(config_fname, section_name)
         self.set_quat(quat)
 
         # Update file names if resuming reconstruction
