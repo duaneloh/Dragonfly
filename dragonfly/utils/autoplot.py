@@ -54,7 +54,7 @@ class MyFrameviewer(frameviewer.Frameviewer):
     windowClosed = QtCore.pyqtSignal()
 
     def __init__(self, config_file, mode, numlist):
-        super(MyFrameviewer, self).__init__(config_file, mask=True, noscroll=True)
+        super(MyFrameviewer, self).__init__(config_file, do_compare=True, mask=True, noscroll=True)
         self.mode = mode
         self.numlist = numlist
 
@@ -578,8 +578,6 @@ class ProgressViewer(QtWidgets.QMainWindow):
         action = analysismenu.addAction('Open &Frameviewer')
         action.triggered.connect(self._open_frameviewer)
         action.setToolTip('View frames related to given mode')
-        if self.recon_type == '3d':
-            action.setEnabled(False)
         action = analysismenu.addAction('Subtract radial minimum')
         action.triggered.connect(self._subtract_radmin)
         action.setToolTip('Subtract radial minimum from intensities')

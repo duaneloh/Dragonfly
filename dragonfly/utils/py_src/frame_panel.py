@@ -30,8 +30,7 @@ class FramePanel(QtWidgets.QWidget):
     Required members of parent class:
         emc_reader - Instance of EMCReader class
         geom - Instance of Detector class
-        output_folder - (Only for compare mode) Folder with output data
-        need_scaling - (Only for compare mode) Whether reconstruction was done with scaling
+        config_file - (Only for compare mode) Configuration file with [emc] section
     '''
     def __init__(self, parent, compare=False, powder=False, noscroll=False, **kwargs):
         super(FramePanel, self).__init__(**kwargs)
@@ -51,10 +50,10 @@ class FramePanel(QtWidgets.QWidget):
         self.do_compare = compare
         self.do_powder = powder
         self.noscroll = noscroll
+        if self.do_powder and self.do_compare:
+            raise ValueError('Cannot do both compare and powder')
         if self.do_compare:
-            self.slices = slices.SliceGenerator(self.parent.geom, 'data/quat.dat',
-                                                folder=self.parent.output_folder,
-                                                need_scaling=self.parent.need_scaling)
+            self.slices = slices.SliceGenerator(self.parent.config_file)
         if self.do_powder:
             self.powder_sum = self.emc_reader.get_powder(raw=True)
         if self.parent.blacklist is not None:
@@ -69,7 +68,8 @@ class FramePanel(QtWidgets.QWidget):
     def _init_ui(self):
         vbox = QtWidgets.QVBoxLayout(self)
 
-        self.fig = Figure(figsize=(6, 6))
+        figsize = (10,6) if self.do_compare else (6,6)
+        self.fig = Figure(figsize=figsize)
         self.fig.subplots_adjust(left=0.05, right=0.99, top=0.9, bottom=0.05)
         self.canvas = FigureCanvas(self.fig)
         self.navbar = gui_utils.MyNavigationToolbar(self.canvas, self)
@@ -90,12 +90,6 @@ class FramePanel(QtWidgets.QWidget):
             label.setToolTip('Number of frames')
             hbox.addWidget(label)
         hbox.addStretch(1)
-        if not self.do_powder and self.do_compare:
-            self.compare_flag = QtWidgets.QCheckBox('Compare', self)
-            self.compare_flag.clicked.connect(self._compare_flag_changed)
-            self.compare_flag.setChecked(False)
-            self.compare_flag.setToolTip('Show comparison of frame with most likely tomogram')
-            hbox.addWidget(self.compare_flag)
         self.sym_flag = QtWidgets.QCheckBox('Symmetrize', self)
         self.sym_flag.clicked.connect(self.plot_frame)
         self.sym_flag.setChecked(False)
@@ -164,7 +158,7 @@ class FramePanel(QtWidgets.QWidget):
         self.fig.clear()
         if mode == 2:
             subp = self.parent.conversion_panel.plot_converted_frame()
-        elif self.do_compare and self.compare_flag.isChecked():
+        elif self.do_compare:
             subp = self._plot_slice(num)
         else:
             subp = self.fig.add_subplot(111)
@@ -205,7 +199,7 @@ class FramePanel(QtWidgets.QWidget):
             tomo, info = self.slices.get_slice(iteration, num)
             vmax = float(self.rangestr.text())
             subpc.imshow(tomo, cmap=self.parent.cmap,
-                         norm=colors.SymLogNorm(vmin=tomo.min(), linthresh=1e-2, vmax=vmax),
+                         norm=colors.SymLogNorm(vmin=tomo.min(), linthresh=vmax*1e-4, vmax=vmax),
                          interpolation='none')
             subpc.set_title('Mutual Info. = %f'%info)
         else:
@@ -253,9 +247,6 @@ class FramePanel(QtWidgets.QWidget):
                 self.parent.blacklist[num] == 1):
             title += ' (bad frame)'
         return title
-
-    def _compare_flag_changed(self):
-        self.plot_frame()
 
     def _frame_focus(self, event): # pylint: disable=unused-argument
         self.setFocus()
