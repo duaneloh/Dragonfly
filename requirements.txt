@@ -1,0 +1,13 @@
+# For the main code
+cython
+numpy
+h5py
+mpi4py
+
+# For utilities
+scipy
+scikit-learn
+
+# For the GUIs
+PyQt5
+matplotlib
