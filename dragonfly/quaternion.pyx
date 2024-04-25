@@ -24,8 +24,6 @@ from .quaternion cimport Quaternion
 cdef class Quaternion:
     def __init__(self, int num_div=0, int num_rot=0, point_group=''):
         self.quat = <c_quat.quaternion*> malloc(sizeof(c_quat.quaternion))
-        self.quat.num_div = num_div
-        self.quat.num_rot = 0
         self.quat.octahedral_flag = (point_group == 'S4')
         self.quat.icosahedral_flag = (point_group == 'A5')
         self.quat.num_rot_p = 0
@@ -61,14 +59,17 @@ cdef class Quaternion:
             if point_group == 'A5':
                 print('Reducing to A5 sub-group')
                 self.reduce_icosahedral()
+                self.quat.icosahedral_flag = True
             elif point_group == 'S4':
                 print('Reducing to S4 sub-group')
                 self.reduce_octahedral()
+                self.quat.octahedral_flag = True
             elif point_group != '1':
                 raise ValueError('Unknown point group: ' + point_group)
 
     def generate_3d(self, int num_div):
         '''Generate quaternions for SO(3) with num_div sampling'''
+        self.quat.num_div = num_div
         self.reduced = False
         c_quat.quat_gen(num_div, self.quat)
 
