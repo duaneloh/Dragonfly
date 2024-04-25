@@ -2,10 +2,10 @@ from setuptools import setup
 from setuptools.extension import Extension
 from Cython.Distutils import build_ext
 from Cython.Build import cythonize
-
 import subprocess
+
 import numpy as np
-import h5py
+
 out = subprocess.getoutput('h5cc -shlib -show')
 hdf5_cflags = [[s for s in out.split() if s[:2] == '-I'][0]]
 hdf5_libs = [[s for s in out.split() if s[:2] == '-L'][0], '-lhdf5']
