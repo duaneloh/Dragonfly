@@ -6,8 +6,9 @@ import os.path as op
 from socket import gethostname
 import itertools
 from configparser import ConfigParser
+
 import numpy as np
-import pandas
+import h5py
 from scipy.spatial import distance
 
 NUM_VERT = 120
@@ -93,24 +94,23 @@ cdef class Quaternion:
         if self.quat.quats == NULL:
             raise AttributeError('Generate quaternion first before saving')
 
-        with open(fname, 'w') as fptr:
-            fptr.write('%d\n' % self.quat.num_rot)
-            np.savetxt(fptr, self.quats, fmt='%+17.15f')
+        with h5py.File(fname, 'w') as fptr:
+            fptr['quaternions'] = self.quats
 
     def parse(self, fname):
         cdef int i
 
-        df = pandas.read_csv(fname, sep='\s+', skiprows=1, header=None, dtype='f8')
-        quats = df.values
+        with h5py.File(fname, 'r') as fptr:
+            quats = fptr['quaternions'][:]
+
+        if quats.shape[1] == 4:
+            quats = np.pad(quats, ((0,0), (0,1)), constant_values=1./quats.shape[0])
+        elif quats.shape[1] == 5:
+            quats[:,4] /= quats[:,4].sum()
+        else:
+            raise ValueError('Need 4- or 5-dimensional quaternions')
         self.quat.num_rot = quats.shape[0]
 
-        if quats.shape[1] == 5:
-            quats[:,4] /= quats[:,4].sum()
-        elif quats.shape[1] == 4:
-            quats = np.pad(quats, ((0,0),(0,1)), mode='constant',
-                           constant_values=1./self.num_rot)
-        else:
-            raise ValueError('Unknown shape for data in %s'%fname)
         self.quat.quats = <double*> malloc(self.num_rot * 5 * sizeof(double))
         quats = quats.ravel()
         for i in np.arange(5*self.num_rot):
