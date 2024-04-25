@@ -2,7 +2,6 @@ import sys
 import os.path as op
 import re
 import numpy as np
-import pandas
 import h5py
 from configparser import ConfigParser
 
@@ -221,11 +220,8 @@ cdef class Iterate:
                 raise AttributeError('Need tot_num_data to initialize scale factors')
             scale = np.ones(self.iter.tot_num_data)
         else:
-            if h5py.is_hdf5(fname):
-                with h5py.File(fname, 'r') as f:
-                    scale = f['scale'][:]
-            else:
-                scale = pandas.read_csv(fname, header=None).array.ravel()
+            with h5py.File(fname, 'r') as f:
+                scale = f['scale'][:]
 
         cdef double[:] scale_view = scale
 
@@ -267,7 +263,7 @@ cdef class Iterate:
             self.iter.blacklist = <uint8_t*> calloc(self.iter.tot_num_data, sizeof(uint8_t))
 
         if op.isfile(fname):
-            arr = pandas.read_csv(fname, header=None, squeeze=True, dtype='u1').to_numpy()
+            arr = np.loadtxt(fname, dtype='u1')
             if arr.shape[0] != self.iter.tot_num_data:
                 raise ValueError('Mismatched number of frames in blacklist file')
             memcpy(self.iter.blacklist, &arr[0], self.iter.tot_num_data*sizeof(uint8_t))
