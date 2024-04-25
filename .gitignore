@@ -17,6 +17,7 @@ build/
 *.pyc
 data
 .nfs*
+!requirements.txt
 
 # Utilities
 /utils/*
