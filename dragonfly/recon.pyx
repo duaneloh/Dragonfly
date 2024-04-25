@@ -123,13 +123,15 @@ cdef class EMCRecon():
 
         factor = itr.par.beta_jump ** ((itr.par.iteration-1) // itr.par.beta_period)
         factor *= itr.par.beta_factor
+        print('beta factor =', factor)
 
         for d in range(itr.tot_num_data):
-            if itr.blacklist[d] == 0:
-                itr.beta[d] = itr.beta_start[d] * factor
-                if itr.beta[d] > 1.:
-                    itr.beta[d] = 1.
-                beta_mean += itr.beta[d]
+            if itr.blacklist[d] == 1:
+                continue
+            itr.beta[d] = itr.beta_start[d] * factor
+            if itr.beta[d] > 1.:
+                itr.beta[d] = 1.
+            beta_mean += itr.beta[d]
         beta_mean /= (itr.tot_num_data - itr.num_blacklist)
 
         return beta_mean
@@ -210,6 +212,8 @@ cdef class EMCRecon():
             f['inter_weight'] = itr.model.inter_weight
             if param.need_scaling != 0:
                 f['scale'] = itr.scale
+
+            f['quaternions'] = itr.quat.quats
 
             if param.save_prob != 0:
                 f['probabilities/num_rot'] = [self.mdata.iter.quat.num_rot]
