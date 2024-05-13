@@ -49,7 +49,7 @@ class SliceGenerator(object):
 
         self.current_iteration = iteration
 
-    def get_slice(self, iteration, num, raw=False):
+    def get_slice(self, iteration, num, raw=False, **kwargs):
         '''Get tomographic slice for given iteration and frame number
 
         Parameters:
@@ -68,7 +68,7 @@ class SliceGenerator(object):
 
         if raw:
             return dslice, self.stats['info'][num]
-        return self.det.assemble_frame(dslice), self.stats['info'][num]
+        return self.det.assemble_frame(dslice, **kwargs), self.stats['info'][num]
 
     def get_quat(self, iteration, num):
         '''Return best match quaternion for given iteration and frame number'''

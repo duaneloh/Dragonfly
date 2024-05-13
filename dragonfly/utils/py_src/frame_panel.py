@@ -196,7 +196,7 @@ class FramePanel(QtWidgets.QWidget):
         if iteration > 0:
             subp = self.fig.add_subplot(121)
             subpc = self.fig.add_subplot(122)
-            tomo, info = self.slices.get_slice(iteration, num)
+            tomo, info = self.slices.get_slice(iteration, num, zoomed=True, sym=self.sym_flag.isChecked(), avg=True)
             vmax = float(self.rangestr.text())
             subpc.imshow(tomo, cmap=self.parent.cmap,
                          norm=colors.SymLogNorm(vmin=tomo.min(), linthresh=vmax*1e-4, vmax=vmax),
