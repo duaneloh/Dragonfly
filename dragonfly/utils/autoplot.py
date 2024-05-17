@@ -8,25 +8,13 @@ import argparse
 import numpy as np
 from scipy import ndimage
 import h5py
-try:
-    from PyQt5 import QtCore, QtWidgets, QtGui # pylint: disable=import-error
-    import matplotlib
-    matplotlib.use('qt5agg')
-    from matplotlib.backends.backend_qt5agg import FigureCanvas # pylint: disable=no-name-in-module
-    import matplotlib.pyplot as plt
-    import matplotlib.animation as animation
-    os.environ['QT_API'] = 'pyqt5'
-except ImportError:
-    import sip
-    sip.setapi('QString', 2)
-    from PyQt4 import QtCore, QtGui # pylint: disable=import-error
-    from PyQt4 import QtGui as QtWidgets # pylint: disable=import-error
-    import matplotlib
-    matplotlib.use('qt4agg')
-    from matplotlib.backends.backend_qt4agg import FigureCanvas # pylint: disable=no-name-in-module
-    import matplotlib.pyplot as plt
-    import matplotlib.animation as animation
-    os.environ['QT_API'] = 'pyqt'
+from PyQt5 import QtCore, QtWidgets, QtGui # pylint: disable=import-error
+import matplotlib
+matplotlib.use('qt5agg')
+from matplotlib.backends.backend_qt5agg import FigureCanvas # pylint: disable=no-name-in-module
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+os.environ['QT_API'] = 'pyqt5'
 from .py_src import read_config
 from . import frameviewer
 from .py_src import gui_utils
@@ -148,6 +136,85 @@ class NormVecUpdater(QtWidgets.QDialog):
     def _update(self):
         self.vec = np.array([float(self.v0.text()), float(self.v1.text()), float(self.v2.text())])
         self.close()
+
+class Viewer2D(QtWidgets.QMainWindow):
+    windowClosed = QtCore.pyqtSignal()
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent = parent
+        self.output_fname = parent.fname.text()
+        self.intens = parent.vol_plotter.vol
+        self.curr_intens = None
+
+        self._init_ui()
+
+    def _init_ui(self):
+        if self.parent.css is not None:
+            self.setStyleSheet(self.parent.css)
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+        self.setWindowTitle('2D Intensity Viewer')
+        self.window = QtWidgets.QWidget()
+        vbox = QtWidgets.QVBoxLayout()
+        self.window.setLayout(vbox)
+        self.setCentralWidget(self.window)
+        self.window.setObjectName('frame')
+
+        self.fig = matplotlib.figure.Figure(figsize=(6, 6))
+        self.fig.subplots_adjust(left=0.05, right=0.99, top=0.9, bottom=0.05)
+        self.canvas = FigureCanvas(self.fig)
+        self.navbar = gui_utils.MyNavigationToolbar(self.canvas, self)
+        vbox.addWidget(self.navbar)
+        vbox.addWidget(self.canvas, stretch=1)
+
+        line = QtWidgets.QHBoxLayout()
+        vbox.addLayout(line)
+        label = QtWidgets.QLabel('Output file: %s'%self.output_fname, self)
+        line.addWidget(label)
+        label = QtWidgets.QLabel('(%d 2D averages)'%self.intens.shape[0], self)
+        line.addWidget(label)
+        line.addStretch(1)
+        label = QtWidgets.QLabel('Class ', self)
+        line.addWidget(label)
+        self.class_num = QtWidgets.QSpinBox(self)
+        self.class_num.setMinimum(0)
+        self.class_num.setMaximum(self.intens.shape[0]-1)
+        self.class_num.setValue(self.parent.modenum.value())
+        self.class_num.valueChanged.connect(self._class_num_changed)
+        line.addWidget(self.class_num)
+
+        self._class_num_changed(self.class_num.value())
+        self.show()
+
+    def _class_num_changed(self, num):
+        self.curr_intens = self.intens[num]
+        self._plot()
+
+    def _plot(self, state=None):
+        exponent = self.parent.expstr.text()
+        rangemin = float(self.parent.rangemin.text())
+        rangemax = float(self.parent.rangestr.text())
+        if exponent == 'log':
+            norm = matplotlib.colors.SymLogNorm(linthresh=rangemax*1.e-2, vmin=rangemin, vmax=rangemax)
+        else:
+            norm = matplotlib.colors.PowerNorm(float(exponent), vmin=rangemin, vmax=rangemax)
+        cmap = self.parent.color_map.checkedAction().text()
+        size = self.curr_intens.shape[-1]
+        cen = size // 2
+        plot_intens = self.curr_intens.copy()
+        plot_intens[plot_intens<0] = np.nan
+
+        ax = self.fig.gca()
+        for i in ax.images:
+            i.remove()
+        ax.imshow(plot_intens, extent=[-cen-0.5, cen+0.5, cen+0.5, -cen-0.5], norm=norm, cmap=cmap)
+        ax.set_facecolor('dimgray')
+
+        self.canvas.draw()
+
+    def closeEvent(self, event):
+        self.windowClosed.emit()
+        event.accept()
 
 class VolumePlotter(object):
     def __init__(self, fig, recon_type='3d', num_modes=1, num_nonrot=0, num_rot=None):
@@ -494,6 +561,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self.fviewer = None
         self.clpca = None
         self.phaser2d = None
+        self.viewer2d = None
 
     def _init_ui(self):
         with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'py_src/style.css'), 'r') as f:
@@ -960,6 +1028,8 @@ class ProgressViewer(QtWidgets.QMainWindow):
             if event.inaxes is subp:
                 curr_mode = i
         if curr_mode < 0:
+            if event.inaxes is self.vol_plotter.main_subp and event.button == 3:
+                self._show_2dmenu(event)
             return
 
         if curr_mode != self.modenum.value():
@@ -982,6 +1052,13 @@ class ProgressViewer(QtWidgets.QMainWindow):
                 self.num_good -= (self.vol_plotter.modes == curr_mode).sum()
             self.blacklist_action.setText('Save blacklist file\n(%d good frames)'%self.num_good)
             self.vol_plotter.canvas.draw()
+
+    def _show_2dmenu(self, event):
+        context_menu = QtWidgets.QMenu()
+        context_menu.addAction('View detailed', self._open_viewer2d)
+        context_menu.addAction('2D Phaser', self._open_phaser2d)
+        cursor = QtGui.QCursor()
+        context_menu.exec_(cursor.pos())
 
     def _show_menu(self, event):
         slice_num = -1
@@ -1148,6 +1225,16 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self.phaser2d = phaser_gui.Phaser2D(self)
         self.phaser2d.windowClosed.connect(self._phaser2d_closed)
 
+    def _open_viewer2d(self):
+        if self.viewer2d is not None:
+            return
+        if self.vol_plotter.vol is None:
+            print('Parse intensities first')
+            return
+        self.viewer2d = Viewer2D(self)
+        self.viewer2d.windowClosed.connect(self._viewer2d_closed)
+        pass
+
     def _subtract_radmin(self):
         self.vol_plotter.subtract_radmin()
         self._plot_vol()
@@ -1188,6 +1275,10 @@ class ProgressViewer(QtWidgets.QMainWindow):
     @QtCore.Slot()
     def _phaser2d_closed(self):
         self.phaser2d = None
+
+    @QtCore.Slot()
+    def _viewer2d_closed(self):
+        self.viewer2d = None
 
     def closeEvent(self, event): # pylint: disable=C0103
         if self.fviewer is not None:
