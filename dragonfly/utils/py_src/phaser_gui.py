@@ -115,6 +115,10 @@ class Phaser2D(QtWidgets.QMainWindow):
         vbox.addLayout(line)
         self.phasing_status = QtWidgets.QLabel('', self)
         line.addWidget(self.phasing_status, stretch=1)
+        self.show_icalc= QtWidgets.QCheckBox('Show I_calc', self)
+        self.show_icalc.stateChanged.connect(self._plot)
+        self.show_icalc.setEnabled(False)
+        line.addWidget(self.show_icalc)
         self.show_supp = QtWidgets.QCheckBox('Show support', self)
         self.show_supp.stateChanged.connect(self._plot)
         line.addWidget(self.show_supp)
@@ -129,6 +133,7 @@ class Phaser2D(QtWidgets.QMainWindow):
         self.curr_intens = self.intens[num]
         self.preprocessed = False
         self.phaser = None
+        self.show_icalc.setEnabled(False)
         self._plot()
 
     def _plot(self, state=None):
@@ -142,8 +147,12 @@ class Phaser2D(QtWidgets.QMainWindow):
         cmap = self.parent.color_map.checkedAction().text()
         size = self.curr_intens.shape[-1]
         cen = size // 2
-        plot_intens = self.curr_intens.copy()
-        plot_intens[plot_intens<0] = np.nan
+        if self.show_icalc.isChecked() and self.phaser is not None:
+            dens = self.phaser.proj_direct(self.phaser.current)
+            plot_intens = np.abs(np.fft.fftshift(np.fft.fftn(dens)))**2
+        else:
+            plot_intens = self.curr_intens.copy()
+            plot_intens[plot_intens<0] = np.nan
 
         self.fig.clear()
         ax = self.fig.add_subplot(111)
@@ -189,6 +198,7 @@ class Phaser2D(QtWidgets.QMainWindow):
         #self.phaser.phase(algo, qlabel=self.phasing_status)
         self.phaser.phase(algo)
 
+        self.show_icalc.setEnabled(True)
         self._plot()
 
     def _get_algo_list(self):
