@@ -22,10 +22,12 @@ class SliceGenerator(object):
         config = MyConfigParser()
         config.read(config_fname)
 
-        self.det = dragonfly.Detector(config.get_filename('emc', 'in_detector_file'))
+        self.recon_type = config.get('emc', 'recon_type', fallback='3d').lower()
+        det_fname = config.get_filename('emc', 'in_detector_file')
+        self._cdet = dragonfly.CDetector(det_fname, rtype=self.recon_type)
+        self.det = dragonfly.Detector(det_fname)
         self.quat = dragonfly.Quaternion()
         self.quat.from_config(config_fname, 'emc')
-        self.recon_type = config.get('emc', 'recon_type', fallback='3d').lower()
         self.folder = config.get_filename('emc', 'output_folder', fallback='data/')
         self.need_scaling = config.getboolean('emc', 'need_scaling', fallback=False)
 
@@ -64,7 +66,7 @@ class SliceGenerator(object):
             self._init_model(iteration)
         mode_num = self.stats['rmax'][num] % self.num_modes
         quat_num = self.stats['rmax'][num] // self.num_modes
-        dslice = self.model.slice_gen(self.quat.quats[quat_num], self.det, mode=mode_num)
+        dslice = self.model.slice_gen(self.quat.quats[quat_num], self._cdet, mode=mode_num)
 
         if raw:
             return dslice, self.stats['info'][num]
