@@ -3,11 +3,13 @@ import numpy as np
 from scipy import ndimage
 
 class ClassPhaser():
-    def __init__(self, intens, num_supp=None, maxfrac=None):
+    def __init__(self, intens, num_supp=None, maxfrac=None,
+                 positivity=True):
         self.fobs = np.empty_like(intens)
         self.fobs[intens>=0] = np.sqrt(intens[intens>=0])
         self.fobs[intens<0] = -1
         self.rel_qpix = (self.fobs >= 0)
+        self.positivity = positivity
 
         if maxfrac is None and num_supp is None:
             raise ValueError('Need either num_supp or maxfrac for shrinkwrap')
@@ -70,8 +72,8 @@ class ClassPhaser():
         self.support = smdens > thresh
         out_dens[~self.support] = 0
 
-        # Positivity
-        out_dens[out_dens < 0] = 0
+        if self.positivity:
+            out_dens[out_dens < 0] = 0
 
         return out_dens
 
