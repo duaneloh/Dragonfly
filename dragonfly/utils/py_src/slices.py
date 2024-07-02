@@ -1,6 +1,7 @@
 '''Module containing class to generate tomographic slices'''
 
 import os
+from configparser import NoOptionError
 
 import h5py
 import dragonfly
@@ -23,7 +24,13 @@ class SliceGenerator(object):
         config.read(config_fname)
 
         self.recon_type = config.get('emc', 'recon_type', fallback='3d').lower()
-        det_fname = config.get_filename('emc', 'in_detector_file')
+        try:
+            det_fname = config.get_filename('emc', 'in_detector_file')
+        except NoOptionError:
+            print('WARNING: Using first detector in list to plot all slices')
+            flist = config.get_filename('emc', 'in_detector_list')
+            with open(flist, 'r') as fptr:
+                det_fname = fptr.read().split()[0]
         self._cdet = dragonfly.CDetector(det_fname, rtype=self.recon_type)
         self.det = dragonfly.Detector(det_fname)
         self.quat = dragonfly.Quaternion()
