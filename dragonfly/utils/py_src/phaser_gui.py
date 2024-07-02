@@ -107,6 +107,9 @@ class Phaser2D(QtWidgets.QMainWindow):
         self.algo_str.setFixedWidth(180)
         line.addWidget(self.algo_str)
         line.addStretch(1)
+        self.pos_flag = QtWidgets.QCheckBox('Positivity', self)
+        self.pos_flag.setChecked(True)
+        line.addWidget(self.pos_flag)
         button = QtWidgets.QPushButton('Phase', self)
         button.clicked.connect(self._phase)
         line.addWidget(button)
@@ -115,7 +118,7 @@ class Phaser2D(QtWidgets.QMainWindow):
         vbox.addLayout(line)
         self.phasing_status = QtWidgets.QLabel('', self)
         line.addWidget(self.phasing_status, stretch=1)
-        self.show_icalc= QtWidgets.QCheckBox('Show I_calc', self)
+        self.show_icalc = QtWidgets.QCheckBox('Show I_calc', self)
         self.show_icalc.stateChanged.connect(self._plot)
         self.show_icalc.setEnabled(False)
         line.addWidget(self.show_icalc)
@@ -194,7 +197,8 @@ class Phaser2D(QtWidgets.QMainWindow):
         self.phasing_status.setText('')
 
         algo = self._get_algo_list()
-        self.phaser = class_phaser.ClassPhaser(self.curr_intens, num_supp=int(self.num_supp.text()))
+        self.phaser = class_phaser.ClassPhaser(self.curr_intens, num_supp=int(self.num_supp.text()),
+                                               positivity=self.pos_flag.isChecked())
         #self.phaser.phase(algo, qlabel=self.phasing_status)
         self.phaser.phase(algo)
 
