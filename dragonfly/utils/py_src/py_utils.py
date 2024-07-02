@@ -113,4 +113,4 @@ def gen_det_and_emc(gui, classifier=False, mask=False):
                      for fname in uniq]
         geom_mapping = [uniq.index(fname) for fname in gui.det_list]
     gui.geom = geom_list[0]
-    gui.emc_reader = dragonfly.EMCReader(gui.photons_list, geom_list, geom_mapping)
+    gui.emc_reader = dragonfly.EMCReader(gui.photons_list, geom_list, det_mapping=geom_mapping)
