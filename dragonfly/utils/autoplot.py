@@ -49,13 +49,21 @@ class MyFrameviewer(frameviewer.Frameviewer):
         fp_layout = self.frame_panel.layout()
         fp_count = fp_layout.count()
         line = fp_layout.takeAt(fp_count-1)
+
         hbox = QtWidgets.QHBoxLayout()
         line.insertLayout(1, hbox)
         gui_utils.add_scroll_hbox(self, hbox)
+        if self.blacklist is not None:
+            self.frame_panel.skip_bad = QtWidgets.QCheckBox('Skip bad', self)
+            self.frame_panel.skip_bad.setChecked(True)
+            hbox.addWidget(self.frame_panel.skip_bad)
         if self.mode >= 0:
             self.label = QtWidgets.QLabel('Class %d frames'%self.mode)
             hbox.addWidget(self.label)
         fp_layout.addLayout(line)
+
+        if self.blacklist is not None:
+            self.frame_panel.good_ind = np.where(self.blacklist==0)[0]
 
         self._next_frame()
 
