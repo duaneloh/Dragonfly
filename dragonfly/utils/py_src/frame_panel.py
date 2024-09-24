@@ -32,7 +32,7 @@ class FramePanel(QtWidgets.QWidget):
         geom - Instance of Detector class
         config_file - (Only for compare mode) Configuration file with [emc] section
     '''
-    def __init__(self, parent, compare=False, powder=False, noscroll=False, **kwargs):
+    def __init__(self, parent, compare=False, powder=False, noscroll=False, noplot=False, **kwargs):
         super(FramePanel, self).__init__(**kwargs)
 
         matplotlib.rcParams.update({
@@ -62,10 +62,11 @@ class FramePanel(QtWidgets.QWidget):
         self.numstr = '0'
         self.rangestr = '10'
         self.skip_bad = None
+        self.iteration = None
 
-        self._init_ui()
+        self._init_ui(noplot=noplot)
 
-    def _init_ui(self):
+    def _init_ui(self, noplot=False):
         vbox = QtWidgets.QVBoxLayout(self)
 
         figsize = (10,6) if self.do_compare else (6,6)
@@ -123,8 +124,8 @@ class FramePanel(QtWidgets.QWidget):
         hbox.addWidget(button)
 
         self.show()
-        #if not self.do_compare:
-        self.plot_frame()
+        if not noplot:
+            self.plot_frame()
 
     def plot_frame(self, event=None, frame=None):
         '''Update canvas according to GUI parameters
@@ -183,15 +184,16 @@ class FramePanel(QtWidgets.QWidget):
         return num
 
     def _plot_slice(self, num):
-        with open(self.parent.log_fname, 'r') as fptr:
-            line = fptr.readlines()[-1]
-            try:
-                iteration = int(line.split()[0])
-            except (IndexError, ValueError):
-                sys.stderr.write('Unable to determine iteration number from %s\n' %
-                                 self.parent.log_fname)
-                sys.stderr.write('%s\n' % line)
-                iteration = None
+        iteration = self.iteration
+        if iteration is None:
+            with open(self.parent.log_fname, 'r') as fptr:
+                line = fptr.readlines()[-1]
+                try:
+                    iteration = int(line.split()[0])
+                except (IndexError, ValueError):
+                    sys.stderr.write('Unable to determine iteration number from %s\n' %
+                                     self.parent.log_fname)
+                    sys.stderr.write('%s\n' % line)
 
         if iteration > 0:
             subp = self.fig.add_subplot(121)

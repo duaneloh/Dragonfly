@@ -26,7 +26,7 @@ class Frameviewer(QtWidgets.QMainWindow):
     '''
     def __init__(self, config_file, mask=False,
                  do_powder=False, do_compare=False, noscroll=False,
-                 emc_fname=None, det_fname=None):
+                 noplot=False, emc_fname=None, det_fname=None):
         super(Frameviewer, self).__init__()
         self.config_file = config_file
         self.do_powder = do_powder
@@ -43,9 +43,9 @@ class Frameviewer(QtWidgets.QMainWindow):
         else:
             read_config.read_gui_config(self, 'emc')
         py_utils.gen_det_and_emc(self, classifier=False, mask=mask)
-        self._init_ui()
+        self._init_ui(noplot=noplot)
 
-    def _init_ui(self):
+    def _init_ui(self, noplot=False):
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setWindowTitle('Dragonfly Frame Viewer')
         with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'py_src/style.css'), 'r') as f:
@@ -74,7 +74,8 @@ class Frameviewer(QtWidgets.QMainWindow):
         self.vbox.setContentsMargins(0, 0, 0, 0)
         self.frame_panel = frame_panel.FramePanel(self, powder=self.do_powder,
                                                   compare=self.do_compare,
-                                                  noscroll=self.noscroll)
+                                                  noscroll=self.noscroll,
+                                                  noplot=noplot)
         self.vbox.addWidget(self.frame_panel)
 
         self.window.setLayout(self.vbox)
