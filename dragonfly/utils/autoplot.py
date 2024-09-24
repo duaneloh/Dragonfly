@@ -42,7 +42,8 @@ class MyFrameviewer(frameviewer.Frameviewer):
     windowClosed = QtCore.pyqtSignal()
 
     def __init__(self, config_file, mode, numlist):
-        super(MyFrameviewer, self).__init__(config_file, do_compare=True, mask=True, noscroll=True)
+        super(MyFrameviewer, self).__init__(config_file, do_compare=True, mask=True, 
+                                            noscroll=True, noplot=True)
         self.mode = mode
         self.numlist = numlist
 
@@ -64,8 +65,6 @@ class MyFrameviewer(frameviewer.Frameviewer):
 
         if self.blacklist is not None:
             self.frame_panel.good_ind = np.where(self.blacklist==0)[0]
-
-        self._next_frame()
 
     def _next_frame(self):
         if self.mode == -1:
@@ -1213,7 +1212,9 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.fviewer = MyFrameviewer(self.config, mode, numlist)
         else:
             self.fviewer = MyFrameviewer(self.config, -1, [])
+        self.fviewer.frame_panel.iteration = self.iternum.value()
         self.fviewer.windowClosed.connect(self._fviewer_closed)
+        self.fviewer._next_frame()
 
     def _open_clpca(self):
         if self.clpca is not None:
