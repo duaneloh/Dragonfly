@@ -32,7 +32,7 @@ cdef class CDetector:
         self.x, self.y - Integer and shifted 2D coordinates (corner at (0,0))
         self.raw_mask - Unassembled mask as stored in detector file
         self.mask - Unassembled mask (1=good, 0=bad)
-        self.assembled_mask - Assembled mask (1-good, 0=bad)
+        self.mask_assem - Assembled mask (1-good, 0=bad)
     """
     def __init__(self, fname=None, **kwargs):
         self.det = <c_det.detector*> calloc(1, sizeof(c_det.detector))
@@ -279,7 +279,7 @@ class Detector(CDetector):
                 b = self._sym_zoom_bounds
                 return img[b[0]:b[1], b[2]:b[3]]
         else:
-            img = ma.masked_array(np.zeros(self.frame_shape, dtype='f8'), mask=1-self.assembled_mask)
+            img = ma.masked_array(np.zeros(self.frame_shape, dtype='f8'), mask=1-self.mask_assem)
             np.add.at(img, (self.x, self.y), data*self.mask)
             if avg:
                 countimg = np.zeros(self.frame_shape, dtype='f8')
@@ -345,6 +345,18 @@ class Detector(CDetector):
         else:
             self.background = np.fromfile(fname)
 
+    def get_assembled_cen(self, zoomed=False, sym=False):
+        if sym:
+            cen = self._sym_shape[0]//2, self._sym_shape[1]//2
+            if zoomed:
+                return cen[0]-self._sym_zoom_bounds[0], cen[1]-self._sym_zoom_bounds[2]
+            return cen
+
+        cen = -self.cx.min(), -self.cy.min()
+        if zoomed:
+            return cen[0]-self.zoom_bounds[0], cen[1]-self.zoom_bounds[2]
+        return cen
+
     def _process_det(self, mask_flag, keep_mask_1):
         self.shape = self.corr.shape
         if mask_flag:
@@ -374,9 +386,9 @@ class Detector(CDetector):
         '''Calculate attributes given self.x and self.y'''
         self.frame_shape = (self.x.max()+1, self.y.max()+1)
 
-        self.assembled_mask = np.zeros(self.frame_shape, dtype='u1')
-        self.assembled_mask[self.x, self.y] = self.mask
-        self.assembled_mask = np.sign(self.assembled_mask)
+        self.mask_assem = np.zeros(self.frame_shape, dtype='u1')
+        self.mask_assem[self.x, self.y] = self.mask
+        self.mask_assem = np.sign(self.mask_assem)
 
         xsel = self.x[self.mask]
         ysel = self.y[self.mask]
