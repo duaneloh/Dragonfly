@@ -144,12 +144,14 @@ class FramePanel(QtWidgets.QWidget):
             det0 = self.emc_reader.flist[0]['det']
             frame = det0.assemble_frame(self.powder_sum, zoomed=True, sym=self.sym_flag.isChecked(), avg=True)
             num = None
+            cen = (-det0.cx.min(), -det0.cy.min())
         else:
             num = self.get_num()
             if num is None:
                 return
             frame = self.emc_reader.get_frame(num, zoomed=True, sym=self.sym_flag.isChecked(), avg=True)
-
+            det = self.emc_reader.flist[self.emc_reader._get_file_and_frame(num)[0]]['det']
+            cen = det.get_assembled_cen(zoomed=True, sym=self.sym_flag.isChecked())
         try:
             for point in self.parent.embedding_panel.roi_list:
                 point.remove()
@@ -163,9 +165,10 @@ class FramePanel(QtWidgets.QWidget):
             subp = self._plot_slice(num)
         else:
             subp = self.fig.add_subplot(111)
-        subp.imshow(frame, vmin=0, vmax=float(self.rangestr.text()),
-                    interpolation='none', cmap=self.parent.cmap)
+        subp.imshow(frame.T, vmin=0, vmax=float(self.rangestr.text()),
+                    origin='lower', interpolation='none', cmap=self.parent.cmap)
         subp.set_title(self._get_plot_title(frame, num, mode))
+        subp.plot(cen[0], cen[1], '+', c='lime', markersize=20)
         self.fig.tight_layout()
         self.canvas.draw()
 
@@ -200,7 +203,7 @@ class FramePanel(QtWidgets.QWidget):
             subpc = self.fig.add_subplot(122)
             tomo, info = self.slices.get_slice(iteration, num, zoomed=True, sym=self.sym_flag.isChecked(), avg=True)
             vmax = float(self.rangestr.text())
-            subpc.imshow(tomo, cmap=self.parent.cmap,
+            subpc.imshow(tomo.T, origin='lower', cmap=self.parent.cmap,
                          norm=colors.SymLogNorm(vmin=tomo.min(), linthresh=vmax*1e-4, vmax=vmax),
                          interpolation='none')
             subpc.set_title('Mutual Info. = %f'%info)
