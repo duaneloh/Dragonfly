@@ -174,13 +174,7 @@ class EMCReader():
         Returns:
             Assembled or unassembled frame as a dense array
         """
-        file_num = np.where(num < np.array([pdict['num_data'] for pdict in self.flist]))[0][0]
-        #file_num = np.where(num < self.num_data_list)[0][0]
-        if file_num == 0:
-            frame_num = num
-        else:
-            frame_num = num - self.flist[file_num-1]['num_data']
-
+        file_num, frame_num = self._get_file_and_frame(num)
         return self._read_frame(file_num, frame_num, **kwargs)
 
     def get_powder(self, raw=False, verbose=False, **kwargs):
@@ -257,6 +251,14 @@ class EMCReader():
         self.num_frames = self.flist[len(self.flist)-1]['num_data']
         self.blacklist = np.zeros(self.num_frames, dtype='u1')
         self.num_blacklist = 0
+
+    def _get_file_and_frame(self, num):
+        file_num = np.where(num < np.array([pdict['num_data'] for pdict in self.flist]))[0][0]
+        if file_num == 0:
+            frame_num = num
+        else:
+            frame_num = num - self.flist[file_num-1]['num_data']
+        return file_num, frame_num
 
     @staticmethod
     def _parse_binaryheader(pdict):
