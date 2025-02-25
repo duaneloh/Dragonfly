@@ -42,7 +42,7 @@ class MyFrameviewer(frameviewer.Frameviewer):
     windowClosed = QtCore.pyqtSignal()
 
     def __init__(self, config_file, mode, numlist):
-        super(MyFrameviewer, self).__init__(config_file, do_compare=True, mask=True, 
+        super(MyFrameviewer, self).__init__(config_file, do_compare=True, mask=True,
                                             noscroll=True, noplot=True)
         self.mode = mode
         self.numlist = numlist
@@ -432,6 +432,19 @@ class VolumePlotter(object):
             np.minimum.at(radmin, self.intrad, self.vol)
             self.vol -= radmin[self.intrad]
 
+    def normalize_highq(self):
+        if self.vol is None:
+            return
+        self._get_intrad()
+
+        if self.recon_type == '2d':
+            hsize = self.vol.shape[-1] // 2
+            radsel = (self.intrad < hsize - 3) & (self.intrad > 0.9 * hsize)
+            highq_vals = self.vol[:,radsel].mean(1)
+            self.vol /= highq_vals[:,None,None]
+        else:
+            print('High q normalization only implemented for 2D EMC')
+
 class LogPlotter(object):
     def __init__(self, fig, folder='data/'):
         self.fig = fig
@@ -656,6 +669,10 @@ class ProgressViewer(QtWidgets.QMainWindow):
         action = analysismenu.addAction('Subtract radial minimum')
         action.triggered.connect(self._subtract_radmin)
         action.setToolTip('Subtract radial minimum from intensities')
+        if self.recon_type == '2d':
+            action = analysismenu.addAction('Normalize high q')
+            action.triggered.connect(self._normalize_highq)
+            action.setToolTip('Normalize outer region for all classes to 1')
 
         modemenu = analysismenu.addMenu('Mode selection')
         action = modemenu.addAction('Toggle mode selection')
@@ -1246,6 +1263,10 @@ class ProgressViewer(QtWidgets.QMainWindow):
 
     def _subtract_radmin(self):
         self.vol_plotter.subtract_radmin()
+        self._plot_vol()
+
+    def _normalize_highq(self):
+        self.vol_plotter.normalize_highq()
         self._plot_vol()
 
     def _toggle_mode_selection(self, status):
