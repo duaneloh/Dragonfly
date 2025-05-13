@@ -384,16 +384,12 @@ class VolumePlotter(object):
 
         self.size = self.vol.shape[1]
         cen = self.size // 2
+        ind = np.arange(self.size, dtype='f4') - cen
         if self.recon_type == '2d':
-            self.x, self.y = np.indices(self.vol[0].shape)
-            self.x -= cen
-            self.y -= cen
+            self.x, self.y = np.meshgrid(ind, ind, indexing='ij')
             self.intrad = np.sqrt(self.x**2 + self.y**2).astype('i4')
         elif self.recon_type == '3d':
-            self.x, self.y, self.z = np.indices(self.vol.shape)
-            self.x -= cen
-            self.y -= cen
-            self.z -= cen
+            self.x, self.y, self.z = np.meshgrid(ind, ind, ind, indexing='ij')
             self.intrad = np.sqrt(self.x**2 + self.y**2 + self.z**2).astype('i4')
 
     def _get_normslice(self, vec, layernum):
@@ -444,6 +440,18 @@ class VolumePlotter(object):
             self.vol /= highq_vals[:,None,None]
         else:
             print('High q normalization only implemented for 2D EMC')
+
+    def align_models(self):
+        if self.vol is None:
+            return
+        if self.recon_type != '2d':
+            print('Alignment currently implemented only for 2D EMC')
+            return
+
+        self._get_intrad()
+        imat = np.array([[self.x**2, self.x*self.y],[self.x*self.y, self.y**2]])
+        angles = [np.arctan2(*np.linalg.eigh((imat*self.vol[i]).sum((2,3))).eigenvectors[0])*180/np.pi for i in range(len(self.vol))]
+        self.vol = np.array([ndimage.rotate(self.vol[i], 90+angles[i], order=1, reshape=False) for i in range(len(self.vol))])
 
 class LogPlotter(object):
     def __init__(self, fig, folder='data/'):
@@ -673,6 +681,9 @@ class ProgressViewer(QtWidgets.QMainWindow):
             action = analysismenu.addAction('Normalize high q')
             action.triggered.connect(self._normalize_highq)
             action.setToolTip('Normalize outer region for all classes to 1')
+            action = analysismenu.addAction('Align models')
+            action.triggered.connect(self._align_models)
+            action.setToolTip('Align principal axes of all models')
 
         modemenu = analysismenu.addMenu('Mode selection')
         action = modemenu.addAction('Toggle mode selection')
@@ -1267,6 +1278,10 @@ class ProgressViewer(QtWidgets.QMainWindow):
 
     def _normalize_highq(self):
         self.vol_plotter.normalize_highq()
+        self._plot_vol()
+
+    def _align_models(self):
+        self.vol_plotter.align_models()
         self._plot_vol()
 
     def _toggle_mode_selection(self, status):
