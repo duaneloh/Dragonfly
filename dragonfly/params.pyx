@@ -37,6 +37,7 @@ cdef class EMCParams:
         self.par.oversampling = 10.
         self.par.sigmasq = 0.
         self.par.friedel_sym = 0
+        self.par.axial_sym = 1
         self.par.save_prob = 0
         self.par.update_scale = 1
         self.par.refine = 0
@@ -90,6 +91,7 @@ cdef class EMCParams:
         self.par.oversampling = config.getfloat(section_name, 'oversampling', fallback=10.)
         self.par.sigmasq = config.getfloat(section_name, 'gaussian_sigma', fallback=0.)**2
         self.par.friedel_sym = config.getint(section_name, 'friedel_sym', fallback=0)
+        self.par.axial_sym = config.getint(section_name, 'axial_sym', fallback=1)
         self.par.save_prob = config.getint(section_name, 'save_prob', fallback=0)
         self.par.update_scale = config.getint(section_name, 'update_scale', fallback=1)
         num_divs = config.get(section_name, 'num_div', fallback='0').split()
@@ -147,6 +149,10 @@ cdef class EMCParams:
     def friedel_sym(self): return self.par.friedel_sym
     @friedel_sym.setter
     def friedel_sym(self, int val): self.par.friedel_sym = val
+    @property
+    def axial_sym(self): return self.par.axial_sym
+    @axial_sym.setter
+    def axial_sym(self, int val): self.par.axial_sym = val
     @property
     def refine(self): return self.par.refine
     @refine.setter
