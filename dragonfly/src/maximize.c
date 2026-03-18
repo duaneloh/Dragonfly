@@ -28,7 +28,7 @@ static double calc_psum_r(int, struct max_data*, struct max_data*) ;
 static void print_max_time(char*, char*, int) ;
 
 void (*slice_gen)(double*, int, double*, struct detector*, struct model*) ;
-void (*slice_merge)(double*, int, double*, struct detector*, struct model*) ;
+void (*slice_merge)(double*, int, double*, double*, double*, long, struct detector*) ;
 
 double maximize(struct max_data *common_data) {
 	double avg_likelihood ;
@@ -485,7 +485,7 @@ void merge_tomogram(int r, struct max_data *priv) {
 	// If no data frame has any probability for this orientation, don't merge
 	for (detn = 0 ; detn < iter->num_det ; ++detn)
 	if (priv->psum_r[detn] > 0.)
-		(*slice_merge)(&quat->quats[rotind*5], mode, priv->all_views[detn], &det[detn], mod) ;
+		(*slice_merge)(&quat->quats[rotind*5], mode, priv->all_views[detn], priv->model, priv->weight, mod->size, &det[detn]) ;
 	
 	if ((param->verbosity > 2) && ((r*param->num_proc + param->rank)%(quat->num_rot * param->num_modes / 10) == 0))
 		fprintf(stderr, "\t\tFinished r = %d/%d\n", r*param->num_proc + param->rank, quat->num_rot * param->num_modes + param->nonrot_modes) ;
@@ -501,6 +501,8 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 	
 	print_max_time("update", "", param->verbosity > 1 && param->rank == 0 && omp_rank == 0) ;
 	 
+	memset(mod->model2, 0, mod->num_modes * mod->vol) ;
+	memset(mod->inter_weight, 0, mod->num_modes * mod->vol) ;
 	#pragma omp critical(model)
 	{
 		for (x = 0 ; x < mod->num_modes * mod->vol ; ++x) {

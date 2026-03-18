@@ -106,11 +106,11 @@ cdef class Model:
             raise AttributeError('Allocate model2 first')
 
         if self.mod.mtype == MODEL_3D:
-            c_model.slice_merge3d(&quat[0], mode, &view[0], det.det, self.mod)
+            c_model.slice_merge3d(&quat[0], mode, &view[0], &self.mod.model2[0], &self.mod.inter_weight[0], self.size, det.det)
         elif self.mod.mtype == MODEL_2D:
-            c_model.slice_merge2d(&quat[0], mode, &view[0], det.det, self.mod)
+            c_model.slice_merge2d(&quat[0], mode, &view[0], &self.mod.model2[0], &self.mod.inter_weight[0], self.size, det.det)
         elif self.mod.mtype == MODEL_RZ:
-            c_model.slice_mergerz(&quat[0], mode, &view[0], det.det, self.mod)
+            c_model.slice_mergerz(&quat[0], mode, &view[0], &self.mod.model2[0], &self.mod.inter_weight[0], self.size, det.det)
 
     def free(self):
         if self.mod.model1 != NULL:

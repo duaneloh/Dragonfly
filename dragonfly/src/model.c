@@ -68,7 +68,7 @@ void slice_gen2d(double *angle_ptr, int mode, double *slice, struct detector *de
 	double tx, ty, fx, fy, cx, cy ;
 	double rot_pix[2], rot[2][2] = {{0}} ;
 	double angle = *angle_ptr ;
-    double *model = &mod->model1[mode*mod->vol] ;
+	double *model = &mod->model1[mode*mod->vol] ;
 	
 	make_rot_angle(angle, rot) ;
 	
@@ -168,12 +168,12 @@ void slice_genrz(double *phibeta, int mode, double *slice, struct detector *det,
  * The locations of the pixels in slice[t] are given by det->qvals[t]
  * Only pixels with a mask value < 2 are merged
  */
-void slice_merge3d(double *quaternion, int mode, double *slice, struct detector *det, struct model *mod) {
-	long t, i, j, x, y, z, size = mod->size ;
+void slice_merge3d(double *quaternion, int mode, double *slice, double *model2, double *inter_weight, long size, struct detector *det) {
+	long t, i, j, x, y, z, center = size / 2, vol = size*size*size ;
 	double tx, ty, tz, fx, fy, fz, cx, cy, cz, w, f ;
 	double rot_pix[3], rot[3][3] = {{0}} ;
-    double *model = &mod->model2[mode*mod->vol] ;
-    double *weight = &mod->inter_weight[mode*mod->vol] ;
+	double *model = &model2[mode*vol] ;
+	double *weight = &inter_weight[mode*vol] ;
 	
 	make_rot_quat(quaternion, rot) ;
 	
@@ -185,7 +185,7 @@ void slice_merge3d(double *quaternion, int mode, double *slice, struct detector 
 			rot_pix[i] = 0. ;
 			for (j = 0 ; j < 3 ; ++j)
 				rot_pix[i] += rot[i][j] * det->qvals[t*3 + j] ;
-			rot_pix[i] += mod->center ;
+			rot_pix[i] += center ;
 		}
 		
 		tx = rot_pix[0] ;
@@ -249,13 +249,13 @@ void slice_merge3d(double *quaternion, int mode, double *slice, struct detector 
  * The locations of the pixels in slice[t] are given by det->qvals[t]
  * Only pixels with a mask value < 2 are merged
  */
-void slice_merge2d(double *angle_ptr, int mode, double *slice, struct detector *det, struct model *mod) {
-	long t, i, j, x, y, size = mod->size ;
+void slice_merge2d(double *angle_ptr, int mode, double *slice, double *model2, double *inter_weight, long size, struct detector *det) {
+	long t, i, j, x, y, center = size/2, vol = size*size ;
 	double tx, ty, fx, fy, cx, cy, w, f ;
 	double rot_pix[2], rot[2][2] = {{0}} ;
 	double angle = *angle_ptr ;
-    double *model = &mod->model2[mode*mod->vol] ;
-    double *weight = &mod->inter_weight[mode*mod->vol] ;
+	double *model = &model2[mode*vol] ;
+	double *weight = &inter_weight[mode*vol] ;
 	
 	make_rot_angle(angle, rot) ;
 	
@@ -267,7 +267,7 @@ void slice_merge2d(double *angle_ptr, int mode, double *slice, struct detector *
 			rot_pix[i] = 0. ;
 			for (j = 0 ; j < 2 ; ++j)
 				rot_pix[i] += rot[i][j] * det->qvals[t*3 + j] ;
-			rot_pix[i] += mod->center ;
+			rot_pix[i] += center ;
 		}
 		
 		tx = rot_pix[0] ;
@@ -310,12 +310,12 @@ void slice_merge2d(double *angle_ptr, int mode, double *slice, struct detector *
  * Also adds to weight[x] containing the interpolation weights
  * The locations of the pixels in slice[t] are given by detector[t]
 */
-void slice_mergerz(double *phibeta, int mode, double *slice, struct detector *det, struct model *mod) {
-	int t, x, y, size = mod->size ;
+void slice_mergerz(double *phibeta, int mode, double *slice, double *model2, double *inter_weight, long size, struct detector *det) {
+	int t, x, y, center = size/2, vol = size*size ;
 	double tx, ty, fx, fy, cx, cy, w, f, fac ;
 	double q_beta[3], q_0[3], rot_phi[2][2] = {{0}}, rot_beta[2][2] = {{0}} ;
-    double *model = &mod->model2[mode*mod->vol] ;
-    double *weight = &mod->inter_weight[mode*mod->vol] ;
+	double *model = &model2[mode*vol] ;
+	double *weight = &inter_weight[mode*vol] ;
 	
 	make_rot_angle(phibeta[0], rot_phi) ;
 	make_rot_angle(phibeta[1], rot_beta) ;
@@ -334,8 +334,8 @@ void slice_mergerz(double *phibeta, int mode, double *slice, struct detector *de
 		q_beta[1] = q_0[1]*rot_beta[0][0] + q_0[2]*rot_beta[0][1] ;
 		q_beta[2] = q_0[1]*rot_beta[1][0] + q_0[2]*rot_beta[1][1] ;
 		
-		tx = mod->center * (1. + sqrt(q_beta[0]*q_beta[0] + q_beta[2]*q_beta[2])) ;
-		ty = mod->center * (1. + q_beta[1]) ;
+		tx = center * (1. + sqrt(q_beta[0]*q_beta[0] + q_beta[2]*q_beta[2])) ;
+		ty = center * (1. + q_beta[1]) ;
 		
 		x = tx ;
 		y = ty ;

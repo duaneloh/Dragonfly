@@ -37,7 +37,7 @@ cdef extern from "src/maximize.h" nogil:
     double maximize(max_data*)
     void free_max_data(max_data*)
     void (*slice_gen)(double*, int, double*, detector*, model*)
-    void (*slice_merge)(double*, int, double*, detector*, model*)
+    void (*slice_merge)(double*, int, double*, double*, double*, long, detector*)
 
 cdef class EMCRecon:
     cdef max_data *mdata
