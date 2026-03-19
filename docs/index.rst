@@ -16,6 +16,7 @@ using MPI and OpenMP.
    iterate
    params
    recon
+   utils
 
 Overview
 --------
