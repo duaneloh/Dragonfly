@@ -40,11 +40,14 @@ ext_modules = [
         depends=['dragonfly/src/params.h', 'dragonfly/params.pxd'],
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
     Extension(name='dragonfly.recon', sources=['dragonfly/recon.pyx', 'dragonfly/src/maximize.c', 'dragonfly/src/model.c'],
-        depends=['dragonfly/src/maximize.h', 'dragonfly/recon.pxd'],
+        depends=['dragonfly/src/maximize.h', 'dragonfly/src/model.h', 'dragonfly/recon.pxd'],
         language='c', extra_compile_args=compile_args+mpi_cflags, extra_link_args=link_args+mpi_libs),
     Extension(name='dragonfly.utils.make_data', sources=['dragonfly/utils/make_data.pyx', 'dragonfly/src/model.c'],
         depends=['dragonfly/utils/make_data.pxd'],
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
+    #Extension(name='dragonfly.utils.compare', sources=['dragonfly/utils/compare.pyx', 'dragonfly/src/model.c'],
+    #    depends=['dragonfly/src/quaternion.c'],
+    #    language='c', extra_compile_args=compile_args, extra_link_args=link_args),
 ]
 py_packages = [
     'dragonfly',
@@ -57,13 +60,6 @@ extensions = cythonize(ext_modules, language_level=3,
                                             'wraparound': False,
                                             'cdivision': True,
                                             'nonecheck': False})
-utils_scripts = [
-    'dragonfly.utils.make_densities = dragonfly.utils.make_densities:main',
-    'dragonfly.utils.make_intensities = dragonfly.utils.make_intensities:main',
-    'dragonfly.utils.make_detector = dragonfly.utils.make_detector:main',
-    'dragonfly.utils.sim_setup = dragonfly.utils.sim_setup:main',
-    'dragonfly.utils.make_data = dragonfly.utils.make_data:main',
-]
 
 with open('dragonfly/_version.py', 'r') as f:
     exec(f.read())
@@ -72,13 +68,6 @@ setup(name='dragonfly',
       version=__version__,
       packages=py_packages,
       ext_modules=extensions,
-      entry_points = {'console_scripts': [
-          'dragonfly.init = dragonfly.utils.init_new_recon:main',
-          'dragonfly.emc = dragonfly.recon:main',
-          'dragonfly.autoplot = dragonfly.utils.autoplot:main',
-          'dragonfly.frameviewer = dragonfly.utils.frameviewer:main',
-          ] + utils_scripts
-      },
       install_package_data=True,
       package_data={'':['config.ini',
                         'aux/*',

@@ -1,3 +1,78 @@
 [build-system]
-requires = ['setuptools >= 64', 'cython >= 0.29', 'numpy<2']
+requires = ['setuptools>=64', 'cython>=0.29', 'numpy<2']
 build-backend = 'setuptools.build_meta'
+
+[project]
+name = 'dragonfly'
+dynamic = ['version']
+description = 'Suite of XFEL single particle imaging tools'
+readme = 'README.md'
+requires-python = '>=3.8'
+license = 'GPL-3.0-or-later'
+license-files = ['LICENSE']
+authors = [
+    {name = 'Kartik Ayyer'},
+	{name = 'N. Duane Loh'},
+]
+keywords = ['single-particle-imaging', 'xfel', 'emc', 'diffractive-imaging', 'reconstruction']
+classifiers = [
+    'Development Status :: 4 - Beta',
+    'Intended Audience :: Science/Research',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: C',
+    'Topic :: Scientific/Engineering :: Bio-Informatics',
+    'Topic :: Scientific/Engineering :: Physics',
+]
+
+# Core dependencies
+dependencies = [
+    'numpy<2',
+    'h5py',
+    'scipy',
+    'scikit-learn',
+    'matplotlib',
+    'PyQt5',
+]
+
+# Optional dependencies
+[project.optional-dependencies]
+dev = [
+    'sphinx',
+    'sphinx_rtd_theme',
+    'pylint',
+]
+
+# Cluster/build dependencies (install separately on clusters with MPI modules)
+# mpi4py should be installed after loading the MPI environment module
+
+[project.urls]
+Homepage = 'https://github.com/duaneloh/Dragonfly'
+Documentation = 'https://duaneloh.github.io/Dragonfly'
+Repository = 'https://github.com/duaneloh/Dragonfly'
+
+[tool.setuptools.dynamic]
+version = {attr = 'dragonfly._version.__version__'}
+
+[tool.setuptools]
+packages = [
+	'dragonfly',
+	'dragonfly.utils',
+	'dragonfly.utils.py_src',
+]
+package-dir = {'' = '.'}
+
+[project.scripts]
+'dragonfly.init' = 'dragonfly.utils.init_new_recon:main'
+'dragonfly.emc' = 'dragonfly.recon:main'
+'dragonfly.autoplot' = 'dragonfly.utils.autoplot:main'
+'dragonfly.frameviewer' = 'dragonfly.utils.frameviewer:main'
+'dragonfly.utils.make_densities' = 'dragonfly.utils.make_densities:main'
+'dragonfly.utils.make_intensities' = 'dragonfly.utils.make_intensities:main'
+'dragonfly.utils.make_detector' = 'dragonfly.utils.make_detector:main'
+'dragonfly.utils.make_data' = 'dragonfly.utils.make_data:main'
+'dragonfly.utils.sim_setup' = 'dragonfly.utils.sim_setup:main'
+#'dragonfly.utils.compare' = 'dragonfly.utils.compare:main'
+
