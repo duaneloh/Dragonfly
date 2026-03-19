@@ -1,4 +1,4 @@
-'''Module containing class to generate tomographic slices'''
+'''Module containing class to generate tomographic slices.'''
 
 import os
 from configparser import NoOptionError
@@ -8,18 +8,25 @@ import dragonfly
 
 from .read_config import MyConfigParser
 
-class SliceGenerator(object):
-    '''Class to generate slices from 3D intensity distribution for given orientation
 
-    Requires config file from an EMC reconstruction
+class SliceGenerator:
+    '''Class to generate slices from 3D intensity distribution for given orientation.
 
-    Methods:
-        get_slice(iteration, frame_number) - Return predicted detector intensity for iteration'th\
-            reconstruction for given frame
+    Requires config file from an EMC reconstruction.
 
-    NOTE: This produces the tomogram for the most likely orientation only.
+    Note:
+        This produces the tomogram for the most likely orientation only.
+
+    Args:
+        config_fname (str): Path to configuration file.
+
+    Example:
+        >>> gen = SliceGenerator('config.ini')
+        >>> tomo, info = gen.get_slice(10, 5)
     '''
+
     def __init__(self, config_fname):
+        '''Initialize SliceGenerator from configuration file.'''
         config = MyConfigParser()
         config.read(config_fname)
 
@@ -42,6 +49,7 @@ class SliceGenerator(object):
         self.model = self.stats = None
 
     def _init_model(self, iteration):
+        '''Initialize model from iteration output file.'''
         self.stats = {'rmax': None, 'scale': None, 'info': None}
 
         h5model_fname = '%s/output_%.3d.h5' % (self.folder, iteration)
@@ -59,15 +67,17 @@ class SliceGenerator(object):
         self.current_iteration = iteration
 
     def get_slice(self, iteration, num, raw=False, **kwargs):
-        '''Get tomographic slice for given iteration and frame number
+        '''Get tomographic slice for given iteration and frame number.
 
-        Parameters:
-            iteration - Reconstruction iteration number
-            num - Frame number
-            raw [optional] - Whether to return unassembled slice
+        Args:
+            iteration (int): Reconstruction iteration number.
+            num (int): Frame number.
+            raw (bool, optional): Whether to return unassembled slice.
+            **kwargs: Additional arguments passed to assemble_frame.
 
         Returns:
-            Assembled detector slice, mutual information for that iteration
+            tuple: (assembled detector slice, mutual information) or
+                   (raw slice, mutual information) if raw=True.
         '''
         if iteration != self.current_iteration:
             self._init_model(iteration)
@@ -80,7 +90,15 @@ class SliceGenerator(object):
         return self.det.assemble_frame(dslice, **kwargs), self.stats['info'][num]
 
     def get_quat(self, iteration, num):
-        '''Return best match quaternion for given iteration and frame number'''
+        '''Return best match quaternion for given iteration and frame number.
+
+        Args:
+            iteration (int): Reconstruction iteration number.
+            num (int): Frame number.
+
+        Returns:
+            tuple: Quaternion as 5 floats.
+        '''
         if iteration != self.current_iteration:
             self._init_model(iteration)
         return tuple(self.quat.quats[self.stats['rmax'][num] // self.num_modes])

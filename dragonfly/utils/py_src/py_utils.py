@@ -9,30 +9,45 @@ import configparser
 import numpy as np
 import dragonfly
 
-class MyTimer(object):
-    '''Class to report elapsed time for logging'''
+
+class MyTimer:
+    '''Class to report elapsed time for logging.'''
+
     def __init__(self):
+        '''Initialize timer with current time.'''
         self._time0 = time.time()
         self._time_start = self._time0
 
     def reset(self, msg=None, report=False):
-        '''Update time and log difference since last reset if requesterd'''
+        '''Update time and log difference since last reset if requested.
+
+        Args:
+            msg (str, optional): Message to log.
+            report (bool): Whether to log the time difference.
+        '''
         if report:
             time1 = time.time()
             logging.info("%-30s:%5.5f seconds", msg, time1-self._time0)
         self._time0 = time.time()
 
     def reset_global(self):
-        '''Update global start time'''
+        '''Update global start time.'''
         self._time_start = time.time()
 
     def report_time_since_beginning(self):
-        '''Log time difference since start'''
+        '''Log time difference since start.'''
         logging.info("="*20)
         logging.info("%-30s:%5.5f seconds", "Since beginning", time.time() - self._time_start)
 
+
 def write_density(in_den_file, in_den, binary=True):
-    '''Write density volume to file (binary or text format)'''
+    '''Write density volume to file.
+
+    Args:
+        in_den_file (str): Output file path.
+        in_den (ndarray): 3D density array.
+        binary (bool): Write binary if True, text if False.
+    '''
     if binary:
         in_den.astype('float64').tofile(in_den_file)
     else:
@@ -42,17 +57,33 @@ def write_density(in_den_file, in_den, binary=True):
                     tmp = ' '.join(line1.astype('str'))
                     fptr.write(tmp + '\n')
 
+
 def read_density(in_den_file):
-    '''Read density volume from file (binary)'''
+    '''Read density volume from binary file.
+
+    Args:
+        in_den_file (str): Input file path.
+
+    Returns:
+        ndarray: 3D density array.
+    '''
     den = np.fromfile(in_den_file, dtype="float64")
     vol = len(den)
     size = int(np.round(np.power(vol, 1./3.)))
     out_den = den.reshape(3*(size,))
     return out_den
 
+
 def check_to_overwrite(fname):
-    '''Check if file exists and prompt before overwriting
-    By default, the file is overwritten
+    '''Check if file exists and prompt before overwriting.
+
+    By default, the file is overwritten.
+
+    Args:
+        fname (str): File path to check.
+
+    Returns:
+        bool: True to overwrite, False to cancel.
     '''
     overwrite = True
     yes_val = set(['yes', 'y', '', 'yup', 'ya'])
@@ -73,9 +104,15 @@ def check_to_overwrite(fname):
             overwrite = False
     return overwrite
 
+
 def confirm_oversampling(ratio):
-    '''Print message for user if oversampling ratio is too high
-    Prompt for continuation
+    '''Print message if oversampling ratio is too high and prompt for continuation.
+
+    Args:
+        ratio (float): Oversampling ratio to check.
+
+    Returns:
+        bool: True to proceed, False to cancel.
     '''
     proceed = True
     done = False
@@ -99,8 +136,18 @@ def confirm_oversampling(ratio):
             proceed = False
     return proceed
 
+
 def gen_det_and_emc(gui, classifier=False, mask=False):
-    '''Creates EMCReader and Detector instances for GUIs'''
+    '''Create EMCReader and Detector instances for GUIs.
+
+    Args:
+        gui: GUI object with det_list and photons_list attributes.
+        classifier (bool): Whether this is for the classifier GUI.
+        mask (bool): Whether to use mask.
+
+    Returns:
+        Sets gui.geom and gui.emc_reader attributes.
+    '''
     if len(set(gui.det_list)) == 1:
         geom_list = [dragonfly.Detector(gui.det_list[0], mask_flag=mask)]
         geom_mapping = None
