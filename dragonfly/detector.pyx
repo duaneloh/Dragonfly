@@ -13,37 +13,31 @@ from libc.string cimport strcpy
 from libc.math cimport sqrt
 
 cdef class CDetector:
-    """Dragonfly detector cython class
+    '''Dragonfly detector cython class.
 
-    The detector file format is specified in github.com/duaneloh/Dragonfly/wiki
-    This class reads the file and provides numpy arrays which can be used for
-    further processing.
+    The detector file format is specified in github.com/duaneloh/Dragonfly/wiki.
+    This class reads the file and provides numpy arrays for further processing.
 
-    __init__ arguments (optional):
-        fname (string) - Path to detector file to populate attributes
-        mask_flag (bool) - Whether to read the mask column for each pixel
-        keep_mask_1 (bool) - Whether to consider mask=1 pixels as good
-
-    On parsing, it produces the following numpy arrays (each of length num_pix)
-
-    Attributes:
-        self.qvals - Voxel space coordinates (origin at (0,0,0))
-        self.cx, self.cy - Floating point 2D coordinates (origin at (0,0))
-        self.x, self.y - Integer and shifted 2D coordinates (corner at (0,0))
-        self.raw_mask - Unassembled mask as stored in detector file
-        self.mask - Unassembled mask (1=good, 0=bad)
-        self.mask_assem - Assembled mask (1-good, 0=bad)
-    """
+    Args:
+        fname (str, optional): Path to detector file to populate attributes.
+        norm (bool, optional): Whether to normalize correction factors, default: True
+        rtype (str, optional): Reconstruction type (2d or 3d), default: 3d
+    '''
     def __init__(self, fname=None, **kwargs):
         self.det = <c_det.detector*> calloc(1, sizeof(c_det.detector))
         if fname is not None:
             self.parse(fname, **kwargs)
 
     def parse(self, fname, norm=True, rtype='3d'):
-        """ Parse Dragonfly detector from file
+        ''' Parse Dragonfly detector from file
+
+        Args:
+            fname (str): Path to detector file to populate attributes.
+            norm (bool, optional): Whether to normalize correction factors, default: True
+            rtype (str, optional): Reconstruction type (2d or 3d), default: 3d
 
         Note: The old ASCII format is no longer supported
-        """
+        '''
         self.det.fname = <char*> malloc(len(fname)+1)
         strcpy(self.det.fname, bytes(fname, 'utf-8'))
         if not h5py.is_hdf5(fname):
@@ -88,6 +82,7 @@ cdef class CDetector:
                 self.det.qvals[t*3 + d] = qvals[t, d]
 
     def free(self):
+        '''Free memory'''
         if self.det == NULL:
             return
         if self.det.qvals != NULL:
@@ -106,6 +101,7 @@ cdef class CDetector:
         self.det = NULL
 
     def qmax(self):
+        '''Get maximum voxel-space radius'''
         cdef int t, d
         cdef double qsq, qmax = 0
         for t in range(self.det.num_pix):
@@ -136,19 +132,29 @@ cdef class CDetector:
         qz[:] = 0
 
     @property
-    def fname(self): return (<bytes> self.det.fname).decode()
+    def fname(self):
+        '''Path to detector file.'''
+        return (<bytes> self.det.fname).decode()
     @property
-    def num_pix(self): return self.det.num_pix
+    def num_pix(self):
+        '''Number of pixels.'''
+        return self.det.num_pix
     @property
-    def detd(self): return self.det.detd
+    def detd(self):
+        '''Detector distance.'''
+        return self.det.detd
     @detd.setter
     def detd(self, value): self.det.detd = float(value)
     @property
-    def ewald_rad(self): return self.det.ewald_rad
+    def ewald_rad(self):
+        '''Ewald sphere radius in voxels.'''
+        return self.det.ewald_rad
     @ewald_rad.setter
     def ewald_rad(self, value): self.det.ewald_rad = float(value)
     @property
-    def corr(self): return np.asarray(<double[:self.num_pix]>self.det.corr) if self.det.corr != NULL else None
+    def corr(self):
+        '''Correction factors.'''
+        return np.asarray(<double[:self.num_pix]>self.det.corr) if self.det.corr != NULL else None
     @corr.setter
     def corr(self, arr):
         if len(arr.shape) != 1 or arr.dtype != 'f8':
@@ -162,7 +168,9 @@ cdef class CDetector:
         if self.det.num_pix == 0:
             self.det.num_pix = arr.shape[0]
     @property
-    def raw_mask(self): return np.asarray(<uint8_t[:self.num_pix]>self.det.raw_mask) if self.det.raw_mask != NULL else None
+    def raw_mask(self):
+        '''Unassembled mask as stored in file (0=good, 1=ignore, 2=bad).'''
+        return np.asarray(<uint8_t[:self.num_pix]>self.det.raw_mask) if self.det.raw_mask != NULL else None
     @raw_mask.setter
     def raw_mask(self, arr):
         if len(arr.shape) != 1 or arr.dtype != 'u1':
@@ -176,7 +184,9 @@ cdef class CDetector:
         if self.det.num_pix == 0:
             self.det.num_pix = arr.shape[0]
     @property
-    def qvals(self): return np.asarray(<double[:3*self.num_pix]>self.det.qvals).reshape(-1, 3) if self.det.qvals != NULL else None
+    def qvals(self):
+        '''3D voxel space coordinates for each pixel, shape (num_pix, 3).'''
+        return np.asarray(<double[:3*self.num_pix]>self.det.qvals).reshape(-1, 3) if self.det.qvals != NULL else None
     @qvals.setter
     def qvals(self, arr):
         if len(arr.shape) != 2 or arr.shape[1] != 3:
@@ -192,7 +202,9 @@ cdef class CDetector:
         if self.det.num_pix == 0:
             self.det.num_pix = arr.shape[0]
     @property
-    def background(self): return np.asarray(<double[:self.num_pix]>self.det.background) if self.det.background != NULL else None
+    def background(self):
+        '''Background value for each pixel, if present, shape (num_pix,).'''
+        return np.asarray(<double[:self.num_pix]>self.det.background) if self.det.background != NULL else None
     @background.setter
     def background(self, arr):
         if len(arr.shape) != 1 or arr.dtype != 'f8':
@@ -207,14 +219,27 @@ cdef class CDetector:
             self.det.num_pix = arr.shape[0]
 
 class Detector(CDetector):
+    '''Detector class with assembly and coordinate methods.
+
+    Extends CDetector with additional functionality for frame assembly,
+    coordinate calculations, and file I/O.
+
+    Args:
+        fname (str, optional): Path to detector file to populate attributes.
+        mask_flag (bool, optional): Whether to read the mask column. Default True.
+        keep_mask_1 (bool, optional): Whether to consider mask=1 pixels as good.
+            Default True.
+
+    Attributes:
+        cx, cy (ndarray): Floating point 2D coordinates (origin at (0,0)).
+        x, y (ndarray): Integer shifted 2D coordinates (corner at (0,0)).
+        mask (ndarray): Unassembled mask (1=good, 0=bad).
+        mask_assem (ndarray): Assembled mask (1-good, 0=bad).
+        frame_shape (tuple): Shape of assembled frame.
+        zoom_bounds (tuple): Bounds of zoomed region (xmin, xmax, ymin, ymax).
+    '''
+
     def __init__(self, fname=None, **kwargs):
-        '''
-        Additional methods of python Detector class:
-            assemble_frame(data, zoomed=False, sym=False)
-            calc_from_coords()
-            remask(qradius)
-            write(fname)
-        '''
         super(Detector, self).__init__(fname, **kwargs)
         self._sym_shape = None
 
@@ -223,22 +248,22 @@ class Detector(CDetector):
         self._process_det(mask_flag=mask_flag, keep_mask_1=keep_mask_1)
 
     def write(self, fname):
-        """ Write Dragonfly detector to file
+        ''' Write Dragonfly detector to file
 
         If h5py is available and the file name as a '.h5' extension,
         an HDF5 detector will be written, otherwise an ASCII file will be generated.
 
         Note that the background array can only be stored in an HDF5 detector
-        """
-        if not (hasattr(self, "qvals") and
-                hasattr(self, "corr") and
-                hasattr(self, "raw_mask") and
-                hasattr(self, "detd") and
-                hasattr(self, "ewald_rad")):
+        '''
+        if not (hasattr(self, 'qvals') and
+                hasattr(self, 'corr') and
+                hasattr(self, 'raw_mask') and
+                hasattr(self, 'detd') and
+                hasattr(self, 'ewald_rad')):
             raise AttributeError('Detector attributes not populated. Cannot write to file')
 
         print('Writing HDF5 detector file to', fname)
-        with h5py.File(fname, "w") as fptr:
+        with h5py.File(fname, 'w') as fptr:
             fptr['qx'] = self.qvals[:,0].ravel().astype('f8')
             fptr['qy'] = self.qvals[:,1].ravel().astype('f8')
             fptr['qz'] = self.qvals[:,2].ravel().astype('f8')

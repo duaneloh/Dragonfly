@@ -17,7 +17,25 @@ from . cimport quaternion as c_quat
 from . cimport emcfile as c_dataset
 
 cdef class EMCRecon():
+    '''Main class for EMC reconstruction.
+
+    Performs the Expand-Maximize-Compress algorithm for single-particle
+    diffraction imaging using MPI and OpenMP.
+
+    Args:
+        num_threads (int, optional): Number of OpenMP threads. Default -1 (auto).
+
+    Example:
+        >>> recon = EMCRecon(num_threads=8)
+        >>> itr = Iterate('config.ini')
+        >>> itr.params.num_iter = 100
+        >>> recon.set_iterate(itr)
+        >>> for itr.params.iteration in range(1, 101):
+        ...     recon.run_iteration()
+    '''
+
     def __init__(self, num_threads=-1):
+        '''Initialize EMCRecon object.'''
         if num_threads <= 0:
             self.num_threads = openmp.omp_get_max_threads()
         else:
@@ -28,6 +46,11 @@ cdef class EMCRecon():
         self.mdata.within_openmp = 0
 
     def set_iterate(self, Iterate itr):
+        '''Set the Iterate object for reconstruction.
+
+        Args:
+            itr (Iterate): Iterate object with data, model, quat, and params.
+        '''
         if itr.iter.dset == NULL:
             print('Set data for iterate first')
             return
@@ -47,6 +70,11 @@ cdef class EMCRecon():
         self.mdata.iter = itr.iter
 
     def run_iteration(self, dynamic=False):
+        '''Run a single EMC iteration.
+
+        Args:
+            dynamic (bool, optional): Use dynamic output. Default False.
+        '''
         cdef double likelihood, beta_mean
         cdef double stime = time.time()
         cdef c_iterate.iterate *itr = self.mdata.iter
@@ -68,7 +96,6 @@ cdef class EMCRecon():
         cdef long vol = itr.mod.vol
         MPI.COMM_WORLD.Bcast([<double[:vol]>itr.mod.model1, MPI.DOUBLE], 0)
         beta_mean = self.update_beta()
-        # TODO: self.update_radius()
         likelihood = c_recon.maximize(self.mdata)
 
         if itr.par.rank == 0:
@@ -83,6 +110,7 @@ cdef class EMCRecon():
             print('Finished iteration', itr.par.iteration, '(%e)' % itr.rms_change)
 
     def update_model(self):
+        '''Update model after iteration.'''
         cdef long x
         cdef double diff, change
         cdef c_model.model *mod = self.mdata.iter.mod
@@ -121,6 +149,11 @@ cdef class EMCRecon():
         self.mdata.iter.rms_change = sqrt(change / mod.num_modes / mod.vol)
 
     def update_beta(self):
+        '''Update beta values for current iteration.
+
+        Returns:
+            float: Mean beta value.
+        '''
         cdef int d
         cdef double factor, beta_mean = 0.
         cdef c_iterate.iterate *itr = self.mdata.iter
@@ -141,59 +174,73 @@ cdef class EMCRecon():
         return beta_mean
 
     def free(self):
+        '''Free allocated reconstruction memory.'''
         if self.mdata == NULL or self.mdata.iter == NULL:
             return
         c_recon.free_max_data(self.mdata)
 
     def write_log_file_header(self):
+        '''Write header to log file.'''
         cdef c_iterate.iterate *itr = self.mdata.iter
         cdef c_model.model *mod = itr.mod
         cdef c_params.params *param = itr.par
         cdef c_quat.quaternion *quat = itr.quat
         cdef c_dataset.dataset *frames = itr.dset
 
-        with open((<bytes> param.log_fname).decode(), "w") as fp:
-            fp.write("Cryptotomography with the EMC algorithm using MPI+OpenMP\n\n")
-            fp.write("Data parameters:\n")
+        with open((<bytes> param.log_fname).decode(), 'w') as fp:
+            fp.write('Cryptotomography with the EMC algorithm using MPI+OpenMP\n\n')
+            fp.write('Data parameters:\n')
             if itr.num_blacklist == 0:
-                fp.write("\tnum_data = %d\n\tmean_count = %f\n\n" % (itr.tot_num_data, itr.mean_count[0]))
+                fp.write('\tnum_data = %d\n\tmean_count = %f\n\n' % (itr.tot_num_data, itr.mean_count[0]))
             else:
-                fp.write("\tnum_data = %d/%d\n\tmean_count = %f\n\n" % (itr.tot_num_data-itr.num_blacklist, itr.tot_num_data, itr.mean_count[0]))
-            fp.write("System size:\n")
-            fp.write("\tnum_rot = %d\n\tnum_pix = %d/%d\n\t" % (quat.num_rot, (self.iter.dets[0].raw_mask==0).sum(), itr.det.num_pix))
+                fp.write('\tnum_data = %d/%d\n\tmean_count = %f\n\n' % (itr.tot_num_data-itr.num_blacklist, itr.tot_num_data, itr.mean_count[0]))
+            fp.write('System size:\n')
+            fp.write('\tnum_rot = %d\n\tnum_pix = %d/%d\n\t' % (quat.num_rot, (self.iter.dets[0].raw_mask==0).sum(), itr.det.num_pix))
             if param.rtype == c_params.RECON3D:
-                fp.write("system_volume = %d X %ld X %ld X %ld\n\n" % (mod.num_modes, mod.size, mod.size, mod.size))
+                fp.write('system_volume = %d X %ld X %ld X %ld\n\n' % (mod.num_modes, mod.size, mod.size, mod.size))
             elif param.rtype == c_params.RECON2D or param.rtype == c_params.RECONRZ:
-                fp.write("system_volume = %d X %ld X %ld\n\n" % (mod.num_modes, mod.size, mod.size))
-            fp.write("Reconstruction parameters:\n")
-            fp.write("\tnum_threads = %d\n\tnum_proc = %d\n\talpha = %.6f\n\tbeta = %.6f\n\tneed_scaling = %s" % (
+                fp.write('system_volume = %d X %ld X %ld\n\n' % (mod.num_modes, mod.size, mod.size))
+            fp.write('Reconstruction parameters:\n')
+            fp.write('\tnum_threads = %d\n\tnum_proc = %d\n\talpha = %.6f\n\tbeta = %.6f\n\tneed_scaling = %s' % (
                     self.num_threads,
                     param.num_proc,
                     param.alpha,
                     itr.beta_start[0],
-                    "yes" if param.need_scaling == 1 else "no"))
-            fp.write("\n\nIter\ttime\trms_change\tinfo_rate\tlog-likelihood\tnum_rot\tbeta\n")
+                    'yes' if param.need_scaling == 1 else 'no'))
+            fp.write('\n\nIter\ttime\trms_change\tinfo_rate\tlog-likelihood\tnum_rot\tbeta\n')
             fp.close()
 
     def update_log_file(self, double likelihood, double beta, double iter_time):
+        '''Append iteration results to log file.
+
+        Args:
+            likelihood (float): Log-likelihood value.
+            beta (float): Beta value.
+            iter_time (float): Iteration time in seconds.
+        '''
         cdef c_iterate.iterate *itr = self.mdata.iter
         cdef c_params.params *param = itr.par
 
-        fp = open((<bytes>param.log_fname).decode(), "a")
-        fp.write("%d\t" % param.iteration)
-        fp.write("%4.2f\t" % iter_time)
-        fp.write("%1.4e\t%f\t%.6e\t%-7d\t%f\n" % (itr.rms_change, itr.mutual_info, likelihood, itr.quat.num_rot, beta))
+        fp = open((<bytes>param.log_fname).decode(), 'a')
+        fp.write('%d\t' % param.iteration)
+        fp.write('%4.2f\t' % iter_time)
+        fp.write('%1.4e\t%f\t%.6e\t%-7d\t%f\n' % (itr.rms_change, itr.mutual_info, likelihood, itr.quat.num_rot, beta))
         fp.close()
 
     def save_output(self, dynamic=False):
-        itr = self.iter # Get cython class rather than struct
+        '''Save iteration output to HDF5 file.
+
+        Args:
+            dynamic (bool, optional): Use dynamic output filename. Default False.
+        '''
+        itr = self.iter
         param = itr.params
         if not os.path.exists(param.output_folder):
             os.makedirs(param.output_folder)
         if dynamic:
             out_fname = '%s/output_dynamic.h5' % param.output_folder
         else:
-            out_fname = "%s/output_%.3d.h5" % (param.output_folder, param.iteration)
+            out_fname = '%s/output_%.3d.h5' % (param.output_folder, param.iteration)
 
         with h5py.File(out_fname, 'w') as f:
             for attr in dir(itr.params):
@@ -232,9 +279,12 @@ cdef class EMCRecon():
                 prob_dset[:] = self.prob
 
     @property
-    def num_threads(self): return self.num_threads
+    def num_threads(self):
+        '''Number of OpenMP threads.'''
+        return self.num_threads
     @num_threads.setter
     def num_threads(self, int val):
+        '''Set number of OpenMP threads.'''
         if val <= 0:
             self.num_threads = openmp.omp_get_max_threads()
         else:
@@ -242,6 +292,7 @@ cdef class EMCRecon():
 
     @property
     def iter(self):
+        '''Associated Iterate object.'''
         if self.mdata.iter == NULL:
             return
         retval = Iterate()
@@ -249,23 +300,34 @@ cdef class EMCRecon():
         retval.iter = self.mdata.iter
         return retval
 
-    # Flags
     @property
-    def refinement(self): return self.mdata.refinement
+    def refinement(self):
+        '''Refinement mode flag.'''
+        return self.mdata.refinement
     @refinement.setter
-    def refinement(self, int val): self.mdata.refinement = val
+    def refinement(self, int val):
+        '''Set refinement flag.'''
+        self.mdata.refinement = val
     @property
-    def within_openmp(self): return self.mdata.within_openmp
+    def within_openmp(self):
+        '''OpenMP threading flag.'''
+        return self.mdata.within_openmp
     @within_openmp.setter
-    def within_openmp(self, int val): self.mdata.within_openmp = val
+    def within_openmp(self, int val):
+        '''Set OpenMP flag.'''
+        self.mdata.within_openmp = val
 
-    # Private to OpenMP thread only
     @property
-    def model(self): return np.asarray(<double[:self.mdata.iter.mod.vol]>self.mdata.model).reshape(3*(self.mdata.iter.mod.size,)) if self.mdata.model != NULL else None
+    def model(self):
+        '''Per-thread model (OpenMP private).'''
+        return np.asarray(<double[:self.mdata.iter.mod.vol]>self.mdata.model).reshape(3*(self.mdata.iter.mod.size,)) if self.mdata.model != NULL else None
     @property
-    def weight(self): return np.asarray(<double[:self.mdata.iter.mod.vol]>self.mdata.weight).reshape(3*(self.mdata.iter.mod.size,)) if self.mdata.weight != NULL else None
+    def weight(self):
+        '''Per-thread weights (OpenMP private).'''
+        return np.asarray(<double[:self.mdata.iter.mod.vol]>self.mdata.weight).reshape(3*(self.mdata.iter.mod.size,)) if self.mdata.weight != NULL else None
     @property
     def all_views(self):
+        '''All detector views (OpenMP private).'''
         cdef int num_pix
         if self.mdata.all_views == NULL:
             return
@@ -276,17 +338,25 @@ cdef class EMCRecon():
                 retval.append(<double[:num_pix]> self.mdata.all_views[i])
             return retval
     @property
-    def psum_r(self): return np.asarray(<double[:self.mdata.iter.quat.num_rot_p]>self.mdata.psum_r) if self.mdata.psum_r != NULL else None
+    def psum_r(self):
+        '''Per-rotation sums (OpenMP private).'''
+        return np.asarray(<double[:self.mdata.iter.quat.num_rot_p]>self.mdata.psum_r) if self.mdata.psum_r != NULL else None
     @property
-    def psum_d(self): return np.asarray(<double[:self.mdata.iter.tot_num_data]>self.mdata.psum_d) if self.mdata.psum_d != NULL else None
+    def psum_d(self):
+        '''Per-data sums (OpenMP private).'''
+        return np.asarray(<double[:self.mdata.iter.tot_num_data]>self.mdata.psum_d) if self.mdata.psum_d != NULL else None
 
-    # Common among all threads only
     @property
-    def max_exp(self): return np.asarray(<double[:self.mdata.iter.tot_num_data]>self.mdata.max_exp) if self.mdata.max_exp != NULL else None
+    def max_exp(self):
+        '''Max exposure values (shared among threads).'''
+        return np.asarray(<double[:self.mdata.iter.tot_num_data]>self.mdata.max_exp) if self.mdata.max_exp != NULL else None
     @property
-    def p_norm(self): return np.asarray(<double[:self.mdata.iter.tot_num_data]>self.mdata.p_norm) if self.mdata.p_norm != NULL else None
+    def p_norm(self):
+        '''Probability normalization (shared among threads).'''
+        return np.asarray(<double[:self.mdata.iter.tot_num_data]>self.mdata.p_norm) if self.mdata.p_norm != NULL else None
     @property
     def u(self):
+        '''Intermediate values (shared among threads).'''
         if self.mdata.u == NULL:
             return
         retval = []
@@ -294,27 +364,46 @@ cdef class EMCRecon():
             retval.append(np.asarray(<double[:self.mdata.iter.quat.num_rot_p]>self.mdata.u[i]))
         return retval
     @property
-    def offset_prob(self): return np.asarray(<int[:self.num_threads*self.mdata.iter.tot_num_data]>self.mdata.offset_prob).reshape(self.num_threads, -1) if self.mdata.offset_prob != NULL else None
+    def offset_prob(self):
+        '''Probability offsets (shared among threads).'''
+        return np.asarray(<int[:self.num_threads*self.mdata.iter.tot_num_data]>self.mdata.offset_prob).reshape(self.num_threads, -1) if self.mdata.offset_prob != NULL else None
 
-    # In both private and common structs
     @property
-    def max_exp_p(self): return np.asarray(<double[:self.mdata.iter.tot_num_data]>self.mdata.max_exp_p) if self.mdata.max_exp_p != NULL else None
+    def max_exp_p(self):
+        '''Per-thread max exposure (both private and shared).'''
+        return np.asarray(<double[:self.mdata.iter.tot_num_data]>self.mdata.max_exp_p) if self.mdata.max_exp_p != NULL else None
     @property
-    def info(self): return np.asarray(<double[:self.mdata.iter.tot_num_data]>self.mdata.info) if self.mdata.info != NULL else None
+    def info(self):
+        '''Per-frame mutual information.'''
+        return np.asarray(<double[:self.mdata.iter.tot_num_data]>self.mdata.info) if self.mdata.info != NULL else None
     @property
-    def likelihood(self): return np.asarray(<double[:self.mdata.iter.tot_num_data]>self.mdata.likelihood) if self.mdata.likelihood != NULL else None
+    def likelihood(self):
+        '''Per-frame log-likelihood.'''
+        return np.asarray(<double[:self.mdata.iter.tot_num_data]>self.mdata.likelihood) if self.mdata.likelihood != NULL else None
     @property
-    def rmax(self): return np.asarray(<int[:self.mdata.iter.tot_num_data]>self.mdata.rmax) if self.mdata.rmax != NULL else None
+    def rmax(self):
+        '''Most likely rotation index per frame.'''
+        return np.asarray(<int[:self.mdata.iter.tot_num_data]>self.mdata.rmax) if self.mdata.rmax != NULL else None
     @property
-    def quat_norm(self): return np.asarray(<double[:self.mdata.iter.tot_num_data*self.mdata.iter.mod.num_modes]>self.mdata.quat_norm).reshape(-1, self.mdata.iter.mod.num_modes) if self.mdata.quat_norm != NULL else None
+    def quat_norm(self):
+        '''Quaternion normalization factors.'''
+        return np.asarray(<double[:self.mdata.iter.tot_num_data*self.mdata.iter.mod.num_modes]>self.mdata.quat_norm).reshape(-1, self.mdata.iter.mod.num_modes) if self.mdata.quat_norm != NULL else None
     @property
-    def num_prob(self): return np.asarray(<int[:self.mdata.iter.tot_num_data]>self.mdata.num_prob) if self.mdata.num_prob != NULL else None
+    def num_prob(self):
+        '''Number of probabilities per frame.'''
+        return np.asarray(<int[:self.mdata.iter.tot_num_data]>self.mdata.num_prob) if self.mdata.num_prob != NULL else None
     @property
-    def prob(self): return [np.asarray(<double[:self.mdata.num_prob[d]]>self.mdata.prob[d]) if self.mdata.num_prob[d] > 0 else None for d in range(self.mdata.iter.tot_num_data)] if self.mdata.prob != NULL else None
+    def prob(self):
+        '''Probability arrays per frame.'''
+        return [np.asarray(<double[:self.mdata.num_prob[d]]>self.mdata.prob[d]) if self.mdata.num_prob[d] > 0 else None for d in range(self.mdata.iter.tot_num_data)] if self.mdata.prob != NULL else None
     @property
-    def place_prob(self): return [np.asarray(<int[:self.mdata.num_prob[d]]>self.mdata.place_prob[d]) for d in range(self.mdata.iter.tot_num_data)] if self.mdata.place_prob != NULL else None
+    def place_prob(self):
+        '''Probability place indices per frame.'''
+        return [np.asarray(<int[:self.mdata.num_prob[d]]>self.mdata.place_prob[d]) for d in range(self.mdata.iter.tot_num_data)] if self.mdata.place_prob != NULL else None
+
 
 def main():
+    '''Command-line entry point for EMC reconstruction.'''
     import argparse
 
     parser = argparse.ArgumentParser(description='Cryptotomography with the EMC algorithm using MPI+OpenMP')

@@ -23,7 +23,24 @@ from . cimport quaternion as c_quat
 from .quaternion cimport Quaternion
 
 cdef class Quaternion:
+    '''Class for generating and manipulating orientations for SO(3).
+
+    Supports 3D quaternion generation with various point group symmetries,
+    as well as 2D in-plane rotation generation.
+
+    Args:
+        num_div (int, optional): Number of divisions for 3D sampling.
+        num_rot (int, optional): Number of rotations for 2D sampling.
+        point_group (str, optional): Point group symmetry ('1', '2', 'S4', 'A5').
+
+    Example:
+        >>> quat = Quaternion()
+        >>> quat.generate_3d(10)
+        >>> quat = Quaternion(num_rot=36, point_group='1')
+    '''
+
     def __init__(self, int num_div=0, int num_rot=0, point_group=''):
+        '''Initialize Quaternion object.'''
         self.quat = <c_quat.quaternion*> malloc(sizeof(c_quat.quaternion))
         self.quat.octahedral_flag = (point_group == 'S4')
         self.quat.icosahedral_flag = (point_group == 'A5')
@@ -39,6 +56,12 @@ cdef class Quaternion:
             self.generate_2d(num_rot, point_group)
 
     def from_config(self, config_fname, section_name='emc'):
+        '''Load orientations from configuration file.
+
+        Args:
+            config_fname (str): Path to configuration file.
+            section_name (str, optional): Section name. Default 'emc'.
+        '''
         config_folder = op.dirname(config_fname)
         config = ConfigParser()
         config.read(config_fname)
@@ -69,17 +92,21 @@ cdef class Quaternion:
                 raise ValueError('Unknown point group: ' + point_group)
 
     def generate_3d(self, int num_div):
-        '''Generate quaternions for SO(3) with num_div sampling'''
+        '''Generate quaternions for SO(3) with uniform sampling.
+
+        Args:
+            num_div (int): Number of rotational subdivisions.
+        '''
         self.quat.num_div = num_div
         self.reduced = False
         c_quat.quat_gen(num_div, self.quat)
 
     def generate_2d(self, int num_rot, point_group):
-        '''Generate fake quaternions for in-plane rotations
+        '''Generate quaternions for in-plane rotations.
 
-        num_rot - Number of rotational samples (int)
-        point_group - String or integer version of N-fold rotational symmetry
-        Default point_group is '1'. For Friedel symmetry, point_group=2
+        Args:
+            num_rot (int): Number of rotational samples.
+            point_group (str): N-fold rotational symmetry ('1', '2', etc.).
         '''
         if point_group == '':
             point_group = '1'
@@ -91,6 +118,11 @@ cdef class Quaternion:
         self.quats = q
 
     def save(self, fname):
+        '''Save quaternions to HDF5 file.
+
+        Args:
+            fname (str): Output file path.
+        '''
         if self.quat.quats == NULL:
             raise AttributeError('Generate quaternion first before saving')
 
@@ -98,6 +130,11 @@ cdef class Quaternion:
             fptr['quaternions'] = self.quats
 
     def parse(self, fname):
+        '''Load quaternions from HDF5 file.
+
+        Args:
+            fname (str): Input file path.
+        '''
         cdef int i
 
         with h5py.File(fname, 'r') as fptr:
@@ -117,16 +154,35 @@ cdef class Quaternion:
             self.quat.quats[i] = quats[i]
 
     def divide(self, rank, num_proc, num_modes=1, num_nonrot_modes=0):
+        '''Divide rotations among MPI processes.
+
+        Args:
+            rank (int): MPI rank.
+            num_proc (int): Total number of MPI processes.
+            num_modes (int, optional): Number of modes. Default 1.
+            num_nonrot_modes (int, optional): Non-rotating modes. Default 0.
+
+        Returns:
+            int: Number of rotations for this process.
+        '''
         tot_num_rot = num_modes * self.num_rot + num_nonrot_modes
         self.num_rot_p = tot_num_rot / num_proc
         if rank < (tot_num_rot % num_proc):
             self.quat.num_rot_p += 1
         if num_proc > 1:
-            sys.stderr.write("%d: %s: num_rot_p = %d/%d\n" % (rank, gethostname(), self.num_rot_p, tot_num_rot))
+            sys.stderr.write('%d: %s: num_rot_p = %d/%d\n' % (rank, gethostname(), self.num_rot_p, tot_num_rot))
             sys.stderr.flush()
         return self.quat.num_rot_p
 
     def reduce_icosahedral(self, return_sym=False):
+        '''Reduce to icosahedral point group subset.
+
+        Args:
+            return_sym (bool, optional): Return symmetry elements. Default False.
+
+        Returns:
+            int or ndarray: Number of rotations or symmetry quaternions.
+        '''
         if self.quat.quats == NULL:
             raise AttributeError('Generate quaternion first before reducing')
         if self.reduced:
@@ -136,8 +192,6 @@ cdef class Quaternion:
         cdef int r, t
 
         quats = self.quats
-        # Icosahedral point group quaternions are just the vertex ones
-        # Keep quaternions whose closest vertex_quat is the identity
         vert_dist = distance.cdist(quats[:60,:4], quats[60:,:4])
         sel = np.where(vert_dist.argmin(axis=0) == 8)[0]
         self.num_rot = 1 + sel.shape[0]
@@ -155,37 +209,38 @@ cdef class Quaternion:
             return self.num_rot
 
     def reduce_octahedral(self, return_sym=False):
+        '''Reduce to octahedral point group subset.
+
+        Args:
+            return_sym (bool, optional): Return symmetry elements. Default False.
+
+        Returns:
+            int or ndarray: Number of rotations or symmetry quaternions.
+        '''
         if self.quat.quats == NULL:
             raise AttributeError('Generate quaternion first before reducing')
         if self.reduced:
             print('Already reduced')
             return self.num_rot
 
-        # Generate cubic point group quaternions
         cube_quat = np.zeros((24, 4))
-
-        # -- neut and inv2 (1x + 3x)
         cube_quat[:4] = np.identity(4)
 
-        # -- rot3 (8x)
         signs3 = np.stack(np.meshgrid([-1., 1.], [-1., 1.], [-1., 1.], indexing='ij'), -1).reshape(-1, 3)
         cube_quat[4:12] = 0.5
         cube_quat[4:12,1:] *= signs3
 
-        # -- rot1 (6x)
         val = np.sqrt(0.5)
         cube_quat[12:18, 0] = val
         cube_quat[12:15, 1:] = np.identity(3) * val
         cube_quat[15:18, 1:] = np.identity(3) * val * -1
 
-        # -- rot2 (6x)
         for i, pos in enumerate(itertools.permutations(range(3), 2)):
             cube_quat[18 + i, np.array(pos) + 1] = [val, -val] if pos[0] < pos[1] else [val, val]
 
         cdef int r, t
         quats = self.quats
 
-        # Keep quaternions whose closest cube_quat is the identity
         cube_dist = distance.cdist(cube_quat, quats[:,:4])
         sel = np.where(cube_dist.argmin(axis=0) == 0)[0]
         self.num_rot = sel.shape[0]
@@ -200,6 +255,14 @@ cdef class Quaternion:
             return self.num_rot
 
     def voronoi_subset(self, int coarse_num_div):
+        '''Select subset using Voronoi cells.
+
+        Args:
+            coarse_num_div (int): Coarse division level.
+
+        Returns:
+            ndarray: Nearest coarse division indices.
+        '''
         if self.num_rot == 0:
             print('Generate fine quaternions first')
             return
@@ -218,6 +281,7 @@ cdef class Quaternion:
         return nearest
 
     def free(self):
+        '''Free allocated quaternion memory.'''
         if self.quat == NULL:
             return
         if self.quat.quats != NULL: free(self.quat.quats)
@@ -225,27 +289,48 @@ cdef class Quaternion:
         self.quat = NULL
 
     @property
-    def num_div(self): return self.quat.num_div
+    def num_div(self):
+        '''Number of rotational subdivisions.'''
+        return self.quat.num_div
     @property
-    def num_rot(self): return self.quat.num_rot
+    def num_rot(self):
+        '''Total number of rotations.'''
+        return self.quat.num_rot
     @num_rot.setter
-    def num_rot(self, val): self.quat.num_rot = val
+    def num_rot(self, val):
+        '''Set total number of rotations.'''
+        self.quat.num_rot = val
     @property
-    def num_rot_p(self): return self.quat.num_rot_p
+    def num_rot_p(self):
+        '''Number of rotations for current MPI process.'''
+        return self.quat.num_rot_p
     @num_rot_p.setter
-    def num_rot_p(self, val): self.quat.num_rot_p = val
+    def num_rot_p(self, val):
+        '''Set rotations for current MPI process.'''
+        self.quat.num_rot_p = val
     @property
-    def reduced(self): return bool(self.quat.reduced)
+    def reduced(self):
+        '''Whether quaternions have been reduced to point group.'''
+        return bool(self.quat.reduced)
     @reduced.setter
-    def reduced(self, val): self.quat.reduced = int(val)
+    def reduced(self, val):
+        '''Set reduced flag.'''
+        self.quat.reduced = int(val)
     @property
-    def icosahedral_flag(self): return bool(self.quat.icosahedral_flag)
+    def icosahedral_flag(self):
+        '''Whether using icosahedral symmetry.'''
+        return bool(self.quat.icosahedral_flag)
     @property
-    def octahedral_flag(self): return bool(self.quat.octahedral_flag)
+    def octahedral_flag(self):
+        '''Whether using octahedral symmetry.'''
+        return bool(self.quat.octahedral_flag)
     @property
-    def quats(self): return np.asarray(<double[:self.num_rot*5]> self.quat.quats).reshape(-1,5) if self.quat.quats != NULL else None
+    def quats(self):
+        '''Quaternion array, shape (num_rot, 5).'''
+        return np.asarray(<double[:self.num_rot*5]> self.quat.quats).reshape(-1,5) if self.quat.quats != NULL else None
     @quats.setter
     def quats(self, arr):
+        '''Set quaternion array.'''
         if len(arr.shape) != 2 or arr.shape[1] != 5:
             raise ValueError('quats must be  2D array of shape (N, 5)')
         if arr.dtype != 'f8':
@@ -255,4 +340,3 @@ cdef class Quaternion:
         for i in range(arr.size):
             self.quat.quats[i] = arr.ravel()[i]
         self.quat.num_rot = arr.shape[0]
-

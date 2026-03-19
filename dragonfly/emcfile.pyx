@@ -16,13 +16,29 @@ from libc.stdlib cimport malloc, calloc, free
 from libc.string cimport strcpy, memcpy
 
 cdef class CDataset:
+    '''Low-level interface to EMC photon data files.
+
+    Args:
+        fname (str, optional): Path to EMC file.
+        det (CDetector, optional): Associated detector object.
+    '''
+
     def __init__(self, fname=None, CDetector det=None):
+        '''Initialize CDataset object.'''
         self.dset = <dataset*> calloc(1, sizeof(dataset))
         self.dset.det = det.det if det is not None else NULL
         if fname is not None:
             self.parse(fname)
 
     def parse(self, fname):
+        '''Parse EMC file.
+
+        Args:
+            fname (str): Path to EMC file.
+
+        Raises:
+            AttributeError: If detector is not set before parsing.
+        '''
         if self.dset.det == NULL:
             raise AttributeError('Set detector before parsing')
         self.dset.fname = <char*> malloc(len(fname)+1)
@@ -31,12 +47,18 @@ cdef class CDataset:
         c_dset.parse_dataset(self.dset.fname, self.dset.det, self.dset)
 
     def append(self, CDataset next_dset):
+        '''Append another dataset to the linked list.
+
+        Args:
+            next_dset (CDataset): Dataset to append.
+        '''
         cdef c_dset.dataset *curr = self.dset
         while curr.next != NULL:
             curr = curr.next
         curr.next = next_dset.dset
 
     def free(self):
+        '''Free allocated memory for sparse data arrays.'''
         if self.dset.ones != NULL: free(self.dset.ones)
         if self.dset.multi != NULL: free(self.dset.multi)
         if self.dset.place_ones != NULL: free(self.dset.place_ones)
@@ -46,30 +68,43 @@ cdef class CDataset:
         if self.dset.multi_accum != NULL: free(self.dset.multi_accum)
 
     def __iter__(self):
+        '''Iterate over datasets in the linked list.'''
         curr = self
         while curr is not None:
             yield curr
             curr = curr.next
 
     @property
-    def fname(self): return (<bytes> self.dset.fname).decode()
+    def fname(self):
+        '''Path to EMC file.'''
+        return (<bytes> self.dset.fname).decode()
     @property
-    def num_data(self): return self.dset.num_data
+    def num_data(self):
+        '''Number of frames in the file.'''
+        return self.dset.num_data
     @property
-    def num_pix(self): return self.dset.num_pix
+    def num_pix(self):
+        '''Number of pixels per frame.'''
+        return self.dset.num_pix
     @property
-    def ftype(self): return ['sparse', 'dense_integer', 'dense_double'][self.dset.ftype]
+    def ftype(self):
+        '''Frame type: 'sparse', 'dense_integer', or 'dense_double'.'''
+        return ['sparse', 'dense_integer', 'dense_double'][self.dset.ftype]
     @property
     def det(self):
+        '''Associated detector object.'''
         if self.dset.det == NULL:
             return
         retval = CDetector()
         retval.det = self.dset.det
         return retval
     @det.setter
-    def det(self, CDetector det): self.dset.det = det.det
+    def det(self, CDetector det):
+        '''Set associated detector object.'''
+        self.dset.det = det.det
     @property
     def next(self):
+        '''Next dataset in linked list.'''
         if self.dset.next == NULL:
            return
         retval = CDataset()
@@ -77,55 +112,70 @@ cdef class CDataset:
         return retval
 
     @property
-    def ones(self): return np.asarray(<int[:self.num_data]>self.dset.ones, dtype='i4')
+    def ones(self):
+        '''Number of single-photon pixels per frame.'''
+        return np.asarray(<int[:self.num_data]>self.dset.ones, dtype='i4')
     @property
-    def multi(self): return np.asarray(<int[:self.num_data]>self.dset.multi, dtype='i4')
+    def multi(self):
+        '''Number of multi-photon pixels per frame.'''
+        return np.asarray(<int[:self.num_data]>self.dset.multi, dtype='i4')
     @property
-    def place_ones(self): return np.asarray(<int[:self.ones_total]>self.dset.place_ones, dtype='i4')
+    def place_ones(self):
+        '''Pixel indices for single-photon events.'''
+        return np.asarray(<int[:self.ones_total]>self.dset.place_ones, dtype='i4')
     @property
-    def place_multi(self): return np.asarray(<int[:self.multi_total]>self.dset.place_multi, dtype='i4')
+    def place_multi(self):
+        '''Pixel indices for multi-photon events.'''
+        return np.asarray(<int[:self.multi_total]>self.dset.place_multi, dtype='i4')
     @property
-    def count_multi(self): return np.asarray(<int[:self.multi_total]>self.dset.count_multi, dtype='i4')
+    def count_multi(self):
+        '''Photon counts at multi-photon pixels.'''
+        return np.asarray(<int[:self.multi_total]>self.dset.count_multi, dtype='i4')
     @property
-    def ones_total(self): return self.dset.ones_total
+    def ones_total(self):
+        '''Total number of single-photon events.'''
+        return self.dset.ones_total
     @property
-    def multi_total(self): return self.dset.multi_total
+    def multi_total(self):
+        '''Total number of multi-photon events.'''
+        return self.dset.multi_total
     @property
-    def ones_accum(self): return np.asarray(<long[:self.num_data]>self.dset.ones_accum, dtype='i8')
+    def ones_accum(self):
+        '''Cumulative sum of single-photon counts.'''
+        return np.asarray(<long[:self.num_data]>self.dset.ones_accum, dtype='i8')
     @property
-    def multi_accum(self): return np.asarray(<long[:self.num_data]>self.dset.multi_accum, dtype='i8')
+    def multi_accum(self):
+        '''Cumulative sum of multi-photon counts.'''
+        return np.asarray(<long[:self.num_data]>self.dset.multi_accum, dtype='i8')
 
 class EMCReader():
-    """EMC file reader
+    '''EMC file reader.
 
-    Provides access to assembled or raw frames given a list of .emc filenames
+    Provides access to assembled or raw frames given a list of .emc filenames.
 
-    __init__ arguments:
-        photons_list - Path or sequence of paths to emc files. If single file, pass as [fname]
-        det_list - Single or list of Detector objects.
-        det_mapping (list, optional) - Mapping from photons_list to det_list
+    Args:
+        photons_list (str or list): Path or sequence of paths to emc files.
+        det_list (Detector or list): Single or list of Detector objects.
+        dset_list (str or list, optional): HDF5 dataset names for dense frames.
+        det_mapping (list, optional): Mapping from photons_list to det_list.
 
-    If there is only one entry in det_list, all emc files are assumed to use \
-    that detector. Otherwise, a mapping must be provided. \
-    The mapping is a list of the same length as photons_list with entries \
-    giving indices in det_list for the corresponding emc file.
+    Example:
+        >>> det = Detector('detector.h5')
+        >>> reader = EMCReader('photons.emc', det)
+        >>> frame = reader.get_frame(0, zoomed=True)
 
-    Methods:
-        get_frame(num, raw=False, sparse=False, zoomed=False, sym=False)
-        get_powder(raw=False, zoomed=False, sym=False)
-        get_blacklist(fname, sel_string=None)
-    """
+    Attributes:
+        num_frames (int): Total number of frames.
+        blacklist (ndarray): Blacklist mask for frames.
+        num_blacklist (int): Number of blacklisted frames.
+    '''
+
     def __init__(self, photons_list, det_list, dset_list=None, det_mapping=None):
-        '''Create object for given photons file list and detector list
-        
-        One can also pass single file names and detector objects if needed
-        '''
-        # Convert to lists if singleton arguments
+        '''Create object for given photons file list and detector list.'''
         if hasattr(photons_list, 'strip') or not hasattr(photons_list, '__getitem__'):
             photons_list = [photons_list]
         if not hasattr(det_list, '__getitem__'):
             det_list = [det_list]
-        # Create dictionaries of photons file information
         self.flist = [{'fname': fname} for fname in photons_list]
         num_files = len(photons_list)
 
@@ -160,34 +210,35 @@ class EMCReader():
         self._parse_headers()
 
     def get_frame(self, num, **kwargs):
-        """Get particular frame from file list
-        The method determines the file with that frame number and reads it
+        '''Get particular frame from file list.
 
-        Arguments:
-            num (int) - Frame number
-        Keyword arguments:
-            raw (bool) - Whether to get unassembled frame (False)
-            sparse (bool) - Whether to return sparse data (False)
-            zoomed (bool) - Whether to zoom assembled frame to non-masked region (False)
-            sym (bool) - Whether to centro-symmetrize assembled frame (False)
+        Args:
+            num (int): Frame number.
+            raw (bool, optional): Whether to get unassembled frame. Default False.
+            sparse (bool, optional): Whether to return sparse data. Default False.
+            zoomed (bool, optional): Whether to zoom assembled frame. Default False.
+            sym (bool, optional): Whether to centro-symmetrize frame. Default False.
 
         Returns:
-            Assembled or unassembled frame as a dense array
-        """
+            Assembled or unassembled frame as a dense array.
+        '''
         file_num, frame_num = self._get_file_and_frame(num)
         return self._read_frame(file_num, frame_num, **kwargs)
 
     def get_powder(self, raw=False, verbose=False, **kwargs):
-        """Get virtual powder sum of all frames in file list
+        '''Get virtual powder sum of all frames.
 
-        Keyword arguments:
-            raw (bool) - Whether to return unassembled powder sum (False)
-            zoomed (bool) - Whether to zoom assembled frame to non-masked region (False)
-            sym (bool) - Whether to centro-symmetrize assembled frame (False)
+        Args:
+            raw (bool, optional): Whether to return unassembled powder sum.
+            zoomed (bool, optional): Whether to zoom assembled frame.
+            sym (bool, optional): Whether to centro-symmetrize frame.
 
         Returns:
-            Assembled or unassembled powder sum as a dense array
-        """
+            Assembled or unassembled powder sum as a dense array.
+
+        Raises:
+            ValueError: If multiple detectors are used.
+        '''
         if self.multiple_det:
             raise ValueError('Powder sum unreasonable with multiple geometries')
         powder = np.zeros((self.flist[0]['num_pix'],), dtype='f8')
@@ -233,6 +284,7 @@ class EMCReader():
         return powder
 
     def _parse_headers(self):
+        '''Parse headers of all EMC files.'''
         for i, pdict in enumerate(self.flist):
             pdict['dset_name'] = self._dset_list[i]
             pdict['is_hdf5'] = h5py.is_hdf5(pdict['fname'])
@@ -253,6 +305,7 @@ class EMCReader():
         self.num_blacklist = 0
 
     def _get_file_and_frame(self, num):
+        '''Get file number and frame number for global frame index.'''
         file_num = np.where(num < np.array([pdict['num_data'] for pdict in self.flist]))[0][0]
         if file_num == 0:
             frame_num = num
@@ -262,6 +315,7 @@ class EMCReader():
 
     @staticmethod
     def _parse_binaryheader(pdict):
+        '''Parse header of binary EMC file.'''
         with open(pdict['fname'], 'rb') as fptr:
             num_data = np.fromfile(fptr, dtype='i4', count=1)[0]
             pdict['num_pix'] = np.fromfile(fptr, dtype='i4', count=1)[0]
@@ -275,6 +329,7 @@ class EMCReader():
 
     @staticmethod
     def _parse_h5header(pdict):
+        '''Parse header of HDF5 EMC file.'''
         with h5py.File(pdict['fname'], 'r') as fptr:
             if pdict['dset_name'] is None:
                 pdict['frame_type'] = 0
@@ -288,6 +343,7 @@ class EMCReader():
 
     @staticmethod
     def _read_h5frame(pdict, frame_num):
+        '''Read single frame from HDF5 file.'''
         with h5py.File(pdict['fname'], 'r') as fptr:
             if pdict['frame_type'] == 0:
                 place_ones = fptr['place_ones'][frame_num]
@@ -299,6 +355,7 @@ class EMCReader():
 
     @staticmethod
     def _read_binaryframe(pdict, frame_num):
+        '''Read single frame from binary file.'''
         fptr = open(pdict['fname'], 'rb')
         num_data = np.fromfile(fptr, dtype='i4', count=1)[0]
 
@@ -335,11 +392,12 @@ class EMCReader():
             return frame
 
     def _read_frame(self, file_num, frame_num, raw=False, sparse=False, **kwargs):
+        '''Read and optionally assemble a frame.'''
         pdict = self.flist[file_num]
         if pdict['is_hdf5']:
-            frame_data = self._read_h5frame(pdict, frame_num) # pylint: disable=invalid-name
+            frame_data = self._read_h5frame(pdict, frame_num)
         else:
-            frame_data = self._read_binaryframe(pdict, frame_num) # pylint: disable=invalid-name
+            frame_data = self._read_binaryframe(pdict, frame_num)
 
         if pdict['frame_type'] == 0:
             po, pm, cm = frame_data
@@ -357,33 +415,29 @@ class EMCReader():
             frame = pdict['det'].assemble_frame(frame, **kwargs)
         return frame
 
-class EMCWriter(object):
-    """EMC file writer class
+class EMCWriter():
+    '''EMC file writer.
 
-    Provides interface to write dense integer photon count data to an emc file
+    Provides interface to write photon count data to an emc file.
 
-    __init__ arguments:
-        out_fname (string) - Output filename
-        num_pix (int) - Number of pixels in dense frame
+    Args:
+        out_fname (str): Output filename.
+        num_pix (int): Number of pixels in dense frame.
+        hdf5 (bool, optional): Use HDF5 format. Default True.
 
-    The number of pixels is saved to the header and serves as a check since the
-    sparse format is in reference to a detector file.
+    Example:
+        >>> with EMCWriter('photons.emc', num_pix, hdf5=False) as emc:
+        ...     for i in range(num_frames):
+        ...         emc.write_frame(frame[i].ravel())
 
-    Methods:
-        write_frame(frame, fraction=1.)
-        write_sparse_frame(place_ones, place_multi, count_multi)
-        finish_write()
-
-    The typical usage is as follows:
-
-    .. code-block:: python
-
-       with EMCWriter('photons.emc', num_pix) as emc:
-           for i in range(num_frames):
-               emc.write_frame(frame[i].ravel())
-    """
+    Attributes:
+        num_data (int): Number of frames written.
+        num_pix (int): Number of pixels per frame.
+        mean_count (float): Mean photon count per frame.
+    '''
 
     def __init__(self, out_fname, num_pix, hdf5=True):
+        '''Initialize EMC writer.'''
         self.h5_output = hdf5
 
         self.out_fname = out_fname
@@ -399,12 +453,15 @@ class EMCWriter(object):
         self._init_file()
 
     def __enter__(self):
+        '''Context manager entry.'''
         return self
 
     def __exit__(self, etype, val, traceback):
+        '''Context manager exit - finalize file.'''
         self.finish_write()
 
     def _init_file(self):
+        '''Initialize output file.'''
         if self.h5_output:
             self._h5f = h5py.File(self.out_fname, 'w')
             self._h5f['num_pix'] = [self.num_pix]
@@ -432,12 +489,13 @@ class EMCWriter(object):
             self._fptrs = [open(fname, 'wb') for fname in temp_fnames]
 
     def finish_write(self, header_nums=None):
-        """Cleanup and close emc file
+        '''Finalize and close the EMC file.
 
-        This function writes the header and appends the temporary files.
-        It then deletes those temp files. This function should be run before
-        the script is exited.
-        """
+        Writes the header and appends temporary files. Deletes temp files after.
+
+        Args:
+            header_nums (list, optional): Additional header values.
+        '''
         for fptr in self._fptrs:
             fptr.close()
         if self.h5_output:
@@ -474,19 +532,16 @@ class EMCWriter(object):
                 os.system('rm ' + fptr.name)
 
     def write_frame(self, frame, fraction=1., partition=1):
-        """Write given frame to the file
+        '''Write frame to the file.
 
-        Using temporary files, the sparsified version of the input is written.
+        Args:
+            frame (ndarray): 1D dense array with photon counts per pixel.
+            fraction (float, optional): Fraction of photons to write (0-1).
+            partition (int, optional): Partition frame into N sub-frames.
 
-        Arguments:
-            frame (int array) - 1D dense array with photon counts in each pixel
-            fraction (float, optional) - What fraction of photons to write
-            partition (int, optional) - Partition frame into N sub-frames
-
-        If fraction is less than 1, then each photon is written randomly with \
-        the probability = fraction. by default, all photons are written. This \
-        option is useful for performing tests with lower photons/frame.
-        """
+        Raises:
+            ValueError: If frame is not a 1D integer array.
+        '''
         if len(frame.shape) != 1 or not np.issubdtype(frame.dtype, np.integer):
             raise ValueError('write_frame needs 1D array of integers: '+
                              str(frame.shape)+' '+str(frame.dtype))
@@ -521,15 +576,17 @@ class EMCWriter(object):
             self._update_file(place_ones, place_multi, count_multi)
 
     def write_sparse_frame(self, place_ones, place_multi, count_multi):
-        """Write sparse frame to file
+        '''Write sparse frame to file.
 
-        Arguments:
-            place_ones (int array) - List of pixel numbers with 1 photon
-            place_multi (int array) - List of pixel numbers with moe than 1 photon
-            count_multi (int array) - Number of photons in the place_multi pixels
+        Args:
+            place_ones (ndarray): Pixel indices with single photons.
+            place_multi (ndarray): Pixel indices with multiple photons.
+            count_multi (ndarray): Photon counts at multi-photon pixels.
 
-        len(place_multi) == len(count_multi)
-        """
+        Raises:
+            ValueError: If place_multi and count_multi have different lengths.
+            ValueError: If arrays are not integer type.
+        '''
         if len(place_multi) != len(count_multi):
             raise ValueError('place_multi and count_multi should have equal lengths')
         if not (np.issubdtype(place_ones.dtype, np.integer)
@@ -540,6 +597,7 @@ class EMCWriter(object):
         self._update_file(place_ones, place_multi, count_multi)
 
     def _update_file(self, place_ones, place_multi, count_multi):
+        '''Internal method to update file with sparse data.'''
         self.num_data += 1
         self.mean_count += len(place_ones) + count_multi.sum()
         self.ones.append(len(place_ones))
@@ -556,4 +614,3 @@ class EMCWriter(object):
             place_ones.astype(np.int32).tofile(self._fptrs[0])
             place_multi.astype(np.int32).tofile(self._fptrs[1])
             count_multi.astype(np.int32).tofile(self._fptrs[2])
-
