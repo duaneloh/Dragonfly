@@ -22,7 +22,7 @@ set the various parameters:
    :show-inheritance:
 
 Reconstruction Types
--------------------
+--------------------
 
 * ``RECON3D`` - 3D volume reconstruction
 * ``RECON2D`` - 2D slice reconstruction

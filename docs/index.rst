@@ -1,5 +1,5 @@
 Welcome to Dragonfly's documentation!
-====================================
+=====================================
 
 Dragonfly is a software package for single-particle diffractive imaging data analysis,
 implementing the EMC (Expand-Maximize-Compress) single-particle reconstruction algorithm

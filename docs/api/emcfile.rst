@@ -4,7 +4,7 @@ EMC File I/O Module
 The EMC file I/O module provides classes for reading and writing EMC photon data files.
 
 Usage Example
-------------
+-------------
 
 **Reading EMC files:**
 

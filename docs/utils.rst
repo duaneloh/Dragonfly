@@ -5,7 +5,7 @@ The utilities directory contains Python utilities, command-line tools, and Cytho
 extensions for data processing and simulation.
 
 Command-line Tools
------------------
+------------------
 
 The package provides several command-line tools:
 

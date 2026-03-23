@@ -1,8 +1,8 @@
 Frequently Asked Questions
-=========================
+==========================
 
 Installation
------------
+------------
 
 **How do I install dragonfly on an HPC cluster?**
 
@@ -41,14 +41,14 @@ Use the conversion utilities in ``utils/convert/``::
 
 The total number of orientations is ``10*(5*num_div^3 + num_div)``:
 
-========  ===========
+========  ============
 num_div   Orientations
-========  ===========
+========  ============
 2         420
 3         1830
 4         5460
 5         12650
-========  ===========
+========  ============
 
 Start with ``num_div=4`` and increase if the reconstruction shows
 orientation bias or poor convergence.
@@ -110,7 +110,7 @@ Currently, dragonfly uses CPU-only computation. GPU acceleration
 is planned for a future release called `DragonflyX`.
 
 Getting Help
--------------
+------------
 
 For additional support:
 

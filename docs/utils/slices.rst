@@ -1,5 +1,5 @@
 Tomographic Slices
-=================
+==================
 
 Generate slices from 3D intensity distributions for given orientations.
 

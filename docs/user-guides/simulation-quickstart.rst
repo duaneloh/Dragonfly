@@ -1,5 +1,5 @@
 Quick Start with Simulations
-===========================
+============================
 
 This guide walks through the simulation workflow for single-particle imaging.
 
@@ -59,7 +59,7 @@ More details in :doc:`user-guides/simulator` for a description
 of the constituent utilities.
 
 Run EMC Reconstruction
----------------------
+----------------------
 
 **On a single node (only OpenMP)**::
 

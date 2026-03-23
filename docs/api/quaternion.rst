@@ -1,5 +1,5 @@
 Quaternion Module
-================
+=================
 
 The quaternion module handles orientation sampling for SO(3).
 
