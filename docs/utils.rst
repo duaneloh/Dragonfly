@@ -20,6 +20,29 @@ The package provides several command-line tools:
 * ``dragonfly.make_data`` - Generate simulated data
 * ``dragonfly.compare`` - Compare reconstructions
 
+Simulation Utilities
+--------------------
+
+.. automodule:: dragonfly.utils.make_densities
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: dragonfly.utils.make_intensities
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: dragonfly.utils.make_detector
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+.. automodule:: dragonfly.utils.sim_setup
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Configuration Parser
 --------------------
 
