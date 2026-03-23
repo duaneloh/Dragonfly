@@ -1,6 +1,15 @@
 #!/usr/bin/env python
 
-'''Module to generate detector file from configuration parameters'''
+'''Module to generate detector file from configuration parameters.
+
+This module creates detector geometry files containing pixel coordinates,
+correction factors, and masks. The detector is computed based on
+experimental geometry parameters in the configuration file.
+
+Functions:
+    make_detector: Generate detector file from configuration.
+    main: Command-line interface.
+'''
 
 import sys
 import logging
@@ -13,7 +22,16 @@ from .py_src import read_config
 from .py_src import py_utils
 
 def make_detector(config_fname, yes=False, verbose=False):
-    '''Generate detector file from parameters in config file'''
+    '''Generate detector file from parameters in config file.
+
+    Args:
+        config_fname (str): Path to configuration file.
+        yes (bool): Skip confirmation prompts. Default False.
+        verbose (bool): Enable verbose logging. Default False.
+
+    Returns:
+        None: Outputs detector file specified in config.
+    '''
     config = read_config.MyConfigParser()
     config.read(config_fname)
 

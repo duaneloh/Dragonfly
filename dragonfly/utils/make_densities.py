@@ -1,6 +1,15 @@
 #!/usr/bin/env python
 
-'''Make electron density volume from PDB file and configuration parameters'''
+'''Make electron density volume from PDB file and configuration parameters.
+
+This module generates 3D electron density maps from PDB structure files
+using atomic scattering factors. The density is computed on a cubic grid
+and optionally filtered to remove high-frequency artifacts.
+
+Functions:
+    make_dens: Generate density map from configuration file.
+    main: Command-line interface.
+'''
 
 import sys
 import argparse
@@ -11,7 +20,19 @@ from .py_src import process_pdb
 from .py_src import py_utils
 
 def make_dens(config_fname, yes=False, verbose=False):
-    '''Generate density map from parameters in config file'''
+    '''Generate density map from parameters in config file.
+
+    Args:
+        config_fname (str): Path to configuration file.
+        yes (bool): Skip confirmation prompts. Default False.
+        verbose (bool): Enable verbose logging. Default False.
+
+    Returns:
+        None: Outputs binary density file specified in config.
+
+    Raises:
+        :py:exc:`configparser.NoOptionError`: If required config options are missing.
+    '''
     config = read_config.MyConfigParser()
     config.read(config_fname)
 

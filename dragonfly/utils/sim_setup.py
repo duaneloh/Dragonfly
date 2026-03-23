@@ -1,6 +1,14 @@
 #!/usr/bin/env python
 
-'''Module to make simulated data'''
+'''Module to make simulated data.
+
+This module provides a convenience wrapper that sequentially runs the
+entire simulation pipeline: make_densities, make_intensities, make_detector,
+and make_data.
+
+Functions:
+    main: Command-line interface to run full simulation pipeline.
+'''
 
 import sys
 import os
@@ -12,12 +20,13 @@ from dragonfly.utils import make_densities, make_intensities
 from dragonfly.utils import make_detector, make_data
 
 def main():
-    '''Runs through simulation utilities to generate data
+    '''Runs through simulation utilities to generate data.
+
     Utilities:
-        make_densities
-        make_intensities
-        make_detector
-        make_data
+        make_densities: Generate electron density from PDB
+        make_intensities: Generate intensity from density
+        make_detector: Generate detector geometry
+        make_data: Generate photon diffraction patterns
     '''
     logging.basicConfig(filename="simdata.log", level=logging.INFO,
                         format='%(asctime)s - %(levelname)s - %(message)s')

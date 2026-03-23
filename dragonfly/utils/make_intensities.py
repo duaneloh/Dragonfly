@@ -1,6 +1,15 @@
 #!/usr/bin/env python
 
-'''Module to Fourier transform electron densities to generate 3D intensities'''
+'''Module to Fourier transform electron densities to generate 3D intensities.
+
+This module takes a 3D electron density map and computes its squared Fourier
+transform to produce a 3D intensity volume in reciprocal space. The intensity
+is computed at the appropriate oversampling ratio for EMC reconstruction.
+
+Functions:
+    make_intens: Generate intensity volume from density file.
+    main: Command-line interface.
+'''
 
 import sys
 import logging
@@ -17,7 +26,16 @@ except ImportError:
     WITH_PYFFTW = False
 
 def make_intens(config_fname, yes=False, verbose=False):
-    '''Generate intensity volume from config file parameters'''
+    '''Generate intensity volume from config file parameters.
+
+    Args:
+        config_fname (str): Path to configuration file.
+        yes (bool): Skip confirmation prompts. Default False.
+        verbose (bool): Enable verbose logging. Default False.
+
+    Returns:
+        None: Outputs binary intensity file specified in config.
+    '''
     config = read_config.MyConfigParser()
     config.read(config_fname)
 
