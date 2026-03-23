@@ -7,66 +7,133 @@ from PDB files, including realistic noise and photon statistics.
 sim_setup
 ---------
 
-Convenience utility that runs the simulator pipeline sequentially::
+Convenience utility that runs the simulator pipeline sequentially:
 
-    dragonfly.utils.sim_setup
+.. py:function:: dragonfly.utils.sim_setup.main()
+
+    Runs through simulation utilities to generate data.
+
+    This is a convenience wrapper that sequentially executes:
+    * :func:`make_densities <dragonfly.utils.make_densities.make_dens>`
+    * :func:`make_intensities <dragonfly.utils.make_intensities.make_intens>`
+    * :func:`make_detector <dragonfly.utils.make_detector.make_detector>`
+    * :func:`make_data <dragonfly.utils.make_data.make_data_cdef>`
+
+    Usage::
+
+        dragonfly.utils.sim_setup
+        dragonfly.utils.sim_setup -c config.ini
+        dragonfly.utils.sim_setup -y
 
 make_densities
 --------------
 
-Creates electron density map from PDB file.
+Creates electron density map from PDB file using atomic scattering factors.
 
-**Usage**::
+.. py:function:: dragonfly.utils.make_densities.make_dens(config_fname, yes=False, verbose=False)
 
-    dragonfly.utils.make_densities
-    dragonfly.utils.make_densities -c config.ini
+    Generate density map from parameters in config file.
 
-**Output**: Binary file containing 3D cubic electron density distribution
-at the appropriate voxel size.
+    :param config_fname: Path to configuration file.
+    :type config_fname: str
+    :param yes: Skip confirmation prompts.
+    :type yes: bool
+    :param verbose: Enable verbose logging.
+    :type verbose: bool
+    :returns: Outputs binary density file specified in config.
+    :rtype: None
 
-A low-pass filter eliminates artifacts from electron density
-discretization on a cubic grid.
+    **Usage**::
+
+        dragonfly.utils.make_densities
+        dragonfly.utils.make_densities -c config.ini
+
+    **Output**: Binary file containing 3D cubic electron density distribution
+    at the appropriate voxel size.
+
+    A low-pass filter eliminates artifacts from electron density
+    discretization on a cubic grid.
 
 make_intensities
 ----------------
 
 Creates 3D intensity map from electron density with low-pass filtering.
 
-**Usage**::
+.. py:function:: dragonfly.utils.make_intensities.make_intens(config_fname, yes=False, verbose=False)
 
-    dragonfly.utils.make_intensities
-    dragonfly.utils.make_intensities -c config.ini
+    Generate intensity volume from config file parameters.
 
-**Output**: Binary file containing 3D intensity distribution in reciprocal space.
+    :param config_fname: Path to configuration file.
+    :type config_fname: str
+    :param yes: Skip confirmation prompts.
+    :type yes: bool
+    :param verbose: Enable verbose logging.
+    :type verbose: bool
+    :returns: Outputs binary intensity file specified in config.
+    :rtype: None
+
+    **Usage**::
+
+        dragonfly.utils.make_intensities
+        dragonfly.utils.make_intensities -c config.ini
+
+    **Output**: Binary file containing 3D intensity distribution in reciprocal space.
 
 make_detector
 -------------
 
 Generates detector geometry file with pixel information.
 
-**Usage**::
+.. py:function:: dragonfly.utils.make_detector.make_detector(config_fname, yes=False, verbose=False)
 
-    dragonfly.utils.make_detector
-    dragonfly.utils.make_detector -c config.ini
+    Generate detector file from parameters in config file.
 
-**Output**: Detector geometry file (``.h5`` or ``.dat``) containing:
+    :param config_fname: Path to configuration file.
+    :type config_fname: str
+    :param yes: Skip confirmation prompts.
+    :type yes: bool
+    :param verbose: Enable verbose logging.
+    :type verbose: bool
+    :returns: Outputs detector file specified in config.
+    :rtype: None
 
-* Detector distance
-* Pixel size
-* Beam center coordinates
-* Mask information
+    **Usage**::
+
+        dragonfly.utils.make_detector
+        dragonfly.utils.make_detector -c config.ini
+
+    **Output**: Detector geometry file (``.h5`` or ``.dat``) containing:
+
+    * Detector distance
+    * Pixel size
+    * Beam center coordinates
+    * Mask information
+    * Ewald sphere radius
 
 make_data
 ---------
 
 Simulates photon diffraction patterns from 3D intensity volume.
 
-**Usage**::
+.. py:function:: dragonfly.utils.make_data.make_data_cdef(config_fname, yes=False, verbose=False)
 
-    dragonfly.utils.make_data
-    dragonfly.utils.make_data -c config.ini
+    Generate simulated photon data from configuration file.
 
-**Output**: Binary file (``.emc``) containing sparse photon data.
+    :param config_fname: Path to configuration file.
+    :type config_fname: str
+    :param yes: Skip confirmation prompts.
+    :type yes: bool
+    :param verbose: Enable verbose logging.
+    :type verbose: bool
+    :returns: Outputs photon data file specified in config.
+    :rtype: None
+
+    **Usage**::
+
+        dragonfly.utils.make_data
+        dragonfly.utils.make_data -c config.ini
+
+    **Output**: Binary file (``.emc`` or ``.h5``) containing sparse photon data.
 
 Data Format
 -----------

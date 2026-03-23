@@ -1,5 +1,5 @@
 Utilities
-=========
+==========
 
 The utilities directory contains Python utilities, command-line tools, and Cython
 extensions for data processing and simulation.
@@ -19,6 +19,14 @@ The package provides several command-line tools:
 * ``dragonfly.sim_setup`` - Setup simulations
 * ``dragonfly.make_data`` - Generate simulated data
 * ``dragonfly.compare`` - Compare reconstructions
+
+Configuration Parser
+--------------------
+
+.. automodule:: dragonfly.utils.py_src.read_config
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 .. toctree::
    :maxdepth: 1

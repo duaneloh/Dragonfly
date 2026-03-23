@@ -55,7 +55,7 @@ Generate simulated data::
 
     dragonfly.utils.sim_setup
 
-More details in :doc:`user-guides/simulator` for a description
+More details in :doc:`simulator` for a description
 of the constituent utilities.
 
 Run EMC Reconstruction
@@ -105,5 +105,5 @@ Additional Resources
 
 * See ``sample_configs/`` for example configurations
 * Check ``logs/EMC.log`` and ``recon.log`` for detailed logs
-* Refer to :doc:`user-guides/simulation-config` for configuration parameters
-* Refer to :doc:`user-guides/simulator` for data stream simulator details
+* Refer to :doc:`simulation-config` for configuration parameters
+* Refer to :doc:`simulator` for data stream simulator details
