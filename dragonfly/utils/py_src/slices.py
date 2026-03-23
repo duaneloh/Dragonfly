@@ -72,12 +72,13 @@ class SliceGenerator:
         Args:
             iteration (int): Reconstruction iteration number.
             num (int): Frame number.
-            raw (bool, optional): Whether to return unassembled slice.
+            raw (bool): Whether to return unassembled slice. Defaults to False.
             **kwargs: Additional arguments passed to assemble_frame.
 
         Returns:
-            tuple: (assembled detector slice, mutual information) or
-                   (raw slice, mutual information) if raw=True.
+            tuple: (:py:class:`numpy.ndarray`, float) - assembled detector
+                   slice and mutual information, or (raw slice, mutual
+                   information) if raw=True.
         '''
         if iteration != self.current_iteration:
             self._init_model(iteration)

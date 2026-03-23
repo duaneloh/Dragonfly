@@ -22,7 +22,7 @@ class MyTimer:
         '''Update time and log difference since last reset if requested.
 
         Args:
-            msg (str, optional): Message to log.
+            msg (str): Message to log.
             report (bool): Whether to log the time difference.
         '''
         if report:
@@ -45,7 +45,7 @@ def write_density(in_den_file, in_den, binary=True):
 
     Args:
         in_den_file (str): Output file path.
-        in_den (ndarray): 3D density array.
+        in_den (:py:class:`numpy.ndarray`): 3D density array.
         binary (bool): Write binary if True, text if False.
     '''
     if binary:
@@ -65,7 +65,7 @@ def read_density(in_den_file):
         in_den_file (str): Input file path.
 
     Returns:
-        ndarray: 3D density array.
+        :py:class:`numpy.ndarray`: 3D density array.
     '''
     den = np.fromfile(in_den_file, dtype="float64")
     vol = len(den)

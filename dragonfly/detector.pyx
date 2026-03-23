@@ -19,9 +19,9 @@ cdef class CDetector:
     This class reads the file and provides numpy arrays for further processing.
 
     Args:
-        fname (str, optional): Path to detector file to populate attributes.
-        norm (bool, optional): Whether to normalize correction factors, default: True
-        rtype (str, optional): Reconstruction type (2d or 3d), default: 3d
+        fname (str): Path to detector file to populate attributes.
+        norm (bool): Whether to normalize correction factors, default: True
+        rtype (str): Reconstruction type (2d or 3d), default: 3d
     '''
     def __init__(self, fname=None, **kwargs):
         self.det = <c_det.detector*> calloc(1, sizeof(c_det.detector))
@@ -33,8 +33,8 @@ cdef class CDetector:
 
         Args:
             fname (str): Path to detector file to populate attributes.
-            norm (bool, optional): Whether to normalize correction factors, default: True
-            rtype (str, optional): Reconstruction type (2d or 3d), default: 3d
+            norm (bool): Whether to normalize correction factors, default: True
+            rtype (str): Reconstruction type (2d or 3d), default: 3d
 
         Note: The old ASCII format is no longer supported
         '''
@@ -225,16 +225,16 @@ class Detector(CDetector):
     coordinate calculations, and file I/O.
 
     Args:
-        fname (str, optional): Path to detector file to populate attributes.
-        mask_flag (bool, optional): Whether to read the mask column. Default True.
-        keep_mask_1 (bool, optional): Whether to consider mask=1 pixels as good.
+        fname (str): Path to detector file to populate attributes.
+        mask_flag (bool): Whether to read the mask column. Default True.
+        keep_mask_1 (bool): Whether to consider mask=1 pixels as good.
             Default True.
 
     Attributes:
-        cx, cy (ndarray): Floating point 2D coordinates (origin at (0,0)).
-        x, y (ndarray): Integer shifted 2D coordinates (corner at (0,0)).
-        mask (ndarray): Unassembled mask (1=good, 0=bad).
-        mask_assem (ndarray): Assembled mask (1-good, 0=bad).
+        cx, cy (:py:class:`numpy.ndarray`): Floating point 2D coordinates (origin at (0,0)).
+        x, y (:py:class:`numpy.ndarray`): Integer shifted 2D coordinates (corner at (0,0)).
+        mask (:py:class:`numpy.ndarray`): Unassembled mask (1=good, 0=bad).
+        mask_assem (:py:class:`numpy.ndarray`): Assembled mask (1-good, 0=bad).
         frame_shape (tuple): Shape of assembled frame.
         zoom_bounds (tuple): Bounds of zoomed region (xmin, xmax, ymin, ymax).
     '''
@@ -275,16 +275,16 @@ class Detector(CDetector):
                 fptr['background'] = self.background.ravel().astype('f8')
 
     def assemble_frame(self, data, zoomed=False, sym=False, avg=False):
-        ''' Assemble given raw image
+        '''Assemble given raw image.
 
-        Arguments:
-            data - array of num_pix values
-            zoomed (bool) - Restrict assembled image to non-masked pixels
-            sym (bool) - Centro-symmetrize image
-            avg (bool) - Average assembled image
+        Args:
+            data (:py:class:`numpy.ndarray`): Array of num_pix values.
+            zoomed (bool): Restrict assembled image to non-masked pixels. Default False.
+            sym (bool): Centro-symmetrize image. Default False.
+            avg (bool): Average assembled image. Default False.
 
         Returns:
-            Numpy masked array representing assembled image
+            :py:class:`numpy.ma.MaskedArray`: Assembled image.
         '''
         if sym:
             self._init_sym()

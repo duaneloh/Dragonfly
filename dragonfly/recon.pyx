@@ -23,7 +23,7 @@ cdef class EMCRecon():
     diffraction imaging using MPI and OpenMP.
 
     Args:
-        num_threads (int, optional): Number of OpenMP threads. Default -1 (auto).
+        num_threads (int): Number of OpenMP threads. Default -1 (auto).
 
     Example:
         >>> recon = EMCRecon(num_threads=8)
@@ -73,7 +73,7 @@ cdef class EMCRecon():
         '''Run a single EMC iteration.
 
         Args:
-            dynamic (bool, optional): Use dynamic output. Default False.
+            dynamic (bool): Use dynamic output. Default False.
         '''
         cdef double likelihood, beta_mean
         cdef double stime = time.time()
@@ -231,7 +231,7 @@ cdef class EMCRecon():
         '''Save iteration output to HDF5 file.
 
         Args:
-            dynamic (bool, optional): Use dynamic output filename. Default False.
+            dynamic (bool): Use dynamic output filename. Default False.
         '''
         itr = self.iter
         param = itr.params

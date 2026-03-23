@@ -19,9 +19,9 @@ cdef class Model:
     '''Model class for 3D/2D volume reconstruction.
 
     Args:
-        size (int, optional): Size of the model grid. Default 0.
-        num_modes (int, optional): Number of modes. Default 1.
-        model_type (str, optional): Model type ('3d', '2d', or 'rz'). Default '3d'.
+        size (int): Size of the model grid. Default 0.
+        num_modes (int): Number of modes. Default 1.
+        model_type (str): Model type ('3d', '2d', or 'rz'). Default '3d'.
     '''
 
     def __init__(self, long size=0, int num_modes=1, model_type='3d'):
@@ -45,8 +45,8 @@ cdef class Model:
 
         Args:
             fname (str): Path to model file or empty string for random initialization.
-            model_mean (float, optional): Mean value for random initialization. Default 1.0.
-            rank (int, optional): MPI rank for parallel loading. Default 0.
+            model_mean (float): Mean value for random initialization. Default 1.0.
+            rank (int): MPI rank for parallel loading. Default 0.
         '''
         cdef FILE* fp
         cdef char* c_fname
@@ -101,13 +101,13 @@ cdef class Model:
         '''Generate a 2D slice from the model.
 
         Args:
-            quat (ndarray): Quaternion defining the orientation.
+            quat (:py:class:`numpy.ndarray`): Quaternion defining the orientation.
             det (CDetector): Detector to project onto.
-            mode (int, optional): Mode index. Default 0.
-            view (ndarray, optional): Pre-allocated output array.
+            mode (int): Mode index. Default 0.
+            view (:py:class:`numpy.ndarray`): Pre-allocated output array. Default None.
 
         Returns:
-            ndarray: 2D slice values.
+            :py:class:`numpy.ndarray`: 2D slice values.
         '''
         if self.mod.model1 == NULL:
             raise AttributeError('Allocate model1 first')
@@ -130,10 +130,10 @@ cdef class Model:
         '''Merge a 2D slice back into the model.
 
         Args:
-            quat (ndarray): Quaternion defining the orientation.
-            view (ndarray): 2D slice values to merge.
+            quat (:py:class:`numpy.ndarray`): Quaternion defining the orientation.
+            view (:py:class:`numpy.ndarray`): 2D slice values to merge.
             det (CDetector): Detector for projection.
-            mode (int, optional): Mode index. Default 0.
+            mode (int): Mode index. Default 0.
         '''
         if self.mod.model2 == NULL:
             raise AttributeError('Allocate model2 first')
@@ -159,8 +159,8 @@ cdef class Model:
         '''Apply Friedel (point inversion) symmetry.
 
         Args:
-            model (ndarray): Model array to symmetrize.
-            weights (ndarray): Weight array.
+            model (:py:class:`numpy.ndarray`): Model array to symmetrize.
+            weights (:py:class:`numpy.ndarray`): Weight array.
         '''
         cdef int size = model.shape[0]
         with nogil:
@@ -171,8 +171,8 @@ cdef class Model:
         '''Apply octahedral point group symmetry.
 
         Args:
-            model (ndarray): Model array to symmetrize.
-            weights (ndarray): Weight array.
+            model (:py:class:`numpy.ndarray`): Model array to symmetrize.
+            weights (:py:class:`numpy.ndarray`): Weight array.
         '''
         cdef int size = model.shape[0]
         with nogil:
@@ -183,8 +183,8 @@ cdef class Model:
         '''Apply icosahedral point group symmetry.
 
         Args:
-            model (ndarray): Model array to symmetrize.
-            weights (ndarray): Weight array.
+            model (:py:class:`numpy.ndarray`): Model array to symmetrize.
+            weights (:py:class:`numpy.ndarray`): Weight array.
         '''
         cdef int size = model.shape[0]
         with nogil:
@@ -195,8 +195,8 @@ cdef class Model:
         '''Apply N-fold axial symmetry.
 
         Args:
-            model (ndarray): Model array to symmetrize.
-            weights (ndarray): Weight array.
+            model (:py:class:`numpy.ndarray`): Model array to symmetrize.
+            weights (:py:class:`numpy.ndarray`): Weight array.
             order (int): Order of rotational symmetry.
         '''
         cdef int size = model.shape[0]
@@ -208,8 +208,8 @@ cdef class Model:
         '''Apply Friedel symmetry to 2D slices.
 
         Args:
-            model2d (ndarray): 2D model array.
-            weights2d (ndarray): 2D weight array.
+            model2d (:py:class:`numpy.ndarray`): 2D model array.
+            weights2d (:py:class:`numpy.ndarray`): 2D weight array.
         '''
         cdef int num_modes = model2d.shape[0]
         cdef int size = model2d.shape[1]
@@ -221,13 +221,13 @@ cdef class Model:
         '''Apply rotation matrix to model.
 
         Args:
-            model (ndarray): Model array to rotate.
-            rot (ndarray): 3x3 rotation matrix.
-            max_r (int, optional): Maximum radius for masking.
-            rotmodel (ndarray, optional): Pre-allocated output array.
+            model (:py:class:`numpy.ndarray`): Model array to rotate.
+            rot (:py:class:`numpy.ndarray`): 3x3 rotation matrix.
+            max_r (int): Maximum radius for masking. Default 0.
+            rotmodel (:py:class:`numpy.ndarray`): Pre-allocated output array. Default None.
 
         Returns:
-            ndarray: Rotated model.
+            :py:class:`numpy.ndarray`: Rotated model.
         '''
         cdef int i, j, size = model.shape[0]
         cdef double[:,:,:] rotmodel_view
@@ -250,10 +250,10 @@ cdef class Model:
         '''Convert quaternion to rotation matrix.
 
         Args:
-            quaternion (ndarray): 4-component quaternion.
+            quaternion (:py:class:`numpy.ndarray`): 4-component quaternion.
 
         Returns:
-            ndarray: 3x3 rotation matrix.
+            :py:class:`numpy.ndarray`: 3x3 rotation matrix.
         '''
         cdef double rot[3][3]
         c_model.make_rot_quat(&quaternion[0], rot)
@@ -261,7 +261,7 @@ cdef class Model:
 
     @property
     def mtype(self):
-        '''Model type: 'MODEL_3D', 'MODEL_2D', or 'MODEL_RZ'.'''
+        '''Returns the model type (MODEL_3D, MODEL_2D, or MODEL_RZ).'''
         return ['MODEL_3D', 'MODEL_2D', 'MODEL_RZ'][self.mod.mtype]
     @property
     def ndim(self):

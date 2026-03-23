@@ -24,9 +24,9 @@ cdef class Iterate:
     iterative reconstruction.
 
     Args:
-        config_fname (str, optional): Path to configuration file.
-        section_name (str, optional): Section name. Default 'emc'.
-        resume (bool, optional): Resume from last iteration. Default False.
+        config_fname (str): Path to configuration file. Default ''.
+        section_name (str): Section name. Default 'emc'.
+        resume (bool): Resume from last iteration. Default False.
     '''
 
     def __init__(self, config_fname='', section_name='emc', resume=False):
@@ -41,8 +41,8 @@ cdef class Iterate:
 
         Args:
             config_fname (str): Path to configuration file.
-            section_name (str, optional): Section name. Default 'emc'.
-            resume (bool, optional): Resume from last iteration. Default False.
+            section_name (str): Section name. Default 'emc'.
+            resume (bool): Resume from last iteration. Default False.
         '''
         param = EMCParams()
         param.from_config(config_fname, section_name)
@@ -245,7 +245,7 @@ cdef class Iterate:
 
         Args:
             fname (str): Path to scale file or empty string for defaults.
-            bg (bool, optional): Parse background scale. Default False.
+            bg (bool): Parse background scale. Default False.
         '''
         if not op.isfile(fname):
             if self.iter.tot_num_data == 0:
@@ -281,8 +281,8 @@ cdef class Iterate:
 
         Args:
             fname (str): Path to blacklist file.
-            sel_string (str, optional): Selection string ('odd_only' or 'even_only').
-            refresh (bool, optional): Refresh the blacklist. Default False.
+            sel_string (str): Selection string ('odd_only' or 'even_only'). Default None.
+            refresh (bool): Refresh the blacklist. Default False.
         '''
         if self.iter.tot_num_data == 0:
             raise AttributeError('Need to define tot_num_data before generating blacklist')
@@ -346,7 +346,7 @@ cdef class Iterate:
         '''Calculate beta values for each frame.
 
         Args:
-            setval (float, optional): Set all betas to this value.
+            setval (float): Set all betas to this value. Default None.
         '''
         if self.iter.dset == NULL:
             raise AttributeError('Add data first before calculating beta for each frame')

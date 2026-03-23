@@ -19,8 +19,8 @@ cdef class CDataset:
     '''Low-level interface to EMC photon data files.
 
     Args:
-        fname (str, optional): Path to EMC file.
-        det (CDetector, optional): Associated detector object.
+        fname (str): Path to EMC file. Default None.
+        det (CDetector): Associated detector object. Default None.
     '''
 
     def __init__(self, fname=None, CDetector det=None):
@@ -88,7 +88,7 @@ cdef class CDataset:
         return self.dset.num_pix
     @property
     def ftype(self):
-        '''Frame type: 'sparse', 'dense_integer', or 'dense_double'.'''
+        '''Returns the frame type (sparse, dense_integer, or dense_double).'''
         return ['sparse', 'dense_integer', 'dense_double'][self.dset.ftype]
     @property
     def det(self):
@@ -156,8 +156,8 @@ class EMCReader():
     Args:
         photons_list (str or list): Path or sequence of paths to emc files.
         det_list (Detector or list): Single or list of Detector objects.
-        dset_list (str or list, optional): HDF5 dataset names for dense frames.
-        det_mapping (list, optional): Mapping from photons_list to det_list.
+        dset_list (str or list): HDF5 dataset names for dense frames. Default None.
+        det_mapping (list): Mapping from photons_list to det_list. Default None.
 
     Example:
         >>> det = Detector('detector.h5')
@@ -166,7 +166,7 @@ class EMCReader():
 
     Attributes:
         num_frames (int): Total number of frames.
-        blacklist (ndarray): Blacklist mask for frames.
+        blacklist (:py:class:`numpy.ndarray`): Blacklist mask for frames.
         num_blacklist (int): Number of blacklisted frames.
     '''
 
@@ -214,10 +214,10 @@ class EMCReader():
 
         Args:
             num (int): Frame number.
-            raw (bool, optional): Whether to get unassembled frame. Default False.
-            sparse (bool, optional): Whether to return sparse data. Default False.
-            zoomed (bool, optional): Whether to zoom assembled frame. Default False.
-            sym (bool, optional): Whether to centro-symmetrize frame. Default False.
+            raw (bool): Whether to get unassembled frame. Default False.
+            sparse (bool): Whether to return sparse data. Default False.
+            zoomed (bool): Whether to zoom assembled frame. Default False.
+            sym (bool): Whether to centro-symmetrize frame. Default False.
 
         Returns:
             Assembled or unassembled frame as a dense array.
@@ -229,9 +229,9 @@ class EMCReader():
         '''Get virtual powder sum of all frames.
 
         Args:
-            raw (bool, optional): Whether to return unassembled powder sum.
-            zoomed (bool, optional): Whether to zoom assembled frame.
-            sym (bool, optional): Whether to centro-symmetrize frame.
+            raw (bool): Whether to return unassembled powder sum. Default False.
+            zoomed (bool): Whether to zoom assembled frame. Default False.
+            sym (bool): Whether to centro-symmetrize frame. Default False.
 
         Returns:
             Assembled or unassembled powder sum as a dense array.
@@ -423,7 +423,7 @@ class EMCWriter():
     Args:
         out_fname (str): Output filename.
         num_pix (int): Number of pixels in dense frame.
-        hdf5 (bool, optional): Use HDF5 format. Default True.
+        hdf5 (bool): Use HDF5 format. Default True.
 
     Example:
         >>> with EMCWriter('photons.emc', num_pix, hdf5=False) as emc:
@@ -494,7 +494,7 @@ class EMCWriter():
         Writes the header and appends temporary files. Deletes temp files after.
 
         Args:
-            header_nums (list, optional): Additional header values.
+            header_nums (list): Additional header values. Default None.
         '''
         for fptr in self._fptrs:
             fptr.close()
@@ -535,9 +535,9 @@ class EMCWriter():
         '''Write frame to the file.
 
         Args:
-            frame (ndarray): 1D dense array with photon counts per pixel.
-            fraction (float, optional): Fraction of photons to write (0-1).
-            partition (int, optional): Partition frame into N sub-frames.
+            frame (:py:class:`numpy.ndarray`): 1D dense array with photon counts per pixel.
+            fraction (float): Fraction of photons to write (0-1). Default 1.0.
+            partition (int): Partition frame into N sub-frames. Default 1.
 
         Raises:
             ValueError: If frame is not a 1D integer array.
@@ -579,9 +579,9 @@ class EMCWriter():
         '''Write sparse frame to file.
 
         Args:
-            place_ones (ndarray): Pixel indices with single photons.
-            place_multi (ndarray): Pixel indices with multiple photons.
-            count_multi (ndarray): Photon counts at multi-photon pixels.
+            place_ones (:py:class:`numpy.ndarray`): Pixel indices with single photons.
+            place_multi (:py:class:`numpy.ndarray`): Pixel indices with multiple photons.
+            count_multi (:py:class:`numpy.ndarray`): Photon counts at multi-photon pixels.
 
         Raises:
             ValueError: If place_multi and count_multi have different lengths.

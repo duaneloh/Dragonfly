@@ -29,9 +29,9 @@ cdef class Quaternion:
     as well as 2D in-plane rotation generation.
 
     Args:
-        num_div (int, optional): Number of divisions for 3D sampling.
-        num_rot (int, optional): Number of rotations for 2D sampling.
-        point_group (str, optional): Point group symmetry ('1', '2', 'S4', 'A5').
+        num_div (int): Number of divisions for 3D sampling. Default 0.
+        num_rot (int): Number of rotations for 2D sampling. Default 0.
+        point_group (str): Point group symmetry ('1', '2', 'S4', 'A5'). Default ''.
 
     Example:
         >>> quat = Quaternion()
@@ -60,7 +60,7 @@ cdef class Quaternion:
 
         Args:
             config_fname (str): Path to configuration file.
-            section_name (str, optional): Section name. Default 'emc'.
+            section_name (str): Section name. Default 'emc'.
         '''
         config_folder = op.dirname(config_fname)
         config = ConfigParser()
@@ -159,8 +159,8 @@ cdef class Quaternion:
         Args:
             rank (int): MPI rank.
             num_proc (int): Total number of MPI processes.
-            num_modes (int, optional): Number of modes. Default 1.
-            num_nonrot_modes (int, optional): Non-rotating modes. Default 0.
+            num_modes (int): Number of modes. Default 1.
+            num_nonrot_modes (int): Non-rotating modes. Default 0.
 
         Returns:
             int: Number of rotations for this process.
@@ -178,10 +178,10 @@ cdef class Quaternion:
         '''Reduce to icosahedral point group subset.
 
         Args:
-            return_sym (bool, optional): Return symmetry elements. Default False.
+            return_sym (bool): Return symmetry elements. Default False.
 
         Returns:
-            int or ndarray: Number of rotations or symmetry quaternions.
+            int or :py:class:`numpy.ndarray`: Number of rotations or symmetry quaternions.
         '''
         if self.quat.quats == NULL:
             raise AttributeError('Generate quaternion first before reducing')
@@ -212,10 +212,10 @@ cdef class Quaternion:
         '''Reduce to octahedral point group subset.
 
         Args:
-            return_sym (bool, optional): Return symmetry elements. Default False.
+            return_sym (bool): Return symmetry elements. Default False.
 
         Returns:
-            int or ndarray: Number of rotations or symmetry quaternions.
+            int or :py:class:`numpy.ndarray`: Number of rotations or symmetry quaternions.
         '''
         if self.quat.quats == NULL:
             raise AttributeError('Generate quaternion first before reducing')
@@ -261,7 +261,7 @@ cdef class Quaternion:
             coarse_num_div (int): Coarse division level.
 
         Returns:
-            ndarray: Nearest coarse division indices.
+            :py:class:`numpy.ndarray`: Nearest coarse division indices.
         '''
         if self.num_rot == 0:
             print('Generate fine quaternions first')

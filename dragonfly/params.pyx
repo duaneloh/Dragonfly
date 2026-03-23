@@ -68,7 +68,7 @@ cdef class EMCParams:
 
         Args:
             config_fname (str): Path to configuration file.
-            section_name (str, optional): Section name. Default 'emc'.
+            section_name (str): Section name. Default 'emc'.
         '''
         config_folder = op.dirname(config_fname).encode()
         config = ConfigParser()
@@ -278,7 +278,7 @@ cdef class EMCParams:
 
     @property
     def rtype(self):
-        '''Reconstruction type: 'RECON3D', 'RECON2D', or 'RECONRZ'.'''
+        '''Returns the reconstruction type (RECON3D, RECON2D, or RECONRZ).'''
         return ['RECON3D', 'RECON2D', 'RECONRZ'][self.par.rtype]
     @rtype.setter
     def rtype(self, val): 
