@@ -38,7 +38,7 @@ Add the ``[parameters]`` section to your ``config.ini``::
     ewald_rad = 650.
     polarization = x
 
-For units and other details, see :doc:`experimental-config`.
+For units and other details, see :doc:`config`.
 The ``ewald_rad`` parameter is the radius of curvature of the Ewald sphere in voxels.
 The 3D grid size is determined by the highest resolution detector pixel distance.
 A value of 650 gives a 125x125x125 voxel volume.
@@ -130,5 +130,5 @@ Compare with known results from similar experiments to ensure quality.
 See Also
 --------
 
-* :doc:`experimental-config` - Detailed configuration parameters
+* :doc:`simulation-quickstart` - Simulated data tutorial
 * :doc:`faq` - Common troubleshooting questions
