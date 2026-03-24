@@ -105,5 +105,5 @@ Additional Resources
 
 * See ``sample_configs/`` for example configurations
 * Check ``logs/EMC.log`` and ``recon.log`` for detailed logs
-* Refer to :doc:`simulation-config` for configuration parameters
+* Refer to :doc:`config` for description of configuration parameters
 * Refer to :doc:`simulator` for data stream simulator details

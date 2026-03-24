@@ -10,10 +10,9 @@ using MPI and OpenMP.
    :caption: User Guides
 
    user-guides/simulation-quickstart
-   user-guides/simulation-config
    user-guides/simulator
+   user-guides/config
    user-guides/experimental-quickstart
-   user-guides/experimental-config
    user-guides/faq
 
 .. toctree::
