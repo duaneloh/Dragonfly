@@ -10,18 +10,27 @@ Command-line Tools
 The package provides several command-line tools:
 
 * ``dragonfly.init`` - Initialize new reconstruction
-* ``dragonfly.emc`` - Run EMC reconstruction
+
+**Utilities to simulate data:**
+
+* ``dragonfly.utils.make_densities`` - Generate density maps
+* ``dragonfly.utils.make_intensities`` - Generate intensity maps
+* ``dragonfly.utils.make_detector`` - Create detector files
+* ``dragonfly.utils.make_data`` - Generate simulated data
+* ``dragonfly.utils.sim_setup`` - Wrapper to run all utils above
+
+**Graphical programs:**
+
 * ``dragonfly.autoplot`` - Automatic plotting of results
 * ``dragonfly.frameviewer`` - Interactive frame viewer
-* ``dragonfly.make_densities`` - Generate density maps
-* ``dragonfly.make_intensities`` - Generate intensity maps
-* ``dragonfly.make_detector`` - Create detector files
-* ``dragonfly.sim_setup`` - Setup simulations
-* ``dragonfly.make_data`` - Generate simulated data
-* ``dragonfly.compare`` - Compare reconstructions
 
 Simulation Utilities
 --------------------
+
+.. automodule:: dragonfly.utils.sim_setup
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 .. automodule:: dragonfly.utils.make_densities
    :members:
@@ -29,16 +38,13 @@ Simulation Utilities
    :show-inheritance:
 
 .. automodule:: dragonfly.utils.make_intensities
-   :members:
-   :undoc-members:
-   :show-inheritance:
 
 .. automodule:: dragonfly.utils.make_detector
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: dragonfly.utils.sim_setup
+.. automodule:: dragonfly.utils.make_data
    :members:
    :undoc-members:
    :show-inheritance:
