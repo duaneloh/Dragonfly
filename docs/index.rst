@@ -9,6 +9,7 @@ using MPI and OpenMP.
    :maxdepth: 1
    :caption: User Guides
 
+   user-guides/installation
    user-guides/simulation-quickstart
    user-guides/simulator
    user-guides/config

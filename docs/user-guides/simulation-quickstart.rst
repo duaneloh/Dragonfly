@@ -3,17 +3,7 @@ Quick Start with Simulations
 
 This guide walks through the simulation workflow for single-particle imaging.
 
-Installation
-------------
-
-Install the package using pip::
-
-    pip install dragonfly-spi
-
-For HPC environments with MPI modules::
-
-    module load mpi/openmpi-x.x.x
-    pip install dragonfly-spi
+For installation instructions, see :doc:`installation`.
 
 Spawn a Reconstruction Directory
 --------------------------------
