@@ -10,6 +10,7 @@ sim_setup
 Convenience utility that runs the simulator pipeline sequentially:
 
 .. py:function:: dragonfly.utils.sim_setup.main()
+   :noindex:
 
     Runs through simulation utilities to generate data.
 
@@ -31,6 +32,8 @@ make_densities
 Creates electron density map from PDB file using atomic scattering factors.
 
 .. py:function:: dragonfly.utils.make_densities.make_dens(config_fname, yes=False, verbose=False)
+   :noindex:
+
 
     Generate density map from parameters in config file.
 
@@ -60,6 +63,8 @@ make_intensities
 Creates 3D intensity map from electron density with low-pass filtering.
 
 .. py:function:: dragonfly.utils.make_intensities.make_intens(config_fname, yes=False, verbose=False)
+   :noindex:
+
 
     Generate intensity volume from config file parameters.
 
@@ -85,6 +90,8 @@ make_detector
 Generates detector geometry file with pixel information.
 
 .. py:function:: dragonfly.utils.make_detector.make_detector(config_fname, yes=False, verbose=False)
+   :noindex:
+
 
     Generate detector file from parameters in config file.
 
@@ -116,6 +123,7 @@ make_data
 Simulates photon diffraction patterns from 3D intensity volume.
 
 .. py:function:: dragonfly.utils.make_data.make_data_cdef(config_fname, yes=False, verbose=False)
+
 
     Generate simulated photon data from configuration file.
 
