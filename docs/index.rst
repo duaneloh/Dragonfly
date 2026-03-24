@@ -6,7 +6,7 @@ implementing the EMC (Expand-Maximize-Compress) single-particle reconstruction a
 using MPI and OpenMP.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: User Guides
 
    user-guides/simulation-quickstart
