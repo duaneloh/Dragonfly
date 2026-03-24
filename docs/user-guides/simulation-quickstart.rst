@@ -22,7 +22,7 @@ Go to a directory with plenty of space and start a reconstruction session::
 
     dragonfly.init
 
-This creates a new reconstruction directory named ``recon_nnnn`` with all necessary
+This creates a new reconstruction directory named ``recon_0001`` with all necessary
 binaries and configuration files.
 
 For customization options::
@@ -34,7 +34,7 @@ Configure Experiment
 
 Go to your newly created reconstruction directory::
 
-    cd recon_nnnn
+    cd recon_0001
 
 Edit ``config.ini`` to customize parameters:
 
