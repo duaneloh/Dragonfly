@@ -33,6 +33,7 @@ void params_from_config(char *config_fname, char *config_section, struct params 
 	param->refine = 0 ;
 	param->coarse_div = 0 ;
 	param->fine_div = 0 ;
+	param->fixed_seed = 0 ;
 	sprintf(param->log_fname, "%.1015s/EMC.log", config_folder) ;
 	sprintf(param->output_folder, "%.1017s/data/", config_folder) ;
 	
@@ -97,6 +98,8 @@ void params_from_config(char *config_fname, char *config_section, struct params 
 				param->save_prob = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "update_scale") == 0)
 				param->update_scale = atoi(strtok(NULL, " =\n")) ;
+			else if (strcmp(token, "fixed_seed") == 0)
+				param->fixed_seed = atoi(strtok(NULL, " =\n")) ;
 			else if (strcmp(token, "num_div") == 0) {
 				param->fine_div = atoi(strtok(NULL, " =\n")) ;
 				char *cstr = strtok(NULL, " =\n") ;

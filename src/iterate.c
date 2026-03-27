@@ -130,9 +130,8 @@ int iterate_from_config(char *config_fname, char *config_section, int continue_f
 	}
 	
 	model_mean = dset[0].mean_count / det[0].rel_num_pix * 2. ;
-#ifdef FIXED_SEED
-	model_mean *= -1. ;
-#endif // FIXED_SEED
+	if (param->fixed_seed)
+		model_mean *= -1. ;
 	parse_input(input_fname, model_mean, param->rank, param->recon_type, iter) ;
 	calc_powder(det, dset) ;
 	calc_mean_counts(dset, det, iter) ;
