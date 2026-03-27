@@ -10,6 +10,7 @@ struct detector {
 	uint8_t *raw_mask ;
 	uint8_t with_bg ;
 	double *background ;
+	double *powder ;
 
 	double detd, ewald_rad ;
 } ;

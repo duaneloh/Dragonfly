@@ -13,6 +13,7 @@ cdef extern from "src/detector.h" nogil:
         # Background
         uint8_t with_bg
         double *background
+        double *powder
 
 cdef class CDetector:
     cdef detector* det

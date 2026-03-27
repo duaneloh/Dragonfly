@@ -97,6 +97,12 @@ cdef class CDetector:
         if self.det.fname != NULL:
             free(self.det.fname)
             self.det.fname = NULL
+        if self.det.background != NULL:
+            free(self.det.background)
+            self.det.background = NULL
+        if self.det.powder != NULL:
+            free(self.det.powder)
+            self.det.powder = NULL
         free(self.det)
         self.det = NULL
 
