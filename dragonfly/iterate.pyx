@@ -129,7 +129,7 @@ cdef class Iterate:
         qmax = max([det.qmax() for det in dets])
         model = Model(self.calculate_size(qmax), self.iter.par.num_modes, rtype)
         model_mean = self.mean_count[0] / (self.dets[0].raw_mask==0).sum() * 2.
-        model.allocate(model_file, model_mean)
+        model.allocate(model_file, model_mean, fixed_seed=bool(param.fixed_seed))
         self.set_model(model)
 
         if self.iter.par.need_scaling == 1:

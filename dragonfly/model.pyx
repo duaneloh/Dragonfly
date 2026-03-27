@@ -40,13 +40,14 @@ cdef class Model:
             self.size = size
         self.num_modes = num_modes
 
-    def allocate(self, fname, double model_mean=1., int rank=0):
+    def allocate(self, fname, double model_mean=1., int rank=0, bint fixed_seed=False):
         '''Allocate and optionally load model from file.
 
         Args:
             fname (str): Path to model file or empty string for random initialization.
             model_mean (float): Mean value for random initialization. Default 1.0.
             rank (int): MPI rank for parallel loading. Default 0.
+            fixed_seed (bool): Use fixed seed for random initialization. Default False.
         '''
         cdef FILE* fp
         cdef char* c_fname
@@ -93,7 +94,11 @@ cdef class Model:
                 fread(self.mod.model1, sizeof(double), tot_vol, fp)
                 fclose(fp)
         else:
-            print('Random model')
+            if fixed_seed:
+                print('Random start with fixed seed')
+                np.random.seed(0x5EED)
+            else:
+                print('Random model')
             randvol = np.random.random(mshape).ravel() * model_mean
             memcpy(self.mod.model1, &randvol[0], randvol.size*sizeof(double))
 

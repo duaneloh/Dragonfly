@@ -50,6 +50,7 @@ cdef class EMCParams:
         self.par.refine = 0
         self.par.coarse_div = 0
         self.par.fine_div = 0
+        self.par.fixed_seed = 0
 
     def free(self):
         '''Free allocated parameter memory.'''
@@ -114,6 +115,8 @@ cdef class EMCParams:
             self.par.fine_div = int(num_divs[0])
             self.par.coarse_div = int(num_divs[1])
             print('Doing refinement from num_div = %d -> %d\n' % (self.par.coarse_div, self.par.fine_div))
+        
+        self.par.fixed_seed = config.getint(section_name, 'fixed_seed', fallback=0)
 
     @property
     def rank(self):
@@ -371,3 +374,11 @@ cdef class EMCParams:
             free(self.par.output_folder)
         self.par.output_folder = <char*> malloc(len(val) + 1)
         strcpy(self.par.output_folder, bytes(val, 'utf-8'))
+    @property
+    def fixed_seed(self):
+        '''Fixed seed for testing.'''
+        return self.par.fixed_seed
+    @fixed_seed.setter
+    def fixed_seed(self, int val):
+        '''Set fixed seed flag.'''
+        self.par.fixed_seed = val

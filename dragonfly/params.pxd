@@ -26,6 +26,9 @@ cdef extern from "src/params.h" nogil:
 
         # Mode information
         int num_modes, rot_per_mode, nonrot_modes
+        
+        # Testing
+        int fixed_seed
 
 cdef class EMCParams:
     cdef params *par

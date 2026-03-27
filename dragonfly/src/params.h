@@ -28,6 +28,9 @@ struct params {
 
 	// Mode information
 	int num_modes, rot_per_mode, nonrot_modes ;
+	
+	// Testing
+	int fixed_seed ;
 } ;
 
 #endif //PARAMS_H
