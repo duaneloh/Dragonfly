@@ -21,6 +21,11 @@ struct max_data {
 	double *psum_r ; // S_r = \sum_d P_dr \phi_d
 	double *psum_d ; // S_d = \sum_r P_dr u_r
 	
+	// For background-aware optimization (only in priv_data)
+	uint8_t **mask ;
+	double **G_old, **G_new, **G_latest ;
+	double **W_old, **W_new, **W_latest ;
+	
 	// Common among all threads only
 	double *max_exp ; // max_exp[d] = max_r log(R_dr)
 	double *p_norm ; // P_dr normalization, \sum_r R_dr

@@ -26,6 +26,11 @@ static void update_scale(struct max_data*) ;
 static int resparsify(double*, int*, int, double) ;
 static double calc_psum_r(int, struct max_data*, struct max_data*) ;
 static void print_max_time(char*, char*, int) ;
+static void update_tomogram_nobg(int, struct max_data*, struct max_data*) ;
+static void update_tomogram_bg(int, double, struct max_data*, struct max_data*) ;
+static void gradient_rt(int, struct max_data*, double**, double**) ;
+static void gradient_d(struct max_data*, uint8_t*, double*, double*) ;
+static void update_scale_bg(struct max_data*) ;
 
 void (*slice_gen)(double*, int, double*, struct detector*, struct model*) ;
 void (*slice_merge)(double*, int, double*, double*, double*, long, struct detector*) ;
@@ -133,6 +138,26 @@ void allocate_memory(struct max_data *data) {
 		for (d = 0 ; d < iter->tot_num_data ; ++d) {
 			data->prob[d] = malloc(4 * sizeof(double)) ;
 			data->place_prob[d] = malloc(4 * sizeof(int)) ;
+		}
+		
+		// Only for background-aware update
+		if (det[0].with_bg && param->need_scaling) {
+			data->mask = malloc(iter->num_det * sizeof(uint8_t*)) ;
+			data->G_old = malloc(iter->num_det * sizeof(double*)) ;
+			data->G_new = malloc(iter->num_det * sizeof(double*)) ;
+			data->G_latest = malloc(iter->num_det * sizeof(double*)) ;
+			data->W_old = malloc(iter->num_det * sizeof(double*)) ;
+			data->W_new = malloc(iter->num_det * sizeof(double*)) ;
+			data->W_latest = malloc(iter->num_det * sizeof(double*)) ;
+			for (detn = 0 ; detn < iter->num_det ; ++detn) {
+				data->mask[detn] = calloc(det[detn].num_pix, sizeof(uint8_t)) ;
+				data->G_old[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
+				data->G_new[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
+				data->G_latest[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
+				data->W_old[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
+				data->W_new[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
+				data->W_latest[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
+			}
 		}
 	}
 }
@@ -375,95 +400,17 @@ void normalize_prob(struct max_data *priv, struct max_data *common) {
 }
 
 void update_tomogram(int r, struct max_data *priv, struct max_data *common) {
-	int dset = 0, t, d, curr_d, pixel, detn, ind ;
+	double scalemax ;
 	struct iterate *iter = common->iter ;
-	struct dataset *frames = iter->dset ;
-	struct detector *det = iter->det ;
 	struct params *param = iter->par ;
-	double *view ;
-	struct dataset *curr = frames ;
-	double **prob = priv->prob ;
-	int **place_prob = priv->place_prob, *num_prob = priv->num_prob ;
+	struct detector *det = iter->det ;
 	
-	calc_psum_r(r, priv, common) ;
+	scalemax = calc_psum_r(r, priv, common) ;
 	
-	for (detn = 0 ; detn < iter->num_det ; ++detn) 
-		memset(priv->all_views[detn], 0, det[detn].num_pix*sizeof(double)) ;
-	
-	while (curr != NULL) {
-		// Calculate slice for current detector
-		detn = iter->det_mapping[dset] ;
-		view = priv->all_views[detn] ;
-		
-		for (curr_d = 0 ; curr_d < curr->num_data ; ++curr_d) {
-			// Calculate frame number in full list
-			d = curr->num_offset + curr_d ;
-			
-			// check if frame is blacklisted
-			if (iter->blacklist[d])
-				continue ;
-			
-			// For refinement, check if frame should be processed
-			if (param->refine) {
-				ind = -1 ;
-				for (t = 0 ; t < iter->num_rel_quat[d] ; ++t)
-				if (iter->quat_mapping[r*param->num_proc+param->rank] == iter->rel_quat[d][t]) {
-					ind = t ;
-					break ;
-				}
-				if (ind == -1)
-					continue ;
-			}
-			
-			// check if current frame has significant probability
-			ind = -1 ;
-			for (t = 0 ; t < num_prob[d] ; ++t)
-			if (r*param->num_proc + param->rank == place_prob[d][t]) {
-				ind = t ;
-				break ;
-			}
-			if (ind == -1)
-				continue ;
-			
-			
-			// Skip if probability is very low (saves time)
-			if (!(prob[d][ind] > PROB_MIN))
-				continue ;
-			
-			if (curr->ftype == 0) {
-				// For all pixels with one photon
-				for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
-					pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
-					if (det[detn].raw_mask[pixel] < 2)
-						view[pixel] += prob[d][ind] ;
-				}
-				
-				// For all pixels with count_multi photons
-				for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
-					pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
-					if (det[detn].raw_mask[pixel] < 2)
-						view[pixel] += curr->count_multi[curr->multi_accum[curr_d] + t] * prob[d][ind] ;
-				}
-			}
-			else if (curr->ftype == 1) {
-				for (t = 0 ; t < curr->num_pix ; ++t)
-					view[t] += curr->int_frames[curr_d*curr->num_pix + t] * prob[d][ind] ;
-			}
-			else if (curr->ftype == 2) { // Gaussian EMC update without scaling
-				for (t = 0 ; t < curr->num_pix ; ++t)
-				if (det[detn].raw_mask[t] < 2)
-					view[t] += curr->frames[curr_d*curr->num_pix + t] * prob[d][ind] ;
-			}
-		}
-		
-		curr = curr->next ;
-		dset++ ;
-	}
-
-	for (detn = 0 ; detn < iter->num_det ; ++detn) 
-	for (t = 0 ; t < det[detn].num_pix ; ++t)
-	if (priv->psum_r[detn] > 0.)
-		priv->all_views[detn][t] /= priv->psum_r[detn] ;
+	if (det[0].with_bg && param->need_scaling)
+		update_tomogram_bg(r, scalemax, priv, common) ;
+	else
+		update_tomogram_nobg(r, priv, common) ;
 
 }
 
@@ -657,12 +604,246 @@ void update_scale(struct max_data *common) {
 	int d ;
 	struct iterate *iter = common->iter ;
 	struct params *param = iter->par ;
-
-	for (d = 0 ; d < iter->tot_num_data ; ++d)
-	if (!iter->blacklist[d])
-		iter->scale[d] = iter->fcounts[d] / common->psum_d[d] ;
+	struct detector *det = iter->det ;
+	
+	if (det[0].with_bg) {
+		update_scale_bg(common) ;
+	}
+	else {
+		for (d = 0 ; d < iter->tot_num_data ; ++d)
+		if (!iter->blacklist[d])
+			iter->scale[d] = iter->fcounts[d] / common->psum_d[d] ;
+	}
 
 	print_max_time("scale", "", param->verbosity > 1 && param->rank == 0) ;
+}
+
+void gradient_d(struct max_data *common, uint8_t *mask, double *scale, double *grad) {
+	int d ;
+	struct iterate *iter = common->iter ;
+	struct dataset *frames = iter->dset ;
+	struct detector *det = iter->det ;
+	struct params *param = iter->par ;
+	struct quaternion *quat = iter->quat ;
+	struct model *mod = iter->mod ;
+	
+	for (d = 0 ; d < iter->tot_num_data ; ++d)
+	if (mask[d] == 0)
+		grad[d] = 0. ;
+	
+	#pragma omp parallel default(shared)
+	{
+		int r, d, t, detn, curr_d, pixel, rotind, mode, ind, dset ;
+		double val ;
+		double *view, **views = malloc(iter->num_det * sizeof(double*)) ;
+		for (detn = 0 ; detn < iter->num_det ; ++detn)
+			views[detn] = malloc(det[detn].num_pix * sizeof(double)) ;
+		double *priv_grad = calloc(iter->tot_num_data, sizeof(double)) ;
+		struct dataset *curr ;
+		
+		#pragma omp for schedule(static,1)
+	 	for (r = 0 ; r < quat->num_rot_p ; ++r) {
+			rotind = (r*param->num_proc + param->rank) / param->num_modes ;
+			mode = (r*param->num_proc + param->rank) % param->num_modes ;
+			if (rotind >= quat->num_rot) {
+				mode = r*param->num_proc + param->rank - param->num_modes * (quat->num_rot - 1) ;
+				rotind = 0 ;
+			}
+			for (detn = 0 ; detn < iter->num_det ; ++detn) {
+				(*slice_gen)(&quat->quats[rotind*5], mode, views[detn], &det[detn], mod) ;
+				for (t = 0 ; t < det[detn].num_pix ; ++t)
+					views[detn][t] *= iter->rescale[detn] ;
+			}
+			curr = frames ;
+			dset = 0 ;
+			
+			while (curr != NULL) {
+				detn = iter->det_mapping[dset] ;
+				view = views[detn] ;
+				for (curr_d = 0 ; curr_d < curr->num_data ; ++curr_d) {
+					d = curr->num_offset + curr_d ;
+					
+					if (mask[d] > 0)
+						continue ;
+					
+					// For refinement, check if frame should be processed
+					if (param->refine) {
+						ind = -1 ;
+						for (t = 0 ; t < iter->num_rel_quat[d] ; ++t)
+						if (iter->quat_mapping[rotind] == iter->rel_quat[d][t]) {
+							ind = t ;
+							break ;
+						}
+						if (ind == -1)
+							continue ;
+					}
+					
+					// check if current frame has significant probability
+					ind = -1 ;
+					for (t = 0 ; t < common->num_prob[d] ; ++t)
+					if (r*param->num_proc + param->rank == common->place_prob[d][t]) {
+						ind = t ;
+						break ;
+					}
+					if (ind == -1)
+						continue ;
+					
+					// For each pixel with one photon
+					for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
+						pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
+						if (det[detn].raw_mask[pixel] < 1) {
+							val = view[pixel] * scale[d] + iter->bgscale[d] * det[detn].background[pixel] ;
+							priv_grad[d] += common->prob[d][ind] * view[pixel] / val ;
+						}
+					}
+					
+					// For each pixel with count_multi photons
+					for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
+						pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
+						if (det[detn].raw_mask[pixel] < 1) {
+							val = view[pixel] * scale[d] + iter->bgscale[d] * det[detn].background[pixel] ;
+							priv_grad[d] += common->prob[d][ind] * curr->count_multi[curr->multi_accum[curr_d] + t] * view[pixel] / val ;
+						}
+					}
+				}
+				
+				dset++ ;
+				curr = curr->next ;
+			}
+		}
+		
+		#pragma omp critical(grad)
+		{
+			for (d = 0 ; d < iter->tot_num_data ; ++d)
+				grad[d] += priv_grad[d] ;
+		}
+		
+		free(priv_grad) ;
+		for (detn = 0 ; detn < iter->num_det ; ++detn)
+			free(views[detn]) ;
+		free(views) ;
+	}
+	
+	MPI_Allreduce(MPI_IN_PLACE, grad, iter->tot_num_data, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD) ;
+	
+	for (d = 0 ; d < iter->tot_num_data ; ++d)
+	if (mask[d] == 0)
+		grad[d] -= common->psum_d[d] ;
+}
+
+void update_scale_bg(struct max_data *common) {
+	int d, i, num_mask ;
+	struct iterate *iter = common->iter ;
+	struct params *param = iter->par ;
+	// struct dataset *frames = iter->dset ; // unused
+	double *scale_old = calloc(iter->tot_num_data, sizeof(double)) ;
+	double *scale_new = calloc(iter->tot_num_data, sizeof(double)) ;
+	double *scale_latest = calloc(iter->tot_num_data, sizeof(double)) ;
+	double *Gd_old = calloc(iter->tot_num_data, sizeof(double)) ;
+	double *Gd_new = calloc(iter->tot_num_data, sizeof(double)) ;
+	double *Gd_latest = calloc(iter->tot_num_data, sizeof(double)) ;
+	uint8_t *mask = calloc(iter->tot_num_data, sizeof(uint8_t)) ;
+	for (d = 0 ; d < iter->tot_num_data ; ++d) {
+		if (iter->blacklist[d]) {
+			mask[d] = 255 ;
+			iter->scale[d] = -1. ;
+			continue ;
+		}
+		
+		if (param->iteration > 1 || param->known_scale)
+			scale_new[d] = 4. * iter->scale[d] ;
+		else
+			scale_new[d] = 32. ;
+	}
+	
+	// Set search bounds
+	// 	Calculate G(0)
+	gradient_d(common, mask, scale_old, Gd_old) ;
+	for (d = 0 ; d < iter->tot_num_data ; ++d)
+	if ((mask[d] != 255) & (Gd_old[d] < 1.e-6)) {
+		// Implies less photons in frame than background
+		iter->scale[d] = 0.001 ;
+		mask[d] = 255 ;
+	}
+	
+	// 	Calculate phi_max and G(phi_max)
+	for (i = 0 ; i < 5 ; ++i) {
+		gradient_d(common, mask, scale_new, Gd_new) ;
+		num_mask = 0 ;
+		
+		for (d = 0 ; d < iter->tot_num_data ; ++d) {
+			if (mask[d] != 0) {
+				num_mask++ ;
+			}
+			else if (Gd_new[d] < 0.) {
+				mask[d] = 192 ;
+				num_mask++ ;
+			}
+			else {
+				scale_new[d] *= 4. ;
+			}
+		}
+		
+		if (num_mask > ((double) 0.99*iter->tot_num_data))
+			break ;
+	}
+	if (i == 5)
+		fprintf(stderr, "WARNING: Could not find search bounds for %d/%d frames\n", iter->tot_num_data - num_mask, iter->tot_num_data) ;
+	
+	// Bounded root finding using bisection
+	for (i = 0 ; i < 50 ; ++i) {
+		num_mask = 0 ;
+		for (d = 0 ; d < iter->tot_num_data ; ++d) {
+			if (mask[d] == 255) {
+				num_mask++ ;
+			}
+			else if (fabs(scale_old[d] - scale_new[d]) < 1.e-5) {
+				mask[d] = 255 ;
+				iter->scale[d] = 0.5 * (scale_old[d] + scale_new[d]) ;
+			}
+			else if (mask[d] == 192) {
+				mask[d] = 0 ;
+				scale_latest[d] = 0.5 * (scale_old[d] + scale_new[d]) ;
+			}
+			else {
+				scale_latest[d] = 0.5 * (scale_old[d] + scale_new[d]) ;
+			}
+		}
+		
+		gradient_d(common, mask, scale_latest, Gd_latest) ;
+		
+		for (d = 0 ; d < iter->tot_num_data ; ++d)
+		if (mask[d] < 255) {
+			if (fabs(Gd_latest[d]) < 1.e-3) {
+				iter->scale[d] = scale_latest[d] ;
+				mask[d] = 255 ;
+				num_mask++ ;
+			}
+			else if (Gd_latest[d] * Gd_old[d] > 0) {
+				scale_old[d] = scale_latest[d] ;
+				Gd_old[d] = Gd_latest[d] ;
+			}
+			else {
+				scale_new[d] = scale_latest[d] ;
+				Gd_new[d] = Gd_latest[d] ;
+			}
+		}
+
+		if (num_mask == iter->tot_num_data)
+			break ;
+	}
+	if (i == 50)
+		fprintf(stderr, "WARNING: scale optimization did not converge for %d/%d frames\n", iter->tot_num_data-num_mask, iter->tot_num_data) ;
+	
+	MPI_Bcast(iter->scale, iter->tot_num_data, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
+	
+	// Free memory
+	free(scale_old) ; free(scale_new) ; free(scale_latest) ;
+	free(Gd_old) ; free(Gd_new) ; free(Gd_latest) ;
+	free(mask) ;
+	char tag[128] ;
+	sprintf(tag, "(%d iterations)", i) ;
+	print_max_time("scale", tag, param->rank == 0) ;
 }
 
 void free_max_data(struct max_data *data) {
@@ -670,6 +851,7 @@ void free_max_data(struct max_data *data) {
 	struct iterate *iter = data->iter ;
 	struct model *mod = iter->mod ;
 	struct params *param = iter->par ;
+	struct detector *det = iter->det ;
 
 	free(data->max_exp_p) ;
 	free(data->info) ;
@@ -701,6 +883,24 @@ void free_max_data(struct max_data *data) {
 		free(data->model) ;
 		free(data->weight) ;
 		free(data->psum_r) ;
+		if (det[0].with_bg && param->need_scaling) {
+			for (detn = 0 ; detn < iter->num_det ; ++detn) {
+				free(data->mask[detn]) ;
+				free(data->G_old[detn]) ;
+				free(data->G_new[detn]) ;
+				free(data->G_latest[detn]) ;
+				free(data->W_old[detn]) ;
+				free(data->W_new[detn]) ;
+				free(data->W_latest[detn]) ;
+			}
+			free(data->mask) ;
+			free(data->G_old) ;
+			free(data->G_new) ;
+			free(data->G_latest) ;
+			free(data->W_old) ;
+			free(data->W_new) ;
+			free(data->W_latest) ;
+		}
 	}
 	free(data) ;
 }
@@ -825,6 +1025,360 @@ double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 	}
 	
 	return scalemax ;
+}
+
+void update_tomogram_nobg(int r, struct max_data *priv, struct max_data *common) {
+	int dset = 0, t, d, curr_d, pixel, detn, ind, rotind ;
+	double *view ;
+	struct iterate *iter = common->iter ;
+	struct dataset *frames = iter->dset ;
+	struct detector *det = iter->det ;
+	struct params *param = iter->par ;
+	struct dataset *curr = frames ;
+	double **prob = priv->prob ;
+	int **place_prob = priv->place_prob ;
+	
+	for (detn = 0 ; detn < iter->num_det ; ++detn) 
+		memset(priv->all_views[detn], 0, det[detn].num_pix*sizeof(double)) ;
+	rotind = (r*param->num_proc + param->rank) / param->num_modes ;
+	
+	while (curr != NULL) {
+		// Calculate slice for current detector
+		detn = iter->det_mapping[dset] ;
+		view = priv->all_views[detn] ;
+		
+		for (curr_d = 0 ; curr_d < curr->num_data ; ++curr_d) {
+			// Calculate frame number in full list
+			d = curr->num_offset + curr_d ;
+			
+			// check if frame is blacklisted
+			if (iter->blacklist[d])
+				continue ;
+			
+			// For refinement, check if frame should be processed
+			if (param->refine) {
+				ind = -1 ;
+				for (t = 0 ; t < iter->num_rel_quat[d] ; ++t)
+				if (iter->quat_mapping[rotind] == iter->rel_quat[d][t]) {
+					ind = t ;
+					break ;
+				}
+				if (ind == -1)
+					continue ;
+			}
+			
+			// check if current frame has significant probability
+			ind = -1 ;
+			for (t = 0 ; t < priv->num_prob[d] ; ++t)
+			if (r*param->num_proc + param->rank == place_prob[d][t]) {
+				ind = t ;
+				break ;
+			}
+			if (ind == -1)
+				continue ;
+			
+			// Skip if probability is very low (saves time)
+			if (!(prob[d][ind] > PROB_MIN))
+				continue ;
+			
+			if (curr->ftype == 0) {
+				// For all pixels with one photon
+				for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
+					pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
+					if (det[detn].raw_mask[pixel] < 2)
+						view[pixel] += prob[d][ind] ;
+				}
+				
+				// For all pixels with count_multi photons
+				for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
+					pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
+					if (det[detn].raw_mask[pixel] < 2)
+						view[pixel] += curr->count_multi[curr->multi_accum[curr_d] + t] * prob[d][ind] ;
+				}
+			}
+			else if (curr->ftype == 1) {
+				for (t = 0 ; t < curr->num_pix ; ++t)
+					view[t] += curr->int_frames[curr_d*curr->num_pix + t] * prob[d][ind] ;
+			}
+			else if (curr->ftype == 2) { // Gaussian EMC update without scaling
+				for (t = 0 ; t < curr->num_pix ; ++t)
+				if (det[detn].raw_mask[t] < 2)
+					view[t] += curr->frames[curr_d*curr->num_pix + t] * prob[d][ind] ;
+			}
+		}
+		
+		curr = curr->next ;
+		dset++ ;
+	}
+	
+	for (detn = 0 ; detn < iter->num_det ; ++detn) 
+	for (t = 0 ; t < det[detn].num_pix ; ++t)
+	if (priv->psum_r[detn] > 0.)
+		priv->all_views[detn][t] /= priv->psum_r[detn] ;
+}
+
+void gradient_rt(int r, struct max_data *priv, double **views, double **gradients) {
+	int dset = 0, t, d, curr_d, pixel, detn, ind, rotind ;
+	double val, *grad, *view ;
+	struct iterate *iter = priv->iter ;
+	struct dataset *frames = iter->dset ;
+	struct detector *det = iter->det ;
+	struct params *param = iter->par ;
+	struct dataset *curr = frames ;
+	int **place_prob = priv->place_prob ;
+	double **prob = priv->prob ;
+	
+	// Initialization:
+	// 	grad = -sum_d P_dr * phi_d
+	// 	mask = 1
+	for (detn = 0 ; detn < iter->num_det ; ++detn) {
+		grad = gradients[detn] ;
+		view = views[detn] ;
+		
+		for (t = 0 ; t < det[detn].num_pix ; ++t) {
+			if (priv->mask[detn][t] < 128) {
+				grad[t] = - priv->psum_r[detn] ;
+				priv->mask[detn][t] = 1 ;
+			}
+			else if (priv->mask[detn][t] == 160) {
+				grad[t] = -1e100 ;
+			}
+			else {
+				grad[t] = 0. ;
+			}
+		}
+	}
+	rotind = (r*param->num_proc + param->rank) / param->num_modes ;
+	
+	while (curr != NULL) {
+		detn = iter->det_mapping[dset] ;
+		grad = gradients[detn] ;
+		view = views[detn] ;
+		
+		for (curr_d = 0 ; curr_d < curr->num_data ; ++curr_d) {
+			// Calculate frame number in full list
+			d = curr->num_offset + curr_d ;
+			
+			// check if frame is blacklisted
+			if (iter->blacklist[d])
+				continue ;
+			
+			// For refinement, check if frame should be processed
+			if (param->refine) {
+				ind = -1 ;
+				for (t = 0 ; t < iter->num_rel_quat[d] ; ++t)
+				if (iter->quat_mapping[rotind] == iter->rel_quat[d][t]) {
+					ind = t ;
+					break ;
+				}
+				if (ind == -1)
+					continue ;
+			}
+			
+			// check if current frame has significant probability
+			ind = -1 ;
+			for (t = 0 ; t < priv->num_prob[d] ; ++t)
+			if (r*param->num_proc + param->rank == place_prob[d][t]) {
+				ind = t ;
+				break ;
+			}
+			if (ind == -1)
+				continue ;
+			
+			// Skip if probability is very low (saves time)
+			if (!(prob[d][ind] > PROB_MIN))
+				continue ;
+			
+			// Currently only working with type-0 data
+			// For each pixel with one photon
+			for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
+				pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
+				if (priv->mask[detn][pixel] < 128) {
+					val = view[pixel] * iter->scale[d] + iter->bgscale[d] * det[detn].background[pixel] ;
+					grad[pixel] += prob[d][ind] * iter->scale[d] / val ;
+					priv->mask[detn][pixel] = 0 ;
+				}
+				else if (priv->mask[detn][pixel] == 128) {
+					grad[pixel] += prob[d][ind] ;
+				}
+				else if (priv->mask[detn][pixel] == 160) {
+					grad[pixel] = fmax(grad[pixel], iter->scale[d] / iter->bgscale[d]) ;
+				}
+			}
+			
+			// For each pixel with count_multi photons
+			for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
+				pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
+				if (priv->mask[detn][pixel] < 128) {
+					val = view[pixel] * iter->scale[d] + iter->bgscale[d] * det[detn].background[pixel] ;
+					grad[pixel] += prob[d][ind] * curr->count_multi[curr->multi_accum[curr_d] + t] * iter->scale[d] / val ;
+					priv->mask[detn][pixel] = 0 ;
+				}
+				else if (priv->mask[detn][pixel] == 128) {
+					grad[pixel] += prob[d][ind] * curr->count_multi[curr->multi_accum[curr_d] + t] ;
+				}
+				else if (priv->mask[detn][pixel] == 160) {
+					grad[pixel] = fmax(grad[pixel], iter->scale[d] / iter->bgscale[d]) ;
+				}
+			}
+		}
+		
+		dset++ ;
+		curr = curr->next ;
+	}
+}
+
+void update_tomogram_bg(int r, double scalemax, struct max_data *priv, struct max_data *common) {
+	int i, t, detn ;
+	int nmask, tot_num_pix = 0 ;
+	double val ;
+	double grad_tol = 1.e-4 ;
+	
+	struct iterate *iter = common->iter ;
+	// struct dataset *frames = iter->dset ; // unused - accessed via gradient_rt
+	struct detector *det = iter->det ;
+	struct params *param = iter->par ;
+	double mean_count = 0. ;
+	for (detn = 0 ; detn < iter->num_det ; ++detn)
+		mean_count += iter->mean_count[detn] ;
+	mean_count /= iter->num_det ;
+	
+	nmask = 0 ;
+	for (detn = 0 ; detn < iter->num_det ; ++detn) {
+		memset(priv->all_views[detn], 0, det[detn].num_pix*sizeof(double)) ;
+		memset(priv->W_old[detn], 0, det[detn].num_pix*sizeof(double)) ;
+		memset(priv->W_new[detn], 0, det[detn].num_pix*sizeof(double)) ;
+		memset(priv->W_latest[detn], 0, det[detn].num_pix*sizeof(double)) ;
+		tot_num_pix += det[detn].num_pix ;
+		
+		for (t = 0 ; t < det[detn].num_pix ; ++t) {
+			if (det[detn].raw_mask[t] < 2) {
+				if (det[detn].background[t] / scalemax < 1.e-2 * det[detn].powder[t]) {
+					priv->mask[detn][t] = 128 ;
+				}
+				else {
+					priv->W_new[detn][t] = 1.e-8 - det[detn].background[t] / scalemax ;
+					priv->mask[detn][t] = 0 ;
+				}
+			}
+			else {
+				priv->mask[detn][t] = 255 ;
+			}
+		}
+	}
+	
+	// mask values:
+	//   0 : Still to be optimized
+	// 128 : Negligible background (can do standard update)
+	// 160 : Signal to gradient_rt() to calculate scale_max rather than gradient
+	// 192 : Had to adjust search window to have opposite signs
+	// 255 : Optimal pixel
+	// Set search bounds
+	// Calculate G(0) and check sign
+	gradient_rt(r, priv, priv->W_old, priv->G_old) ;
+	for (detn = 0 ; detn < iter->num_det ; ++detn)
+	for (t = 0 ; t < det[detn].num_pix ; ++t) {
+		if (fabs(priv->G_old[detn][t]) < grad_tol) {
+			priv->all_views[detn][t] = 0. ;
+			priv->mask[detn][t] = 255 ;
+		}
+		else if (priv->G_old[detn][t] > 0.) {
+			val = mean_count / det[detn].num_pix ; // Average photons/pixel
+			priv->W_new[detn][t] = det[detn].powder[t] > val ? det[detn].powder[t] : val ; // Check against powder sum value
+			priv->W_new[detn][t] *= 2. ; // Double
+		}
+	}
+	
+	// Find far end of search window
+	for (i = 0 ; i < 10 ; ++i) {
+		nmask = 0 ;
+		gradient_rt(r, priv, priv->W_new, priv->G_new) ;
+		
+		for (detn = 0 ; detn < iter->num_det ; ++detn)
+		for (t = 0 ; t < det[detn].num_pix ; ++t) {
+			if (priv->mask[detn][t] == 0) {
+				if (priv->G_old[detn][t] < 0. && priv->G_new[detn][t] < 0.) {      // If both negative, calculate scale_max
+					priv->mask[detn][t] = 160 ; // Forces gradient_rt to calculate scale_max
+				}
+				else if (priv->G_old[detn][t] > 0. && priv->G_new[detn][t] > 0.) { // If both positive, double W_new
+					priv->W_new[detn][t] *= 2 ;
+				}
+				else {                                                             // If opposite signs, stop updating
+					priv->mask[detn][t] = 192 ;
+					nmask++ ;
+				}
+			}
+			else if (priv->mask[detn][t] == 160) { // Set W_new to be just above minimum background
+				priv->W_new[detn][t] = 1.e-8 - det[detn].background[t] / priv->G_new[detn][t] ;
+				priv->mask[detn][t] = 0 ;
+			}
+			else {
+				nmask++ ;
+			}
+		}
+		
+		if (nmask == tot_num_pix)
+			break ;
+	}
+	if (i == 10 && nmask/((double)tot_num_pix) < 0.9)
+		fprintf(stderr, "%.5d bad search bounds, %d/%d\n", r*param->num_proc + param->rank, nmask, tot_num_pix) ;
+	
+	// Bounded root-finding using bisection/regula falsi
+	for (i = 0 ; i < 50 ; ++i) { // Doing 50 iterations
+		nmask = 0 ;
+		// Update value of W_latest
+		for (detn = 0 ; detn < iter->num_det ; ++detn)
+		for (t = 0 ; t < det[detn].num_pix ; ++t) {
+			if (priv->mask[detn][t] == 255) {      // Already optimal
+				nmask++ ;
+			}
+			else if (priv->mask[detn][t] == 1) {   // No photon at pixel
+				priv->mask[detn][t] = 255 ;
+				priv->all_views[detn][t] = 0. ;
+				nmask++ ;
+			}
+			else if (priv->mask[detn][t] == 128) { // Negligible background
+				priv->all_views[detn][t] = priv->G_old[detn][t] / priv->psum_r[detn] ;
+				priv->mask[detn][t] = 255 ;
+				nmask++ ;
+			}
+			else if (priv->mask[detn][t] == 192) { // W_new had to be adjusted when finding search window
+				priv->mask[detn][t] = 0 ;
+				priv->W_latest[detn][t] = 0.5 * (priv->W_old[detn][t] + priv->W_new[detn][t]) ;
+			}
+			else if (priv->mask[detn][t] == 0) {   // Searching for root
+				// Bisection update
+				priv->W_latest[detn][t] = 0.5 * (priv->W_old[detn][t] + priv->W_new[detn][t]) ;
+			}
+		}
+		
+		// Calculate G_latest(W_latest)
+		gradient_rt(r, priv, priv->W_latest, priv->G_latest) ;
+		
+		// Test for convergence and change search window
+		for (detn = 0 ; detn < iter->num_det ; ++detn)
+		for (t = 0 ; t < det[detn].num_pix ; ++t)
+		if (priv->mask[detn][t] < 255) {
+			if (fabs(priv->G_latest[detn][t]) < grad_tol) {                // Converged
+				priv->all_views[detn][t] = priv->W_latest[detn][t] ;
+				priv->mask[detn][t] = 255 ;
+				nmask++ ;
+			}
+			else if (priv->G_latest[detn][t] * priv->G_old[detn][t] > 0) { // Shift window to W_old
+				priv->W_old[detn][t] = priv->W_latest[detn][t] ;
+				priv->G_old[detn][t] = priv->G_latest[detn][t] ;
+			}
+			else {                                                         // Shift window towards W_new
+				priv->W_new[detn][t] = priv->W_latest[detn][t] ;
+				priv->G_new[detn][t] = priv->G_latest[detn][t] ;
+			}
+		}
+		
+		if (nmask == tot_num_pix)
+			break ;
+	}
+	if (i == 50 && nmask/((double)tot_num_pix) < 0.9)
+		fprintf(stderr, "%.5d not converged, %d/%d\n", r*param->num_proc + param->rank, nmask, tot_num_pix) ;
 }
 
 void print_max_time(char *pre_tag, char *post_tag, int flag) {
