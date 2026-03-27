@@ -198,6 +198,8 @@ cdef class Iterate:
         free(self.iter.beta_start)
         self.calc_beta()
 
+        c_iterate.calc_powder(self.iter)
+
     def set_data(self, CDataset in_dset):
         '''Set the data with a new dataset.
 
@@ -223,6 +225,7 @@ cdef class Iterate:
         c_iterate.calc_frame_counts(self.iter)
         self.iter.blacklist = <uint8_t*> calloc(self.iter.tot_num_data, sizeof(uint8_t))
         c_iterate.calc_sum_fact(self.iter)
+        c_iterate.calc_powder(self.iter)
 
     def set_quat(self, Quaternion quaternion):
         '''Set the quaternion orientations.
