@@ -762,12 +762,13 @@ void update_scale_bg(struct max_data *common) {
 	int d, i, num_mask ;
 	struct iterate *iter = common->iter ;
 	struct params *param = iter->par ;
-	// struct dataset *frames = iter->dset ; // unused
 	double *scale_old = calloc(iter->tot_num_data, sizeof(double)) ;
 	double *scale_new = calloc(iter->tot_num_data, sizeof(double)) ;
+	double *scale_mid = calloc(iter->tot_num_data, sizeof(double)) ;
 	double *scale_latest = calloc(iter->tot_num_data, sizeof(double)) ;
 	double *Gd_old = calloc(iter->tot_num_data, sizeof(double)) ;
 	double *Gd_new = calloc(iter->tot_num_data, sizeof(double)) ;
+	double *Gd_mid = calloc(iter->tot_num_data, sizeof(double)) ;
 	double *Gd_latest = calloc(iter->tot_num_data, sizeof(double)) ;
 	uint8_t *mask = calloc(iter->tot_num_data, sizeof(uint8_t)) ;
 	for (d = 0 ; d < iter->tot_num_data ; ++d) {
@@ -817,8 +818,9 @@ void update_scale_bg(struct max_data *common) {
 	if (i == 5)
 		fprintf(stderr, "WARNING: Could not find search bounds for %d/%d frames\n", iter->tot_num_data - num_mask, iter->tot_num_data) ;
 	
-	// Bounded root finding using bisection
+	// Bounded root finding using Ridder's method
 	for (i = 0 ; i < 50 ; ++i) {
+		// Phase 1: Convergence check and midpoint computation
 		num_mask = 0 ;
 		for (d = 0 ; d < iter->tot_num_data ; ++d) {
 			if (mask[d] == 255) {
@@ -827,18 +829,50 @@ void update_scale_bg(struct max_data *common) {
 			else if (fabs(scale_old[d] - scale_new[d]) < 1.e-5) {
 				mask[d] = 255 ;
 				iter->scale[d] = 0.5 * (scale_old[d] + scale_new[d]) ;
+				num_mask++ ;
 			}
 			else if (mask[d] == 192) {
 				mask[d] = 0 ;
-				scale_latest[d] = 0.5 * (scale_old[d] + scale_new[d]) ;
+				scale_mid[d] = 0.5 * (scale_old[d] + scale_new[d]) ;
 			}
 			else {
-				scale_latest[d] = 0.5 * (scale_old[d] + scale_new[d]) ;
+				scale_mid[d] = 0.5 * (scale_old[d] + scale_new[d]) ;
 			}
 		}
+		if (num_mask == iter->tot_num_data)
+			break ;
 		
+		// Phase 2: Evaluate gradient at midpoint
+		gradient_d(common, mask, scale_mid, Gd_mid) ;
+		
+		// Phase 3: Check midpoint convergence and compute Ridder point
+		for (d = 0 ; d < iter->tot_num_data ; ++d) {
+			if (mask[d] == 255) continue ;
+			if (fabs(Gd_mid[d]) < 1.e-3) {
+				iter->scale[d] = scale_mid[d] ;
+				mask[d] = 255 ;
+				num_mask++ ;
+				continue ;
+			}
+			double s = sqrt(Gd_mid[d]*Gd_mid[d] - Gd_old[d]*Gd_new[d]) ;
+			if (s < 1.e-15) {
+				scale_latest[d] = scale_mid[d] ;
+			}
+			else {
+				scale_latest[d] = scale_mid[d] + (scale_mid[d] - scale_old[d]) * copysign(1.0, Gd_old[d]) * Gd_mid[d] / s ;
+				double lo = fmin(scale_old[d], scale_new[d]) ;
+				double hi = fmax(scale_old[d], scale_new[d]) ;
+				if (scale_latest[d] <= lo || scale_latest[d] >= hi)
+					scale_latest[d] = scale_mid[d] ;
+			}
+		}
+		if (num_mask == iter->tot_num_data)
+			break ;
+		
+		// Phase 4: Evaluate gradient at Ridder point
 		gradient_d(common, mask, scale_latest, Gd_latest) ;
 		
+		// Phase 5: Check Ridder convergence and update brackets
 		for (d = 0 ; d < iter->tot_num_data ; ++d)
 		if (mask[d] < 255) {
 			if (fabs(Gd_latest[d]) < 1.e-3) {
@@ -846,13 +880,20 @@ void update_scale_bg(struct max_data *common) {
 				mask[d] = 255 ;
 				num_mask++ ;
 			}
-			else if (Gd_latest[d] * Gd_old[d] > 0) {
-				scale_old[d] = scale_latest[d] ;
-				Gd_old[d] = Gd_latest[d] ;
-			}
-			else {
+			else if (Gd_mid[d] * Gd_latest[d] < 0.) {
+				// Tightest bracket: between midpoint and Ridder point
+				scale_old[d] = scale_mid[d] ;
+				Gd_old[d] = Gd_mid[d] ;
 				scale_new[d] = scale_latest[d] ;
 				Gd_new[d] = Gd_latest[d] ;
+			}
+			else if (Gd_old[d] * Gd_latest[d] < 0.) {
+				scale_new[d] = scale_latest[d] ;
+				Gd_new[d] = Gd_latest[d] ;
+			}
+			else {
+				scale_old[d] = scale_latest[d] ;
+				Gd_old[d] = Gd_latest[d] ;
 			}
 		}
 
@@ -865,8 +906,8 @@ void update_scale_bg(struct max_data *common) {
 	MPI_Bcast(iter->scale, iter->tot_num_data, MPI_DOUBLE, 0, MPI_COMM_WORLD) ;
 	
 	// Free memory
-	free(scale_old) ; free(scale_new) ; free(scale_latest) ;
-	free(Gd_old) ; free(Gd_new) ; free(Gd_latest) ;
+	free(scale_old) ; free(scale_new) ; free(scale_mid) ; free(scale_latest) ;
+	free(Gd_old) ; free(Gd_new) ; free(Gd_mid) ; free(Gd_latest) ;
 	free(mask) ;
 	char tag[128] ;
 	sprintf(tag, "(%d iterations)", i) ;
@@ -1350,54 +1391,111 @@ void update_tomogram_bg(int r, double scalemax, struct max_data *priv, struct ma
 	if (i == 10 && nmask/((double)tot_num_pix) < 0.9)
 		fprintf(stderr, "%.5d bad search bounds, %d/%d\n", r*param->num_proc + param->rank, nmask, tot_num_pix) ;
 	
-	// Bounded root-finding using bisection/regula falsi
-	for (i = 0 ; i < 50 ; ++i) { // Doing 50 iterations
+	// Allocate W_mid and G_mid for Ridder's method
+	double **W_mid = malloc(iter->num_det * sizeof(double*)) ;
+	double **G_mid = malloc(iter->num_det * sizeof(double*)) ;
+	for (detn = 0 ; detn < iter->num_det ; ++detn) {
+		W_mid[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
+		G_mid[detn] = calloc(det[detn].num_pix, sizeof(double)) ;
+	}
+	
+	// Bounded root-finding using Ridder's method
+	for (i = 0 ; i < 50 ; ++i) {
+		// Phase 1: Convergence checks and midpoint computation
 		nmask = 0 ;
-		// Update value of W_latest
 		for (detn = 0 ; detn < iter->num_det ; ++detn)
 		for (t = 0 ; t < det[detn].num_pix ; ++t) {
-			if (priv->mask[detn][t] == 255) {      // Already optimal
+			if (priv->mask[detn][t] == 255) {
 				nmask++ ;
 			}
-			else if (priv->mask[detn][t] == 1) {   // No photon at pixel
+			else if (priv->mask[detn][t] == 1) {
 				priv->mask[detn][t] = 255 ;
 				priv->all_views[detn][t] = 0. ;
 				nmask++ ;
 			}
-			else if (priv->mask[detn][t] == 128) { // Negligible background
+			else if (priv->mask[detn][t] == 128) {
 				priv->all_views[detn][t] = priv->G_old[detn][t] / priv->psum_r[detn] ;
 				priv->mask[detn][t] = 255 ;
 				nmask++ ;
 			}
-			else if (priv->mask[detn][t] == 192) { // W_new had to be adjusted when finding search window
+			else if (priv->mask[detn][t] == 192) {
 				priv->mask[detn][t] = 0 ;
-				priv->W_latest[detn][t] = 0.5 * (priv->W_old[detn][t] + priv->W_new[detn][t]) ;
+				W_mid[detn][t] = 0.5 * (priv->W_old[detn][t] + priv->W_new[detn][t]) ;
 			}
-			else if (priv->mask[detn][t] == 0) {   // Searching for root
-				// Bisection update
-				priv->W_latest[detn][t] = 0.5 * (priv->W_old[detn][t] + priv->W_new[detn][t]) ;
+			else if (priv->mask[detn][t] == 0) {
+				W_mid[detn][t] = 0.5 * (priv->W_old[detn][t] + priv->W_new[detn][t]) ;
 			}
 		}
+		if (nmask == tot_num_pix)
+			break ;
 		
-		// Calculate G_latest(W_latest)
-		gradient_rt(r, priv, priv->W_latest, priv->G_latest) ;
+		// Phase 2: Evaluate gradient at midpoint
+		gradient_rt(r, priv, W_mid, G_mid) ;
 		
-		// Test for convergence and change search window
+		// Phase 3: Handle no-photon pixels, check midpoint convergence, compute Ridder point
 		for (detn = 0 ; detn < iter->num_det ; ++detn)
-		for (t = 0 ; t < det[detn].num_pix ; ++t)
-		if (priv->mask[detn][t] < 255) {
-			if (fabs(priv->G_latest[detn][t]) < grad_tol) {                // Converged
-				priv->all_views[detn][t] = priv->W_latest[detn][t] ;
+		for (t = 0 ; t < det[detn].num_pix ; ++t) {
+			if (priv->mask[detn][t] == 1) {
 				priv->mask[detn][t] = 255 ;
+				priv->all_views[detn][t] = 0. ;
 				nmask++ ;
 			}
-			else if (priv->G_latest[detn][t] * priv->G_old[detn][t] > 0) { // Shift window to W_old
-				priv->W_old[detn][t] = priv->W_latest[detn][t] ;
-				priv->G_old[detn][t] = priv->G_latest[detn][t] ;
+			else if (priv->mask[detn][t] == 0) {
+				if (fabs(G_mid[detn][t]) < grad_tol) {
+					priv->all_views[detn][t] = W_mid[detn][t] ;
+					priv->mask[detn][t] = 255 ;
+					nmask++ ;
+				}
+				else {
+					double s = sqrt(G_mid[detn][t]*G_mid[detn][t] - priv->G_old[detn][t]*priv->G_new[detn][t]) ;
+					if (s < 1.e-15) {
+						priv->W_latest[detn][t] = W_mid[detn][t] ;
+					}
+					else {
+						priv->W_latest[detn][t] = W_mid[detn][t] + (W_mid[detn][t] - priv->W_old[detn][t]) * copysign(1.0, priv->G_old[detn][t]) * G_mid[detn][t] / s ;
+						double lo = fmin(priv->W_old[detn][t], priv->W_new[detn][t]) ;
+						double hi = fmax(priv->W_old[detn][t], priv->W_new[detn][t]) ;
+						if (priv->W_latest[detn][t] <= lo || priv->W_latest[detn][t] >= hi)
+							priv->W_latest[detn][t] = W_mid[detn][t] ;
+					}
+				}
 			}
-			else {                                                         // Shift window towards W_new
-				priv->W_new[detn][t] = priv->W_latest[detn][t] ;
-				priv->G_new[detn][t] = priv->G_latest[detn][t] ;
+		}
+		if (nmask == tot_num_pix)
+			break ;
+		
+		// Phase 4: Evaluate gradient at Ridder point
+		gradient_rt(r, priv, priv->W_latest, priv->G_latest) ;
+		
+		// Phase 5: Check Ridder convergence and update brackets
+		for (detn = 0 ; detn < iter->num_det ; ++detn)
+		for (t = 0 ; t < det[detn].num_pix ; ++t) {
+			if (priv->mask[detn][t] == 1) {
+				priv->mask[detn][t] = 255 ;
+				priv->all_views[detn][t] = 0. ;
+				nmask++ ;
+			}
+			else if (priv->mask[detn][t] == 0) {
+				if (fabs(priv->G_latest[detn][t]) < grad_tol) {
+					priv->all_views[detn][t] = priv->W_latest[detn][t] ;
+					priv->mask[detn][t] = 255 ;
+					nmask++ ;
+				}
+				else if (G_mid[detn][t] * priv->G_latest[detn][t] < 0.) {
+					// Tightest bracket: between midpoint and Ridder point
+					priv->W_old[detn][t] = W_mid[detn][t] ;
+					priv->G_old[detn][t] = G_mid[detn][t] ;
+					priv->W_new[detn][t] = priv->W_latest[detn][t] ;
+					priv->G_new[detn][t] = priv->G_latest[detn][t] ;
+				}
+				else if (priv->G_old[detn][t] * priv->G_latest[detn][t] < 0.) {
+					priv->W_new[detn][t] = priv->W_latest[detn][t] ;
+					priv->G_new[detn][t] = priv->G_latest[detn][t] ;
+				}
+				else {
+					priv->W_old[detn][t] = priv->W_latest[detn][t] ;
+					priv->G_old[detn][t] = priv->G_latest[detn][t] ;
+				}
 			}
 		}
 		
@@ -1406,6 +1504,14 @@ void update_tomogram_bg(int r, double scalemax, struct max_data *priv, struct ma
 	}
 	if (i == 50 && nmask/((double)tot_num_pix) < 0.9)
 		fprintf(stderr, "%.5d not converged, %d/%d\n", r*param->num_proc + param->rank, nmask, tot_num_pix) ;
+	
+	// Free W_mid and G_mid
+	for (detn = 0 ; detn < iter->num_det ; ++detn) {
+		free(W_mid[detn]) ;
+		free(G_mid[detn]) ;
+	}
+	free(W_mid) ;
+	free(G_mid) ;
 }
 
 void print_max_time(char *pre_tag, char *post_tag, int flag) {
