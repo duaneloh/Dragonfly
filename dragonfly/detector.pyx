@@ -49,11 +49,7 @@ cdef class CDetector:
         cdef uint8_t[:] raw_mask = fptr['mask'][:].astype('u1')
         self.det.detd = fptr['detd'][()]
         self.det.ewald_rad = fptr['ewald_rad'][()]
-        if 'background' in fptr:
-            self.det.with_bg = 1
-            background = fptr['background'][:].ravel()
-        else:
-            self.det.with_bg = 0
+        self.det.with_bg = 0
         fptr.close()
 
         if norm:
@@ -68,15 +64,11 @@ cdef class CDetector:
         self.det.qvals = <double*> malloc(self.num_pix * 3 * sizeof(double))
         self.det.corr = <double*> malloc(self.num_pix * sizeof(double))
         self.det.raw_mask = <uint8_t*> malloc(self.num_pix * sizeof(uint8_t))
-        if self.det.with_bg == 1:
-            self.det.background = <double*> malloc(self.num_pix * sizeof(double))
 
         cdef int t, d
         for t in range(self.num_pix):
             self.det.corr[t] = corr[t]
             self.det.raw_mask[t] = raw_mask[t]
-            if self.det.with_bg == 1:
-                self.det.background[t] = background[t]
 
             for d in range(3):
                 self.det.qvals[t*3 + d] = qvals[t, d]
@@ -105,6 +97,11 @@ cdef class CDetector:
             self.det.powder = NULL
         free(self.det)
         self.det = NULL
+
+    def parse_background(self, fname):
+        with h5py.File(fname, 'r') as fptr:
+            self.background = fptr['background'][:].ravel()
+        self.det.with_bg = 1
 
     def qmax(self):
         '''Get maximum voxel-space radius'''
@@ -368,13 +365,6 @@ class Detector(CDetector):
         if self._qrad is None:
             self._qrad = np.linalg.norm(self.qvals, axis=1)
         self.raw_mask[(self.raw_mask == 0) & (self._qrad > qradius)] = 1
-
-    def parse_background(self, fname):
-        if h5py.ishdf5(fname):
-            with h5py.File(fname, 'r') as fptr:
-                self.background = fptr['background'][:].ravel()
-        else:
-            self.background = np.fromfile(fname)
 
     def get_assembled_cen(self, zoomed=False, sym=False):
         if sym:
