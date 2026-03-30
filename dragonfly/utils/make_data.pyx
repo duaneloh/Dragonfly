@@ -3,11 +3,11 @@ import os.path as op
 import time
 import argparse
 import logging
+import configparser
 
 import numpy as np
 import dragonfly
 from cython.parallel import parallel, prange
-cimport openmp
 
 from .py_src import read_config, py_utils
 from . cimport make_data as c_make_data
@@ -32,6 +32,10 @@ cdef make_data_cdef(config_fname, yes=False, verbose=False):
     do_gamma = config.getboolean('make_data', 'do_gamma', fallback=False)
     intens_fname = config.get_filename('make_data', 'in_intensity_file')
     det_fname = config.get_filename('make_data', 'in_detector_file')
+    try:
+        background_fname = config.get_filename('make_data', 'background_file')
+    except configparser.NoOptionError:
+        background_fname = None
     out_fname = config.get_filename('make_data', 'out_photons_file').encode('UTF-8')
     likelihood_fname = config.get_filename('make_data', 'out_likelihood_file', fallback='').encode('UTF-8')
     scale_fname = config.get_filename('make_data', 'out_scale_file', fallback='').encode('UTF-8')
@@ -50,6 +54,9 @@ cdef make_data_cdef(config_fname, yes=False, verbose=False):
         model.allocate(intens_fname)
 
     det = CDetector(det_fname, norm=False)
+    
+    if background_fname:
+        det.parse_background(background_fname)
 
     hdf5_output = True
     if op.splitext(out_fname)[1] == '.emc':
