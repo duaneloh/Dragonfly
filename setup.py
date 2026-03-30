@@ -17,8 +17,10 @@ class CcacheBuildExt(build_ext):
         super().build_extensions()
 
 out = subprocess.getoutput('h5cc -shlib -show')
-hdf5_cflags = [[s for s in out.split() if s[:2] == '-I'][0]] if out else []
-hdf5_libs = [[s for s in out.split() if s[:2] == '-L'][0], '-lhdf5'] if out else []
+hdf5_cflags = [s for s in out.split() if s[:2] == '-I']
+hdf5_libs = [s for s in out.split() if s[:2] == '-L'] + ['-lhdf5']
+if not hdf5_libs:
+    hdf5_libs = ['-lhdf5']
 
 mpi_cflags = subprocess.getoutput('mpicc --showme:compile').strip().split()
 mpi_libs = subprocess.getoutput('mpicc --showme:link').strip().split()
@@ -50,11 +52,11 @@ ext_modules = [
     Extension(name='dragonfly.params', sources=['dragonfly/params.pyx'],
         depends=['dragonfly/src/params.h', 'dragonfly/params.pxd'],
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
-    Extension(name='dragonfly.recon', sources=['dragonfly/recon.pyx', 'dragonfly/src/maximize.c', 'dragonfly/src/model.c'],
-        depends=['dragonfly/src/maximize.h', 'dragonfly/src/model.h', 'dragonfly/recon.pxd'],
+    Extension(name='dragonfly.recon', sources=['dragonfly/recon.pyx', 'dragonfly/src/maximize.c', 'dragonfly/src/max_prob.c', 'dragonfly/src/max_update.c', 'dragonfly/src/max_scale.c', 'dragonfly/src/model.c'],
+        depends=['dragonfly/src/maximize.h', 'dragonfly/src/max_internal.h', 'dragonfly/src/model.h', 'dragonfly/recon.pxd'],
         language='c', extra_compile_args=compile_args+mpi_cflags, extra_link_args=link_args+mpi_libs),
     Extension(name='dragonfly.utils.make_data', sources=['dragonfly/utils/make_data.pyx', 'dragonfly/src/model.c'],
-        depends=['dragonfly/utils/make_data.pxd'],
+        depends=['dragonfly/utils/make_data.pxd', 'dragonfly/utils/make_data.c'],
         language='c', extra_compile_args=compile_args, extra_link_args=link_args),
 ]
 py_packages = [
