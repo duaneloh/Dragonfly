@@ -278,6 +278,19 @@ cdef class EMCRecon():
                 prob_dset = f.create_dataset('probabilities/prob', (num_data,), dtype=dtype)
                 prob_dset[:] = self.prob
 
+    def save_initial_model(self):
+        '''Save initial model guess to output_000.h5.'''
+        itr = self.iter
+        param = itr.params
+        if not os.path.exists(param.output_folder):
+            os.makedirs(param.output_folder)
+        out_fname = '%s/output_000.h5' % param.output_folder
+
+        with h5py.File(out_fname, 'w') as f:
+            f['intens'] = itr.model.model1
+            if param.need_scaling != 0:
+                f['scale'] = itr.scale
+
     @property
     def num_threads(self):
         '''Number of OpenMP threads.'''
@@ -421,6 +434,11 @@ def main():
 
     st = itr.params.start_iter
     en = itr.params.start_iter + itr.params.num_iter
+    
+    # Save initial model guess before first iteration
+    if st == 1 and itr.params.rank == 0:
+        recon.save_initial_model()
+    
     for itr.params.iteration in range(st, en):
         recon.run_iteration()
     if itr.params.verbosity > 0:
