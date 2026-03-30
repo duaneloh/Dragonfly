@@ -23,8 +23,8 @@ struct max_data {
 	
 	// For background-aware optimization (only in priv_data)
 	uint8_t **mask ;
-	double **G_old, **G_new, **G_latest ;
-	double **W_old, **W_new, **W_latest ;
+	double **G_old, **G_new, **G_mid, **G_latest ;
+	double **W_old, **W_new, **W_mid, **W_latest ;
 	
 	// Common among all threads only
 	double *max_exp ; // max_exp[d] = max_r log(R_dr)
