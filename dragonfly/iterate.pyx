@@ -3,7 +3,8 @@ import os.path as op
 import re
 import numpy as np
 import h5py
-from configparser import ConfigParser
+import configparser
+from .utils.py_src.read_config import MyConfigParser
 
 from libc.stdlib cimport malloc, calloc, free, atoi
 from libc.string cimport memcpy
@@ -54,7 +55,7 @@ cdef class Iterate:
         print('Doing %s recon from %s' % (rtype.upper(), config_fname))
 
         config_folder = op.dirname(config_fname)
-        config = ConfigParser()
+        config = MyConfigParser()
         config.read(config_fname)
 
         det_fname = config.get(section_name, 'in_detector_file', fallback=None)
@@ -103,15 +104,33 @@ cdef class Iterate:
                 [frames.append(CDataset(op.join(config_folder, fnames[i]), dets[0])) for i in range(1, len(fnames))]
         else:
             raise ValueError('Need either in_photons_file or in_photons_list.')
+        
+        try:
+            background_file = config.get_filename(section_name, 'background_file')
+            dets[0].parse_background(background_file)
+        except configparser.NoOptionError:
+            pass
+        
         self.set_data(frames)
 
         quat = Quaternion()
         quat.from_config(config_fname, section_name)
         self.set_quat(quat)
 
-        model_file = op.join(config_folder, config.get(section_name, 'start_model_file', fallback=''))
-        scale_file = op.join(config_folder, config.get(section_name, 'scale_file', fallback=''))
-        bgscale_file = op.join(config_folder, config.get(section_name, 'bgscale_file', fallback=''))
+        try:
+            model_file = config.get_filename(section_name, 'start_model_file')
+        except configparser.NoOptionError:
+            model_file = ''
+
+        try:
+            scale_file = config.get_filename(section_name, 'scale_file')
+        except configparser.NoOptionError:
+            scale_file = ''
+
+        try:
+            bgscale_file = config.get_filename(section_name, 'bgscale_file')
+        except configparser.NoOptionError:
+            bgscale_file = ''
         if resume:
             try:
                 fp = open(param.log_fname, 'r')
@@ -136,7 +155,11 @@ cdef class Iterate:
             self.parse_scale(scale_file)
             self.parse_scale(bgscale_file, bg=True)
         sel_string = config.get(section_name, 'selection', fallback=None)
-        self.parse_blacklist(op.join(config_folder, config.get(section_name, 'blacklist_file', fallback='')), sel_string)
+        try:
+            blacklist_file = config.get_filename(section_name, 'blacklist_file')
+        except configparser.NoOptionError:
+            blacklist_file = ''
+        self.parse_blacklist(blacklist_file, sel_string)
         beta_str = config.get(section_name, 'beta', fallback='auto')
         if beta_str == 'auto':
             self.calc_beta()
