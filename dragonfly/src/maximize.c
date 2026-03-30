@@ -235,7 +235,7 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 	struct params *param = iter->par ;
 	
 	struct dataset *curr = frames ;
-	double pval, *view ;
+	double ipred, pval, *view ;
 	int *num_prob = priv->num_prob, **place_prob = priv->place_prob ;
 	double **prob = priv->prob ;
 	
@@ -253,8 +253,10 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 		view = priv->all_views[detn] ;
 		if (detn != old_detn) {
 			(*slice_gen)(&quat->quats[rotind*5], mode, view, &det[detn], mod) ;
-			for (t = 0 ; t < det[detn].num_pix ; ++t)
-				view[t] = log(view[t]) ;
+			if (!(det[0].with_bg && param->need_scaling)) {
+				for (t = 0 ; t < det[detn].num_pix ; ++t)
+					view[t] = log(view[t]) ;
+			}
 		}
 		old_detn = detn ;
 		
@@ -291,18 +293,43 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 			}
 			
 			if (curr->ftype == SPARSE) {
-				// For each pixel with one photon
-				for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
-					pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
-					if (det[detn].raw_mask[pixel] < 1)
-						pval += view[pixel] ;
+				if (det[0].with_bg && param->need_scaling) {
+					// For each pixel with one photon
+					for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
+						pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
+						if (det[detn].raw_mask[pixel] < 1) {
+							ipred = view[pixel] * iter->scale[d] + iter->bgscale[d] * det[detn].background[pixel] ;
+							if (ipred < 0)
+								ipred = DBL_MIN ;
+							pval += log(ipred) ;
+						}
+					}
+					
+					// For each pixel with count_multi photons
+					for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
+						pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
+						if (det[detn].raw_mask[pixel] < 1) {
+							ipred = view[pixel] * iter->scale[d] + iter->bgscale[d] * det[detn].background[pixel] ;
+							if (ipred < 0)
+								ipred = DBL_MIN ;
+							pval += curr->count_multi[curr->multi_accum[curr_d] + t] * log(ipred) ;
+						}
+					}
 				}
-				
-				// For each pixel with count_multi photons
-				for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
-					pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
-					if (det[detn].raw_mask[pixel] < 1)
-						pval += curr->count_multi[curr->multi_accum[curr_d] + t] * view[pixel] ;
+				else {
+					// For each pixel with one photon
+					for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
+						pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
+						if (det[detn].raw_mask[pixel] < 1)
+							pval += view[pixel] ;
+					}
+					
+					// For each pixel with count_multi photons
+					for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
+						pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
+						if (det[detn].raw_mask[pixel] < 1)
+							pval += curr->count_multi[curr->multi_accum[curr_d] + t] * view[pixel] ;
+					}
 				}
 			}
 			else if (curr->ftype == DENSE_INT) {
@@ -443,13 +470,12 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 	int nthreads = omp_get_num_threads() ;
 	struct iterate *iter = common->iter ;
 	struct model *mod = iter->mod ;
+	struct detector *det = iter->det ;
 	struct params *param = iter->par ;
 	long x ;
 	
 	print_max_time("update", "", param->verbosity > 1 && param->rank == 0 && omp_rank == 0) ;
 	 
-	memset(mod->model2, 0, mod->num_modes * mod->vol) ;
-	memset(mod->inter_weight, 0, mod->num_modes * mod->vol) ;
 	#pragma omp critical(model)
 	{
 		for (x = 0 ; x < mod->num_modes * mod->vol ; ++x) {
@@ -466,8 +492,8 @@ void combine_information_omp(struct max_data *priv, struct max_data *common) {
 		}
 	}
 	
-	// Only calculate common probabilities to save
-	if (param->save_prob) {
+	// Calculate common probabilities if needed for update_scale_bg or to save
+	if ((param->need_scaling && param->update_scale && det[0].with_bg) || param->save_prob) {
 		// Calculate offsets to combine sparse probabilities for each OpenMP rank
 		#pragma omp critical(offset_prob)
 		{
@@ -520,6 +546,7 @@ double combine_information_mpi(struct max_data *common) {
 	int d ;
 	struct iterate *iter = common->iter ;
 	struct model *mod = iter->mod ;
+	struct detector *det = iter->det ;
 	struct params *param = iter->par ;
 	double avg_likelihood = 0. ;
 	iter->mutual_info = 0. ;
@@ -547,8 +574,8 @@ double combine_information_mpi(struct max_data *common) {
 	iter->mutual_info /= (iter->tot_num_data - iter->num_blacklist) ;
 	avg_likelihood /= (iter->tot_num_data - iter->num_blacklist) ;
 	
-	// Only calculate common probabilities to save
-	if (param->save_prob) {
+	// Calculate common probabilities if needed for update_scale_bg or to save
+	if ((param->need_scaling && param->update_scale && det[0].with_bg) || param->save_prob) {
 		int p, q, tot_num_prob ;
 		int *num_prob_p = calloc(iter->tot_num_data * param->num_proc, sizeof(int)) ;
 		int *displ_prob_p = NULL ;
