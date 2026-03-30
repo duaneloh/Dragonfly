@@ -292,7 +292,7 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 							ipred = view[pixel] * iter->scale[d] + iter->bgscale[d] * det[detn].background[pixel] ;
 							if (ipred < 0)
 								ipred = DBL_MIN ;
-							pval += log(DBL_MIN) ;
+							pval += log(ipred) ;
 						}
 					}
 					
