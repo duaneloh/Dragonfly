@@ -132,7 +132,7 @@ void calc_powder(struct iterate *self) {
 		
 		while (curr != NULL) {
 			detn = self->det_mapping[dset_num] ;
-			det = curr->det ;
+			det = &self->det[detn] ;
 			
 			if (curr->ftype == SPARSE) {
 				for (d = 0 ; d < curr->num_data ; ++d) {
