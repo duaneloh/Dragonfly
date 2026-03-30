@@ -1,5 +1,5 @@
 import os.path as op
-from configparser import ConfigParser
+import configparser
 
 from libc.stdlib cimport malloc, calloc, free
 from libc.string cimport strcpy
@@ -71,12 +71,21 @@ cdef class EMCParams:
             config_fname (str): Path to configuration file.
             section_name (str): Section name. Default 'emc'.
         '''
-        config_folder = op.dirname(config_fname).encode()
-        config = ConfigParser()
+        from .utils.py_src.read_config import MyConfigParser
+        config = MyConfigParser()
         config.read(config_fname)
 
-        strcpy(self.par.output_folder, op.join(config_folder, config.get(section_name, 'output_folder', fallback='data/').encode()))
-        strcpy(self.par.log_fname, op.join(config_folder, config.get(section_name, 'log_file', fallback='EMC.log').encode()))
+        try:
+            output_folder = config.get_filename(section_name, 'output_folder', fallback='data/')
+        except configparser.NoOptionError:
+            output_folder = 'data/'
+        strcpy(self.par.output_folder, output_folder.encode())
+
+        try:
+            log_fname = config.get_filename(section_name, 'log_file', fallback='EMC.log')
+        except configparser.NoOptionError:
+            log_fname = 'EMC.log'
+        strcpy(self.par.log_fname, log_fname.encode())
         rtype = config.get(section_name, 'recon_type', fallback='3d')
         if rtype == '3d':
             self.par.rtype = c_params.RECON3D
