@@ -8,7 +8,8 @@ dynamic = ['version']
 description = 'Suite of XFEL single particle imaging tools'
 readme = 'README.md'
 requires-python = '>=3.8'
-license = {text = 'GPL-3.0-or-later'}
+license = 'GPL-3.0-or-later'
+license-files = ['LICENSE']
 authors = [
     {name = 'Kartik Ayyer'},
 	{name = 'N. Duane Loh'},
@@ -33,7 +34,7 @@ dependencies = [
     'scipy',
     'scikit-learn',
     'matplotlib',
-    'PyQt5',
+    'pyqt5',
 ]
 
 # Optional dependencies
@@ -43,6 +44,7 @@ dev = [
     'sphinx_rtd_theme',
     'pylint',
 ]
+cuphaser = ["cuphaser @ git+https://github.com/AyyerLab/cuphaser.git"]
 
 # Cluster/build dependencies (install separately on clusters with MPI modules)
 # mpi4py should be installed after loading the MPI environment module
