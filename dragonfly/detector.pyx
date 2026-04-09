@@ -4,7 +4,6 @@ import sys
 import os
 import numpy as np
 from numpy import ma
-import pandas
 import h5py
 
 from . cimport detector as c_det
@@ -14,51 +13,68 @@ from libc.string cimport strcpy
 from libc.math cimport sqrt
 
 cdef class CDetector:
-    """Dragonfly detector cython class
+    '''Dragonfly detector cython class.
 
-    The detector file format is specified in github.com/duaneloh/Dragonfly/wiki
-    This class reads the file and provides numpy arrays which can be used for
-    further processing.
+    The detector file format is specified in github.com/duaneloh/Dragonfly/wiki.
+    This class reads the file and provides numpy arrays for further processing.
 
-    __init__ arguments (optional):
-        fname (string) - Path to detector file to populate attributes
-        mask_flag (bool) - Whether to read the mask column for each pixel
-        keep_mask_1 (bool) - Whether to consider mask=1 pixels as good
-
-    On parsing, it produces the following numpy arrays (each of length num_pix)
-
-    Attributes:
-        self.qvals - Voxel space coordinates (origin at (0,0,0))
-        self.cx, self.cy - Floating point 2D coordinates (origin at (0,0))
-        self.x, self.y - Integer and shifted 2D coordinates (corner at (0,0))
-        self.raw_mask - Unassembled mask as stored in detector file
-        self.mask - Unassembled mask (1=good, 0=bad)
-        self.assembled_mask - Assembled mask (1-good, 0=bad)
-    """
+    Args:
+        fname (str): Path to detector file to populate attributes.
+        norm (bool): Whether to normalize correction factors, default: True
+        rtype (str): Reconstruction type (2d or 3d), default: 3d
+    '''
     def __init__(self, fname=None, **kwargs):
         self.det = <c_det.detector*> calloc(1, sizeof(c_det.detector))
         if fname is not None:
             self.parse(fname, **kwargs)
 
-    def parse(self, fname, **kwargs):
-        """ Parse Dragonfly detector from file
+    def parse(self, fname, norm=True, rtype='3d'):
+        ''' Parse Dragonfly detector from file
 
-        File can either be in the HDF5 or ASCII format
-        """
+        Args:
+            fname (str): Path to detector file to populate attributes.
+            norm (bool): Whether to normalize correction factors, default: True
+            rtype (str): Reconstruction type (2d or 3d), default: 3d
+
+        Note: The old ASCII format is no longer supported
+        '''
         self.det.fname = <char*> malloc(len(fname)+1)
         strcpy(self.det.fname, bytes(fname, 'utf-8'))
-        if h5py.is_hdf5(fname):
-            self._parse_h5det(**kwargs)
-        elif os.path.splitext(fname)[1] == '.h5':
-            fheader = np.fromfile(fname, '=c', count=8)
-            if fheader == chr(137)+'HDF\r\n'+chr(26)+'\n':
-                self._parse_h5det(**kwargs)
-            else:
-                self._parse_asciidet(**kwargs)
-        else:
-            self._parse_asciidet(**kwargs)
+        if not h5py.is_hdf5(fname):
+            raise TypeError('Need HDF5 format detector file')
+
+        fptr = h5py.File(self.fname, 'r')
+        qx, qy, qz = fptr['qx'][:], fptr['qy'][:], fptr['qz'][:]
+        cdef double[:] corr = fptr['corr'][:].ravel()
+        cdef uint8_t[:] raw_mask = fptr['mask'][:].astype('u1')
+        self.det.detd = fptr['detd'][()]
+        self.det.ewald_rad = fptr['ewald_rad'][()]
+        self.det.with_bg = 0
+        fptr.close()
+
+        if norm:
+            np_corr = np.asarray(corr)
+            np_corr /= np_corr.mean()
+        if rtype == '2d':
+            self._convert_2d(qx, qy, qz)
+
+        self.det.num_pix = qx.shape[0]
+        cdef double[:,:] qvals = np.ascontiguousarray(np.array([qx, qy, qz]).T).reshape(-1,3)
+
+        self.det.qvals = <double*> malloc(self.num_pix * 3 * sizeof(double))
+        self.det.corr = <double*> malloc(self.num_pix * sizeof(double))
+        self.det.raw_mask = <uint8_t*> malloc(self.num_pix * sizeof(uint8_t))
+
+        cdef int t, d
+        for t in range(self.num_pix):
+            self.det.corr[t] = corr[t]
+            self.det.raw_mask[t] = raw_mask[t]
+
+            for d in range(3):
+                self.det.qvals[t*3 + d] = qvals[t, d]
 
     def free(self):
+        '''Free memory'''
         if self.det == NULL:
             return
         if self.det.qvals != NULL:
@@ -73,10 +89,22 @@ cdef class CDetector:
         if self.det.fname != NULL:
             free(self.det.fname)
             self.det.fname = NULL
+        if self.det.background != NULL:
+            free(self.det.background)
+            self.det.background = NULL
+        if self.det.powder != NULL:
+            free(self.det.powder)
+            self.det.powder = NULL
         free(self.det)
         self.det = NULL
 
+    def parse_background(self, fname):
+        with h5py.File(fname, 'r') as fptr:
+            self.background = fptr['background'][:].ravel()
+        self.det.with_bg = 1
+
     def qmax(self):
+        '''Get maximum voxel-space radius'''
         cdef int t, d
         cdef double qsq, qmax = 0
         for t in range(self.det.num_pix):
@@ -97,75 +125,7 @@ cdef class CDetector:
         else:
             raise ValueError('Need 3 values on header line: num_pix, detd_pix, ewald_rad_vox')
 
-    def _parse_asciidet(self, norm=True, rtype='3d'):
-        self._check_header()
-        dframe = pandas.read_csv(
-            self.fname,
-            delim_whitespace=True, skiprows=1, engine='c', header=None,
-            names=['qx', 'qy', 'qz', 'corr', 'mask'],
-            dtype={'qx':'f8', 'qy':'f8', 'qz':'f8', 'corr':'f8', 'mask':'u1'})
-        qx, qy, qz, np_corr = tuple([np.array(dframe[key]) # pylint: disable=C0103
-                                       for key in ['qx', 'qy', 'qz', 'corr']])
-        self.det.num_pix = qx.shape[0]
-        if norm:
-            np_corr /= np_corr.mean()
-        if rtype == '2d':
-            self._conv_2d(qx, qy, qz)
-
-        cdef int t, d
-        cdef double[:,:] qvals = np.copy(np.array([qx, qy, qz]).T)
-        cdef double[:] corr = np_corr
-        cdef uint8_t[:] raw_mask = np.array(dframe['mask']).astype('u1')
-        self.det.qvals = <double*> malloc(self.num_pix * 3 * sizeof(double))
-        self.det.corr = <double*> malloc(self.num_pix * sizeof(double))
-        self.det.raw_mask = <uint8_t*> malloc(self.num_pix * sizeof(uint8_t))
-
-        for t in range(self.num_pix):
-            self.det.corr[t] = corr[t]
-            self.det.raw_mask[t] = raw_mask[t]
-            for d in range(3):
-                self.det.qvals[t*3 + d] = qvals[t, d]
-
-    def _parse_h5det(self, norm=True, rtype='3d'):
-        fptr = h5py.File(self.fname, 'r')
-        qx, qy, qz = fptr['qx'][:], fptr['qy'][:], fptr['qz'][:]
-        cdef double[:] corr = fptr['corr'][:].ravel()
-        cdef uint8_t[:] raw_mask = fptr['mask'][:].astype('u1')
-        self.det.detd = fptr['detd'][()]
-        self.det.ewald_rad = fptr['ewald_rad'][()]
-        if 'background' in fptr:
-            bg_present = True
-            background = fptr['background'][:].ravel()
-        else:
-            bg_present = False
-        fptr.close()
-
-        if norm:
-            np_corr = np.asarray(corr)
-            np_corr /= np_corr.mean()
-        if rtype == '2d':
-            self._conv_2d(qx, qy, qz)
-
-        self.det.num_pix = qx.shape[0]
-        cdef double[:,:] qvals = np.ascontiguousarray(np.array([qx, qy, qz]).T).reshape(-1,3)
-
-        self.det.qvals = <double*> malloc(self.num_pix * 3 * sizeof(double))
-        self.det.corr = <double*> malloc(self.num_pix * sizeof(double))
-        self.det.raw_mask = <uint8_t*> malloc(self.num_pix * sizeof(uint8_t))
-        if bg_present:
-            self.det.background = <double*> malloc(self.num_pix * sizeof(double))
-
-        cdef int t, d
-        for t in range(self.num_pix):
-            self.det.corr[t] = corr[t]
-            self.det.raw_mask[t] = raw_mask[t]
-            if bg_present:
-                self.det.background[t] = background[t]
-
-            for d in range(3):
-                self.det.qvals[t*3 + d] = qvals[t, d]
-
-    def _conv_2d(self, qx, qy, qz):
+    def _convert_2d(self, qx, qy, qz):
         if qz.mean() > 0:
             qx *= self.detd / (self.ewald_rad - qz) # pylint: disable=C0103
             qy *= self.detd / (self.ewald_rad - qz) # pylint: disable=C0103
@@ -175,19 +135,29 @@ cdef class CDetector:
         qz[:] = 0
 
     @property
-    def fname(self): return (<bytes> self.det.fname).decode()
+    def fname(self):
+        '''Path to detector file.'''
+        return (<bytes> self.det.fname).decode()
     @property
-    def num_pix(self): return self.det.num_pix
+    def num_pix(self):
+        '''Number of pixels.'''
+        return self.det.num_pix
     @property
-    def detd(self): return self.det.detd
+    def detd(self):
+        '''Detector distance.'''
+        return self.det.detd
     @detd.setter
     def detd(self, value): self.det.detd = float(value)
     @property
-    def ewald_rad(self): return self.det.ewald_rad
+    def ewald_rad(self):
+        '''Ewald sphere radius in voxels.'''
+        return self.det.ewald_rad
     @ewald_rad.setter
     def ewald_rad(self, value): self.det.ewald_rad = float(value)
     @property
-    def corr(self): return np.asarray(<double[:self.num_pix]>self.det.corr) if self.det.corr != NULL else None
+    def corr(self):
+        '''Correction factors.'''
+        return np.asarray(<double[:self.num_pix]>self.det.corr) if self.det.corr != NULL else None
     @corr.setter
     def corr(self, arr):
         if len(arr.shape) != 1 or arr.dtype != 'f8':
@@ -201,7 +171,9 @@ cdef class CDetector:
         if self.det.num_pix == 0:
             self.det.num_pix = arr.shape[0]
     @property
-    def raw_mask(self): return np.asarray(<uint8_t[:self.num_pix]>self.det.raw_mask) if self.det.raw_mask != NULL else None
+    def raw_mask(self):
+        '''Unassembled mask as stored in file (0=good, 1=ignore, 2=bad).'''
+        return np.asarray(<uint8_t[:self.num_pix]>self.det.raw_mask) if self.det.raw_mask != NULL else None
     @raw_mask.setter
     def raw_mask(self, arr):
         if len(arr.shape) != 1 or arr.dtype != 'u1':
@@ -215,7 +187,9 @@ cdef class CDetector:
         if self.det.num_pix == 0:
             self.det.num_pix = arr.shape[0]
     @property
-    def qvals(self): return np.asarray(<double[:3*self.num_pix]>self.det.qvals).reshape(-1, 3) if self.det.qvals != NULL else None
+    def qvals(self):
+        '''3D voxel space coordinates for each pixel, shape (num_pix, 3).'''
+        return np.asarray(<double[:3*self.num_pix]>self.det.qvals).reshape(-1, 3) if self.det.qvals != NULL else None
     @qvals.setter
     def qvals(self, arr):
         if len(arr.shape) != 2 or arr.shape[1] != 3:
@@ -231,7 +205,9 @@ cdef class CDetector:
         if self.det.num_pix == 0:
             self.det.num_pix = arr.shape[0]
     @property
-    def background(self): return np.asarray(<double[:self.num_pix]>self.det.background) if self.det.background != NULL else None
+    def background(self):
+        '''Background value for each pixel, if present, shape (num_pix,).'''
+        return np.asarray(<double[:self.num_pix]>self.det.background) if self.det.background != NULL else None
     @background.setter
     def background(self, arr):
         if len(arr.shape) != 1 or arr.dtype != 'f8':
@@ -246,14 +222,27 @@ cdef class CDetector:
             self.det.num_pix = arr.shape[0]
 
 class Detector(CDetector):
+    '''Detector class with assembly and coordinate methods.
+
+    Extends CDetector with additional functionality for frame assembly,
+    coordinate calculations, and file I/O.
+
+    Args:
+        fname (str): Path to detector file to populate attributes.
+        mask_flag (bool): Whether to read the mask column. Default True.
+        keep_mask_1 (bool): Whether to consider mask=1 pixels as good.
+            Default True.
+
+    Attributes:
+        cx, cy (:py:class:`numpy.ndarray`): Floating point 2D coordinates (origin at (0,0)).
+        x, y (:py:class:`numpy.ndarray`): Integer shifted 2D coordinates (corner at (0,0)).
+        mask (:py:class:`numpy.ndarray`): Unassembled mask (1=good, 0=bad).
+        mask_assem (:py:class:`numpy.ndarray`): Assembled mask (1-good, 0=bad).
+        frame_shape (tuple): Shape of assembled frame.
+        zoom_bounds (tuple): Bounds of zoomed region (xmin, xmax, ymin, ymax).
+    '''
+
     def __init__(self, fname=None, **kwargs):
-        '''
-        Additional methods of python Detector class:
-            assemble_frame(data, zoomed=False, sym=False)
-            calc_from_coords()
-            remask(qradius)
-            write(fname)
-        '''
         super(Detector, self).__init__(fname, **kwargs)
         self._sym_shape = None
 
@@ -262,36 +251,43 @@ class Detector(CDetector):
         self._process_det(mask_flag=mask_flag, keep_mask_1=keep_mask_1)
 
     def write(self, fname):
-        """ Write Dragonfly detector to file
+        ''' Write Dragonfly detector to file
 
         If h5py is available and the file name as a '.h5' extension,
         an HDF5 detector will be written, otherwise an ASCII file will be generated.
 
         Note that the background array can only be stored in an HDF5 detector
-        """
-        if not (hasattr(self, "qvals") and
-                hasattr(self, "corr") and
-                hasattr(self, "raw_mask") and
-                hasattr(self, "detd") and
-                hasattr(self, "ewald_rad")):
+        '''
+        if not (hasattr(self, 'qvals') and
+                hasattr(self, 'corr') and
+                hasattr(self, 'raw_mask') and
+                hasattr(self, 'detd') and
+                hasattr(self, 'ewald_rad')):
             raise AttributeError('Detector attributes not populated. Cannot write to file')
 
-        if os.path.splitext(fname)[1] == '.h5':
-            self._write_h5det(fname)
-        else:
-            self._write_asciidet(fname)
+        print('Writing HDF5 detector file to', fname)
+        with h5py.File(fname, 'w') as fptr:
+            fptr['qx'] = self.qvals[:,0].ravel().astype('f8')
+            fptr['qy'] = self.qvals[:,1].ravel().astype('f8')
+            fptr['qz'] = self.qvals[:,2].ravel().astype('f8')
+            fptr['corr'] = self.corr.ravel().astype('f8')
+            fptr['mask'] = self.raw_mask.ravel().astype('u1')
+            fptr['detd'] = float(self.detd)
+            fptr['ewald_rad'] = float(self.ewald_rad)
+            if self.background is not None:
+                fptr['background'] = self.background.ravel().astype('f8')
 
     def assemble_frame(self, data, zoomed=False, sym=False, avg=False):
-        ''' Assemble given raw image
+        '''Assemble given raw image.
 
-        Arguments:
-            data - array of num_pix values
-            zoomed (bool) - Restrict assembled image to non-masked pixels
-            sym (bool) - Centro-symmetrize image
-            avg (bool) - Average assembled image
+        Args:
+            data (:py:class:`numpy.ndarray`): Array of num_pix values.
+            zoomed (bool): Restrict assembled image to non-masked pixels. Default False.
+            sym (bool): Centro-symmetrize image. Default False.
+            avg (bool): Average assembled image. Default False.
 
         Returns:
-            Numpy masked array representing assembled image
+            :py:class:`numpy.ma.MaskedArray`: Assembled image.
         '''
         if sym:
             self._init_sym()
@@ -311,7 +307,7 @@ class Detector(CDetector):
                 b = self._sym_zoom_bounds
                 return img[b[0]:b[1], b[2]:b[3]]
         else:
-            img = ma.masked_array(np.zeros(self.frame_shape, dtype='f8'), mask=1-self.assembled_mask)
+            img = ma.masked_array(np.zeros(self.frame_shape, dtype='f8'), mask=1-self.mask_assem)
             np.add.at(img, (self.x, self.y), data*self.mask)
             if avg:
                 countimg = np.zeros(self.frame_shape, dtype='f8')
@@ -353,7 +349,7 @@ class Detector(CDetector):
         elif pol.lower() == 'y':
             corr = self.detd / fac**3 * (1. - self.cy**2 / fac**2)
         else:
-            corr = self.detd / fac**3
+            corr = self.detd / fac**3 * (1. - (self.cx**2+self.cy**2) / 2 / fac**2)
 
         # This assignment forces a copy
         self.qvals = qvals
@@ -370,12 +366,17 @@ class Detector(CDetector):
             self._qrad = np.linalg.norm(self.qvals, axis=1)
         self.raw_mask[(self.raw_mask == 0) & (self._qrad > qradius)] = 1
 
-    def parse_background(self, fname):
-        if h5py.ishdf5(fname):
-            with h5py.File(fname, 'r') as fptr:
-                self.background = fptr['background'][:].ravel()
-        else:
-            self.background = np.fromfile(fname)
+    def get_assembled_cen(self, zoomed=False, sym=False):
+        if sym:
+            cen = self._sym_shape[0]//2, self._sym_shape[1]//2
+            if zoomed:
+                return cen[0]-self._sym_zoom_bounds[0], cen[1]-self._sym_zoom_bounds[2]
+            return cen
+
+        cen = -self.cx.min(), -self.cy.min()
+        if zoomed:
+            return cen[0]-self.zoom_bounds[0], cen[1]-self.zoom_bounds[2]
+        return cen
 
     def _process_det(self, mask_flag, keep_mask_1):
         self.shape = self.corr.shape
@@ -406,42 +407,13 @@ class Detector(CDetector):
         '''Calculate attributes given self.x and self.y'''
         self.frame_shape = (self.x.max()+1, self.y.max()+1)
 
-        self.assembled_mask = np.zeros(self.frame_shape, dtype='u1')
-        self.assembled_mask[self.x, self.y] = self.mask
-        self.assembled_mask = np.sign(self.assembled_mask)
+        self.mask_assem = np.zeros(self.frame_shape, dtype='u1')
+        self.mask_assem[self.x, self.y] = self.mask
+        self.mask_assem = np.sign(self.mask_assem)
 
         xsel = self.x[self.mask]
         ysel = self.y[self.mask]
         self.zoom_bounds = (xsel.min(), xsel.max()+1, ysel.min(), ysel.max()+1)
-
-    def _write_asciidet(self, fname):
-        print('Writing ASCII detector file')
-        if self.background is not None:
-            print('WARNING! ASCII detector files cannot save background')
-        qx = self.qvals[:,0].ravel()
-        qy = self.qvals[:,1].ravel()
-        qz = self.qvals[:,2].ravel()
-        corr = self.corr.ravel()
-        mask = self.raw_mask.ravel().astype('u1')
-
-        with open(fname, "w") as fptr:
-            fptr.write("%d %.6f %.6f\n" % (qx.size, self.detd, self.ewald_rad))
-            for par0, par1, par2, par3, par4 in zip(qx, qy, qz, corr, mask):
-                txt = "%21.15e %21.15e %21.15e %21.15e %d\n" % (par0, par1, par2, par3, par4)
-                fptr.write(txt)
-
-    def _write_h5det(self, fname):
-        print('Writing HDF5 detector file')
-        with h5py.File(fname, "w") as fptr:
-            fptr['qx'] = self.qvals[:,0].ravel().astype('f8')
-            fptr['qy'] = self.qvals[:,1].ravel().astype('f8')
-            fptr['qz'] = self.qvals[:,2].ravel().astype('f8')
-            fptr['corr'] = self.corr.ravel().astype('f8')
-            fptr['mask'] = self.raw_mask.ravel().astype('u1')
-            fptr['detd'] = float(self.detd)
-            fptr['ewald_rad'] = float(self.ewald_rad)
-            if self.background is not None:
-                fptr['background'] = self.background.ravel().astype('f8')
 
     def _init_sym(self, force=False):
         if self._sym_shape is not None and not force:

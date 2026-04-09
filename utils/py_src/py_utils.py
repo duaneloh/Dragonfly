@@ -131,27 +131,6 @@ def confirm_oversampling(ratio):
             proceed = False
     return proceed
 
-def _name_recon_dir(tag, num):
-    return "%s_%04d"%(tag, num)
-
-def create_new_recon_dir(tag="recon", num=1, prefix="./"):
-    '''Create reconstruction directory
-    For given tag, creates directory with first number which does not already exist
-    'prefix' option can be set if parent folder is not the current directory
-    '''
-    recon_dir = os.path.join(prefix, _name_recon_dir(tag, num))
-    while os.path.exists(recon_dir):
-        num += 1
-        recon_dir = os.path.join(prefix, os.path.join(_name_recon_dir(tag, num)))
-    logging.info('New recon directory created with name: %s', recon_dir)
-    os.mkdir(recon_dir)
-    os.mkdir(os.path.join(recon_dir, 'data'))
-    os.mkdir(os.path.join(recon_dir, 'images'))
-    os.mkdir(os.path.join(recon_dir, 'logs'))
-    if not os.path.exists(_name_recon_dir(tag, num)):
-        os.symlink(recon_dir, _name_recon_dir(tag, num))
-    return recon_dir
-
 def increment_quat_file_sensibly(config_fname, incr):
     '''Increments num_div in config file by incr'''
     config = configparser.ConfigParser()

@@ -16,6 +16,7 @@ struct params {
 	double alpha, beta_jump, beta_factor ;
 	//double *beta, *beta_start ;
 	int friedel_sym ; // Symmetrization for 2D recon
+	int axial_sym ; // N-fold symmetrization about Z-axis
 	int refine, coarse_div, fine_div ; // If doing refinement
 
 	// Radius refinement
@@ -27,6 +28,9 @@ struct params {
 
 	// Mode information
 	int num_modes, rot_per_mode, nonrot_modes ;
+	
+	// Testing
+	int fixed_seed ;
 } ;
 
 #endif //PARAMS_H

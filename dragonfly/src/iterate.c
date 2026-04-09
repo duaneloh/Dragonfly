@@ -116,3 +116,65 @@ void calc_sum_fact(struct iterate *self) {
 	}
 }
 
+void calc_powder(struct iterate *self) {
+	int dset_num = 0, detn, d, t, pixel ;
+	struct dataset *curr = self->dset ;
+	struct detector *det ;
+	int *nframes = calloc(self->num_det, sizeof(int)) ;
+	
+	// Only allocate powder if detector has background
+	if (self->det[0].with_bg) {
+		for (detn = 0 ; detn < self->num_det ; ++detn) {
+			if (self->det[detn].powder != NULL)
+				free(self->det[detn].powder) ;
+			self->det[detn].powder = calloc(self->det[detn].num_pix, sizeof(double)) ;
+		}
+		
+		while (curr != NULL) {
+			detn = self->det_mapping[dset_num] ;
+			det = &self->det[detn] ;
+			
+			if (curr->ftype == SPARSE) {
+				for (d = 0 ; d < curr->num_data ; ++d) {
+					nframes[detn]++ ;
+					for (t = 0 ; t < curr->ones[d] ; ++t) {
+						pixel = curr->place_ones[curr->ones_accum[d] + t] ;
+						if (det->raw_mask[pixel] < 1)
+							det->powder[pixel]++ ;
+					}
+					for (t = 0 ; t < curr->multi[d] ; ++t) {
+						pixel = curr->place_multi[curr->multi_accum[d] + t] ;
+						if (det->raw_mask[pixel] < 1)
+							det->powder[pixel] += curr->count_multi[curr->multi_accum[d] + t] ;
+					}
+				}
+			}
+			else if (curr->ftype == DENSE_INT) {
+				for (d = 0 ; d < curr->num_data ; ++d) {
+					nframes[detn]++ ;
+					for (t = 0 ; t < curr->num_pix ; ++t)
+						if (det->raw_mask[t] < 1)
+							det->powder[t] += curr->int_frames[d*curr->num_pix + t] ;
+				}
+			}
+			else if (curr->ftype == DENSE_DOUBLE) {
+				for (d = 0 ; d < curr->num_data ; ++d) {
+					nframes[detn]++ ;
+					for (t = 0 ; t < curr->num_pix ; ++t)
+						if (det->raw_mask[t] < 1)
+							det->powder[t] += curr->frames[d*curr->num_pix + t] ;
+				}
+			}
+			
+			dset_num++ ;
+			curr = curr->next ;
+		}
+		
+		for (detn = 0 ; detn < self->num_det ; ++detn)
+			for (t = 0 ; t < self->det[detn].num_pix ; ++t)
+				self->det[detn].powder[t] /= nframes[detn] ;
+	}
+	
+	free(nframes) ;
+}
+

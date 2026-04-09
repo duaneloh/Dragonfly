@@ -1,0 +1,105 @@
+'''Module containing class to generate tomographic slices.'''
+
+import os
+from configparser import NoOptionError
+
+import h5py
+import dragonfly
+
+from .read_config import MyConfigParser
+
+
+class SliceGenerator:
+    '''Class to generate slices from 3D intensity distribution for given orientation.
+
+    Requires config file from an EMC reconstruction.
+
+    Note:
+        This produces the tomogram for the most likely orientation only.
+
+    Args:
+        config_fname (str): Path to configuration file.
+
+    Example:
+        >>> gen = SliceGenerator('config.ini')
+        >>> tomo, info = gen.get_slice(10, 5)
+    '''
+
+    def __init__(self, config_fname):
+        '''Initialize SliceGenerator from configuration file.'''
+        config = MyConfigParser()
+        config.read(config_fname)
+
+        self.recon_type = config.get('emc', 'recon_type', fallback='3d').lower()
+        try:
+            det_fname = config.get_filename('emc', 'in_detector_file')
+        except NoOptionError:
+            print('WARNING: Using first detector in list to plot all slices')
+            flist = config.get_filename('emc', 'in_detector_list')
+            with open(flist, 'r') as fptr:
+                det_fname = fptr.read().split()[0]
+        self._cdet = dragonfly.CDetector(det_fname, rtype=self.recon_type)
+        self.det = dragonfly.Detector(det_fname)
+        self.quat = dragonfly.Quaternion()
+        self.quat.from_config(config_fname, 'emc')
+        self.folder = config.get_filename('emc', 'output_folder', fallback='data/')
+        self.need_scaling = config.getboolean('emc', 'need_scaling', fallback=False)
+
+        self.current_iteration = -1
+        self.model = self.stats = None
+
+    def _init_model(self, iteration):
+        '''Initialize model from iteration output file.'''
+        self.stats = {'rmax': None, 'scale': None, 'info': None}
+
+        h5model_fname = '%s/output_%.3d.h5' % (self.folder, iteration)
+        print('Parsing comparison output:', h5model_fname)
+        with h5py.File(h5model_fname, 'r') as fptr:
+            size = fptr['intens'].shape[-1]
+            self.num_modes = fptr['intens'].shape[0]
+            self.stats['rmax'] = fptr['orientations'][:]
+            self.stats['info'] = fptr['mutual_info'][:]
+            if self.need_scaling:
+                self.stats['scale'] = fptr['scale'][:]
+        self.model = dragonfly.Model(size, self.num_modes, model_type=self.recon_type)
+        self.model.allocate(h5model_fname)
+
+        self.current_iteration = iteration
+
+    def get_slice(self, iteration, num, raw=False, **kwargs):
+        '''Get tomographic slice for given iteration and frame number.
+
+        Args:
+            iteration (int): Reconstruction iteration number.
+            num (int): Frame number.
+            raw (bool): Whether to return unassembled slice. Defaults to False.
+            **kwargs: Additional arguments passed to assemble_frame.
+
+        Returns:
+            tuple: (:py:class:`numpy.ndarray`, float) - assembled detector
+                   slice and mutual information, or (raw slice, mutual
+                   information) if raw=True.
+        '''
+        if iteration != self.current_iteration:
+            self._init_model(iteration)
+        mode_num = self.stats['rmax'][num] % self.num_modes
+        quat_num = self.stats['rmax'][num] // self.num_modes
+        dslice = self.model.slice_gen(self.quat.quats[quat_num], self._cdet, mode=mode_num)
+
+        if raw:
+            return dslice, self.stats['info'][num]
+        return self.det.assemble_frame(dslice, **kwargs), self.stats['info'][num]
+
+    def get_quat(self, iteration, num):
+        '''Return best match quaternion for given iteration and frame number.
+
+        Args:
+            iteration (int): Reconstruction iteration number.
+            num (int): Frame number.
+
+        Returns:
+            tuple: Quaternion as 5 floats.
+        '''
+        if iteration != self.current_iteration:
+            self._init_model(iteration)
+        return tuple(self.quat.quats[self.stats['rmax'][num] // self.num_modes])

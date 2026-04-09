@@ -35,10 +35,12 @@ struct params {
 
 	// Number of unconstrained modes
 	int modes, rot_per_mode, nonrot_modes ;
+	
+	// Testing
+	int fixed_seed ;
 } ;
 
 void params_from_config(char*, char*, struct params*) ;
-void generate_output_dirs(struct params*) ;
 void free_params(struct params*) ;
 
 #endif //PARAMS_H

@@ -1,0 +1,35 @@
+# Dragonfly Requirements
+# ======================
+
+# NOTE: On HPC clusters with environment modules (e.g., module load mpi),
+# install mpi4py AFTER loading the MPI module so it compiles against the
+# correct MPI headers:
+#
+#   module load mpi/openmpi-x.x.x  # or similar
+#   pip install mpi4py
+#   pip install -e .
+#
+# The mpi4py line below is commented out for this reason. Uncomment only
+# if installing on a system where the default MPI should be used.
+
+# Core dependencies (install first)
+cython>=0.29
+numpy<2
+
+# MPI (install after loading cluster MPI module if applicable)
+mpi4py
+
+# HDF5 I/O
+h5py
+
+# Special functions
+scipy
+scikit-learn
+
+# Visualization and GUIs
+matplotlib
+PyQt5
+
+# Optional: for building documentation
+sphinx
+sphinx_rtd_theme

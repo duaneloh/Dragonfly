@@ -11,7 +11,7 @@
 
 #define PROB_MIN 1.e-6
 #define PDIFF_THRESH 14.
-#define MAX_EXP_START -1.e100
+#define MAX_EXP_START -DBL_MAX
 
 static struct timeval tm1, tm2 ;
 
@@ -227,7 +227,7 @@ void calculate_rescale(struct max_data *data) {
 void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 	int dset = 0, t, d, curr_d, pixel, mode, rotind, detn, old_detn = -1, ind, new_num_prob ;
 	struct dataset *curr = frames ;
-	double pval, *view ;
+	double ipred, pval, *view ;
 	int *num_prob = priv->num_prob, **place_prob = priv->place_prob ;
 	double **prob = priv->prob ;
 	
@@ -288,15 +288,23 @@ void calculate_prob(int r, struct max_data *priv, struct max_data *common) {
 					// For each pixel with one photon
 					for (t = 0 ; t < curr->ones[curr_d] ; ++t) {
 						pixel = curr->place_ones[curr->ones_accum[curr_d] + t] ;
-						if (det[detn].mask[pixel] < 1)
-							pval += log(view[pixel] * iter->scale[d] + iter->bgscale[d] * det[detn].background[pixel]) ;
+						if (det[detn].mask[pixel] < 1) {
+							ipred = view[pixel] * iter->scale[d] + iter->bgscale[d] * det[detn].background[pixel] ;
+							if (ipred < 0)
+								ipred = DBL_MIN ;
+							pval += log(ipred) ;
+						}
 					}
 					
 					// For each pixel with count_multi photons
 					for (t = 0 ; t < curr->multi[curr_d] ; ++t) {
 						pixel = curr->place_multi[curr->multi_accum[curr_d] + t] ;
-						if (det[detn].mask[pixel] < 1)
-							pval += curr->count_multi[curr->multi_accum[curr_d] + t] * log(view[pixel] * iter->scale[d] + iter->bgscale[d] * det[detn].background[pixel]) ;
+						if (det[detn].mask[pixel] < 1) {
+							ipred = view[pixel] * iter->scale[d] + iter->bgscale[d] * det[detn].background[pixel] ;
+							if (ipred < 0)
+								ipred = DBL_MIN ;
+							pval += curr->count_multi[curr->multi_accum[curr_d] + t] * log(ipred) ;
+						}
 					}
 				}
 				else {
@@ -664,7 +672,6 @@ void free_memory(struct max_data *data) {
 	free(data) ;
 }
 
-
 // Other functions
 int resparsify(double *vals, int *pos, int num_vals, double thresh) {
 	int nv = 0;
@@ -677,7 +684,6 @@ int resparsify(double *vals, int *pos, int num_vals, double thresh) {
 	}
 	return nv;
 }
-
 
 double calc_psum_r(int r, struct max_data *priv, struct max_data *common) {
 	int dset = 0, d, curr_d, detn, rotind, mode, t, ind, true_r ;
@@ -1174,6 +1180,18 @@ void gradient_d(struct max_data *common, uint8_t *mask, double *scale, double *g
 					if (mask[d] > 0)
 						continue ;
 					
+					// For refinement, check if frame should be processed
+					if (param->refine) {
+						ind = -1 ;
+						for (t = 0 ; t < iter->num_rel_quat[d] ; ++t)
+						if (iter->quat_mapping[rotind] == iter->rel_quat[d][t]) {
+							ind = t ;
+							break ;
+						}
+						if (ind == -1)
+							continue ;
+					}
+					
 					// check if current frame has significant probability
 					ind = -1 ;
 					for (t = 0 ; t < common->num_prob[d] ; ++t)
@@ -1245,6 +1263,7 @@ void update_scale_bg(struct max_data *common) {
 			iter->scale[d] = -1. ;
 			continue ;
 		}
+		//scale_old[d] = 0.001 ;
 		
 		if (param->iteration > 1 || param->known_scale)
 			scale_new[d] = 4. * iter->scale[d] ;
@@ -1256,15 +1275,10 @@ void update_scale_bg(struct max_data *common) {
 	// 	Calculate G(0)
 	gradient_d(common, mask, scale_old, Gd_old) ;
 	for (d = 0 ; d < frames->tot_num_data ; ++d)
-	if (mask[d] != 255) {
-		if (fabs(Gd_old[d]) < 1.e-6) {
-			iter->scale[d] = 0. ;
-			mask[d] = 255 ;
-		}
-		else if (Gd_old[d] < 0.) { // TODO Handle this better
-			//iter->scale[d] = 0. ;
-			mask[d] = 255 ; // Leave iter->scale unchanged
-		}
+	if ((mask[d] != 255) & (Gd_old[d] < 1.e-6)) {
+		// Implies less photons in frame than background
+		iter->scale[d] = 0.001 ;
+		mask[d] = 255 ;
 	}
 	
 	// 	Calculate phi_max and G(phi_max)
@@ -1306,6 +1320,7 @@ void update_scale_bg(struct max_data *common) {
 				mask[d] = 0 ;
 				//scale_latest[d] = (scale_old[d]*Gd_new[d] - scale_new[d]*Gd_old[d]) / (Gd_new[d] - Gd_old[d]) ;
 				scale_latest[d] = 0.5 * (scale_old[d] + scale_new[d]) ;
+				//scale_latest[d] = exp((log(scale_old[d])*Gd_new[d] - log(scale_new[d])*Gd_old[d]) / (Gd_new[d] - Gd_old[d])) ;
 				/*
 				if (i % 2 == 0) {
 					scale_latest[d] = 0.5 * (scale_old[d] + scale_new[d]) ;
@@ -1323,6 +1338,7 @@ void update_scale_bg(struct max_data *common) {
 			else {
 				//scale_latest[d] = (scale_old[d]*Gd_new[d] - scale_new[d]*Gd_old[d]) / (Gd_new[d] - Gd_old[d]) ;
 				scale_latest[d] = 0.5 * (scale_old[d] + scale_new[d]) ;
+				//scale_latest[d] = exp((log(scale_old[d])*Gd_new[d] - log(scale_new[d])*Gd_old[d]) / (Gd_new[d] - Gd_old[d])) ;
 				/*
 				if (i % 2 == 0) {
 					scale_latest[d] = 0.5 * (scale_old[d] + scale_new[d]) ;

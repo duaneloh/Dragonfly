@@ -82,7 +82,6 @@ static double parse_asciidetector(char *fname, struct detector *det, int norm_fl
 	return sqrt(qmax) ;
 }
 
-#ifdef WITH_HDF5
 static double parse_h5detector(char *fname, struct detector *det, int norm_flag) {
 	hid_t file, dset, dtype, dspace, mspace ;
 	int i, ndims ;
@@ -180,7 +179,6 @@ static double parse_h5detector(char *fname, struct detector *det, int norm_flag)
 	
 	return sqrt(qmax) ;
 }
-#endif //WITH_HDF5
 
 static int parse_background(char *fname, struct detector *det) {
 	char line[8], hdfheader[8] = {137, 'H', 'D', 'F', '\r', '\n', 26, '\n'} ;
@@ -195,7 +193,6 @@ static int parse_background(char *fname, struct detector *det) {
 	fclose(fp) ;
 	
 	if (strncmp(line, hdfheader, 8) == 0) {
-#ifdef WITH_HDF5
 		fprintf(stderr, "Parsing HDF5 background file from %s\n", fname) ;
 		hid_t file, dset ;
 		file = H5Fopen(fname, H5F_ACC_RDONLY, H5P_DEFAULT) ;
@@ -203,10 +200,6 @@ static int parse_background(char *fname, struct detector *det) {
 		H5Dread(dset, H5T_IEEE_F64LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, det->background) ;
 		H5Dclose(dset) ;
 		H5Fclose(file) ;
-#else
-		fprintf(stderr, "H5 background file support not compiled\n") ;
-		return 1 ;
-#endif // WITH_HDF5
 	}
 	else {
 		fp = fopen(fname, "r") ;
@@ -348,17 +341,10 @@ double parse_detector(char *fname, struct detector *det, int norm_flag) {
 	fread(line, 8, sizeof(char), fp) ;
 	fclose(fp) ;
 	
-	if (strncmp(line, hdfheader, 8) == 0) {
-#ifdef WITH_HDF5
+	if (strncmp(line, hdfheader, 8) == 0)
 		qmax = parse_h5detector(fname, det, norm_flag) ;
-#else
-		fprintf(stderr, "H5 detector support not compiled\n") ;
-		return -1. ;
-#endif // WITH_HDF5
-	}
-	else {
+	else
 		qmax = parse_asciidetector(fname, det, norm_flag) ;
-	}
 
 	return qmax ;
 }

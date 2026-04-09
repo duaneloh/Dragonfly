@@ -326,7 +326,6 @@ void write_dataset() {
 			fclose(fp) ;
 		}
 	}
-#ifdef WITH_HDF5
 	else {
 		int d ;
 		hid_t file, dset, dspace, dtype ;
@@ -373,7 +372,6 @@ void write_dataset() {
 		H5Tclose(dtype) ;
 		H5Fclose(file) ;
 	}
-#endif
 }
 
 int intens_from_config(char *config_fname) {
@@ -549,13 +547,8 @@ int globals_from_config(char *config_fname) {
 		hdf5_output = 0 ;
 	}
 	else {
-#ifdef WITH_HDF5
 		fprintf(stderr, "Writing sparse HDF5 file\n") ;
 		hdf5_output = 1 ;
-#else // WITH_HDF5
-		fprintf(stderr, "HDF5 support not compiled\n") ;
-		return 1 ;
-#endif // WITH_HDF5
 	}
 	
 	return 0 ;

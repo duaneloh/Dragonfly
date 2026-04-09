@@ -17,14 +17,15 @@ cdef extern from "src/model.h" nogil:
     void slice_gen3d(double*, int, double*, detector*, model*)
     void slice_gen2d(double*, int, double*, detector*, model*)
     void slice_genrz(double*, int, double*, detector*, model*)
-    void slice_merge3d(double*, int, double*, detector*, model*)
-    void slice_merge2d(double*, int, double*, detector*, model*)
-    void slice_mergerz(double*, int, double*, detector*, model*)
+    void slice_merge3d(double*, int, double*, double*, double*, long, detector*)
+    void slice_merge2d(double*, int, double*, double*, double*, long, detector*)
+    void slice_mergerz(double*, int, double*, double*, double*, long, detector*)
     void rotate_model(double[3][3], double*, int, int, double*)
-    void symmetrize_icosahedral(double*, int)
-    void symmetrize_octahedral(double*, int)
-    void symmetrize_friedel(double*, int)
-    void symmetrize_friedel2d(double*, int, int)
+    void symmetrize_icosahedral(double*, double*, int)
+    void symmetrize_octahedral(double*, double*, int)
+    void symmetrize_friedel(double*, double*, int)
+    void symmetrize_axial(double*, double*, int, int)
+    void symmetrize_friedel2d(double*, double*, int, int)
 
 cdef class Model:
     cdef model* mod

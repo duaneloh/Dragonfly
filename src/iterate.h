@@ -6,9 +6,7 @@
 #include <libgen.h>
 #include <sys/time.h>
 #include <gsl/gsl_rng.h>
-#ifdef WITH_HDF5
 #include <hdf5.h>
-#endif // WITH_HDF5
 #include "utils.h"
 #include "dataset.h"
 #include "detector.h"

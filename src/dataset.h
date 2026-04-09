@@ -9,9 +9,7 @@
 #include <inttypes.h>
 #include "utils.h"
 #include "detector.h"
-#ifdef WITH_HDF5
 #include <hdf5.h>
-#endif // WITH_HDF5
 
 struct dataset {
 	// Data set type (0=sparse, 1=dense integer, 2=dense double)

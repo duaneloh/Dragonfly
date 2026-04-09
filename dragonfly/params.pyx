@@ -1,5 +1,5 @@
 import os.path as op
-from configparser import ConfigParser
+import configparser
 
 from libc.stdlib cimport malloc, calloc, free
 from libc.string cimport strcpy
@@ -7,7 +7,14 @@ from . cimport params as c_params
 from .params cimport EMCParams, params
 
 cdef class EMCParams:
+    '''Class storing reconstruction parameters.
+
+    Holds all configuration parameters for EMC reconstruction including
+    iteration settings, algorithm parameters, and symmetry options.
+    '''
+
     def __init__(self):
+        '''Initialize EMCParams with default values.'''
         self.par = <c_params.params*> calloc(1, sizeof(c_params.params))
 
         self.par.rank = 0
@@ -37,13 +44,16 @@ cdef class EMCParams:
         self.par.oversampling = 10.
         self.par.sigmasq = 0.
         self.par.friedel_sym = 0
+        self.par.axial_sym = 1
         self.par.save_prob = 0
         self.par.update_scale = 1
         self.par.refine = 0
         self.par.coarse_div = 0
         self.par.fine_div = 0
+        self.par.fixed_seed = 0
 
     def free(self):
+        '''Free allocated parameter memory.'''
         if self.par == NULL:
             return
 
@@ -55,12 +65,27 @@ cdef class EMCParams:
         self.par = NULL
 
     def from_config(self, config_fname, section_name='emc'):
-        config_folder = op.dirname(config_fname).encode()
-        config = ConfigParser()
+        '''Load parameters from configuration file.
+
+        Args:
+            config_fname (str): Path to configuration file.
+            section_name (str): Section name. Default 'emc'.
+        '''
+        from .utils.py_src.read_config import MyConfigParser
+        config = MyConfigParser()
         config.read(config_fname)
 
-        strcpy(self.par.output_folder, op.join(config_folder, config.get(section_name, 'output_folder', fallback='data/').encode()))
-        strcpy(self.par.log_fname, op.join(config_folder, config.get(section_name, 'log_file', fallback='EMC.log').encode()))
+        try:
+            output_folder = config.get_filename(section_name, 'output_folder', fallback='data/')
+        except configparser.NoOptionError:
+            output_folder = 'data/'
+        strcpy(self.par.output_folder, output_folder.encode())
+
+        try:
+            log_fname = config.get_filename(section_name, 'log_file', fallback='EMC.log')
+        except configparser.NoOptionError:
+            log_fname = 'EMC.log'
+        strcpy(self.par.log_fname, log_fname.encode())
         rtype = config.get(section_name, 'recon_type', fallback='3d')
         if rtype == '3d':
             self.par.rtype = c_params.RECON3D
@@ -90,6 +115,7 @@ cdef class EMCParams:
         self.par.oversampling = config.getfloat(section_name, 'oversampling', fallback=10.)
         self.par.sigmasq = config.getfloat(section_name, 'gaussian_sigma', fallback=0.)**2
         self.par.friedel_sym = config.getint(section_name, 'friedel_sym', fallback=0)
+        self.par.axial_sym = config.getint(section_name, 'axial_sym', fallback=1)
         self.par.save_prob = config.getint(section_name, 'save_prob', fallback=0)
         self.par.update_scale = config.getint(section_name, 'update_scale', fallback=1)
         num_divs = config.get(section_name, 'num_div', fallback='0').split()
@@ -97,89 +123,178 @@ cdef class EMCParams:
             self.par.refine = 1
             self.par.fine_div = int(num_divs[0])
             self.par.coarse_div = int(num_divs[1])
-            print("Doing refinement from num_div = %d -> %d\n" % (self.par.coarse_div, self.par.fine_div))
+            print('Doing refinement from num_div = %d -> %d\n' % (self.par.coarse_div, self.par.fine_div))
+        
+        self.par.fixed_seed = config.getint(section_name, 'fixed_seed', fallback=0)
 
     @property
-    def rank(self): return self.par.rank
+    def rank(self):
+        '''MPI rank.'''
+        return self.par.rank
     @rank.setter
-    def rank(self, int val): self.par.rank = val
+    def rank(self, int val):
+        '''Set MPI rank.'''
+        self.par.rank = val
     @property
-    def num_proc(self): return self.par.num_proc
+    def num_proc(self):
+        '''Number of MPI processes.'''
+        return self.par.num_proc
     @num_proc.setter
-    def num_proc(self, int val): self.par.num_proc = val
+    def num_proc(self, int val):
+        '''Set number of MPI processes.'''
+        self.par.num_proc = val
     @property
-    def iteration(self): return self.par.iteration
+    def iteration(self):
+        '''Current iteration number.'''
+        return self.par.iteration
     @iteration.setter
-    def iteration(self, int val): self.par.iteration = val
+    def iteration(self, int val):
+        '''Set current iteration number.'''
+        self.par.iteration = val
     @property
-    def start_iter(self): return self.par.start_iter
+    def start_iter(self):
+        '''Starting iteration number.'''
+        return self.par.start_iter
     @start_iter.setter
-    def start_iter(self, int val): self.par.start_iter = val
+    def start_iter(self, int val):
+        '''Set starting iteration number.'''
+        self.par.start_iter = val
     @property
-    def num_iter(self): return self.par.num_iter
+    def num_iter(self):
+        '''Number of iterations.'''
+        return self.par.num_iter
     @num_iter.setter
-    def num_iter(self, int val): self.par.num_iter = val
+    def num_iter(self, int val):
+        '''Set number of iterations.'''
+        self.par.num_iter = val
     @property
-    def beta_period(self): return self.par.beta_period
+    def beta_period(self):
+        '''Iterations per beta period.'''
+        return self.par.beta_period
     @beta_period.setter
-    def beta_period(self, int val): self.par.beta_period = val
+    def beta_period(self, int val):
+        '''Set iterations per beta period.'''
+        self.par.beta_period = val
     @property
-    def need_scaling(self): return self.par.need_scaling
+    def need_scaling(self):
+        '''Whether frame scaling is enabled.'''
+        return self.par.need_scaling
     @need_scaling.setter
-    def need_scaling(self, int val): self.par.need_scaling = val
+    def need_scaling(self, int val):
+        '''Set need_scaling flag.'''
+        self.par.need_scaling = val
     @property
-    def known_scale(self): return self.par.known_scale
+    def known_scale(self):
+        '''Whether scale factors are known.'''
+        return self.par.known_scale
     @known_scale.setter
-    def known_scale(self, int val): self.par.known_scale = val
+    def known_scale(self, int val):
+        '''Set known_scale flag.'''
+        self.par.known_scale = val
     @property
-    def update_scale(self): return self.par.update_scale
+    def update_scale(self):
+        '''Whether to update scale factors during iteration.'''
+        return self.par.update_scale
     @update_scale.setter
-    def update_scale(self, int val): self.par.update_scale = val
+    def update_scale(self, int val):
+        '''Set update_scale flag.'''
+        self.par.update_scale = val
     @property
-    def save_prob(self): return self.par.save_prob
+    def save_prob(self):
+        '''Whether to save probabilities.'''
+        return self.par.save_prob
     @save_prob.setter
-    def save_prob(self, int val): self.par.save_prob = val
+    def save_prob(self, int val):
+        '''Set save_prob flag.'''
+        self.par.save_prob = val
     @property
-    def verbosity(self): return self.par.verbosity
+    def verbosity(self):
+        '''Verbosity level.'''
+        return self.par.verbosity
     @verbosity.setter
-    def verbosity(self, int val): self.par.verbosity = val
+    def verbosity(self, int val):
+        '''Set verbosity level.'''
+        self.par.verbosity = val
     @property
-    def friedel_sym(self): return self.par.friedel_sym
+    def friedel_sym(self):
+        '''Whether Friedel symmetry is applied.'''
+        return self.par.friedel_sym
     @friedel_sym.setter
-    def friedel_sym(self, int val): self.par.friedel_sym = val
+    def friedel_sym(self, int val):
+        '''Set friedel_sym flag.'''
+        self.par.friedel_sym = val
     @property
-    def refine(self): return self.par.refine
+    def axial_sym(self):
+        '''N-fold axial symmetry order.'''
+        return self.par.axial_sym
+    @axial_sym.setter
+    def axial_sym(self, int val):
+        '''Set axial symmetry order.'''
+        self.par.axial_sym = val
+    @property
+    def refine(self):
+        '''Whether refinement mode is enabled.'''
+        return self.par.refine
     @refine.setter
-    def refine(self, int val): self.par.refine = val
+    def refine(self, int val):
+        '''Set refine flag.'''
+        self.par.refine = val
     @property
-    def coarse_div(self): return self.par.coarse_div
+    def coarse_div(self):
+        '''Coarse division for refinement.'''
+        return self.par.coarse_div
     @coarse_div.setter
-    def coarse_div(self, int val): self.par.coarse_div = val
+    def coarse_div(self, int val):
+        '''Set coarse division.'''
+        self.par.coarse_div = val
     @property
-    def fine_div(self): return self.par.fine_div
+    def fine_div(self):
+        '''Fine division for refinement.'''
+        return self.par.fine_div
     @fine_div.setter
-    def fine_div(self, int val): self.par.fine_div = val
+    def fine_div(self, int val):
+        '''Set fine division.'''
+        self.par.fine_div = val
     @property
-    def radius_period(self): return self.par.radius_period
+    def radius_period(self):
+        '''Iterations per radius period.'''
+        return self.par.radius_period
     @radius_period.setter
-    def radius_period(self, int val): self.par.radius_period = val
+    def radius_period(self, int val):
+        '''Set radius period.'''
+        self.par.radius_period = val
     @property
-    def num_modes(self): return self.par.num_modes
+    def num_modes(self):
+        '''Number of modes.'''
+        return self.par.num_modes
     @num_modes.setter
-    def num_modes(self, int val): self.par.num_modes = val
+    def num_modes(self, int val):
+        '''Set number of modes.'''
+        self.par.num_modes = val
     @property
-    def rot_per_mode(self): return self.par.rot_per_mode
+    def rot_per_mode(self):
+        '''Rotations per mode.'''
+        return self.par.rot_per_mode
     @rot_per_mode.setter
-    def rot_per_mode(self, int val): self.par.rot_per_mode = val
+    def rot_per_mode(self, int val):
+        '''Set rotations per mode.'''
+        self.par.rot_per_mode = val
     @property
-    def nonrot_modes(self): return self.par.nonrot_modes
+    def nonrot_modes(self):
+        '''Number of non-rotating modes.'''
+        return self.par.nonrot_modes
     @nonrot_modes.setter
-    def nonrot_modes(self, int val): self.par.nonrot_modes = val
+    def nonrot_modes(self, int val):
+        '''Set non-rotating modes.'''
+        self.par.nonrot_modes = val
 
     @property
-    def rtype(self): return ['RECON3D', 'RECON2D', 'RECONRZ'][self.par.rtype]
+    def rtype(self):
+        '''Returns the reconstruction type (RECON3D, RECON2D, or RECONRZ).'''
+        return ['RECON3D', 'RECON2D', 'RECONRZ'][self.par.rtype]
     @rtype.setter
     def rtype(self, val): 
+        '''Set reconstruction type.'''
         if val == 'RECON3D':
             self.par.rtype = RECON3D
         elif val == 'RECON2D':
@@ -190,48 +305,89 @@ cdef class EMCParams:
             raise ValueError('Unknown recon_type %s'%val)
             
     @property
-    def alpha(self): return self.par.alpha
+    def alpha(self):
+        '''Model smoothing factor.'''
+        return self.par.alpha
     @alpha.setter
-    def alpha(self, double val): self.par.alpha = val
+    def alpha(self, double val):
+        '''Set alpha smoothing factor.'''
+        self.par.alpha = val
     @property
-    def beta_jump(self): return self.par.beta_jump
+    def beta_jump(self):
+        '''Beta value jump per period.'''
+        return self.par.beta_jump
     @beta_jump.setter
-    def beta_jump(self, double val): self.par.beta_jump = val
+    def beta_jump(self, double val):
+        '''Set beta jump.'''
+        self.par.beta_jump = val
     @property
-    def beta_factor(self): return self.par.beta_factor
+    def beta_factor(self):
+        '''Beta scaling factor.'''
+        return self.par.beta_factor
     @beta_factor.setter
-    def beta_factor(self, double val): self.par.beta_factor = val
+    def beta_factor(self, double val):
+        '''Set beta factor.'''
+        self.par.beta_factor = val
     @property
-    def radius(self): return self.par.radius
+    def radius(self):
+        '''Reconstruction radius.'''
+        return self.par.radius
     @radius.setter
-    def radius(self, double val): self.par.radius = val
+    def radius(self, double val):
+        '''Set radius.'''
+        self.par.radius = val
     @property
-    def radius_jump(self): return self.par.radius_jump
+    def radius_jump(self):
+        '''Radius jump per period.'''
+        return self.par.radius_jump
     @radius_jump.setter
-    def radius_jump(self, double val): self.par.radius_jump = val
+    def radius_jump(self, double val):
+        '''Set radius jump.'''
+        self.par.radius_jump = val
     @property
-    def oversampling(self): return self.par.oversampling
+    def oversampling(self):
+        '''Pixel oversampling factor.'''
+        return self.par.oversampling
     @oversampling.setter
-    def oversampling(self, double val): self.par.oversampling = val
+    def oversampling(self, double val):
+        '''Set oversampling factor.'''
+        self.par.oversampling = val
     @property
-    def sigmasq(self): return self.par.sigmasq
+    def sigmasq(self):
+        '''Squared Gaussian sigma.'''
+        return self.par.sigmasq
     @sigmasq.setter
-    def sigmasq(self, double val): self.par.sigmasq = val
+    def sigmasq(self, double val):
+        '''Set sigmasq.'''
+        self.par.sigmasq = val
     
     @property
-    def log_fname(self): return (<bytes> self.par.log_fname).decode() if self.par.log_fname != NULL else None
+    def log_fname(self):
+        '''Path to log file.'''
+        return (<bytes> self.par.log_fname).decode() if self.par.log_fname != NULL else None
     @log_fname.setter
     def log_fname(self, val):
+        '''Set log file path.'''
         if self.par.log_fname != NULL:
             free(self.par.log_fname)
         self.par.log_fname = <char*> malloc(len(val) + 1)
         strcpy(self.par.log_fname, bytes(val, 'utf-8'))
     @property
-    def output_folder(self): return (<bytes> self.par.output_folder).decode() if self.par.output_folder != NULL else None
+    def output_folder(self):
+        '''Path to output folder.'''
+        return (<bytes> self.par.output_folder).decode() if self.par.output_folder != NULL else None
     @output_folder.setter
     def output_folder(self, val):
+        '''Set output folder path.'''
         if self.par.output_folder != NULL:
             free(self.par.output_folder)
         self.par.output_folder = <char*> malloc(len(val) + 1)
         strcpy(self.par.output_folder, bytes(val, 'utf-8'))
-
+    @property
+    def fixed_seed(self):
+        '''Fixed seed for testing.'''
+        return self.par.fixed_seed
+    @fixed_seed.setter
+    def fixed_seed(self, int val):
+        '''Set fixed seed flag.'''
+        self.par.fixed_seed = val
