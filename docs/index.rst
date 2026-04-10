@@ -14,6 +14,8 @@ using MPI and OpenMP.
    user-guides/simulator
    user-guides/config
    user-guides/experimental-quickstart
+   user-guides/autoplot
+   user-guides/frameviewer
    user-guides/faq
 
 .. toctree::

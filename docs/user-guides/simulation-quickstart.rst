@@ -3,6 +3,10 @@ Quick Start with Simulations
 
 This guide walks through the simulation workflow for single-particle imaging.
 
+.. image:: /_static/images/emc_sim.png
+   :alt: Simulation pipeline flowchart
+   :width: 60%
+
 For installation instructions, see :doc:`installation`.
 
 Spawn a Reconstruction Directory
@@ -77,7 +81,11 @@ In the reconstruction directory::
     dragonfly.autoplot -c <config_file>
 
 This GUI monitors reconstruction progress and can automatically look for new
-reconstructed volumes.
+reconstructed volumes. See :doc:`autoplot` for full documentation.
+
+.. image:: /_static/images/Screenshot_for_quickstart.png
+   :alt: Progress Viewer after simulation reconstruction
+   :width: 100%
 
 Example Workflow
 ----------------

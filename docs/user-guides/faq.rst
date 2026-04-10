@@ -114,5 +114,5 @@ Getting Help
 
 For additional support:
 
-* GitHub Issues: https://github.com/SerialXI/Dragonfly/issues
-* Wiki: https://github.com/SerialXI/Dragonfly/wiki
+* GitHub Issues: https://github.com/duaneloh/Dragonfly/issues
+* Documentation: https://dragonfly-spi.readthedocs.io

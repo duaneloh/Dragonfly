@@ -5,6 +5,10 @@ This guide walks through processing real experimental single-particle imaging (S
 We recommend completing at least one simulated reconstruction first using the
 :doc:`simulation-quickstart` guide before proceeding.
 
+.. image:: /_static/images/emc_exp.png
+   :alt: Experimental pipeline flowchart
+   :width: 60%
+
 Setting Things Up
 -----------------
 
