@@ -18,13 +18,6 @@ using MPI and OpenMP.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Background
-
-   background/emc-algorithm
-   background/oversampling
-
-.. toctree::
-   :maxdepth: 2
    :caption: API Reference
 
    api/detector
