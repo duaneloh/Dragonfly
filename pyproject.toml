@@ -51,7 +51,7 @@ cuphaser = ['cuphaser']
 
 [project.urls]
 Homepage = 'https://github.com/duaneloh/Dragonfly'
-Documentation = 'https://duaneloh.github.io/Dragonfly'
+Documentation = 'https://dragonfly-spi.readthedocs.io'
 Repository = 'https://github.com/duaneloh/Dragonfly'
 
 [tool.setuptools.dynamic]
