@@ -11,6 +11,7 @@ except ImportError:
     from matplotlib.backends.backend_qt4agg import FigureCanvas, NavigationToolbar2QT #pylint: disable=no-name-in-module
     os.environ['QT_API'] = 'pyqt'
 
+import os.path as op
 import numpy as np
 import h5py
 from matplotlib import colors
@@ -55,7 +56,8 @@ class Phaser2D(QtWidgets.QMainWindow):
 
         line = QtWidgets.QHBoxLayout()
         vbox.addLayout(line)
-        label = QtWidgets.QLabel('Output file: %s'%self.output_fname, self)
+        out_fname = op.basename(op.dirname(self.output_fname)) + '/' + op.basename(self.output_fname)
+        label = QtWidgets.QLabel('Output file: %s'%out_fname, self)
         line.addWidget(label)
         label = QtWidgets.QLabel('(%d 2D averages)'%self.intens.shape[0], self)
         line.addWidget(label)
@@ -173,9 +175,9 @@ class Phaser2D(QtWidgets.QMainWindow):
                 alpha[supp==0] = 0.7
                 alpha[supp==1] = 1
                 ax.imshow(np.ones(alpha.shape), vmax=2, vmin=0)
-                ax.imshow(dens, alpha=alpha, cmap='gray_r')
+                ax.imshow(dens, alpha=alpha, cmap='gray_r', interpolation='gaussian')
             else:
-                ax.imshow(dens, cmap='gray_r')
+                ax.imshow(dens, cmap='gray_r', interpolation='gaussian')
             ax.set_xticks([])
             ax.set_yticks([])
 
