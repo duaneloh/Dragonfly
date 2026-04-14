@@ -153,6 +153,9 @@ class Viewer2D(QtWidgets.QMainWindow):
         self.output_fname = parent.fname.text()
         self.intens = parent.vol_plotter.vol
         self.curr_intens = None
+        with h5py.File(self.output_fname, 'r') as f:
+            occ = f['occupancies'][:]
+            self.sel_occ = occ[occ.sum(1) > 0.5]
 
         self._init_ui()
 
@@ -167,7 +170,7 @@ class Viewer2D(QtWidgets.QMainWindow):
         self.setCentralWidget(self.window)
         self.window.setObjectName('frame')
 
-        self.fig = matplotlib.figure.Figure(figsize=(6, 6))
+        self.fig = matplotlib.figure.Figure(figsize=(12, 6))
         self.fig.subplots_adjust(left=0.05, right=0.99, top=0.9, bottom=0.05)
         self.canvas = FigureCanvas(self.fig)
         self.navbar = gui_utils.MyNavigationToolbar(self.canvas, self)
@@ -181,7 +184,12 @@ class Viewer2D(QtWidgets.QMainWindow):
         label = QtWidgets.QLabel('(%d 2D averages)'%self.intens.shape[0], self)
         line.addWidget(label)
         line.addStretch(1)
-        label = QtWidgets.QLabel('Class ', self)
+        label = QtWidgets.QLabel('Filter size', self)
+        line.addWidget(label)
+        self.filt_size = QtWidgets.QLineEdit('1000', self)
+        self.filt_size.editingFinished.connect(self._plot)
+        line.addWidget(self.filt_size)
+        label = QtWidgets.QLabel('Class', self)
         line.addWidget(label)
         self.class_num = QtWidgets.QSpinBox(self)
         self.class_num.setMinimum(0)
@@ -195,9 +203,15 @@ class Viewer2D(QtWidgets.QMainWindow):
 
     def _class_num_changed(self, num):
         self.curr_intens = self.intens[num]
+        self.curr_occ = self.sel_occ[:,num]
         self._plot()
 
     def _plot(self, state=None):
+        try:
+            filt_size = int(self.filt_size.text())
+        except ValueError:
+            print('Filter size needs to be an integer')
+            return
         exponent = self.parent.expstr.text()
         rangemin = float(self.parent.rangemin.text())
         rangemax = float(self.parent.rangestr.text())
@@ -211,11 +225,24 @@ class Viewer2D(QtWidgets.QMainWindow):
         plot_intens = self.curr_intens.copy()
         plot_intens[plot_intens<0] = np.nan
 
-        ax = self.fig.gca()
+        try:
+            ax = self.fig.get_axes()[0]
+        except IndexError:
+            ax = self.fig.add_subplot(121)
         for i in ax.images:
             i.remove()
         ax.imshow(plot_intens, extent=[-cen-0.5, cen+0.5, cen+0.5, -cen-0.5], norm=norm, cmap=cmap)
         ax.set_facecolor('dimgray')
+
+        try:
+            ax = self.fig.get_axes()[1]
+            ax.lines[0].remove()
+        except IndexError:
+            ax = self.fig.add_subplot(122)
+            ax.set_xlabel('Hit number', fontsize=12)
+            ax.set_ylabel('Hit percent (smoothed)', fontsize=12)
+            ax.set_title('Occupancy distribution', fontsize=14)
+        ax.plot(ndimage.uniform_filter(self.curr_occ, filt_size)*100)
 
         self.canvas.draw()
 
@@ -981,15 +1008,15 @@ class ProgressViewer(QtWidgets.QMainWindow):
 
     def _plot_vol(self, num=None, update=False):
         if self.recon_type == '2d':
-            self.canvas.mpl_connect('button_press_event', self._select_mode)
+            self._cid = self.canvas.mpl_connect('button_press_event', self._select_mode)
             if num is None:
                 if self.num_modes > 1:
                     num = int(self.modenum.text())
                 else:
                     num = 0
         elif self.recon_type == '3d':
-            self.canvas.mpl_connect('button_press_event', self._show_menu)
-            self.canvas.mpl_connect('motion_notify_event', self._drag_normvec)
+            self._cid = self.canvas.mpl_connect('button_press_event', self._show_menu)
+            self._dragid = self.canvas.mpl_connect('motion_notify_event', self._drag_normvec)
             if num is None:
                 num = int(self.layernum.text())
         argsdict = {'vrange': (float(self.rangemin.text()), float(self.rangestr.text())),
