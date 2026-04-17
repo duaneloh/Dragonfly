@@ -1175,7 +1175,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
 
     def _load_volume(self):
         fpath = QtWidgets.QFileDialog.getOpenFileName(self, 'Load 3D Volume',
-                                                      'data/', 'Binary data (*.bin)')
+                                                      'data/', 'Binary data (*.bin);;H5 output files (*.h5)')
         if os.environ['QT_API'] == 'pyqt5':
             fname = fpath[0]
         else:
