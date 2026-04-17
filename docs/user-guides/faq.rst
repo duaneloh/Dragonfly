@@ -39,19 +39,24 @@ Use the conversion utilities in ``utils/convert/``::
 
 **How do I choose the orientation sampling density (num_div)?**
 
+This is a function of your dimensionless resolution, counted as the
+ratio of the size of your particle to your resolution, which is also 
+around twice the highest order speckle/fringe.
+
 The total number of orientations is ``10*(5*num_div^3 + num_div)``:
 
 ========  ============
 num_div   Orientations
 ========  ============
 2         420
-3         1830
-4         5460
-5         12650
+4         3240
+6         10860
+8         25680
 ========  ============
 
-Start with ``num_div=4`` and increase if the reconstruction shows
-orientation bias or poor convergence.
+The average angle between neighboring orientations is around ``0.91/num_div``
+radians. A rule of thumb is to use ``num_div`` sampling for reconsutrction up 
+to a radius of ``num_div`` speckles/fringes.
 
 Reconstruction
 --------------
@@ -67,7 +72,12 @@ This resumes for 20 more iterations from the last checkpoint.
 **What do the output volumes represent?**
 
 Volumes contain the 3D intensity distribution of the sample in
-reciprocal space.
+reciprocal space. The voxel size can be calculated as::
+
+    1 / (lambda * ewald_rad)
+
+where ``ewald_rad`` is the Ewald sphere radius in voxels, specified
+in the detector file.
 
 **The GUI doesn't display properly.**
 
@@ -82,7 +92,7 @@ You can check the ``$DISPLAY`` environment variable to check.
 Dragonfly outputs h5 files for every iteration. Use:
 
 * The autoplot GUI
-* Custom python or Jupyter code to read the ``intens/`` dataset.
+* Custom python code to read the ``intens/`` dataset.
 
 Performance
 -----------
@@ -114,5 +124,5 @@ Getting Help
 
 For additional support:
 
-* GitHub Issues: https://github.com/SerialXI/Dragonfly/issues
-* Wiki: https://github.com/SerialXI/Dragonfly/wiki
+* GitHub Issues: https://github.com/duaneloh/Dragonfly/issues
+* Documentation: https://dragonfly-spi.readthedocs.io

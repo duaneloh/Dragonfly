@@ -21,8 +21,8 @@ The package provides several command-line tools:
 
 **Graphical programs:**
 
-* ``dragonfly.autoplot`` - Automatic plotting of results
-* ``dragonfly.frameviewer`` - Interactive frame viewer
+* ``dragonfly.autoplot`` - Progress viewer (:doc:`user-guides/autoplot`)
+* ``dragonfly.frameviewer`` - Frame viewer (:doc:`user-guides/frameviewer`)
 
 Simulation Utilities
 --------------------

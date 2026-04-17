@@ -34,7 +34,7 @@ Monitor progress with the plotting GUI:
 dragonfly.autoplot
 ```
 
-More detailed documentation can be found in the [online docs](https://github.com/duaneloh/Dragonfly/wiki).
+More detailed documentation can be found in the [online docs](https://dragonfly-spi.readthedocs.io).
 
 ## Citation
 

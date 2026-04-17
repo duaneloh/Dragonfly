@@ -104,12 +104,27 @@ cdef class Iterate:
                 [frames.append(CDataset(op.join(config_folder, fnames[i]), dets[0])) for i in range(1, len(fnames))]
         else:
             raise ValueError('Need either in_photons_file or in_photons_list.')
-        
-        try:
-            background_file = config.get_filename(section_name, 'background_file')
-            dets[0].parse_background(background_file)
-        except configparser.NoOptionError:
-            pass
+
+        background_file = config.get_filename(section_name, 'background_file', fallback=None)
+        background_list = config.get_filename(section_name, 'background_list', fallback=None)
+        if background_file is not None and background_list is not None:
+            raise ValueError('Both background_file and background_list specified. Pick one.')
+
+        if background_list is not None:
+            bg_list_dir = op.dirname(background_list)
+            with open(background_list, 'r') as f:
+                bg_lines = [line.strip() for line in f if line.strip()]
+            if len(bg_lines) != len(dets):
+                raise ValueError('Background list has %d entries but there are %d unique detectors' %
+                                 (len(bg_lines), len(dets)))
+            for i, bg_fname in enumerate(bg_lines):
+                dets[i].parse_background(op.join(bg_list_dir, bg_fname))
+        elif background_file is not None:
+            if len(dets) > 1:
+                print('WARNING: Multiple detectors and single background file. '
+                      'Assuming same background for all detectors')
+            for det in dets:
+                det.parse_background(background_file)
         
         self.set_data(frames)
 

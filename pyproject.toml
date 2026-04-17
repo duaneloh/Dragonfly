@@ -44,14 +44,14 @@ dev = [
     'sphinx_rtd_theme',
     'pylint',
 ]
-cuphaser = ["cuphaser @ git+https://github.com/AyyerLab/cuphaser.git"]
+cuphaser = ['cuphaser']
 
 # Cluster/build dependencies (install separately on clusters with MPI modules)
 # mpi4py should be installed after loading the MPI environment module
 
 [project.urls]
 Homepage = 'https://github.com/duaneloh/Dragonfly'
-Documentation = 'https://duaneloh.github.io/Dragonfly'
+Documentation = 'https://dragonfly-spi.readthedocs.io'
 Repository = 'https://github.com/duaneloh/Dragonfly'
 
 [tool.setuptools.dynamic]

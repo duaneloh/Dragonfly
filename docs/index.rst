@@ -14,14 +14,9 @@ using MPI and OpenMP.
    user-guides/simulator
    user-guides/config
    user-guides/experimental-quickstart
+   user-guides/autoplot
+   user-guides/frameviewer
    user-guides/faq
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Background
-
-   background/emc-algorithm
-   background/oversampling
 
 .. toctree::
    :maxdepth: 2

@@ -22,11 +22,12 @@ from dragonfly.utils import make_detector, make_data
 def main():
     '''Runs through simulation utilities to generate data.
 
-    Utilities:
-        make_densities: Generate electron density from PDB
-        make_intensities: Generate intensity from density
-        make_detector: Generate detector geometry
-        make_data: Generate photon diffraction patterns
+    Sequentially executes the following utilities:
+
+    - **make_densities**: Generate electron density from PDB
+    - **make_intensities**: Generate intensity from density
+    - **make_detector**: Generate detector geometry
+    - **make_data**: Generate photon diffraction patterns
     '''
     logging.basicConfig(filename="simdata.log", level=logging.INFO,
                         format='%(asctime)s - %(levelname)s - %(message)s')

@@ -56,7 +56,7 @@ def main():
     print(80*"=")
     print("Initializing new directory and creating soft links to useful utilities.")
     print("Type 'dragonfly_init -h' for options")
-    print("See http://github.com/duaneloh/Dragonfly/wiki/FAQ for troubleshooting tips.")
+    print("See https://dragonfly-spi.readthedocs.io/en/latest/user-guides/faq.html for troubleshooting tips.")
     print(80*"=")
 
     if args.recon_prefix != './':
