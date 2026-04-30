@@ -35,6 +35,8 @@ dependencies = [
     'scikit-learn',
     'matplotlib',
     'pyqt5',
+    'dash',
+    'plotly',
 ]
 
 # Optional dependencies
@@ -68,6 +70,7 @@ packages = [
 'dragonfly.init' = 'dragonfly.utils.init_new_recon:main'
 'dragonfly.emc' = 'dragonfly.recon:main'
 'dragonfly.autoplot' = 'dragonfly.utils.autoplot:main'
+'dragonfly.autoplot-web' = 'dragonfly.utils.autoplot_dash:main'
 'dragonfly.frameviewer' = 'dragonfly.utils.frameviewer:main'
 'dragonfly.utils.make_densities' = 'dragonfly.utils.make_densities:main'
 'dragonfly.utils.make_intensities' = 'dragonfly.utils.make_intensities:main'
@@ -75,4 +78,3 @@ packages = [
 'dragonfly.utils.make_data' = 'dragonfly.utils.make_data:main'
 'dragonfly.utils.sim_setup' = 'dragonfly.utils.sim_setup:main'
 #'dragonfly.utils.compare' = 'dragonfly.utils.compare:main'
-
