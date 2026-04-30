@@ -15,7 +15,8 @@ from matplotlib.backends.backend_qt5agg import FigureCanvas # pylint: disable=no
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 os.environ['QT_API'] = 'pyqt5'
-from .py_src import read_config
+from .autoplot_core import AutoplotController
+from .autoplot_mpl import VolumePlotter, LogPlotter
 from . import frameviewer
 from .py_src import gui_utils
 from .py_src import clpca
@@ -250,345 +251,6 @@ class Viewer2D(QtWidgets.QMainWindow):
         self.windowClosed.emit()
         event.accept()
 
-class VolumePlotter(object):
-    def __init__(self, fig, recon_type='3d', num_modes=1, num_nonrot=0, num_rot=None):
-        self.fig = fig
-        self.canvas = fig.canvas
-        self.recon_type = recon_type
-        self.num_modes = num_modes
-        self.num_nonrot = num_nonrot
-
-        self.vol = None
-        self.rots = None
-        self.modes = None
-        self.old_modenum = None
-        self.main_subp = None
-        self.imshow_args = None
-        self.intrad = None
-        self._init_xval = 0
-        self._init_yval = 0
-        self.normvecs = np.identity(3)
-
-        if self.num_nonrot > 0 and num_rot is None:
-            raise ValueError('Need num_rot if nonrot modes are present')
-        self.num_rot = num_rot
-        self.need_replot = False
-        self.image_exists = False
-
-    def parse(self, fname, modenum=0, rots=True):
-        '''Parse volume defined in options panel
-        Can be either 3D volume or 2d slice stack depending on mode in config file
-        '''
-        if os.path.isfile(fname):
-            if h5py.is_hdf5(fname):
-                h5_output = True
-                with h5py.File(fname, 'r') as f:
-                    if self.recon_type == '3d':
-                        self.vol = f['intens'][modenum]
-                    else:
-                        self.vol = f['intens'][:]
-                        if self.num_modes == 1:
-                            self.vol = self.vol[0]
-                    if rots:
-                        try:
-                            self.rots = f['orientations'][:]
-                        except KeyError:
-                            print('No orientations dataset in', fname)
-                            self.rots = None
-                size = self.vol.shape[-1]
-            else:
-                h5_output = False
-                self.vol = np.fromfile(fname, dtype='f8')
-                if rots:
-                    try:
-                        # Assuming fname is <out_folder>/output/output_???.bin
-                        iternum = int(fname[-7:-4])
-                        out_folder = fname[:-21]
-                        self.rots = np.fromfile(out_folder+'/orientations/orientations_%.3d.bin'%iternum, '=i4')
-                    except (ValueError, IOError):
-                        #print('No orientations found for iteration %d' % iternum)
-                        self.rots = None
-        else:
-            sys.stderr.write("Unable to open %s\n"%fname)
-            return 0, 0, 0
-
-        if self.recon_type == '3d':
-            if not h5_output:
-                size = int(np.ceil(np.power(len(self.vol)/self.num_modes, 1./3.)))
-                if self.num_modes > 1:
-                    self.vol = self.vol[modenum*size**3:(modenum+1)*size**3].reshape(size, size, size)
-                else:
-                    self.vol = self.vol.reshape(size, size, size)
-            center = size // 2
-            return_val = (fname, size, center)
-        else:
-            if not h5_output:
-                size = int(np.ceil(np.power(len(self.vol)/self.num_modes, 1./2.)))
-                self.vol = self.vol.reshape(self.num_modes, size, size)
-            center = 0
-            return_val = (fname, self.num_modes, center)
-
-        self.old_fname = fname
-        if self.num_modes > 1:
-            self.old_modenum = modenum
-            if self.rots is not None:
-                rotind = self.rots // self.num_modes
-                self.modes = self.rots % self.num_modes
-                self.modes[self.rots < 0] = -1
-                if self.num_nonrot > 0:
-                    self.modes[rotind >= self.num_rot] = self.rots[rotind >= self.num_rot] - self.num_modes * (self.num_rot - 1)
-        return return_val
-
-    def plot(self, num, vrange, exponent, cmap):
-        '''Plot volume on to self.fig
-        In normal 3D mode, this means 3 orthogonal slices passing through a given layer number
-        In 2D mode, this means showing all classes and adding the ability to click to zoom
-        one class at a time.
-
-        The color map and color scale range can be set in the options panel
-        '''
-        if self.vol is None:
-            return
-        rangemin, rangemax = tuple(vrange)
-        self.imshow_args = {
-            'cmap': cmap,
-            'interpolation': 'none',
-        }
-        if exponent == 'log':
-            self.imshow_args['norm'] = matplotlib.colors.SymLogNorm(linthresh=rangemax*1.e-2, vmin=rangemin, vmax=rangemax)
-        else:
-            self.imshow_args['norm'] = matplotlib.colors.PowerNorm(float(exponent), vmin=rangemin, vmax=rangemax)
-
-        self.fig.clf()
-        self.subplot_list = []
-        if self.recon_type == '3d':
-            for i in range(3):
-                subp = self.fig.add_subplot(1, 3, i+1)
-                vslice = self._get_normslice(self.normvecs[i], num)
-                subp.imshow(vslice, **self.imshow_args)
-                subp.set_title(str(np.round(self.normvecs[i], 3)), y=1.01)
-                subp.axis('off')
-                self.subplot_list.append(subp)
-        elif self.recon_type == '2d':
-            tot_num_modes = self.num_modes + self.num_nonrot
-            numx = int(np.ceil(2.*np.sqrt(tot_num_modes / 2.)))
-            numy = int(np.ceil(tot_num_modes / float(numx)))
-            total_numx = numx + int(np.ceil(numx / 2)) + 1
-
-            gspec = matplotlib.gridspec.GridSpec(numy, total_numx)
-            gspec.update(wspace=0.02, hspace=0.02)
-            for mode in range(tot_num_modes):
-                subp = self.fig.add_subplot(gspec[mode//numx, mode%numx])
-                subp.imshow(self.vol[mode], **self.imshow_args)
-                subp.text(0.05, 0.85, '%d'%mode, transform=subp.transAxes, fontsize=10, color='w')
-                subp.axis('off')
-                self.subplot_list.append(subp)
-            self.main_subp = self.fig.add_subplot(gspec[:, numx:])
-            self.main_subp.imshow(self.vol[num], **self.imshow_args)
-            self.main_subp.set_title('Class %d'%num)
-            self.main_subp.axis('off')
-
-        self.canvas.draw()
-        self.image_exists = True
-        self.need_replot = False
-
-    def update_mode(self, mode, vrange, exponent, cmap):
-        if self.main_subp is None:
-            return
-        rangemin, rangemax = tuple(vrange)
-        self.main_subp.clear()
-        self.main_subp.imshow(self.vol[mode], **self.imshow_args)
-        if self.rots is None:
-            self.main_subp.set_title('Class %d'%mode)
-        else:
-            self.main_subp.set_title('Class %d (%d frames)'%(mode, (self.modes == mode).sum()))
-        self.main_subp.axis('off')
-        self.canvas.draw()
-
-    def _get_intrad(self):
-        if self.intrad is not None and self.size == self.vol.shape[1]:
-            return
-
-        self.size = self.vol.shape[1]
-        cen = self.size // 2
-        ind = np.arange(self.size, dtype='f4') - cen
-        if self.recon_type == '2d':
-            self.x, self.y = np.meshgrid(ind, ind, indexing='ij')
-            self.intrad = np.sqrt(self.x**2 + self.y**2).astype('i4')
-        elif self.recon_type == '3d':
-            self.x, self.y, self.z = np.meshgrid(ind, ind, ind, indexing='ij')
-            self.intrad = np.sqrt(self.x**2 + self.y**2 + self.z**2).astype('i4')
-
-    def _get_normslice(self, vec, layernum):
-        vec /= np.linalg.norm(vec)
-
-        size = self.vol.shape[-1]
-        ind = np.arange(size) - size // 2
-        i, j = np.meshgrid(ind, ind, indexing='ij')
-
-        # If vector is not parallel to (1,0,0) use v2 as [vec x (1,0,0)]
-        # Else use v2 as [vec x (0,1,0)]
-        # v1 will then be [vec x v2]
-        if vec[0] < 0.95:
-            v2 = np.cross(vec, [1.,0.,0.])
-        else:
-            v2 = np.cross(vec, [0.,1.,0.])
-        v2 /= np.linalg.norm(v2)
-        v1 = np.cross(vec, v2)
-
-        coords = np.outer(v1, i) + np.outer(v2, j) + size // 2
-        coords = (coords.T + vec * (layernum-size//2)).T
-        coords = coords.reshape(3, size, size)
-        return ndimage.map_coordinates(self.vol, coords, order=1, prefilter=False)
-
-    def subtract_radmin(self):
-        if self.vol is None:
-            return
-        self._get_intrad()
-        if self.recon_type == '2d':
-            for m in range(self.num_modes):
-                radmin = np.ones(self.intrad.max()+1) * 1e20
-                np.minimum.at(radmin, self.intrad, self.vol[m])
-                self.vol[m] -= radmin[self.intrad]
-        else:
-            radmin = np.ones(self.intrad.max()+1) * 1e20
-            np.minimum.at(radmin, self.intrad, self.vol)
-            self.vol -= radmin[self.intrad]
-
-    def normalize_highq(self):
-        if self.vol is None:
-            return
-        self._get_intrad()
-
-        if self.recon_type == '2d':
-            hsize = self.vol.shape[-1] // 2
-            radsel = (self.intrad < hsize - 3) & (self.intrad > 0.9 * hsize)
-            highq_vals = self.vol[:,radsel].mean(1)
-            self.vol /= highq_vals[:,None,None]
-        else:
-            print('High q normalization only implemented for 2D EMC')
-
-    def align_models(self):
-        if self.vol is None:
-            return
-        if self.recon_type != '2d':
-            print('Alignment currently implemented only for 2D EMC')
-            return
-
-        self._get_intrad()
-        imat = np.array([[self.x**2, self.x*self.y],[self.x*self.y, self.y**2]])
-        angles = [np.arctan2(*np.linalg.eigh((imat*self.vol[i]).sum((2,3))).eigenvectors[0])*180/np.pi for i in range(len(self.vol))]
-        self.vol = np.array([ndimage.rotate(self.vol[i], 90+angles[i], order=1, reshape=False) for i in range(len(self.vol))])
-
-class LogPlotter(object):
-    def __init__(self, fig, folder='data/'):
-        self.fig = fig
-        self.canvas = fig.canvas
-        self.folder = folder
-        self.rots = None
-
-    def plot(self, fname, cmap):
-        '''Plot various metrics from the log file as a function of iteration
-        Metrics are:
-            RMS change of 3D volume
-            Average mutual information between frames and orientations
-            Average log likelihood
-            Variation of most likeliy orientation index for each frame
-        '''
-        # Read log file to get log lines (one for each completed iteration)
-        with open(fname, 'r') as fptr:
-            all_lines = fptr.readlines()
-
-            lines = [l.rstrip().split() for l in all_lines]
-            loglines = [line for line in lines if len(line) > 0 and line[0].isdigit()]
-
-        loglines = np.array(loglines)
-        if len(loglines) == 0:
-            return
-
-        iternum = loglines[:, 0].astype('i4')
-        num_rot = loglines[:, 5].astype('i4')
-        beta = loglines[:, 6].astype('f8')
-        self.num_rot_change = np.append(np.where(np.diff(num_rot) != 0)[0], num_rot.shape[0])
-        self.beta_change = np.where(np.diff(beta) != 0.)[0]
-
-        o_array = self._get_orient(loglines)
-
-        self.fig.clf()
-        grid = matplotlib.gridspec.GridSpec(2, 3, wspace=0.3, hspace=0.2)
-        grid.update(left=0.05, right=0.99, hspace=0.2, wspace=0.3)
-
-        self._add_logplot(grid[:, 0], iternum, loglines[:, 2],
-                          'RMS change')
-        self._add_logplot(grid[0, 1], iternum, loglines[:, 3],
-                          r'Mutual info. $I(K,\Omega | W)$', yscale='linear')
-
-        self._add_logplot(grid[1, 1], iternum[1:], loglines[1:, 4],
-                          'Avg log-likelihood', yscale='symlog')
-
-        # Plot most likely orientation convergence plot
-        if o_array is not None and len(loglines) > 1:
-            subp = self.fig.add_subplot(grid[:, 2])
-            o_array = o_array[o_array[:, -1] >= 0]
-            shp = o_array.shape
-            subp.imshow(o_array, aspect=(1.*shp[1]/shp[0]), extent=[1, shp[1], shp[0], 0],
-                        cmap=cmap)
-            subp.get_yaxis().set_ticks([])
-            subp.set_xlabel('Iteration')
-            subp.set_ylabel('Pattern number (sorted)')
-            subp.set_title('Most likely orientations of data\n(sorted/colored by last iteration)')
-
-        grid.tight_layout(self.fig)
-        self.canvas.draw()
-        return ''.join(all_lines)
-
-    def _get_orient(self, loglines):
-        orient = []
-
-        # Read orientation files for the first n iterations
-        for i in range(len(loglines)):
-            h5_fname = self.folder+'/output_%.3d.h5' % (i+1)
-            bin_fname = self.folder+'/orientations/orientations_%.3d.bin' % (i+1)
-            if not os.path.isfile(h5_fname) and not os.path.isfile(bin_fname):
-                print('Missing intermediate iterations')
-                return None
-
-            if os.path.isfile(h5_fname):
-                with h5py.File(h5_fname, 'r') as fptr:
-                    orient.append(fptr['orientations'][:])
-            else:
-                with open(bin_fname, 'r') as fptr:
-                    orient.append(np.fromfile(fptr, '=i4'))
-        olengths = np.array([len(ori) for ori in orient])
-        max_length = olengths.max()
-
-        # Sort o_array by the last iteration which has the same number of orientations
-        o_array = np.array([np.pad(o, ((max_length-len(o), 0)), 'constant', constant_values=-1)
-                            for o in orient]).astype('f8')
-        istart = 0
-        for i, istop in enumerate(self.num_rot_change):
-            sorter = o_array[istop-1].argsort()
-            for index in np.arange(istart, istop):
-                o_array[index] = o_array[index][sorter]
-            istart = istop
-        o_array = o_array.T
-
-        return o_array
-
-    def _add_logplot(self, gridpos, xval, yval, title='', yscale='log'):
-        subp = self.fig.add_subplot(gridpos)
-        subp.plot(xval, yval.astype('f8'), 'o-')
-        subp.set_yscale(yscale)
-        subp.set_xlabel('Iteration')
-        subp.set_ylabel(title)
-        ylim = subp.get_ylim()
-        subp.set_ylim(ylim)
-        subp.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
-        for i in self.beta_change:
-            subp.plot([i+1-0.1, i+1-0.1], ylim, '--', color='w', lw=1)
-        for i in self.num_rot_change[:-1]:
-            subp.plot([i+1+0.1, i+1+0.1], ylim, '--', color='tab:orange', lw=1)
-
 class ProgressViewer(QtWidgets.QMainWindow):
     '''GUI to track progress of EMC reconstruction
     Shows orthogonal volumes slices, plots of metrics vs iteration and log file
@@ -598,25 +260,35 @@ class ProgressViewer(QtWidgets.QMainWindow):
     '''
     def __init__(self, config='config.ini', model=None):
         super(ProgressViewer, self).__init__()
-        self.config = config
-        self.model_name = model
-        self.mode_select = False
-        self.num_good = 0
+        self.controller = AutoplotController(config=config, model=model)
+        self.config = self.controller.config
+        self.model_name = self.controller.model_name
         plt.style.use('dark_background')
         self.settings = QtCore.QSettings('DragonflyProgressViewer')
 
         self.beta_change = self.num_rot_change = []
         self.checker = QtCore.QTimer(self)
 
-        self._read_config(config)
+        self._sync_controller_state()
         self._init_ui()
         if model is not None:
             self._parse_and_plot(rots=False)
-        self.old_fname = self.fname.text()
+        self.controller.old_fname = self.fname.text()
         self.fviewer = None
         self.clpca = None
         self.phaser2d = None
         self.viewer2d = None
+
+    def _sync_controller_state(self):
+        self.output_parser = self.controller.output_parser
+        self.logfname = self.controller.logfname
+        self.folder = self.controller.folder
+        self.recon_type = self.controller.recon_type
+        self.num_modes = self.controller.num_modes
+        self.num_nonrot = self.controller.num_nonrot
+        self.num_rot = self.controller.num_rot
+        self.config = self.controller.config
+        self.model_name = self.controller.model_name
 
     def _init_ui(self):
         with open(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'py_src/style.css'), 'r') as f:
@@ -650,7 +322,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self.main_splitter.addWidget(self.plot_splitter)
         self.main_splitter.addWidget(self.options_widget)
 
-        self.max_iternum = 0
+        self.controller.max_iternum = 0
         self._check_for_new()
 
     def _init_menubar(self):
@@ -717,7 +389,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         action.setCheckable(True)
         action.setToolTip('Select modes from 2D classification')
         action.triggered.connect(self._toggle_mode_selection)
-        self.blacklist_action = modemenu.addAction('Save blacklist file\n(%d good frames)'%self.num_good)
+        self.blacklist_action = modemenu.addAction('Save blacklist file\n(%d good frames)'%self.controller.num_good)
         self.blacklist_action.setToolTip('Save blacklist file with frames in selected modes')
         self.blacklist_action.triggered.connect(self._save_blacklist)
 
@@ -744,7 +416,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self.canvas = FigureCanvas(self.fig)
         self.canvas.show()
         plot_splitter.addWidget(self.canvas)
-        self.vol_plotter = VolumePlotter(self.fig, self.recon_type, self.num_modes, self.num_nonrot, self.num_rot)
+        self.vol_plotter = VolumePlotter(self.fig, self.output_parser)
         self.vol_plotter.normvecs = self.settings.value('normvecs', defaultValue=np.identity(3))
         self.need_replot = self.vol_plotter.need_replot
 
@@ -756,7 +428,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self.plotcanvas = FigureCanvas(self.log_fig)
         self.plotcanvas.show()
         plot_splitter.addWidget(self.plotcanvas)
-        self.log_plotter = LogPlotter(self.log_fig, self.folder)
+        self.log_plotter = LogPlotter(self.log_fig, self.output_parser)
 
         return plot_splitter
 
@@ -794,7 +466,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
         label = QtWidgets.QLabel('File name:', self)
         hbox.addWidget(label)
         if self.model_name is None:
-            self.fname = QtWidgets.QLineEdit(self.folder+'/output_001.h5', self)
+            self.fname = QtWidgets.QLineEdit(self.controller.get_initial_volume_fname(), self)
         else:
             self.fname = QtWidgets.QLineEdit(self.model_name, self)
         self.fname.setMinimumWidth(160)
@@ -869,7 +541,7 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.modenum.setFixedWidth(60)
             self.modenum.setToolTip('Set mode number')
             hbox.addWidget(self.modenum)
-            self.old_modenum = self.modenum.value()
+            self.controller.record_mode(self.modenum.value())
 
         # -- Buttons
         hbox = QtWidgets.QHBoxLayout()
@@ -974,25 +646,12 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self.need_replot = True
 
     def _gen_model_fname(self, num):
-        h5_fname = self.folder+'/output_%.3d.h5' % num
-        if os.path.isfile(h5_fname):
-            return h5_fname
-        else:
-            return self.folder+'/output/intens_%.3d.bin' % num
+        return self.controller.gen_model_fname(num)
 
     def _read_config(self, config_fname):
         self.settings.beginGroup(os.path.abspath(config_fname).replace('/', '_'))
-        config = read_config.MyConfigParser()
-        config.read(config_fname)
-
-        self.folder = config.get_filename('emc', 'output_folder', fallback='data/')
-        self.logfname = config.get_filename('emc', 'log_file', fallback='logs/EMC.log')
-        self.recon_type = config.get('emc', 'recon_type', fallback='3d').lower()
-
-        self.num_modes = config.getint('emc', 'num_modes', fallback=1)
-        self.num_nonrot = config.getint('emc', 'num_nonrot', fallback=0)
-        self.num_rot = config.getint('emc', 'num_rot', fallback=-1)
-        self.config = config_fname
+        self.controller.load_config(config_fname)
+        self._sync_controller_state()
 
     def _init_sliders(self, slider_type, numvals, init):
         if slider_type == 'layer':
@@ -1026,51 +685,46 @@ class ProgressViewer(QtWidgets.QMainWindow):
             self.vol_plotter.update_mode(num, **argsdict)
         else:
             self.vol_plotter.plot(num, **argsdict)
+            self._apply_mode_selection_overlays()
         if self.num_modes > 1:
-            self.old_modenum = self.modenum.value()
+            self.controller.record_mode(self.modenum.value())
+
+    def _apply_mode_selection_overlays(self):
+        if not self.controller.mode_select:
+            return
+        for mode in self.controller.selected_modes:
+            if mode >= len(self.vol_plotter.subplot_list):
+                continue
+            ax = self.vol_plotter.subplot_list[mode]
+            ax.imshow(np.zeros(self.vol_plotter.vol[mode].shape), cmap='gray', alpha=0.5)
+        self.vol_plotter.canvas.draw()
 
     def _parse_and_plot(self, force=False, rots=True):
-        if force or not self.vol_plotter.image_exists or self.old_fname != self.fname.text():
+        current_modenum = self.modenum.value() if self.num_modes > 1 else 0
+        action, modenum = self.controller.plan_plot(
+            self.fname.text(), current_modenum, force=force,
+            image_exists=self.vol_plotter.image_exists, need_replot=self.need_replot
+        )
+        if action == 'parse':
             if self.num_modes > 1:
-                self._init_sliders('mode', self.num_modes+self.num_nonrot, self.modenum.value())
-                modenum = self.modenum.value()
-            else:
-                modenum = 0
-            self.old_fname, size, center = self.vol_plotter.parse(self.fname.text(),
-                                            modenum=modenum, rots=rots)
+                self._init_sliders('mode', self.num_modes+self.num_nonrot, modenum)
+            fname, size, center = self.vol_plotter.parse(self.fname.text(), modenum=modenum, rots=rots)
+            self.controller.record_parse(fname, modenum)
             if self.recon_type == '3d':
                 self._init_sliders('layer', size, center)
             self._plot_vol()
-        elif self.num_modes > 1 and self.modenum.value() != self.old_modenum:
-            self.old_fname, size, center = self.vol_plotter.parse(self.fname.text(),
-                                             modenum=self.modenum.value(), rots=rots)
-            if self.recon_type == '3d':
-                self._init_sliders('layer', size, center)
-            elif self.num_modes > 1:
-                self._init_sliders('mode', self.num_modes+self.num_nonrot, self.modenum.value())
+        elif action == 'replot':
             self._plot_vol()
-        elif self.need_replot:
-            self._plot_vol()
-        else:
-            pass
 
     def _check_for_new(self):
-        if not os.path.isfile(self.logfname.text()):
-            return
-        with open(self.logfname.text(), 'r') as fptr:
-            last_line = fptr.readlines()[-1].rstrip().split()
-        try:
-            iteration = int(last_line[0])
-        except ValueError:
-            iteration = 0
+        update = self.controller.check_for_new_iteration(self.logfname.text())
 
-        if iteration > 0 and self.max_iternum != iteration:
-            self.fname.setText(self._gen_model_fname(iteration))
-            self.max_iternum = iteration
-            self.iter_slider.setRange(0, self.max_iternum)
-            self.iternum.setMaximum(self.max_iternum)
-            self.iter_slider.setValue(iteration)
-            self._iterslider_moved(iteration)
+        if update['updated']:
+            self.fname.setText(update['fname'])
+            self.iter_slider.setRange(0, self.controller.max_iternum)
+            self.iternum.setMaximum(self.controller.max_iternum)
+            self.iter_slider.setValue(update['iteration'])
+            self._iterslider_moved(update['iteration'])
             log_text = self.log_plotter.plot(self.logfname.text(),
                  self.color_map.checkedAction().text())
             self._parse_and_plot()
@@ -1104,15 +758,13 @@ class ProgressViewer(QtWidgets.QMainWindow):
                 self.fviewer.label.setText('Class %d frames'%curr_mode)
                 self.fviewer.numlist = np.where(self.vol_plotter.modes == curr_mode)[0]
 
-        if self.mode_select:
+        if self.controller.mode_select:
             ax = self.vol_plotter.subplot_list[curr_mode]
-            if len(ax.images) == 1:
+            if self.controller.toggle_selected_mode(curr_mode, self.vol_plotter.modes):
                 ax.imshow(np.zeros(self.vol_plotter.vol[curr_mode].shape), cmap='gray', alpha=0.5)
-                self.num_good += (self.vol_plotter.modes == curr_mode).sum()
             else:
                 ax.images[-1].remove()
-                self.num_good -= (self.vol_plotter.modes == curr_mode).sum()
-            self.blacklist_action.setText('Save blacklist file\n(%d good frames)'%self.num_good)
+            self.blacklist_action.setText('Save blacklist file\n(%d good frames)'%self.controller.num_good)
             self.vol_plotter.canvas.draw()
 
     def _show_2dmenu(self, event):
@@ -1312,20 +964,16 @@ class ProgressViewer(QtWidgets.QMainWindow):
         self._plot_vol()
 
     def _toggle_mode_selection(self, status):
-        self.mode_select = status
+        self.controller.set_mode_selection(status)
         if not status:
-            self.num_good = 0
-            self.blacklist_action.setText('Save blacklist file\n(%d good frames)'%self.num_good)
+            self.blacklist_action.setText('Save blacklist file\n(%d good frames)'%self.controller.num_good)
             self.need_replot = True
             self._parse_and_plot()
 
     def _save_blacklist(self):
-        good_modes = np.where([len(ax.images)>1 for ax in self.vol_plotter.subplot_list])[0]
-        print('Good modes:', good_modes)
-        blist = np.ones(self.vol_plotter.modes.shape, dtype='u1')
-        for m in good_modes:
-            blist[self.vol_plotter.modes == m] = 0
-        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Blacklist File', 'blacklist_%d.dat'%self.num_good)
+        print('Good modes:', sorted(self.controller.selected_modes))
+        blist = self.controller.generate_blacklist(self.vol_plotter.modes)
+        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Blacklist File', 'blacklist_%d.dat'%self.controller.num_good)
         if fname != '':
             print('Saving', (blist==0).sum(), 'good frames to', fname)
             np.savetxt(fname, blist, fmt='%d')
